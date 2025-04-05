@@ -69,7 +69,7 @@ struct DocumentsView: View {
     @State private var selectedItem = "documents"
     @State private var sortOption = "Date"
     @State private var isGridView = true
-    @EnvironmentObject var tabManager: TabManager
+    @ObservedObject private var tabManager = TabManager.shared
 
     let sidebarItems = [
         SidebarItem(id: "documents", title: "Documents", icon: "folder"),
@@ -211,17 +211,17 @@ struct DocumentsView: View {
 
             ForEach(filteredNotes) { note in
                 NavigationLink(
+                    // Restore original destination
                     destination: NoteView(note: note)
                         .navigationBarBackButtonHidden(true)
-                        .environmentObject(tabManager)
                 ) {
                     GridItemView(note: note)
                 }
                 .buttonStyle(PlainButtonStyle())
                 .simultaneousGesture(
                     TapGesture().onEnded {
-                        // When tapped, open the note in a tab
-                        tabManager.openTab(note: note)
+                        // Keep the tab opening logic
+                        TabManager.shared.openTab(note: note)
                     })
             }
         }
@@ -236,17 +236,17 @@ struct DocumentsView: View {
             LazyVStack(spacing: 8) {
                 ForEach(filteredNotes) { note in
                     NavigationLink(
+                        // Restore original destination
                         destination: NoteView(note: note)
                             .navigationBarBackButtonHidden(true)
-                            .environmentObject(tabManager)
                     ) {
                         ListItemView(note: note)
                     }
                     .buttonStyle(PlainButtonStyle())
                     .simultaneousGesture(
                         TapGesture().onEnded {
-                            // When tapped, open the note in a tab
-                            tabManager.openTab(note: note)
+                            // Keep the tab opening logic
+                            TabManager.shared.openTab(note: note)
                         })
                 }
             }
@@ -256,17 +256,17 @@ struct DocumentsView: View {
 
     private func createNoteButton(inGrid: Bool) -> some View {
         NavigationLink(destination: {
+            // Restore original destination
             let newNote = Note(
                 title: "New Note",
                 color: .blue,
                 dateCreated: Date(),
                 dateModified: Date()
             )
-            // When creating a new note, open it in a tab
-            tabManager.openTab(note: newNote)
+            // Tab opening is handled by NoteView's .onAppear or the gesture
+            // tabManager.openTab(note: newNote) // Let the destination handle it
             return NoteView(note: newNote)
                 .navigationBarBackButtonHidden(true)
-                .environmentObject(tabManager)
         }) {
             if inGrid {
                 gridNewButton
@@ -275,6 +275,18 @@ struct DocumentsView: View {
             }
         }
         .buttonStyle(PlainButtonStyle())
+        // Add gesture for the create button too, to ensure tab opens immediately
+        .simultaneousGesture(
+            TapGesture().onEnded {
+                // Create and open the tab *immediately* on tap
+                let newNote = Note(
+                    title: "New Note",
+                    color: .blue,
+                    dateCreated: Date(),
+                    dateModified: Date()
+                )
+                TabManager.shared.openTab(note: newNote)
+            })
     }
 
     // Add a helper view for the new button in list view
@@ -478,5 +490,4 @@ private struct GridItemView: View {
 
 #Preview {
     DocumentsView()
-        .environmentObject(TabManager())
 }

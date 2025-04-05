@@ -1,8 +1,21 @@
 import SwiftUI
 import matchanote_app
 
-// Tab manager to handle shared tab state across the app
+// Tab model to represent an open note tab
+struct NoteTab: Identifiable {
+  var id = UUID()
+  var note: Note
+  var isActive: Bool = false
+}
+
+// Tab manager to handle shared tab state across the app using a singleton pattern
 class TabManager: ObservableObject {
+  // Shared instance
+  static let shared = TabManager()
+
+  // Private initializer for singleton
+  private init() {}
+
   @Published var tabs: [NoteTab] = []
 
   func openTab(note: Note) {
@@ -48,10 +61,4 @@ class TabManager: ObservableObject {
   func getActiveTab() -> NoteTab? {
     return tabs.first(where: { $0.isActive })
   }
-}
-// Tab model to represent an open note tab
-struct NoteTab: Identifiable {
-  var id = UUID()
-  var note: Note
-  var isActive: Bool = false
 }

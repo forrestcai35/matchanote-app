@@ -13,7 +13,7 @@ struct NoteView: View {
   var note: Note
   @Environment(\.dismiss) var dismiss
   @State private var isAssistantVisible = false
-  @EnvironmentObject var tabManager: TabManager
+  @ObservedObject private var tabManager = TabManager.shared
   @State private var isEdited = false
 
   init(note: Note) {
@@ -32,30 +32,15 @@ struct NoteView: View {
         TabBarView(dismiss: dismiss)
 
         // Top Tool bar - only visible when tabs exist
-        if !tabManager.tabs.isEmpty {
+        if let activeTab = tabManager.getActiveTab() {
           HStack {
             // Bookmark button
             Button(action: {
-              // Bookmar functionality
+              // Bookmark functionality
             }) {
               Image(systemName: "bookmark")
                 .foregroundColor(.blue)
             }
-            Spacer()
-
-            // Title
-            if let activeTab = tabManager.getActiveTab() {
-              Text(activeTab.note.title)
-                .font(.headline)
-            } else if !tabManager.tabs.isEmpty {
-              Text(note.title)
-                .font(.headline)
-            } else {
-              Text("No Note Selected")
-                .font(.headline)
-                .foregroundColor(.gray)
-            }
-
             Spacer()
 
             //Share Button
@@ -78,7 +63,21 @@ struct NoteView: View {
           .padding(.vertical, 8)
           .background(Color.white)
           Divider()
-        }
+
+          // --- Contextual Toolbar ---
+          if activeTab.note.isWritten {
+            WrittenNoteToolbar()
+          } else {
+            TextNoteToolbar()
+          }
+          Divider()  // Add a divider below the contextual toolbar
+          // --- End Contextual Toolbar ---
+
+        } else if !tabManager.tabs.isEmpty {
+          // Handle case where tabs exist but none are active (should ideally not happen with current logic)
+          Text("Error: No active tab found")
+            .foregroundColor(.red)
+        }  // No top bar or contextual toolbar if tabs are empty
 
         // Content area with conditional AI assistant
         HStack(spacing: 0) {
@@ -130,7 +129,7 @@ struct NoteView: View {
 
 // Tab Bar View
 struct TabBarView: View {
-  @EnvironmentObject var tabManager: TabManager
+  @ObservedObject private var tabManager = TabManager.shared
   var dismiss: DismissAction
 
   var body: some View {
@@ -204,7 +203,7 @@ struct TabBarView: View {
 // Individual Tab Item
 struct TabItemView: View {
   let tab: NoteTab
-  @EnvironmentObject var tabManager: TabManager
+  @ObservedObject private var tabManager = TabManager.shared
 
   var body: some View {
     HStack(spacing: 6) {
@@ -419,6 +418,55 @@ struct EmptyStateView: View {
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(Color.white)
+  }
+}
+
+// MARK: - Contextual Toolbars
+
+struct WrittenNoteToolbar: View {
+  var body: some View {
+    HStack {
+      Spacer()
+      Button(action: {}) { Image(systemName: "arrow.uturn.backward") }
+      Button(action: {}) { Image(systemName: "arrow.uturn.forward") }
+      Divider()
+        .frame(height: 20)
+
+      Button(action: {}) { Image(systemName: "pencil.tip.crop.circle") }
+      Button(action: {}) { Image(systemName: "eraser") }
+      Button(action: {}) { Image(systemName: "highlighter") }
+      Button(action: {}) { Image(systemName: "lasso") }
+      Button(action: {}) { Image(systemName: "photo]") }
+      Divider()
+        .frame(height: 20)
+
+      Spacer()
+    }
+    .padding(.horizontal, 20)
+    .padding(.vertical, 8)
+    .buttonStyle(PlainButtonStyle())
+    .foregroundColor(.gray)
+  }
+}
+
+struct TextNoteToolbar: View {
+  var body: some View {
+    HStack {
+      Spacer()
+
+      Button(action: {}) { Image(systemName: "bold") }
+      Button(action: {}) { Image(systemName: "italic") }
+      Button(action: {}) { Image(systemName: "underline") }
+      Button(action: {}) { Image(systemName: "list.bullet") }
+      Button(action: {}) { Image(systemName: "list.number") }
+      Button(action: {}) { Image(systemName: "textformat.size") }
+      Button(action: {}) { Image(systemName: "character.textbox") }
+      Spacer()
+    }
+    .padding(.horizontal, 20)
+    .padding(.vertical, 8)
+    .buttonStyle(PlainButtonStyle())
+    .foregroundColor(.gray)
   }
 }
 

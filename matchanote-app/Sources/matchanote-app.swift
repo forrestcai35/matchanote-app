@@ -10,13 +10,9 @@ import matchanote_app
 
 @main
 struct matchanote_App: App {
-    // Create a shared TabManager instance
-    @StateObject private var tabManager = TabManager()
-
     var body: some Scene {
         WindowGroup {
-            DocumentsView()
-                .environmentObject(tabManager)
+            OnboardingView()
         }
     }
 }

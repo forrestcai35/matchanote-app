@@ -6,9 +6,11 @@
 //
 
 import SwiftUI
+import matchanote_app
 
 struct OnboardingView: View {
     @State private var showHomeView = false
+    @ObservedObject private var tabManager = TabManager.shared
 
     var body: some View {
         ZStack {
