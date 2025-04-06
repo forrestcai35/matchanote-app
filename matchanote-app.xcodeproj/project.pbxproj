@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A86450322DA19A0700C20088 /* SwiftDown in Frameworks */ = {isa = PBXBuildFile; productRef = A86450312DA19A0700C20088 /* SwiftDown */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		A87155322D9FC9EC005FA72A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A86450322DA19A0700C20088 /* SwiftDown in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +117,7 @@
 			);
 			name = "matchanote-app";
 			packageProductDependencies = (
+				A86450312DA19A0700C20088 /* SwiftDown */,
 			);
 			productName = "matchanote-app";
 			productReference = A87155212D9FC9EA005FA72A /* matchanote-app.app */;
@@ -195,6 +201,9 @@
 			);
 			mainGroup = A87155182D9FC9EA005FA72A;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A86450302DA19A0700C20088 /* XCRemoteSwiftPackageReference "SwiftDown" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A87155222D9FC9EA005FA72A /* Products */;
 			projectDirPath = "";
@@ -552,6 +561,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A86450302DA19A0700C20088 /* XCRemoteSwiftPackageReference "SwiftDown" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/qeude/SwiftDown.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.4.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A86450312DA19A0700C20088 /* SwiftDown */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A86450302DA19A0700C20088 /* XCRemoteSwiftPackageReference "SwiftDown" */;
+			productName = SwiftDown;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A87155192D9FC9EA005FA72A /* Project object */;
 }

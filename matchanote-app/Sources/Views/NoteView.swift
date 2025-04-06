@@ -64,14 +64,16 @@ struct NoteView: View {
           .background(Color.white)
           Divider()
 
-          // --- Contextual Toolbar ---
-          if activeTab.note.isWritten {
+          // Decide which contextual toolbar to show
+          switch activeTab.note.noteType {
+          case .written:
             WrittenNoteToolbar()
-          } else {
-            TextNoteToolbar()
+          case .text:
+            TextNoteToolbar()  // Placeholder
+          case .markdown:
+            EmptyView()  // Use EmptyView to show nothing
           }
           Divider()  // Add a divider below the contextual toolbar
-          // --- End Contextual Toolbar ---
 
         } else if !tabManager.tabs.isEmpty {
           // Handle case where tabs exist but none are active (should ideally not happen with current logic)
@@ -84,20 +86,27 @@ struct NoteView: View {
           // Main note content - show the active tab
           VStack {
             if let activeTab = tabManager.getActiveTab() {
-              if activeTab.note.isWritten {
-
+              // Switch view based on note type
+              switch activeTab.note.noteType {
+              case .written:
                 WrittenNoteView(note: activeTab.note, isEdited: $isEdited)
-              } else {
+              case .text:
                 TextNoteView(note: activeTab.note, isEdited: $isEdited)
+              case .markdown:
+                MarkdownNoteView(note: activeTab.note, isEdited: $isEdited)
               }
 
               // Fallback if no tab is marked as active but tabs exist
             } else if !tabManager.tabs.isEmpty {
               let firstTab = tabManager.tabs[0]
-              if firstTab.note.isWritten {
+              // Switch view based on note type for fallback
+              switch firstTab.note.noteType {
+              case .written:
                 WrittenNoteView(note: firstTab.note, isEdited: $isEdited)
-              } else {
+              case .text:
                 TextNoteView(note: firstTab.note, isEdited: $isEdited)
+              case .markdown:
+                MarkdownNoteView(note: firstTab.note, isEdited: $isEdited)
               }
             } else {
               // Show empty state when no tabs exist
@@ -150,7 +159,7 @@ struct TabBarView: View {
 
           // New tab button
           Button(action: {
-            addNewTab()
+
           }) {
             HStack {
               Image(systemName: "plus")
@@ -186,18 +195,6 @@ struct TabBarView: View {
     .background(Color.gray.opacity(0.05))
   }
 
-  // Add a new tab with a sample note
-  private func addNewTab() {
-    let newNote = Note(
-      title: "New Note \(tabManager.tabs.count + 1)",
-      color: [.blue, .green, .orange, .purple, .pink].randomElement() ?? .blue,
-      dateCreated: Date(),
-      dateModified: Date(),
-      isWritten: Bool.random()
-    )
-
-    tabManager.openTab(note: newNote)
-  }
 }
 
 // Individual Tab Item
@@ -263,141 +260,6 @@ struct TabItemView: View {
   }
 }
 
-struct WrittenNoteView: View {
-  var note: Note
-  @Binding var isEdited: Bool
-
-  var body: some View {
-    VStack {
-      Canvas { context, size in
-        // Simple canvas view as a placeholder for PencilKit
-        let rect = CGRect(origin: .zero, size: size)
-        context.fill(Path(rect), with: .color(note.color.opacity(0.1)))
-      }
-      .background(note.color.opacity(0.1))
-      .cornerRadius(10)
-      .padding()
-      .onTapGesture {
-        // When canvas is drawn on, mark as edited
-        isEdited = true
-      }
-    }
-  }
-}
-
-struct TextNoteView: View {
-  var note: Note
-  @State private var textContent: String
-  @Binding var isEdited: Bool
-
-  init(note: Note, isEdited: Binding<Bool>) {
-    self.note = note
-    _textContent = State(initialValue: note.content)
-    _isEdited = isEdited
-  }
-
-  var body: some View {
-    VStack {
-      TextEditor(text: $textContent)
-        .padding()
-        .background(note.color.opacity(0.1))
-        .cornerRadius(10)
-        .padding()
-        .onChange(of: textContent) { oldValue, newValue in
-          if oldValue != newValue {
-            isEdited = true
-          }
-        }
-    }
-  }
-}
-
-// AI Assistant View
-struct AIAssistantView: View {
-  @State private var assistantText = ""
-  @State private var userInput = ""
-
-  var body: some View {
-    VStack(spacing: 0) {
-      // Assistant header
-      HStack {
-        Image(systemName: "sparkles")
-          .foregroundColor(.blue)
-
-        Text("Matcha Assistant")
-          .font(.headline)
-
-        Spacer()
-      }
-      .padding()
-      .background(Color.gray.opacity(0.1))
-
-      // Chat history area
-      ScrollView {
-        VStack(alignment: .leading, spacing: 12) {
-          // Sample messages
-          AssistantMessageView(
-            message: "Hi! I'm your Matcha assistant. How can I help you with your notes today?")
-
-        }
-        .padding()
-      }
-
-      // Input area
-      HStack {
-        TextField("Ask Matcha Assistant...", text: $userInput)
-          .textFieldStyle(RoundedBorderTextFieldStyle())
-
-        Button(action: {
-          // Send message functionality would go here
-          userInput = ""
-        }) {
-          Image(systemName: "arrow.up.circle.fill")
-            .foregroundColor(.blue)
-            .font(.title2)
-        }
-      }
-      .padding()
-    }
-    .background(Color(.systemBackground))
-    .cornerRadius(10)
-    .shadow(radius: 2)
-    .padding(.trailing)
-  }
-}
-
-struct AssistantMessageView: View {
-  var message: String
-
-  var body: some View {
-    HStack(alignment: .top) {
-      Image(systemName: "sparkles")
-        .foregroundColor(.blue)
-        .padding(.top, 4)
-
-      Text(message)
-        .padding(10)
-        .background(Color.blue.opacity(0.1))
-        .cornerRadius(10)
-    }
-  }
-}
-
-struct UserMessageView: View {
-  var message: String
-
-  var body: some View {
-    HStack {
-      Spacer()
-
-      Text(message)
-        .padding(10)
-        .background(Color.gray.opacity(0.2))
-        .cornerRadius(10)
-    }
-  }
-}
-
 // Empty state view when no tabs are open
 struct EmptyStateView: View {
   var body: some View {
@@ -421,8 +283,7 @@ struct EmptyStateView: View {
   }
 }
 
-// MARK: - Contextual Toolbars
-
+// Contextual Toolbars
 struct WrittenNoteToolbar: View {
   var body: some View {
     HStack {
@@ -449,18 +310,15 @@ struct WrittenNoteToolbar: View {
   }
 }
 
+// Placeholder Toolbar for Text Notes
 struct TextNoteToolbar: View {
   var body: some View {
     HStack {
       Spacer()
-
       Button(action: {}) { Image(systemName: "bold") }
       Button(action: {}) { Image(systemName: "italic") }
       Button(action: {}) { Image(systemName: "underline") }
       Button(action: {}) { Image(systemName: "list.bullet") }
-      Button(action: {}) { Image(systemName: "list.number") }
-      Button(action: {}) { Image(systemName: "textformat.size") }
-      Button(action: {}) { Image(systemName: "character.textbox") }
       Spacer()
     }
     .padding(.horizontal, 20)
@@ -472,10 +330,8 @@ struct TextNoteToolbar: View {
 
 struct NoteView_Previews: PreviewProvider {
   static var previews: some View {
-    NoteView(note: Note.samples[0])
-    NoteView(
-      note: Note(
-        title: "Text Note", color: .blue, dateCreated: Date(), dateModified: Date(),
-        isWritten: false))
+    NoteView(note: Note.samples[0])  // Written
+    NoteView(note: Note.samples[1])  // Markdown
+    NoteView(note: Note.samples[2])  // Text
   }
 }

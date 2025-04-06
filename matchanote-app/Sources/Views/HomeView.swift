@@ -123,13 +123,21 @@ struct DocumentsView: View {
                 HStack {
                     Image(systemName: item.icon)
                     Text(item.title)
+                    Spacer()
                 }
                 .padding(.vertical, 8)
-                .background(selectedItem == item.id ? Color.blue.opacity(0.2) : Color.clear)
-                .cornerRadius(8)
+                .padding(.leading)
+                .contentShape(Rectangle())
                 .onTapGesture {
                     selectedItem = item.id
                 }
+                .listRowBackground(
+                    (selectedItem == item.id ? Color.blue.opacity(0.2) : Color.clear)
+                        .cornerRadius(8)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 6)
+
+                )
             }
         }
         .listStyle(SidebarListStyle())
@@ -369,7 +377,7 @@ private struct ListItemView: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 4) {
                     // Type icon next to title
-                    Image(systemName: note.isWritten ? "pencil" : "text.alignleft")
+                    Image(systemName: noteTypeIcon(note.noteType))
                         .foregroundColor(.gray)
                         .font(.caption)
 
@@ -402,8 +410,18 @@ private struct ListItemView: View {
         .padding(.horizontal)
         // Add hover and tap effects
         .contentShape(Rectangle())
-        .onHover { hovering in
-            isHovered = hovering
+
+    }
+
+    // Helper function to get the correct icon name
+    private func noteTypeIcon(_ type: NoteType) -> String {
+        switch type {
+        case .written:
+            return "pencil"
+        case .text:
+            return "text.page"
+        case .markdown:
+            return "number"  // Keep this for markdown for now
         }
     }
 }
@@ -423,18 +441,22 @@ private struct GridItemView: View {
                     .frame(width: 160, height: 200)
 
                 // Type overlay
-                if !note.isWritten {
+                if note.noteType == .written {
                     // Text note styling - add lined paper effect
-                    VStack(spacing: 8) {
-                        ForEach(0..<8, id: \.self) { _ in
-                            Rectangle()
-                                .fill(Color.white.opacity(0.3))
-                                .frame(width: 120, height: 1)
-                        }
-                    }
-                } else {
-                    // Handwritten note styling - add pencil icon
                     Image(systemName: "pencil.tip")
+                        .font(.system(size: 40))
+                        .foregroundColor(Color.white.opacity(0.3))
+                        .offset(x: 0, y: -30)
+                } else if note.noteType == .text {
+
+                    Image(systemName: "text.alignleft")
+                        .font(.system(size: 40))
+                        .foregroundColor(Color.white.opacity(0.3))
+                        .offset(x: 0, y: -30)
+                }
+                //Markdown notebook cover
+                else {
+                    Image(systemName: "number")
                         .font(.system(size: 40))
                         .foregroundColor(Color.white.opacity(0.3))
                         .offset(x: 0, y: -30)
@@ -442,12 +464,12 @@ private struct GridItemView: View {
 
                 // Favorite indicator
                 Image(systemName: note.isFavorite ? "star.fill" : "star")
-                    .foregroundColor(note.isFavorite ? .white : .gray)
+                    .foregroundColor(note.isFavorite ? .yellow : .gray)
                     .padding(8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
 
                 // Type indicator badge
-                Image(systemName: note.isWritten ? "pencil" : "text.alignleft")
+                Image(systemName: noteTypeIcon(note.noteType))
                     .foregroundColor(.white)
                     .padding(6)
                     .background(Color.black.opacity(0.3))
@@ -484,6 +506,18 @@ private struct GridItemView: View {
         .contentShape(Rectangle())
         .onHover { hovering in
             isHovered = hovering
+        }
+    }
+
+    // Helper function to get the correct icon name
+    private func noteTypeIcon(_ type: NoteType) -> String {
+        switch type {
+        case .written:
+            return "pencil"
+        case .text:
+            return "text.page"  // New icon for plain text
+        case .markdown:
+            return "number"  // Keep this for markdown for now
         }
     }
 }
