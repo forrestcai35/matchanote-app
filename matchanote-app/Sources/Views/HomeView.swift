@@ -98,7 +98,8 @@ struct DocumentsView: View {
             // Main content area
             contentView
         }
-        .navigationViewStyle(DoubleColumnNavigationViewStyle())
+        .accentColor(.green)
+        .background(.white)
     }
 
     // MARK: - Component Views
@@ -106,7 +107,7 @@ struct DocumentsView: View {
     private var searchBar: some View {
         HStack {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(.gray)
+                .foregroundColor(.green)
             TextField("Search", text: $searchText)
                 .textFieldStyle(PlainTextFieldStyle())
         }
@@ -122,6 +123,7 @@ struct DocumentsView: View {
             ForEach(sidebarItems) { item in
                 HStack {
                     Image(systemName: item.icon)
+                        .foregroundColor(.green)
                     Text(item.title)
                     Spacer()
                 }
@@ -132,15 +134,17 @@ struct DocumentsView: View {
                     selectedItem = item.id
                 }
                 .listRowBackground(
-                    (selectedItem == item.id ? Color.blue.opacity(0.2) : Color.clear)
+                    (selectedItem == item.id ? Color.green.opacity(0.2) : Color.clear)
                         .cornerRadius(8)
                         .padding(.horizontal, 6)
-                        .padding(.vertical, 6)
+                        .padding(.vertical, 8)
 
                 )
             }
         }
+        .padding(.top, 10)
         .listStyle(SidebarListStyle())
+        .scrollContentBackground(.hidden)
     }
 
     @ViewBuilder
@@ -182,6 +186,7 @@ struct DocumentsView: View {
             Button("Type", action: { sortOption = "Type" })
         } label: {
             Label(sortOption, systemImage: "arrow.up.arrow.down")
+                .foregroundColor(.green)
                 .padding(8)
                 .cornerRadius(8)
         }
@@ -193,6 +198,7 @@ struct DocumentsView: View {
                 isGridView ? "Grid View" : "List View",
                 systemImage: isGridView ? "square.grid.2x2" : "list.bullet"
             )
+            .foregroundColor(.green)
             .labelStyle(.iconOnly)
             .padding(8)
             .cornerRadius(8)
@@ -267,7 +273,7 @@ struct DocumentsView: View {
             // Restore original destination
             let newNote = Note(
                 title: "New Note",
-                color: .blue,
+                color: .green,
                 dateCreated: Date(),
                 dateModified: Date()
             )
@@ -289,7 +295,7 @@ struct DocumentsView: View {
                 // Create and open the tab *immediately* on tap
                 let newNote = Note(
                     title: "New Note",
-                    color: .blue,
+                    color: .green,
                     dateCreated: Date(),
                     dateModified: Date()
                 )
@@ -310,22 +316,22 @@ struct DocumentsView: View {
             HStack {
                 Image(systemName: "plus.circle.fill")
                     .font(.title2)
-                    .foregroundColor(.blue)
+                    .foregroundColor(.green)
                 Text("New...")
-                    .foregroundColor(.blue)
-                    .fontWeight(isHovered ? .medium : .regular)
+                    .foregroundColor(.green)
+                    .fontWeight(.medium)
                 Spacer()
             }
             .padding(10)
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .stroke(
-                        Color.blue,
+                        Color.green,
                         style: StrokeStyle(lineWidth: isHovered ? 1.5 : 1, dash: [5])
                     )
                     .background(
                         RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.blue.opacity(isHovered ? 0.05 : 0))
+                            .fill(Color.green.opacity(isHovered ? 0.05 : 0))
                     )
             )
             .padding(.horizontal)
@@ -342,17 +348,18 @@ struct DocumentsView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 10)
                     .stroke(
-                        Color.blue,
+                        Color.green,
                         style: StrokeStyle(lineWidth: 1, dash: [5])
                     )
                     .frame(width: 160, height: 200)
                 Image(systemName: "plus")
                     .font(.largeTitle)
-                    .foregroundColor(.blue)
+                    .foregroundColor(.green)
             }
             Text("New...")
-                .foregroundColor(.blue)
+                .foregroundColor(.green)
                 .frame(width: 160)
+                .fontWeight(.medium)
                 .multilineTextAlignment(.center)
                 .font(.caption)
         }

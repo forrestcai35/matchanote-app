@@ -153,7 +153,6 @@ struct TabBarView: View {
           }) {
             Image(systemName: "house")
               .foregroundColor(.blue)
-
           }
           .buttonStyle(PlainButtonStyle())
 
@@ -166,7 +165,7 @@ struct TabBarView: View {
             }
             .foregroundColor(.gray)
             .padding(.horizontal, 10)
-            .padding(.leading, 5)
+            .padding(.leading, 4)
 
             .cornerRadius(6)
           }
@@ -190,7 +189,7 @@ struct TabBarView: View {
       .buttonStyle(PlainButtonStyle())
     }
     .padding(.vertical, 6)
-    .padding(.horizontal, 20)
+    .padding(.horizontal, 18)
     .frame(maxWidth: .infinity)
     .background(Color.gray.opacity(0.05))
   }

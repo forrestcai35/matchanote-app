@@ -8,6 +8,8 @@ struct WrittenNoteView: View {
 
   @State private var currentPage = 0
   @State private var pageCount = 1
+  @State private var currentScale: CGFloat = 1.0
+  @State private var finalScale: CGFloat = 1.0
 
   private let infiniteScrollHeight: CGFloat = 10000
 
@@ -73,8 +75,18 @@ struct WrittenNoteView: View {
         isEdited = true
       }
       .padding(.top, 20)  // Add padding only to the top of the Canvas
+      .scaleEffect(finalScale * currentScale)  // Apply scaling
     }
-
+    .gesture(  // Add magnification gesture
+      MagnificationGesture()
+        .onChanged { value in
+          currentScale = value
+        }
+        .onEnded { value in
+          finalScale *= value
+          currentScale = 1.0  // Reset temporary scale
+        }
+    )
   }
 
   // Controls View
@@ -203,6 +215,8 @@ struct MarkdownNoteView: View {
   var note: Note
   @State private var textContent: String
   @Binding var isEdited: Bool
+  @State private var currentScale: CGFloat = 1.0
+  @State private var finalScale: CGFloat = 1.0
   private let infiniteScrollHeight: CGFloat = 10000
 
   init(note: Note, isEdited: Binding<Bool>) {
@@ -230,8 +244,19 @@ struct MarkdownNoteView: View {
               isEdited = true
             }
           }
+          .scaleEffect(finalScale * currentScale)  // Apply scaling
       }
     }
+    .gesture(  // Add magnification gesture
+      MagnificationGesture()
+        .onChanged { value in
+          currentScale = value
+        }
+        .onEnded { value in
+          finalScale *= value
+          currentScale = 1.0  // Reset temporary scale
+        }
+    )
   }
 
   // Helper function for background color
@@ -266,6 +291,8 @@ struct TextNoteView: View {
   var note: Note
   @State private var textContent: String
   @Binding var isEdited: Bool
+  @State private var currentScale: CGFloat = 1.0
+  @State private var finalScale: CGFloat = 1.0
 
   init(note: Note, isEdited: Binding<Bool>) {
     self.note = note
@@ -293,9 +320,19 @@ struct TextNoteView: View {
             isEdited = true
           }
         }
-        .padding(.top, 20)
+        // .padding(.top, 20)
+        .scaleEffect(finalScale * currentScale)  // Apply scaling
     }
-
+    .gesture(  // Add magnification gesture
+      MagnificationGesture()
+        .onChanged { value in
+          currentScale = value
+        }
+        .onEnded { value in
+          finalScale *= value
+          currentScale = 1.0  // Reset temporary scale
+        }
+    )
   }
 
   // Helper function for background color (can be shared or duplicated)
