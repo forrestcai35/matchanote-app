@@ -12,7 +12,7 @@ import matchanote_app
 struct NoteView: View {
   var note: Note
   @Environment(\.dismiss) var dismiss
-  @State private var isAssistantVisible = false
+  @State public var isAssistantVisible = false
   @ObservedObject private var tabManager = TabManager.shared
   @State private var isEdited = false
 
@@ -31,55 +31,24 @@ struct NoteView: View {
         // Tab bar
         TabBarView(dismiss: dismiss)
 
-        // Top Tool bar - only visible when tabs exist
         if let activeTab = tabManager.getActiveTab() {
-          HStack {
-            // Bookmark button
-            Button(action: {
-              // Bookmark functionality
-            }) {
-              Image(systemName: "bookmark")
-                .foregroundColor(.blue)
-            }
-            Spacer()
 
-            //Share Button
-            Button(action: {
-              // Share functionality
-            }) {
-              Image(systemName: "square.and.arrow.up")
-                .foregroundColor(.blue)
-            }
-
-            Button(action: {
-              isAssistantVisible.toggle()
-            }) {
-              Image(systemName: "wand.and.rays")
-                .foregroundColor(isAssistantVisible ? .blue : .gray)
-            }
-
-          }
-          .padding(.horizontal, 20)
-          .padding(.vertical, 8)
-          .background(Color.white)
-          Divider()
-
-          // Decide which contextual toolbar to show
+          // Showcase Contextual Toolbars
           switch activeTab.note.noteType {
           case .written:
-            WrittenNoteToolbar()
+            WrittenNoteToolbar(isAssistantVisible: $isAssistantVisible)
           case .text:
-            TextNoteToolbar()  // Placeholder
+            TextNoteToolbar(isAssistantVisible: $isAssistantVisible)
           case .markdown:
-            EmptyView()  // Use EmptyView to show nothing
+            MarkdownToolbar(isAssistantVisible: $isAssistantVisible)
           }
-          Divider()  // Add a divider below the contextual toolbar
+          Divider()
 
         } else if !tabManager.tabs.isEmpty {
-          // Handle case where tabs exist but none are active (should ideally not happen with current logic)
+          // Edge case for handling active tab + no tabs open
           Text("Error: No active tab found")
             .foregroundColor(.red)
-        }  // No top bar or contextual toolbar if tabs are empty
+        }
 
         // Content area with conditional AI assistant
         HStack(spacing: 0) {
@@ -136,156 +105,27 @@ struct NoteView: View {
   }
 }
 
-// Tab Bar View
-struct TabBarView: View {
-  @ObservedObject private var tabManager = TabManager.shared
-  var dismiss: DismissAction
-
-  var body: some View {
-    HStack {
-      ScrollView(.horizontal, showsIndicators: false) {
-        HStack(spacing: 2) {
-          // Home button
-          Button(action: {
-            // Check if there are unsaved changes before dismissing
-            // In a real app, you might show a confirmation dialog here
-            dismiss()
-          }) {
-            Image(systemName: "house")
-              .foregroundColor(.blue)
-          }
-          .buttonStyle(PlainButtonStyle())
-
-          // New tab button
-          Button(action: {
-
-          }) {
-            HStack {
-              Image(systemName: "plus")
-            }
-            .foregroundColor(.gray)
-            .padding(.horizontal, 10)
-            .padding(.leading, 4)
-
-            .cornerRadius(6)
-          }
-          .buttonStyle(PlainButtonStyle())
-
-          // Existing tabs
-          ForEach(tabManager.tabs) { tab in
-            TabItemView(tab: tab)
-          }
-        }
-      }
-
-      // More options button
-      Button(action: {
-        // More options
-      }) {
-        Image(systemName: "ellipsis")
-          .foregroundColor(.blue)
-
-      }
-      .buttonStyle(PlainButtonStyle())
-    }
-    .padding(.vertical, 6)
-    .padding(.horizontal, 18)
-    .frame(maxWidth: .infinity)
-    .background(Color.gray.opacity(0.05))
-  }
-
-}
-
-// Individual Tab Item
-struct TabItemView: View {
-  let tab: NoteTab
-  @ObservedObject private var tabManager = TabManager.shared
-
-  var body: some View {
-    HStack(spacing: 6) {
-      // Tab content
-      HStack {
-        RoundedRectangle(cornerRadius: 2)
-          .fill(tab.note.color)
-          .frame(width: 12, height: 12)
-
-        Text(tab.note.title)
-          .font(.caption)
-          .lineLimit(1)
-
-        // Close button
-        Button(action: {
-          closeTab()
-        }) {
-          Image(systemName: "xmark")
-            .font(.system(size: 10))
-            .foregroundColor(.gray)
-            .padding(4)
-        }
-        .buttonStyle(PlainButtonStyle())
-
-      }
-      .padding(.horizontal, 8)
-      .padding(.vertical, 6)
-      .background(tab.isActive ? Color.white : Color.gray.opacity(0.1))
-      .clipShape(
-        tab.isActive
-          ? RoundedCorners(topLeft: 6, topRight: 6, bottomLeft: 0, bottomRight: 0)
-          : RoundedCorners(topLeft: 7, topRight: 7, bottomLeft: 0, bottomRight: 0)
-      )
-      .onTapGesture {
-        activateTab()
-      }
-
-    }
-  }
-
-  // Activate this tab
-  private func activateTab() {
-    // Make all tabs inactive first
-    for i in 0..<tabManager.tabs.count {
-      tabManager.tabs[i].isActive = false
-    }
-
-    // Then activate the selected tab
-    if let index = tabManager.tabs.firstIndex(where: { $0.id == tab.id }) {
-      tabManager.tabs[index].isActive = true
-    }
-  }
-
-  // Close this tab
-  private func closeTab() {
-    tabManager.closeTab(id: tab.id)
-  }
-}
-
-// Empty state view when no tabs are open
-struct EmptyStateView: View {
-  var body: some View {
-    VStack(spacing: 20) {
-      Image(systemName: "doc.text")
-        .font(.system(size: 60))
-        .foregroundColor(.gray.opacity(0.6))
-
-      Text("No Note Selected")
-        .font(.title2)
-        .foregroundColor(.gray)
-
-      Text("Create a new note or select an existing one to get started")
-        .font(.body)
-        .foregroundColor(.gray)
-        .multilineTextAlignment(.center)
-        .padding(.horizontal, 40)
-    }
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(Color.white)
-  }
-}
-
 // Contextual Toolbars
 struct WrittenNoteToolbar: View {
+  @Binding var isAssistantVisible: Bool
+
   var body: some View {
     HStack {
+      // Bookmark button
+      Button(action: {
+        // Bookmark functionality
+      }) {
+        Image(systemName: "bookmark")
+          .foregroundColor(.gray)
+      }
+
+      //View Button
+      Button(action: {
+        // Share functionality
+      }) {
+        Image(systemName: "square.grid.2x2")
+          .foregroundColor(.gray)
+      }
       Spacer()
       Button(action: {}) { Image(systemName: "arrow.uturn.backward") }
       Button(action: {}) { Image(systemName: "arrow.uturn.forward") }
@@ -301,6 +141,22 @@ struct WrittenNoteToolbar: View {
         .frame(height: 20)
 
       Spacer()
+      //Share Button
+      Button(action: {
+        // Share functionality
+      }) {
+        Image(systemName: "square.and.arrow.up")
+          .foregroundColor(.gray)
+      }
+
+      // AI assistant toggle
+      Button(action: {
+        isAssistantVisible.toggle()
+      }) {
+        Image(systemName: "wand.and.rays")
+          .foregroundColor(isAssistantVisible ? .green : .gray)
+      }
+
     }
     .padding(.horizontal, 20)
     .padding(.vertical, 8)
@@ -311,14 +167,85 @@ struct WrittenNoteToolbar: View {
 
 // Placeholder Toolbar for Text Notes
 struct TextNoteToolbar: View {
+  @Binding var isAssistantVisible: Bool
+
   var body: some View {
     HStack {
+
+      // Bookmark button
+      Button(action: {
+        // Bookmark functionality
+      }) {
+        Image(systemName: "bookmark")
+          .foregroundColor(.gray)
+      }
+
+      //View Button
+      Button(action: {
+        // Share functionality
+      }) {
+        Image(systemName: "square.grid.2x2")
+          .foregroundColor(.gray)
+      }
       Spacer()
       Button(action: {}) { Image(systemName: "bold") }
       Button(action: {}) { Image(systemName: "italic") }
       Button(action: {}) { Image(systemName: "underline") }
       Button(action: {}) { Image(systemName: "list.bullet") }
       Spacer()
+      //Share Button
+      Button(action: {
+        // Share functionality
+      }) {
+        Image(systemName: "square.and.arrow.up")
+          .foregroundColor(.gray)
+      }
+
+      // AI assistant toggle
+      Button(action: {
+        isAssistantVisible.toggle()
+      }) {
+        Image(systemName: "wand.and.rays")
+          .foregroundColor(isAssistantVisible ? .green : .gray)
+      }
+
+    }
+    .padding(.horizontal, 20)
+    .padding(.vertical, 8)
+    .buttonStyle(PlainButtonStyle())
+    .foregroundColor(.gray)
+  }
+}
+
+// Placeholder Toolbar for Text Notes
+struct MarkdownToolbar: View {
+  @Binding var isAssistantVisible: Bool
+
+  var body: some View {
+    HStack {
+
+      Spacer()
+      Button(action: {}) { Image(systemName: "bold") }
+      Button(action: {}) { Image(systemName: "italic") }
+      Button(action: {}) { Image(systemName: "underline") }
+      Button(action: {}) { Image(systemName: "list.bullet") }
+      Spacer()
+      //Share Button
+      Button(action: {
+        // Share functionality
+      }) {
+        Image(systemName: "square.and.arrow.up")
+          .foregroundColor(.gray)
+      }
+
+      // AI assistant toggle
+      Button(action: {
+        isAssistantVisible.toggle()
+      }) {
+        Image(systemName: "wand.and.rays")
+          .foregroundColor(isAssistantVisible ? .green : .gray)
+      }
+
     }
     .padding(.horizontal, 20)
     .padding(.vertical, 8)

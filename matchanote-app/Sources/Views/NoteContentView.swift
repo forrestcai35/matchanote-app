@@ -8,7 +8,7 @@ struct WrittenNoteView: View {
 
   @State private var currentPage = 0
   @State private var pageCount = 1
-  @State private var currentScale: CGFloat = 1.0
+  @State private var currentScale: CGFloat = 1.15
   @State private var finalScale: CGFloat = 1.0
 
   private let infiniteScrollHeight: CGFloat = 10000
@@ -25,13 +25,16 @@ struct WrittenNoteView: View {
           }
         }
         .tabViewStyle(.page(indexDisplayMode: .automatic))
+        .background(Color.gray.opacity(0.04))
       } else {
         ScrollView(.vertical, showsIndicators: true) {
           pageContent(pageIndex: 0, isInfinite: true)
         }
+        .background(Color.gray.opacity(0.04))
       }
       controlsOverlay
     }
+    .background(Color.gray.opacity(0.04))
   }
 
   // Extracted Page Content View Builder
@@ -89,7 +92,7 @@ struct WrittenNoteView: View {
     )
   }
 
-  // Controls View
+  // Page Control View
   @ViewBuilder
   private var controlsOverlay: some View {
 
@@ -100,7 +103,7 @@ struct WrittenNoteView: View {
 
         Text("Page \(currentPage + 1) of \(pageCount)")
           .font(.caption)
-
+          .foregroundColor(.gray)
         Spacer()
 
         Button {
@@ -110,10 +113,11 @@ struct WrittenNoteView: View {
         } label: {
           Image(systemName: "plus.circle.fill")
             .font(.title2)
+            .foregroundColor(.green)
         }
       }
       .padding()
-      .background(.thinMaterial)
+
     }
   }
 
@@ -154,7 +158,7 @@ struct WrittenNoteView: View {
 
   private func drawLines(context: GraphicsContext, size: CGSize) {
     let lineSpacing: CGFloat = 24
-    let lineColor = Color.blue.opacity(0.3)
+    let lineColor = Color.green.opacity(0.3)
     let marginTop: CGFloat = 30  // Add a top margin like real lined paper
 
     for y in stride(from: marginTop, to: size.height, by: lineSpacing) {
@@ -247,6 +251,7 @@ struct MarkdownNoteView: View {
           .scaleEffect(finalScale * currentScale)  // Apply scaling
       }
     }
+    .background(Color.gray.opacity(0.04))
     .gesture(  // Add magnification gesture
       MagnificationGesture()
         .onChanged { value in
@@ -323,6 +328,7 @@ struct TextNoteView: View {
         // .padding(.top, 20)
         .scaleEffect(finalScale * currentScale)  // Apply scaling
     }
+    .background(Color.gray.opacity(0.04))
     .gesture(  // Add magnification gesture
       MagnificationGesture()
         .onChanged { value in

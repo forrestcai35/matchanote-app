@@ -29,7 +29,7 @@ public enum NoteType: String, CaseIterable {
   case written, text, markdown
 }
 
-// Make sure this is visible to the whole app
+
 public struct Note: Identifiable {
   public var id = UUID()
   public var title: String
@@ -70,7 +70,7 @@ public struct Note: Identifiable {
       title: "Study", color: .green, dateCreated: Date(), dateModified: Date(), noteType: .written),
     Note(
       title: "Getting started with Matcha", color: .blue, dateCreated: Date(), dateModified: Date(),
-      noteType: .markdown),
+      noteType: .markdown, scrollType: .infinite),
     Note(
       title: "Meeting Notes", color: .orange, dateCreated: Date(), dateModified: Date(),
       noteType: .text),
@@ -82,7 +82,7 @@ public struct Note: Identifiable {
       noteType: .text),
     Note(
       title: "Smart City", color: .blue, dateCreated: Date(), dateModified: Date(),
-      noteType: .markdown),
+      noteType: .markdown, scrollType: .infinite),
     Note(
       title: "Shakespeare", color: .black, dateCreated: Date(), dateModified: Date(),
       noteType: .written),

@@ -153,9 +153,11 @@ struct DocumentsView: View {
             documentsView
         } else if selectedItem == "favorites" {
             FavoritesView()
-        } else if selectedItem == "study" {
-            StudyView()
         }
+        // IMPLEMENT STUDY VIEW LATER
+        // else if selectedItem == "study" {
+        //     StudyView()
+        // }
     }
 
     // Document view as a computed property
@@ -269,48 +271,76 @@ struct DocumentsView: View {
     }
 
     private func createNoteButton(inGrid: Bool) -> some View {
-        NavigationLink(destination: {
-            // Restore original destination
-            let newNote = Note(
-                title: "New Note",
-                color: .green,
-                dateCreated: Date(),
-                dateModified: Date()
-            )
-            // Tab opening is handled by NoteView's .onAppear or the gesture
-            // tabManager.openTab(note: newNote) // Let the destination handle it
-            return NoteView(note: newNote)
-                .navigationBarBackButtonHidden(true)
-        }) {
-            if inGrid {
-                gridNewButton
-            } else {
-                listNewButton
-            }
-        }
-        .buttonStyle(PlainButtonStyle())
-        // Add gesture for the create button too, to ensure tab opens immediately
-        .simultaneousGesture(
-            TapGesture().onEnded {
-                // Create and open the tab *immediately* on tap
+        Menu {
+            Button {
                 let newNote = Note(
                     title: "New Note",
                     color: .green,
                     dateCreated: Date(),
-                    dateModified: Date()
+                    dateModified: Date(),
+                    noteType: .written
                 )
                 TabManager.shared.openTab(note: newNote)
-            })
+            } label: {
+                Label("Note", systemImage: "pencil")
+            }
+
+            Button {
+                let newNote = Note(
+                    title: "New Folder",
+                    color: .green,
+                    dateCreated: Date(),
+                    dateModified: Date(),
+                    noteType: .written
+                )
+                TabManager.shared.openTab(note: newNote)
+            } label: {
+                Label("Folder", systemImage: "folder")
+            }
+            Button {
+                let newNote = Note(
+                    title: "New Text Note",
+                    color: .blue,
+                    dateCreated: Date(),
+                    dateModified: Date(),
+                    noteType: .text
+                )
+                TabManager.shared.openTab(note: newNote)
+            } label: {
+                Label("Text", systemImage: "text.alignleft")
+            }
+
+            Button {
+                let newNote = Note(
+                    title: "New Markdown Note",
+                    color: .orange,  // Example color
+                    dateCreated: Date(),
+                    dateModified: Date(),
+                    noteType: .markdown
+                )
+                TabManager.shared.openTab(note: newNote)
+            } label: {
+                Label("Markdown", systemImage: "number")
+            }
+
+            Button {
+                // Placeholder for upload action
+                print("Upload action triggered")
+            } label: {
+                Label("Upload", systemImage: "arrow.up.doc")
+            }
+
+        } label: {
+            if inGrid {
+                gridNewButton
+            } else {
+                ListNewButtonView()
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 
-    // Add a helper view for the new button in list view
-    private var listNewButton: some View {
-        ListNewButtonView()
-    }
-
-    // Helper view with state for hover effect
     private struct ListNewButtonView: View {
-        @State private var isHovered = false
 
         var body: some View {
             HStack {
@@ -327,19 +357,16 @@ struct DocumentsView: View {
                 RoundedRectangle(cornerRadius: 8)
                     .stroke(
                         Color.green,
-                        style: StrokeStyle(lineWidth: isHovered ? 1.5 : 1, dash: [5])
+                        style: StrokeStyle(lineWidth: 1, dash: [5])
                     )
                     .background(
                         RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.green.opacity(isHovered ? 0.05 : 0))
+                            .fill(Color.green.opacity(0.05))
                     )
             )
             .padding(.horizontal)
             .contentShape(Rectangle())
-            .onHover { hovering in
-                isHovered = hovering
-            }
-            .animation(.easeInOut(duration: 0.2), value: isHovered)
+
         }
     }
 
@@ -370,7 +397,6 @@ struct DocumentsView: View {
 // Add a helper view for list items
 private struct ListItemView: View {
     let note: Note
-    @State private var isHovered = false
 
     var body: some View {
         HStack {
@@ -411,8 +437,8 @@ private struct ListItemView: View {
         .frame(height: 56)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(isHovered ? Color.secondary.opacity(0.1) : Color.secondary.opacity(0.05))
-                .animation(.easeInOut(duration: 0.2), value: isHovered)
+                .fill(Color.secondary.opacity(0.05))
+
         )
         .padding(.horizontal)
         // Add hover and tap effects
@@ -436,7 +462,6 @@ private struct ListItemView: View {
 // Add a helper view for grid items
 private struct GridItemView: View {
     let note: Note
-    @State private var isHovered = false
 
     var body: some View {
         VStack(spacing: 4) {
@@ -484,14 +509,6 @@ private struct GridItemView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                     .padding(8)
             }
-            .overlay(
-                // Show a subtle overlay when hovered
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.white, lineWidth: isHovered ? 2 : 0)
-                    .opacity(isHovered ? 0.7 : 0)
-            )
-            .scaleEffect(isHovered ? 1.02 : 1.0)
-            .animation(.spring(response: 0.3), value: isHovered)
 
             // Note title
             Text(note.title)
@@ -511,9 +528,7 @@ private struct GridItemView: View {
         }
         .frame(width: 160)
         .contentShape(Rectangle())
-        .onHover { hovering in
-            isHovered = hovering
-        }
+
     }
 
     // Helper function to get the correct icon name

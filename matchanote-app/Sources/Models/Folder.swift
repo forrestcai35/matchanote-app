@@ -7,10 +7,8 @@
 
 import SwiftUI
 
-// Import the WrittenNote directly - for same-target files, we don't use import statements
-// Instead, we can just use the type - make sure WrittenNote.swift is compiled first in build phases
 
-/// Represents a folder that can contain notes and other folders
+
 struct Folder: Identifiable, Hashable {
   var id = UUID()
   var name: String
@@ -26,7 +24,6 @@ struct Folder: Identifiable, Hashable {
   var noteIDs: [UUID] = []  // Store IDs instead of actual notes to avoid circular dependencies
 
   // MARK: - Initialization
-
   init(
     name: String, icon: String = "folder", color: Color = .blue,
     parentID: UUID? = nil, dateCreated: Date = Date(), isFavorite: Bool = false
@@ -110,7 +107,6 @@ struct Folder: Identifiable, Hashable {
   }
 
   // MARK: - Hashable Conformance
-
   func hash(into hasher: inout Hasher) {
     hasher.combine(id)
   }
@@ -120,7 +116,6 @@ struct Folder: Identifiable, Hashable {
   }
 
   // MARK: - Sample Data
-
   /// Create sample folders for preview and testing
   static var samples: [Folder] {
     [
