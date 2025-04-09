@@ -15,26 +15,18 @@ struct WrittenNoteView: View {
 
   var body: some View {
     VStack(spacing: 0) {
-      // Scroll/Swipe View based on note.scrollType
-      if note.scrollType == .pages {
-        // Pages Mode: Horizontal TabView
-        TabView(selection: $currentPage) {
-          ForEach(0..<pageCount, id: \.self) { pageIndex in
-            pageContent(pageIndex: pageIndex, isInfinite: false)
-              .tag(pageIndex)
-          }
+      // Always use TabView for page navigation
+      TabView(selection: $currentPage) {
+        ForEach(0..<pageCount, id: \.self) { pageIndex in
+          pageContent(pageIndex: pageIndex, isInfinite: false)
+            .tag(pageIndex)
         }
-        .tabViewStyle(.page(indexDisplayMode: .automatic))
-        .background(Color.gray.opacity(0.04))
-      } else {
-        ScrollView(.vertical, showsIndicators: true) {
-          pageContent(pageIndex: 0, isInfinite: true)
-        }
-        .background(Color.gray.opacity(0.04))
       }
+      .tabViewStyle(.page(indexDisplayMode: .automatic))
+
       controlsOverlay
     }
-    .background(Color.gray.opacity(0.04))
+    .background(Color.gray.opacity(0.03))
   }
 
   // Extracted Page Content View Builder
@@ -60,34 +52,29 @@ struct WrittenNoteView: View {
           break
         }
 
-        // TODO: Add logic here later to load/save drawing for `pageIndex` (or infinite area)
+        // TODO: Add logic here later to load/save drawing
       }
       .frame(
         width: getPaperWidth(for: note.paperSize),
-        // Set fixed height unless infinite
-        height: isInfinite ? infiniteScrollHeight : getPaperHeight(for: note.paperSize)
+        height: getPaperHeight(for: note.paperSize)
       )
-      // Removed .aspectRatio
-      .background(Color.white)  // Use white background for shadow visibility
+      .background(Color.white)
       .cornerRadius(10)
       .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
-      // No outer padding needed here, ScrollView handles clipping
       .onTapGesture {
-        // When canvas is drawn on, mark as edited
-        // TODO: In infinite mode, this marks the whole note edited, not a specific part
         isEdited = true
       }
-      .padding(.top, 20)  // Add padding only to the top of the Canvas
-      .scaleEffect(finalScale * currentScale)  // Apply scaling
+      .padding(.top, 20)
+      .scaleEffect(finalScale * currentScale)
     }
-    .gesture(  // Add magnification gesture
+    .gesture(
       MagnificationGesture()
         .onChanged { value in
           currentScale = value
         }
         .onEnded { value in
           finalScale *= value
-          currentScale = 1.0  // Reset temporary scale
+          currentScale = 1.0
         }
     )
   }
@@ -95,30 +82,24 @@ struct WrittenNoteView: View {
   // Page Control View
   @ViewBuilder
   private var controlsOverlay: some View {
+    HStack {
+      Spacer()
 
-    if note.scrollType == .pages {
-      HStack {
+      Text("Page \(currentPage + 1) of \(pageCount)")
+        .font(.caption)
+        .foregroundColor(.gray)
+      Spacer()
 
-        Spacer()
-
-        Text("Page \(currentPage + 1) of \(pageCount)")
-          .font(.caption)
-          .foregroundColor(.gray)
-        Spacer()
-
-        Button {
-          pageCount += 1
-          currentPage = pageCount - 1
-
-        } label: {
-          Image(systemName: "plus.circle.fill")
-            .font(.title2)
-            .foregroundColor(.green)
-        }
+      Button {
+        pageCount += 1
+        currentPage = pageCount - 1
+      } label: {
+        Image(systemName: "plus.circle.fill")
+          .font(.title2)
+          .foregroundColor(.green)
       }
-      .padding()
-
     }
+    .padding()
   }
 
   private func drawGrid(context: GraphicsContext, size: CGSize) {
@@ -214,7 +195,7 @@ struct WrittenNoteView: View {
   }
 }
 
-// Renamed from TextNoteView to reflect its Markdown nature
+//Markdown View
 struct MarkdownNoteView: View {
   var note: Note
   @State private var textContent: String
@@ -236,9 +217,8 @@ struct MarkdownNoteView: View {
           .insetsSize(40)
           .theme(Theme.BuiltIn.defaultLight.theme())
           .scrollContentBackground(.hidden)
-
           .frame(minHeight: infiniteScrollHeight)
-          .frame(width: getPaperWidth(for: note.paperSize) - 40)
+          .frame(width: 700)  //SET WIDTH
           .background(getPaperBackgroundColor(for: note.paperColor))
           .cornerRadius(10)
           .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
@@ -248,18 +228,18 @@ struct MarkdownNoteView: View {
               isEdited = true
             }
           }
-          .scaleEffect(finalScale * currentScale)  // Apply scaling
+          .scaleEffect(finalScale * currentScale)
       }
     }
-    .background(Color.gray.opacity(0.04))
-    .gesture(  // Add magnification gesture
+
+    .gesture(
       MagnificationGesture()
         .onChanged { value in
           currentScale = value
         }
         .onEnded { value in
           finalScale *= value
-          currentScale = 1.0  // Reset temporary scale
+          currentScale = 1.0
         }
     )
   }
@@ -276,19 +256,6 @@ struct MarkdownNoteView: View {
     }
   }
 
-  // Helper function to get paper width
-  private func getPaperWidth(for size: PaperSize) -> CGFloat {
-    switch size {
-    case .legal:
-      return 612  // 8.5 x 14 inches at 72 dpi
-    case .letter:
-      return 612  // 8.5 x 11 inches at 72 dpi
-    case .tabloid:
-      return 792  // 11 x 17 inches at 72 dpi
-    case .a4:
-      return 595  // 210 × 297 mm at 72 dpi
-    }
-  }
 }
 
 // Plain Text Notes
@@ -296,8 +263,10 @@ struct TextNoteView: View {
   var note: Note
   @State private var textContent: String
   @Binding var isEdited: Bool
-  @State private var currentScale: CGFloat = 1.0
+  @State private var currentScale: CGFloat = 1.15
   @State private var finalScale: CGFloat = 1.0
+  @State private var currentPage = 0
+  @State private var pageCount = 1
 
   init(note: Note, isEdited: Binding<Bool>) {
     self.note = note
@@ -306,39 +275,66 @@ struct TextNoteView: View {
   }
 
   var body: some View {
-    EmptyView()
-      .padding()
-    // Wrap TextEditor in a ScrollView for panning fixed-size content
-    ScrollView([.horizontal, .vertical], showsIndicators: false) {
-      TextEditor(text: $textContent)
-        .scrollContentBackground(.hidden)  // Make TextEditor background transparent
-        .frame(  // Set both width and height for page dimensions
-          width: getPaperWidth(for: note.paperSize),
-          height: getPaperHeight(for: note.paperSize)
-        )
-        .background(getPaperBackgroundColor(for: note.paperColor))
-        .cornerRadius(10)
-        .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)  // Add shadow
-        // No outer padding needed here, ScrollView handles clipping
-        .onChange(of: textContent) { oldValue, newValue in
-          if oldValue != newValue {
-            isEdited = true
+    VStack(spacing: 0) {
+      // Wrap TextEditor in a ScrollView for panning fixed-size content
+      ScrollView([.horizontal, .vertical], showsIndicators: false) {
+        TextEditor(text: $textContent)
+          .scrollContentBackground(.hidden)  // Make TextEditor background transparent
+          .padding(EdgeInsets(top: 20, leading: 24, bottom: 20, trailing: 24))  // Add text margins
+          .frame(  // Set both width and height for page dimensions
+            width: getPaperWidth(for: note.paperSize),
+            height: getPaperHeight(for: note.paperSize)
+          )
+          .background(getPaperBackgroundColor(for: note.paperColor))
+          .cornerRadius(10)
+          .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
+
+          .onChange(of: textContent) { oldValue, newValue in
+            if oldValue != newValue {
+              isEdited = true
+            }
           }
-        }
-        // .padding(.top, 20)
-        .scaleEffect(finalScale * currentScale)  // Apply scaling
+          .scaleEffect(finalScale * currentScale)  // Apply scaling
+      }
+
+      .gesture(  // Add magnification gesture
+        MagnificationGesture()
+          .onChanged { value in
+            currentScale = value
+          }
+          .onEnded { value in
+            finalScale *= value
+            currentScale = 1.0  // Reset temporary scale
+          }
+      )
+
+      controlsOverlay
+
     }
     .background(Color.gray.opacity(0.04))
-    .gesture(  // Add magnification gesture
-      MagnificationGesture()
-        .onChanged { value in
-          currentScale = value
-        }
-        .onEnded { value in
-          finalScale *= value
-          currentScale = 1.0  // Reset temporary scale
-        }
-    )
+  }
+
+  // Page Control View
+  @ViewBuilder
+  private var controlsOverlay: some View {
+    HStack {
+      Spacer()
+
+      Text("Page \(currentPage + 1) of \(pageCount)")
+        .font(.caption)
+        .foregroundColor(.gray)
+      Spacer()
+
+      Button {
+        pageCount += 1
+        currentPage = pageCount - 1
+      } label: {
+        Image(systemName: "plus.circle.fill")
+          .font(.title2)
+          .foregroundColor(.green)
+      }
+    }
+    .padding()
   }
 
   // Helper function for background color (can be shared or duplicated)

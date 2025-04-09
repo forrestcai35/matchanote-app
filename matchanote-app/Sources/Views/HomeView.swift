@@ -69,12 +69,13 @@ struct DocumentsView: View {
     @State private var selectedItem = "documents"
     @State private var sortOption = "Date"
     @State private var isGridView = true
+    @State private var showSettings = false
     @ObservedObject private var tabManager = TabManager.shared
 
     let sidebarItems = [
         SidebarItem(id: "documents", title: "Documents", icon: "folder"),
         SidebarItem(id: "favorites", title: "Favorites", icon: "star"),
-        SidebarItem(id: "study", title: "Study", icon: "rectangle.stack"),
+        //        SidebarItem(id: "study", title: "Study", icon: "rectangle.stack"),
     ]
 
     // Filtered notes based on search text
@@ -94,7 +95,6 @@ struct DocumentsView: View {
                 sidebarList
             }
             .navigationTitle("Matcha")
-
             // Main content area
             contentView
         }
@@ -125,7 +125,9 @@ struct DocumentsView: View {
                     Image(systemName: item.icon)
                         .foregroundColor(.green)
                     Text(item.title)
+
                     Spacer()
+
                 }
                 .padding(.vertical, 8)
                 .padding(.leading)
@@ -151,8 +153,34 @@ struct DocumentsView: View {
     private var contentView: some View {
         if selectedItem == "documents" {
             documentsView
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: {
+                            showSettings.toggle()
+                        }) {
+                            Image(systemName: "gear")
+                                .foregroundColor(.green)
+                        }
+                        .popover(isPresented: $showSettings, arrowEdge: .top) {
+                            SettingsPopover()
+                        }
+                    }
+                }
         } else if selectedItem == "favorites" {
             FavoritesView()
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: {
+                            showSettings.toggle()
+                        }) {
+                            Image(systemName: "gear")
+                                .foregroundColor(.green)
+                        }
+                        .popover(isPresented: $showSettings, arrowEdge: .top) {
+                            SettingsPopover()
+                        }
+                    }
+                }
         }
         // IMPLEMENT STUDY VIEW LATER
         // else if selectedItem == "study" {
@@ -160,7 +188,7 @@ struct DocumentsView: View {
         // }
     }
 
-    // Document view as a computed property
+    // Document view
     private var documentsView: some View {
         VStack(alignment: .leading, spacing: 0) {
             documentHeader
@@ -361,7 +389,7 @@ struct DocumentsView: View {
                     )
                     .background(
                         RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.green.opacity(0.05))
+                            .fill(Color.green.opacity(0.03))
                     )
             )
             .padding(.horizontal)
@@ -382,14 +410,18 @@ struct DocumentsView: View {
                 Image(systemName: "plus")
                     .font(.largeTitle)
                     .foregroundColor(.green)
+
             }
+
             Text("New...")
                 .foregroundColor(.green)
                 .frame(width: 160)
                 .fontWeight(.medium)
                 .multilineTextAlignment(.center)
                 .font(.caption)
+
         }
+
         .frame(width: 160)
     }
 }
@@ -441,12 +473,10 @@ private struct ListItemView: View {
 
         )
         .padding(.horizontal)
-        // Add hover and tap effects
         .contentShape(Rectangle())
 
     }
 
-    // Helper function to get the correct icon name
     private func noteTypeIcon(_ type: NoteType) -> String {
         switch type {
         case .written:
@@ -454,7 +484,7 @@ private struct ListItemView: View {
         case .text:
             return "text.page"
         case .markdown:
-            return "number"  // Keep this for markdown for now
+            return "number"
         }
     }
 }
@@ -467,20 +497,26 @@ private struct GridItemView: View {
         VStack(spacing: 4) {
             // Note card
             ZStack {
-                // Background
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(note.color)
-                    .frame(width: 160, height: 200)
 
-                // Type overlay
+                // Written note cover
                 if note.noteType == .written {
-                    // Text note styling - add lined paper effect
+                    // Background
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(note.color)
+                        .frame(width: 160, height: 200)
+                        .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
+
                     Image(systemName: "pencil.tip")
                         .font(.system(size: 40))
                         .foregroundColor(Color.white.opacity(0.3))
                         .offset(x: 0, y: -30)
+                    //Text note cover
                 } else if note.noteType == .text {
-
+                    // Background
+                    RoundedRectangle(cornerRadius: 0)
+                        .fill(note.color)
+                        .frame(width: 160, height: 200)
+                        .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
                     Image(systemName: "text.alignleft")
                         .font(.system(size: 40))
                         .foregroundColor(Color.white.opacity(0.3))
@@ -488,6 +524,11 @@ private struct GridItemView: View {
                 }
                 //Markdown notebook cover
                 else {
+                    // Background
+                    RoundedRectangle(cornerRadius: 0)
+                        .fill(note.color)
+                        .frame(width: 160, height: 200)
+                        .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
                     Image(systemName: "number")
                         .font(.system(size: 40))
                         .foregroundColor(Color.white.opacity(0.3))

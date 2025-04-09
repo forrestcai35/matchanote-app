@@ -10,7 +10,6 @@ struct NoteTab: Identifiable {
 
 // Tab manager to handle shared tab state across the app using a singleton pattern
 class TabManager: ObservableObject {
-  // Shared instance
   static let shared = TabManager()
 
   // Private initializer for singleton

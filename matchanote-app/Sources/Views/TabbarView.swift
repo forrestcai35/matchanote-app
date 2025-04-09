@@ -10,10 +10,8 @@ struct TabBarView: View {
     HStack {
       ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: 2) {
-          // Home button
           Button(action: {
-            // Check if there are unsaved changes before dismissing
-            // In a real app, you might show a confirmation dialog here
+            // TODO: Check if there are unsaved changes before dismissing BUT SHOULD AUTO SAVE
             dismiss()
           }) {
             Image(systemName: "house")
@@ -29,9 +27,9 @@ struct TabBarView: View {
         }
       }
 
-      // More options button
+      // 3 DOTS MORE OPTIIONS
       Button(action: {
-        // More options
+        // TODO: Add more options
       }) {
         Image(systemName: "ellipsis")
           .foregroundColor(.green)
@@ -54,7 +52,7 @@ struct TabItemView: View {
 
   var body: some View {
     HStack(spacing: 6) {
-      // Tab content
+      // Tab Content
       HStack {
         RoundedRectangle(cornerRadius: 2)
           .fill(tab.note.color)

@@ -7,8 +7,6 @@
 
 import SwiftUI
 
-
-
 struct Folder: Identifiable, Hashable {
   var id = UUID()
   var name: String
@@ -21,7 +19,7 @@ struct Folder: Identifiable, Hashable {
   // Parent-child relationships
   var parentID: UUID?
   var childFolders: [Folder] = []
-  var noteIDs: [UUID] = []  // Store IDs instead of actual notes to avoid circular dependencies
+  var noteIDs: [UUID] = []
 
   // MARK: - Initialization
   init(
@@ -50,7 +48,6 @@ struct Folder: Identifiable, Hashable {
   }
 
   // MARK: - Methods
-
   /// Add a subfolder to this folder
   mutating func addFolder(_ folder: Folder) {
     var newFolder = folder
@@ -115,8 +112,6 @@ struct Folder: Identifiable, Hashable {
     lhs.id == rhs.id
   }
 
-  // MARK: - Sample Data
-  /// Create sample folders for preview and testing
   static var samples: [Folder] {
     [
       Folder(name: "Documents", icon: "folder", color: .blue),

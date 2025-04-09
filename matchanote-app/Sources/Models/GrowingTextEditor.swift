@@ -9,16 +9,9 @@ struct GrowingTextEditor: View {
 
   var body: some View {
     ZStack(alignment: .topLeading) {
-      if text.isEmpty {
-        Text(placeholderText)
-          .foregroundColor(.gray.opacity(0.7))
-          .padding(.horizontal, 5)
-          .padding(.top, 8)
-          .allowsHitTesting(false)
-      }
-
       TextEditor(text: $text)
         .frame(height: min(max(textEditorHeight, 80), maxHeight))
+        .scrollContentBackground(.hidden)  // Make background transparent
         .onChange(of: text) { newValue in
           let size = CGSize(width: UIScreen.main.bounds.width - 80, height: .infinity)
           let estimatedSize = newValue.boundingRect(
@@ -31,6 +24,14 @@ struct GrowingTextEditor: View {
           // Add some padding for better UX
           textEditorHeight = min(estimatedSize.height + 30, maxHeight)
         }
+
+      if text.isEmpty {
+        Text(placeholderText)
+          .foregroundColor(.gray.opacity(0.7))
+          .padding(.horizontal, 8)
+          .padding(.vertical, 8)
+          .allowsHitTesting(false)
+      }
     }
   }
 }

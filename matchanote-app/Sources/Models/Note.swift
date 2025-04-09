@@ -8,27 +8,22 @@
 import SwiftUI
 
 // Paper properties enums
-public enum PaperColor: String, CaseIterable {
+public enum PaperColor: String, CaseIterable, Codable {
   case white, offwhite, yellow
 }
 
-public enum PaperStyle: String, CaseIterable {
+public enum PaperStyle: String, CaseIterable, Codable {
   case grid, dotted, blank, lined
 }
 
-public enum PaperSize: String, CaseIterable {
+public enum PaperSize: String, CaseIterable, Codable {
   case legal, letter, tabloid, a4
-}
-
-public enum ScrollType: String, CaseIterable {
-  case pages, infinite
 }
 
 // Define the type of note
 public enum NoteType: String, CaseIterable {
   case written, text, markdown
 }
-
 
 public struct Note: Identifiable {
   public var id = UUID()
@@ -42,14 +37,12 @@ public struct Note: Identifiable {
   public var paperColor: PaperColor = .white
   public var paperStyle: PaperStyle = .blank
   public var paperSize: PaperSize = .a4
-  public var scrollType: ScrollType = .pages
 
   public init(
     title: String, color: Color, dateCreated: Date, dateModified: Date, isFavorite: Bool = false,
     content: String = "", noteType: NoteType = .written,
     paperColor: PaperColor = .white,
-    paperStyle: PaperStyle = .grid, paperSize: PaperSize = .a4,
-    scrollType: ScrollType = .pages
+    paperStyle: PaperStyle = .blank, paperSize: PaperSize = .a4
   ) {
     self.title = title
     self.color = color
@@ -61,16 +54,24 @@ public struct Note: Identifiable {
     self.paperColor = paperColor
     self.paperStyle = paperStyle
     self.paperSize = paperSize
-    self.scrollType = scrollType
   }
 
   // Sample notes
   public static let samples = [
     Note(
-      title: "Study", color: .green, dateCreated: Date(), dateModified: Date(), noteType: .written),
+      title: "Blank", color: .green, dateCreated: Date(), dateModified: Date(), noteType: .written),
     Note(
-      title: "Getting started with Matcha", color: .blue, dateCreated: Date(), dateModified: Date(),
-      noteType: .markdown, scrollType: .infinite),
+      title: "Grid", color: .green, dateCreated: Date(), dateModified: Date(), noteType: .written,
+      paperStyle: .grid),
+    Note(
+      title: "Written grid infinite", color: .green, dateCreated: Date(), dateModified: Date(),
+      noteType: .written,
+      paperStyle: .grid),
+
+    Note(
+      title: "Markdown", color: .blue, dateCreated: Date(), dateModified: Date(),
+      noteType: .markdown),
+
     Note(
       title: "Meeting Notes", color: .orange, dateCreated: Date(), dateModified: Date(),
       noteType: .text),
@@ -82,7 +83,7 @@ public struct Note: Identifiable {
       noteType: .text),
     Note(
       title: "Smart City", color: .blue, dateCreated: Date(), dateModified: Date(),
-      noteType: .markdown, scrollType: .infinite),
+      noteType: .markdown),
     Note(
       title: "Shakespeare", color: .black, dateCreated: Date(), dateModified: Date(),
       noteType: .written),
