@@ -4,6 +4,7 @@ import matchanote_app
 // Tab Bar View
 struct TabBarView: View {
   @ObservedObject private var tabManager = TabManager.shared
+    @Environment(\.colorScheme) private var colorScheme
   var dismiss: DismissAction
 
   var body: some View {
@@ -32,15 +33,16 @@ struct TabBarView: View {
         // TODO: Add more options
       }) {
         Image(systemName: "ellipsis")
-          .foregroundColor(.green)
+              .foregroundColor(.gray)
 
       }
       .buttonStyle(PlainButtonStyle())
     }
     .padding(.top, 6)
     .padding(.horizontal, 18)
+    .frame(height: 40)
     .frame(maxWidth: .infinity)
-    .background(Color.green.opacity(0.1))
+    .background(colorScheme == .dark ? Color.black : Color.gray.opacity(0.15))
   }
 
 }
@@ -49,19 +51,24 @@ struct TabBarView: View {
 struct TabItemView: View {
   let tab: NoteTab
   @ObservedObject private var tabManager = TabManager.shared
+  @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
-    HStack(spacing: 6) {
+    HStack {
       // Tab Content
       HStack {
         RoundedRectangle(cornerRadius: 2)
           .fill(tab.note.color)
           .frame(width: 12, height: 12)
-
+        Spacer()
         Text(tab.note.title)
           .font(.caption)
           .lineLimit(1)
-
+          .foregroundColor(
+            tab.isActive
+              ? (colorScheme == .dark ? Color.white : Color.black)
+              : (colorScheme == .dark ? Color.white.opacity(0.8) : Color.black.opacity(0.8)))
+        Spacer()
         // Close button
         Button(action: {
           closeTab()
@@ -75,8 +82,13 @@ struct TabItemView: View {
 
       }
       .padding(.horizontal, 8)
-      .padding(.vertical, 6)
-      .background(tab.isActive ? Color.white : Color.gray.opacity(0.15))
+      .frame(height: tab.isActive ? 34 : 32)
+      .frame(minWidth: tab.isActive ? 140 : 135)
+      .background(
+        tab.isActive
+          ? colorScheme == .dark ? Color.gray.opacity(0.3) : Color.white
+          : colorScheme == .dark ? Color.gray.opacity(0.15) : Color.gray.opacity(0.2)
+      )
       .clipShape(
         tab.isActive
           ? RoundedCorners(topLeft: 6, topRight: 6, bottomLeft: 0, bottomRight: 0)

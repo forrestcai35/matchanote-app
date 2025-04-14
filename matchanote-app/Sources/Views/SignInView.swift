@@ -81,6 +81,14 @@ struct SignInView: View {
           .cornerRadius(10)
           .disabled(isLoading || email.isEmpty || password.isEmpty)
 
+          // Error message
+          if let errorMessage = errorMessage {
+            Text(errorMessage)
+              .foregroundColor(.red)
+              .font(.caption)
+              .padding(.top, 5)
+          }
+
           HStack {
             Rectangle().fill(Color.secondary.opacity(0.3)).frame(height: 1)
             Text("OR").foregroundColor(.secondary).font(.caption)
@@ -90,17 +98,17 @@ struct SignInView: View {
 
           HStack(spacing: isLandscape ? 15 : 20) {
 
-            Button(action: {
-              signInWithApple()
-            }) {
-              Image(systemName: "apple.logo")
-                .font(.title2)
-                .frame(width: isLandscape ? 50 : 60, height: isLandscape ? 50 : 60)
-                .background(Color.black)
-                .foregroundColor(.white)
-                .clipShape(Circle())
-            }
-            .disabled(isLoading)
+            // Button(action: {
+            //   signInWithApple()
+            // }) {
+            //   Image(systemName: "apple.logo")
+            //     .font(.title2)
+            //     .frame(width: isLandscape ? 50 : 60, height: isLandscape ? 50 : 60)
+            //     .background(Color.black)
+            //     .foregroundColor(.white)
+            //     .clipShape(Circle())
+            // }
+            // .disabled(isLoading)
 
             Button(action: {
               signInWithGoogle()
@@ -154,55 +162,32 @@ struct SignInView: View {
     isLoading = true
     errorMessage = nil
 
-    Task {
-      do {
-        try await supabase.auth.signIn(email: email, password: password)
-        await MainActor.run {
-          self.isLoading = false
-          self.authManager.setLoggedIn()
-        }
-      } catch {
-        await MainActor.run {
-          handleAuthError(error)
-        }
-      }
+    // Simulate network request
+    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+      self.isLoading = false
+      self.authManager.setLoggedIn()
     }
   }
 
-  private func signInWithApple() {
-    isLoading = true
-    errorMessage = nil
-    Task {
-      do {
-        try await supabase.auth.signInWithOAuth(provider: .apple)
-        await MainActor.run {
-          self.isLoading = false
-          self.authManager.setLoggedIn()
-        }
-      } catch {
-        await MainActor.run {
-          handleAuthError(error)
-        }
-      }
-    }
-  }
+  // private func signInWithApple() {
+  //   isLoading = true
+  //   errorMessage = nil
+
+  //   // Simulate network request
+  //   DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+  //     self.isLoading = false
+  //     self.authManager.setLoggedIn()
+  //   }
+  // }
 
   private func signInWithGoogle() {
     isLoading = true
     errorMessage = nil
 
-    Task {
-      do {
-        try await supabase.auth.signInWithOAuth(provider: .google)
-        await MainActor.run {
-          self.isLoading = false
-          self.authManager.setLoggedIn()
-        }
-      } catch {
-        await MainActor.run {
-          handleAuthError(error)
-        }
-      }
+    // Simulate network request
+    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+      self.isLoading = false
+      self.authManager.setLoggedIn()
     }
   }
 

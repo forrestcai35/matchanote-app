@@ -1,14 +1,31 @@
 import SwiftUI
 import matchanote_app
 
-// Message model to represent chat messages
+#if canImport(UIKit)
+  import UIKit
+#elseif canImport(AppKit)
+  import AppKit
+#endif
+
+// import matchanote_app  // Commented out until correct module name is confirmed
+
+// Add a state object to share assistant state across orientation changes
+class AIAssistantState: ObservableObject {
+  @Published var messages: [ChatMessage] = []
+  @Published var userInput = ""
+  @Published var selectedModel = "qwen/qwq-32b:free"
+  @Published var isLoading = false
+  @Published var errorMessage: String? = nil
+  @Published var availableModels = ["qwen/qwq-32b:free", "deepseek/deepseek-r1-zero:free"]
+}
+
 struct ChatMessage: Identifiable {
   let id = UUID()
   let content: String
   let isUser: Bool
-  let model: String?
+  let model: String
 
-  init(content: String, isUser: Bool, model: String? = nil) {
+  init(content: String, isUser: Bool, model: String = "") {
     self.content = content
     self.isUser = isUser
     self.model = model
@@ -17,31 +34,15 @@ struct ChatMessage: Identifiable {
 
 // AI Assistant View
 struct AIAssistantView: View {
-  @State private var messages: [ChatMessage] = []
-  @State private var userInput = ""
-  @State private var selectedModel = "gpt-4o"
+  // Use an environment object instead of local state to persist across orientation changes
+  @EnvironmentObject private var state: AIAssistantState
   @State private var showingImagePicker = false
-  @State private var contextInfo = "Last updated: Notes section"
-  @State private var isLoading = false
-  @State private var errorMessage: String? = nil
+  @State private var contextInfo = ""
 
-  // API keys loaded from .env file
-  private var openAIKey: String? {
-    EnvironmentManager.shared.getAPIKey(for: "OPENAI")
+  // Configure models
+  init() {
+    OpenRouterAPI.configure(apiKey: EnvironmentManager.shared.getLlmAPIKey(for: "OPENROUTER")!)
   }
-
-  private var deepSeekKey: String? {
-    EnvironmentManager.shared.getAPIKey(for: "DEEPSEEK")
-  }
-
-  private var claudeKey: String? {
-    EnvironmentManager.shared.getAPIKey(for: "CLAUDE")
-  }
-
-  let availableModels = [
-    "gpt-4o", "gpt-4o-mini", "o1", "deepseek-r1", "claude-3.7-sonnet",
-    "claude-3.5-sonnet",
-  ]
 
   var body: some View {
     VStack(spacing: 0) {
@@ -49,7 +50,6 @@ struct AIAssistantView: View {
       HStack {
         Image(systemName: "sparkles")
           .foregroundColor(.green)
-
         Text("Matcha Assistant")
           .font(.headline)
 
@@ -64,21 +64,17 @@ struct AIAssistantView: View {
         VStack(alignment: .leading, spacing: 12) {
 
           // Display messages
-          ForEach(messages) { message in
+          ForEach(state.messages) { message in
             if message.isUser {
-              HStack {
-                Spacer()
-                Text(message.content)
-                  .padding(10)
-                  .background(Color.gray.opacity(0.2))
-                  .cornerRadius(10)
-              }
+              UserMessageView(message: message)
+                .frame(maxWidth: .infinity, alignment: .trailing)
             } else {
-              AssistantMessageView(message: message.content, model: message.model)
+              AssistantMessageView(message: message)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
           }
 
-          if isLoading {
+          if state.isLoading {
             HStack {
               ProgressView()
                 .padding(.horizontal, 4)
@@ -89,7 +85,7 @@ struct AIAssistantView: View {
             .padding(.vertical, 8)
           }
 
-          if let error = errorMessage {
+          if let error = state.errorMessage {
             Text(error)
               .foregroundColor(.red)
               .font(.caption)
@@ -105,14 +101,14 @@ struct AIAssistantView: View {
         HStack {
           // AI Model dropdown
           Menu {
-            ForEach(availableModels, id: \.self) { model in
+            ForEach(state.availableModels, id: \.self) { model in
               Button(model) {
-                selectedModel = model
+                state.selectedModel = model
               }
             }
           } label: {
             HStack {
-              Text(selectedModel)
+              Text(state.selectedModel)
                 .font(.caption)
                 .foregroundColor(.primary)
               Image(systemName: "chevron.down")
@@ -136,108 +132,80 @@ struct AIAssistantView: View {
 
         // Custom text input with embedded button
         ZStack(alignment: .bottomTrailing) {
-          // Growing text editor
-          GrowingTextEditor(text: $userInput, placeholderText: "Ask Matcha Assistant...")
-            .padding(.trailing, 40)  // Prevent text from overlapping the button
+          GrowingTextEditor(text: $state.userInput, placeholderText: "Ask Matcha Assistant...")
+            .padding(.vertical, 8)
+            .padding(.trailing, 40)
             .overlay(
               RoundedRectangle(cornerRadius: 8)
                 .stroke(Color.gray.opacity(0.3), lineWidth: 1)
             )
             .cornerRadius(8)
-            .padding(1)  // Ensure the corner radius is visible
+            .padding(1)
+            .submitLabel(.send)
+            .onSubmit {
+              if !state.userInput.isEmpty && !state.isLoading {
+                sendMessage()
+              }
+            }
 
-          // Send button inside the text field
+          // Send message when the user presses the send button
           Button(action: {
             sendMessage()
           }) {
             Image(systemName: "arrow.up.circle.fill")
               .foregroundColor(
-                userInput.isEmpty || isLoading ? .gray : .green
+                state.userInput.isEmpty || state.isLoading ? .gray : .green
               )
               .font(.title2)
           }
-          .disabled(userInput.isEmpty || isLoading)
+          .disabled(state.userInput.isEmpty || state.isLoading)
           .padding(8)
         }
         .padding([.horizontal, .bottom])
       }
     }
-    .background(Color(.systemBackground))
+    #if canImport(UIKit)
+      .background(Color(UIColor.systemBackground))
+    #else
+      .background(Color(.windowBackgroundColor))
+    #endif
 
   }
 
   private func sendMessage() {
+    guard !state.userInput.isEmpty else { return }
+
     // Add user message to chat
-    if !userInput.isEmpty && !isLoading {
-      let userMessage = ChatMessage(content: userInput, isUser: true)
-      messages.append(userMessage)
+    let userMessage = ChatMessage(content: state.userInput, isUser: true)
+    state.messages.append(userMessage)
 
-      let prompt = userInput
-      userInput = ""
+    // Store the input and clear the field
+    let input = state.userInput
+    state.userInput = ""
 
-      // Start loading
-      isLoading = true
-      errorMessage = nil
+    // Set loading state
+    state.isLoading = true
+    state.errorMessage = nil
 
-      // Make actual LLM API call based on selected model
-      Task {
-        do {
-          var response: String
-          var modelUsed = selectedModel
-          var success = false
+    // Call API
+    Task {
+      do {
+        let response = try await OpenRouterAPI.sendMessage(
+          userMessage: input, model: state.selectedModel)
 
-          // Try to call the appropriate AI service based on selected model
-          if selectedModel.contains("gpt") && openAIKey != nil {
-            // Configure with the specific OpenAI model
-            LLMManager.shared.configureOpenAI(apiKey: openAIKey!, model: selectedModel)
-            response = try await LLMManager.shared.generateWithOpenAI(prompt: prompt)
-            success = true
-          } else if selectedModel.contains("deepseek") && deepSeekKey != nil {
-            // Configure with the specific DeepSeek model
-            LLMManager.shared.configureDeepSeek(apiKey: deepSeekKey!, model: selectedModel)
-            response = try await LLMManager.shared.generateWithDeepSeek(prompt: prompt)
-            success = true
-          } else if selectedModel.contains("claude") && claudeKey != nil {
-            // Configure with the specific Claude model
-            LLMManager.shared.configureClaude(apiKey: claudeKey!, model: selectedModel)
-            response = try await LLMManager.shared.generateWithClaude(prompt: prompt)
-            success = true
-          } else if openAIKey != nil {
-            // Default to OpenAI if model type is unclear but we have an OpenAI key
-            LLMManager.shared.configureOpenAI(apiKey: openAIKey!, model: "gpt-4o")
-            response = try await LLMManager.shared.generateWithOpenAI(prompt: prompt)
-            modelUsed = "gpt-4o"
-            success = true
-          } else if claudeKey != nil {
-            // Fallback to Claude if we have that API key
-            LLMManager.shared.configureClaude(apiKey: claudeKey!)
-            response = try await LLMManager.shared.generateWithClaude(prompt: prompt)
-            modelUsed = "claude-3.5-sonnet"
-            success = true
-          } else if deepSeekKey != nil {
-            // Last resort: DeepSeek
-            LLMManager.shared.configureDeepSeek(apiKey: deepSeekKey!)
-            response = try await LLMManager.shared.generateWithDeepSeek(prompt: prompt)
-            modelUsed = "deepseek-r1"
-            success = true
-          } else {
-            throw LLMError.apiError("No API keys configured for selected model")
-          }
-
-          if success {
-            // Update UI on main thread
-            await MainActor.run {
-              isLoading = false
-              let responseMessage = ChatMessage(content: response, isUser: false, model: modelUsed)
-              messages.append(responseMessage)
-            }
-          }
-        } catch {
-          // Handle errors
-          await MainActor.run {
-            isLoading = false
-            errorMessage = "Error: \(error.localizedDescription)"
-          }
+        await MainActor.run {
+          state.messages.append(
+            ChatMessage(
+              content: response,
+              isUser: false,
+              model: state.selectedModel
+            ))
+          state.isLoading = false
+        }
+      } catch {
+        await MainActor.run {
+          state.errorMessage = "Error: \(error.localizedDescription)"
+          state.isLoading = false
         }
       }
     }
@@ -245,19 +213,12 @@ struct AIAssistantView: View {
 }
 
 struct AssistantMessageView: View {
-  var message: String
-  var model: String?
+  var message: ChatMessage
 
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
-      if let model = model {
-        Text("🤖 \(model)")
-          .font(.caption2)
-          .foregroundColor(.gray)
-          .padding(.bottom, 2)
-      }
 
-      Text(message)
+      Text(message.content)
         .padding(10)
         .background(Color.green.opacity(0.1))
         .cornerRadius(10)
@@ -265,7 +226,12 @@ struct AssistantMessageView: View {
       HStack {
         Button(action: {
           // Copy to clipboard functionality
-          UIPasteboard.general.string = message
+          #if canImport(UIKit)
+            UIPasteboard.general.string = message.content
+          #elseif canImport(AppKit)
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(message.content, forType: .string)
+          #endif
         }) {
           Image(systemName: "doc.on.doc")
             .font(.caption)
@@ -280,51 +246,43 @@ struct AssistantMessageView: View {
 }
 
 struct UserMessageView: View {
-  var message: String
-  @State private var selectedModel = "gpt-4o"
-  @State private var showingImagePicker = false
-  @State private var contextInfo = "Last updated: Notes section"
+  var message: ChatMessage
+  @EnvironmentObject private var state: AIAssistantState
 
-  let availableModels = [
-    "gpt-4o", "gpt-4o-mini", "o1", "deepseek-r1", "claude-3.7-sonnet",
-    "claude-3.5-sonnet",
-  ]
+  init(message: ChatMessage) {
+    self.message = message
+  }
 
   var body: some View {
-    VStack(alignment: .trailing, spacing: 8) {
-      // Context section
-      Text(contextInfo)
-        .font(.caption)
-        .foregroundColor(.gray)
-        .padding(.horizontal, 10)
+    VStack(alignment: .trailing, spacing: 4) {
+      // Message section with chat bubble
+      Text(message.content)
+        .padding(10)
+        .background(Color.gray.opacity(0.1))
+        .foregroundColor(.primary)
+        .cornerRadius(10)
+        .padding(.horizontal, 4)
 
-      // Message with controls
+      // Controls
       HStack {
-        // AI Model dropdown
         Menu {
-          ForEach(availableModels, id: \.self) { model in
+          ForEach(state.availableModels, id: \.self) { model in
             Button(model) {
-              selectedModel = model
+              // This would update the model if needed
             }
           }
         } label: {
-          HStack {
-            Text(selectedModel)
-              .font(.caption)
-              .foregroundColor(.primary)
-
-            Spacer()
-
-            Text(message)
-              .padding(10)
-              .background(Color.gray.opacity(0.2))
-              .cornerRadius(10)
-          }
+          Image(systemName: "ellipsis")
+            .font(.caption)
+            .foregroundColor(.gray)
         }
+        .buttonStyle(.plain)
 
-        Image(systemName: "document.on.document")
+        Image(systemName: "doc.on.doc")
+          .font(.caption)
           .foregroundColor(.gray)
       }
+      .padding(.top, 2)
     }
   }
 }

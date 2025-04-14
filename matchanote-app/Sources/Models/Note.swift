@@ -22,12 +22,13 @@ public enum PaperSize: String, CaseIterable, Codable {
 
 // Define the type of note
 public enum NoteType: String, CaseIterable {
-  case written, text, markdown
+  case written, text
 }
 
 public struct Note: Identifiable {
   public var id = UUID()
   public var title: String
+  public var subject: String
   public var color: Color
   public var dateCreated: Date
   public var dateModified: Date
@@ -39,12 +40,14 @@ public struct Note: Identifiable {
   public var paperSize: PaperSize = .a4
 
   public init(
-    title: String, color: Color, dateCreated: Date, dateModified: Date, isFavorite: Bool = false,
-    content: String = "", noteType: NoteType = .written,
+    title: String, subject: String = "", color: Color = .white, dateCreated: Date,
+    dateModified: Date, isFavorite: Bool = false,
+    content: String = "", noteType: NoteType,
     paperColor: PaperColor = .white,
     paperStyle: PaperStyle = .blank, paperSize: PaperSize = .a4
   ) {
     self.title = title
+    self.subject = subject
     self.color = color
     self.dateCreated = dateCreated
     self.dateModified = dateModified
@@ -59,33 +62,17 @@ public struct Note: Identifiable {
   // Sample notes
   public static let samples = [
     Note(
-      title: "Blank", color: .green, dateCreated: Date(), dateModified: Date(), noteType: .written),
+      title: "Blank", color: .matchaGreen, dateCreated: Date(), dateModified: Date(),
+      noteType: .written),
     Note(
-      title: "Grid", color: .green, dateCreated: Date(), dateModified: Date(), noteType: .written,
+      title: "Grid", color: .matchaGreen, dateCreated: Date(), dateModified: Date(),
+      noteType: .written,
       paperStyle: .grid),
     Note(
-      title: "Written grid infinite", color: .green, dateCreated: Date(), dateModified: Date(),
+      title: "Written grid infinite", color: .matchaGreen, dateCreated: Date(),
+      dateModified: Date(),
       noteType: .written,
       paperStyle: .grid),
 
-    Note(
-      title: "Markdown", color: .blue, dateCreated: Date(), dateModified: Date(),
-      noteType: .markdown),
-
-    Note(
-      title: "Meeting Notes", color: .orange, dateCreated: Date(), dateModified: Date(),
-      noteType: .text),
-    Note(
-      title: "Interior Design", color: .purple, dateCreated: Date(), dateModified: Date(),
-      noteType: .written),
-    Note(
-      title: "Workout Planner", color: .pink, dateCreated: Date(), dateModified: Date(),
-      noteType: .text),
-    Note(
-      title: "Smart City", color: .blue, dateCreated: Date(), dateModified: Date(),
-      noteType: .markdown),
-    Note(
-      title: "Shakespeare", color: .black, dateCreated: Date(), dateModified: Date(),
-      noteType: .written),
   ]
 }

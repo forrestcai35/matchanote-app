@@ -13,7 +13,6 @@ enum AssistantOrientation {
   case right, left
 }
 
-// DEFAULT NOTE VIEW CONTAINER
 struct NoteView: View {
   var note: Note
   @Environment(\.dismiss) var dismiss
@@ -26,6 +25,8 @@ struct NoteView: View {
   @State private var dragLocation: CGPoint = .zero
   @ObservedObject private var tabManager = TabManager.shared
   @State private var isEdited = false
+  @State private var toolPickerIsVisible = true
+  @StateObject private var assistantState = AIAssistantState()
 
   init(note: Note) {
     self.note = note
@@ -47,11 +48,11 @@ struct NoteView: View {
             // Showcase Contextual Toolbars
             switch activeTab.note.noteType {
             case .written:
-              WrittenNoteToolbar(isAssistantVisible: $isAssistantVisible)
+              WrittenNoteToolbar(
+                isAssistantVisible: $isAssistantVisible, toolPickerIsVisible: $toolPickerIsVisible)
             case .text:
               TextNoteToolbar(isAssistantVisible: $isAssistantVisible)
-            case .markdown:
-              MarkdownToolbar(isAssistantVisible: $isAssistantVisible)
+
             }
             Divider()
           } else if !tabManager.tabs.isEmpty {
@@ -79,7 +80,9 @@ struct NoteView: View {
           .animation(.spring(), value: isAssistantVisible)
           .animation(.spring(), value: assistantOrientation)
         }
-        .edgesIgnoringSafeArea(.all)
+        .edgesIgnoringSafeArea(.bottom)
+        .edgesIgnoringSafeArea(.leading)
+        .edgesIgnoringSafeArea(.trailing)
         .frame(width: geometry.size.width, height: geometry.size.height)
 
         // Hover indicator overlay
@@ -107,26 +110,29 @@ struct NoteView: View {
 
         switch activeTab.note.noteType {
         case .written:
-          WrittenNoteView(note: activeTab.note, isEdited: $isEdited)
+          WrittenNoteView(
+            note: activeTab.note, isEdited: $isEdited, toolPickerIsVisible: $toolPickerIsVisible)
         case .text:
           TextNoteView(note: activeTab.note, isEdited: $isEdited)
-        case .markdown:
-          MarkdownNoteView(note: activeTab.note, isEdited: $isEdited)
+
         }
       } else if !tabManager.tabs.isEmpty {
         let firstTab = tabManager.tabs[0]
         // Switch view based on note type for fallback if we close a tab
         switch firstTab.note.noteType {
         case .written:
-          WrittenNoteView(note: firstTab.note, isEdited: $isEdited)
+          WrittenNoteView(
+            note: firstTab.note, isEdited: $isEdited, toolPickerIsVisible: $toolPickerIsVisible)
         case .text:
           TextNoteView(note: firstTab.note, isEdited: $isEdited)
-        case .markdown:
-          MarkdownNoteView(note: firstTab.note, isEdited: $isEdited)
+
         }
       } else {
-        // Show empty state when no tabs exist
+
         EmptyStateView()
+          .onAppear {
+            toolPickerIsVisible = false
+          }
       }
     }
     .background(Color.white)
@@ -147,35 +153,25 @@ struct NoteView: View {
         switch orientation {
         case .right:
           Rectangle()
-            .fill(Color.green.opacity(0.2))
+            .fill(Color.matchaGreen.opacity(0.2))
             .frame(width: assistantWidth, height: size.height)
             .overlay(
               Rectangle()
-                .strokeBorder(Color.green.opacity(0.5), lineWidth: 2)
+                .strokeBorder(Color.matchaGreen.opacity(0.5), lineWidth: 2)
             )
             .position(x: size.width - assistantWidth / 2, y: size.height / 2)
         case .left:
           Rectangle()
-            .fill(Color.green.opacity(0.2))
+            .fill(Color.matchaGreen.opacity(0.2))
             .frame(width: assistantWidth, height: size.height)
             .overlay(
               Rectangle()
-                .strokeBorder(Color.green.opacity(0.5), lineWidth: 2)
+                .strokeBorder(Color.matchaGreen.opacity(0.5), lineWidth: 2)
             )
             .position(x: assistantWidth / 2, y: size.height / 2)
         }
       }
 
-      // Direction arrow indicator
-      Image(
-        systemName: orientation == .right
-          ? "arrow.right.circle.fill"
-          : "arrow.left.circle.fill"
-      )
-      .resizable()
-      .frame(width: 40, height: 40)
-      .foregroundColor(.green)
-      .position(dragLocation)
     }
   }
 
@@ -190,6 +186,7 @@ struct NoteView: View {
       }
 
       AIAssistantView()
+        .environmentObject(assistantState)
         .frame(width: assistantWidth)
         .contentShape(Rectangle())  // Make entire area draggable
         .gesture(
@@ -266,229 +263,10 @@ struct NoteView: View {
   }
 }
 
-// Contextual Toolbars
-struct WrittenNoteToolbar: View {
-  @Binding var isAssistantVisible: Bool
-  @State private var selectedColor: Color = .black
-  @State private var lineWidth: CGFloat = 2
-  @State private var showColorPicker: Bool = false
-  @State private var showThicknessPicker: Bool = false
-
-  // Simplified color selection
-  private let colors: [Color] = [.black, .blue, .red]
-  // Simplified thickness options
-  private let lineWidths: [CGFloat] = [1, 3, 5]
-
-  var body: some View {
-    HStack {
-      // Bookmark button
-      Button(action: {
-        // Bookmark functionality
-      }) {
-        Image(systemName: "bookmark")
-          .foregroundColor(.gray)
-      }
-
-      //View Button
-      Button(action: {
-        // Share functionality
-      }) {
-        Image(systemName: "square.grid.2x2")
-          .foregroundColor(.gray)
-      }
-      Spacer()
-      Button(action: {}) { Image(systemName: "arrow.uturn.backward") }
-      Button(action: {}) { Image(systemName: "arrow.uturn.forward") }
-      Divider()
-        .frame(height: 20)
-
-      Button(action: {}) { Image(systemName: "pencil.tip.crop.circle") }
-      Button(action: {}) { Image(systemName: "eraser") }
-      Button(action: {}) { Image(systemName: "highlighter") }
-      Button(action: {}) { Image(systemName: "lasso") }
-      Button(action: {}) { Image(systemName: "photo]") }
-      Divider()
-        .frame(height: 20)
-
-      //Color picker
-      ZStack(alignment: .topTrailing) {
-        HStack(spacing: 12) {
-          ForEach(colors, id: \.self) { color in
-            ZStack {
-
-              Circle()
-                .fill(color == selectedColor ? Color.gray.opacity(0.2) : Color.clear)
-                .frame(width: 28, height: 28)
-
-              Circle()
-                .fill(color)
-                .frame(width: 20, height: 20)
-
-              if color == selectedColor {
-                ColorPicker("", selection: $selectedColor)
-                  .labelsHidden()
-                  .frame(width: 20, height: 20)
-                  .scaleEffect(0.8)
-              }
-            }
-            .onTapGesture {
-              if color == selectedColor {
-                showThicknessPicker = false
-              } else {
-                selectedColor = color
-                showColorPicker = false
-              }
-            }
-          }
-        }
-
-      }
-
-      Divider()
-        .frame(height: 20)
-
-      // Thickness picker
-      ZStack(alignment: .bottom) {
-        HStack(spacing: 12) {
-          ForEach(lineWidths, id: \.self) { width in
-            ZStack {
-              // Background for selected thickness
-              RoundedRectangle(cornerRadius: 6)
-                .fill(width == lineWidth ? Color.gray.opacity(0.2) : Color.clear)
-                .frame(width: 28, height: 28)
-
-              // Thickness indicator
-              RoundedRectangle(cornerRadius: 2)
-                .fill(Color.black)
-                .frame(width: 20, height: width)
-
-            }
-
-          }
-        }
-      }
-      Spacer()
-
-      //Share Button
-      Button(action: {
-        // Share functionality
-      }) {
-        Image(systemName: "square.and.arrow.up")
-          .foregroundColor(.gray)
-      }
-
-      // AI assistant toggle
-      Button(action: {
-        isAssistantVisible.toggle()
-      }) {
-        Image(systemName: "wand.and.rays")
-          .foregroundColor(isAssistantVisible ? .green : .gray)
-      }
-    }
-    .padding(.horizontal, 20)
-    .padding(.vertical, 8)
-    .buttonStyle(PlainButtonStyle())
-    .foregroundColor(.gray)
-    .animation(.easeInOut(duration: 0.2), value: showColorPicker)
-    .animation(.easeInOut(duration: 0.2), value: showThicknessPicker)
-  }
-}
-
-// Toolbar for Text Notes
-struct TextNoteToolbar: View {
-  @Binding var isAssistantVisible: Bool
-
-  var body: some View {
-    HStack {
-
-      // Bookmark button
-      Button(action: {
-        // Bookmark functionality
-      }) {
-        Image(systemName: "bookmark")
-          .foregroundColor(.gray)
-      }
-
-      //View Button
-      Button(action: {
-        // Share functionality
-      }) {
-        Image(systemName: "square.grid.2x2")
-          .foregroundColor(.gray)
-      }
-      Spacer()
-      Button(action: {}) { Image(systemName: "bold") }
-      Button(action: {}) { Image(systemName: "italic") }
-      Button(action: {}) { Image(systemName: "underline") }
-      Button(action: {}) { Image(systemName: "list.bullet") }
-      Spacer()
-      //Share Button
-      Button(action: {
-        // Share functionality
-      }) {
-        Image(systemName: "square.and.arrow.up")
-          .foregroundColor(.gray)
-      }
-
-      // AI assistant toggle
-      Button(action: {
-        isAssistantVisible.toggle()
-      }) {
-        Image(systemName: "wand.and.rays")
-          .foregroundColor(isAssistantVisible ? .green : .gray)
-      }
-
-    }
-    .padding(.horizontal, 20)
-    .padding(.vertical, 8)
-    .buttonStyle(PlainButtonStyle())
-    .foregroundColor(.gray)
-
-  }
-}
-
-// Toolbar for Text Notes
-struct MarkdownToolbar: View {
-  @Binding var isAssistantVisible: Bool
-
-  var body: some View {
-    HStack {
-
-      Spacer()
-      Button(action: {}) { Image(systemName: "bold") }
-      Button(action: {}) { Image(systemName: "italic") }
-      Button(action: {}) { Image(systemName: "underline") }
-      Button(action: {}) { Image(systemName: "list.bullet") }
-      Spacer()
-      //Share Button
-      Button(action: {
-        // Share functionality
-      }) {
-        Image(systemName: "square.and.arrow.up")
-          .foregroundColor(.gray)
-      }
-
-      // AI assistant toggle
-      Button(action: {
-        isAssistantVisible.toggle()
-      }) {
-        Image(systemName: "wand.and.rays")
-          .foregroundColor(isAssistantVisible ? .green : .gray)
-      }
-
-    }
-    .padding(.horizontal, 20)
-    .padding(.vertical, 8)
-    .buttonStyle(PlainButtonStyle())
-    .foregroundColor(.gray)
-
-  }
-}
-
 struct NoteView_Previews: PreviewProvider {
   static var previews: some View {
     NoteView(note: Note.samples[0])
     NoteView(note: Note.samples[1])
-    NoteView(note: Note.samples[2])  // Text
+    NoteView(note: Note.samples[2])
   }
 }

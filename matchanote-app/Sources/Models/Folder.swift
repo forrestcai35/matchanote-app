@@ -10,7 +10,6 @@ import SwiftUI
 struct Folder: Identifiable, Hashable {
   var id = UUID()
   var name: String
-  var icon: String
   var color: Color
   var dateCreated: Date
   var dateModified: Date
@@ -23,11 +22,10 @@ struct Folder: Identifiable, Hashable {
 
   // MARK: - Initialization
   init(
-    name: String, icon: String = "folder", color: Color = .blue,
+    name: String, color: Color = .blue,
     parentID: UUID? = nil, dateCreated: Date = Date(), isFavorite: Bool = false
   ) {
     self.name = name
-    self.icon = icon
     self.color = color
     self.parentID = parentID
     self.dateCreated = dateCreated
@@ -86,11 +84,6 @@ struct Folder: Identifiable, Hashable {
     updateModificationDate()
   }
 
-  /// Change folder icon
-  mutating func changeIcon(to newIcon: String) {
-    icon = newIcon
-    updateModificationDate()
-  }
 
   /// Change folder color
   mutating func changeColor(to newColor: Color) {
@@ -114,11 +107,11 @@ struct Folder: Identifiable, Hashable {
 
   static var samples: [Folder] {
     [
-      Folder(name: "Documents", icon: "folder", color: .blue),
-      Folder(name: "Projects", icon: "folder.fill", color: .green),
-      Folder(name: "School", icon: "book.closed", color: .orange),
-      Folder(name: "Work", icon: "briefcase", color: .purple, isFavorite: true),
-      Folder(name: "Personal", icon: "person", color: .pink),
+      Folder(name: "Documents",  color: .blue),
+      Folder(name: "Projects",  color: .green),
+      Folder(name: "School",  color: .orange),
+      Folder(name: "Work", color: .purple, isFavorite: true),
+      Folder(name: "Personal",color: .pink),
     ]
   }
 }

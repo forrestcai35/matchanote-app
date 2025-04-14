@@ -18,12 +18,6 @@ struct SettingsPopover: View {
       }
 
       Button(action: {
-        // Preferences action
-      }) {
-        Label("Preferences", systemImage: "slider.horizontal.3")
-      }
-
-      Button(action: {
         // Theme action
       }) {
         Label("Theme", systemImage: "paintpalette")
@@ -34,7 +28,11 @@ struct SettingsPopover: View {
       }) {
         Label("About", systemImage: "info.circle")
       }
-
+      Button(action: {
+        // Trashcan
+      }) {
+        Label("Trash", systemImage: "trash")
+      }
       Divider()
 
       Button(action: {

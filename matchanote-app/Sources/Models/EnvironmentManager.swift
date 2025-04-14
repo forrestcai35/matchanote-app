@@ -71,7 +71,7 @@ class EnvironmentManager {
   /// Get API key for a specific service
   /// - Parameter service: Service name ("OPENAI", "DEEPSEEK", "CLAUDE")
   /// - Returns: API key as String or nil if not found
-  func getAPIKey(for service: String) -> String? {
+  func getLlmAPIKey(for service: String) -> String? {
     return get("\(service)_API_KEY")
   }
 }
