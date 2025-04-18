@@ -72,18 +72,12 @@ struct Folder: Identifiable, Hashable {
     updateModificationDate()
   }
 
-  /// Toggle favorite status
-  mutating func toggleFavorite() {
-    isFavorite.toggle()
-    updateModificationDate()
-  }
 
   /// Rename folder
   mutating func rename(to newName: String) {
     name = newName
     updateModificationDate()
   }
-
 
   /// Change folder color
   mutating func changeColor(to newColor: Color) {
@@ -107,11 +101,11 @@ struct Folder: Identifiable, Hashable {
 
   static var samples: [Folder] {
     [
-      Folder(name: "Documents",  color: .blue),
-      Folder(name: "Projects",  color: .green),
-      Folder(name: "School",  color: .orange),
-      Folder(name: "Work", color: .purple, isFavorite: true),
-      Folder(name: "Personal",color: .pink),
+      Folder(name: "Documents", color: .blue),
+      Folder(name: "Projects", color: .blue),
+      Folder(name: "School", color: .blue),
+      Folder(name: "Work", color: .blue, isFavorite: true),
+      Folder(name: "Personal", color: .blue),
     ]
   }
 }

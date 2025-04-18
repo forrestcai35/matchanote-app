@@ -15,7 +15,7 @@ struct GrowingTextEditor: View {
     ZStack(alignment: .topLeading) {
       TextEditor(text: $text)
         .frame(height: min(max(textEditorHeight, 80), maxHeight))
-        .scrollContentBackground(.hidden)  // Make background transparent
+        .scrollContentBackground(.hidden)
         .onChange(of: text) { newValue in
           let size = CGSize(width: UIScreen.main.bounds.width - 80, height: .infinity)
           let estimatedSize = newValue.boundingRect(
@@ -26,7 +26,6 @@ struct GrowingTextEditor: View {
           )
           textEditorHeight = min(estimatedSize.height + 30, maxHeight)
         }
-        // Add UIKit keyboard fix
         .background(KeyboardBackgroundFix())
 
       if text.isEmpty {
@@ -41,17 +40,14 @@ struct GrowingTextEditor: View {
 }
 
 #if canImport(UIKit)
-  // Helper to fix keyboard layout constraint conflicts
   struct KeyboardBackgroundFix: UIViewRepresentable {
     func makeUIView(context: Context) -> UIView {
       let view = UIView()
-      // Add a method to remove any input accessory view for the text view
+
       DispatchQueue.main.async {
-        // Find the text view in hierarchy
         if let textView = view.superview?.superview?.subviews.first(where: { $0 is UITextView })
           as? UITextView
         {
-          // Clear input accessory view to avoid constraint conflicts
           textView.inputAccessoryView = nil
         }
       }
@@ -61,7 +57,6 @@ struct GrowingTextEditor: View {
     func updateUIView(_ uiView: UIView, context: Context) {}
   }
 #else
-  // Fallback for non-UIKit platforms
   struct KeyboardBackgroundFix: View {
     var body: some View {
       EmptyView()

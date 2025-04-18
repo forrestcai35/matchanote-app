@@ -3,7 +3,6 @@ import SwiftUI
 
 class LocalAuthManager: ObservableObject {
   static let shared = LocalAuthManager()
-
   private let userDefaults = UserDefaults.standard
   private let hasLaunchedBeforeKey = "hasLaunchedBefore"
   private let isLoggedInKey = "isLoggedIn"
@@ -12,7 +11,6 @@ class LocalAuthManager: ObservableObject {
   @Published var isLoggedIn: Bool
 
   private init() {
-    // Check if the app has been launched before
     isFirstLaunch = !userDefaults.bool(forKey: hasLaunchedBeforeKey)
     isLoggedIn = userDefaults.bool(forKey: isLoggedInKey)
 

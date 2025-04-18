@@ -6,11 +6,25 @@ enum LlmError: Error {
   case invalidResponse
   case decodingFailed(Error)
   case missingAPIKey
+
+  var localizedDescription: String {
+    switch self {
+    case .invalidURL:
+      return "Invalid URL"
+    case .requestFailed(let error):
+      return "Request failed: \(error.localizedDescription)"
+    case .invalidResponse:
+      return "Invalid response from server"
+    case .decodingFailed(let error):
+      return "Failed to decode response: \(error.localizedDescription)"
+    case .missingAPIKey:
+      return "Missing API key"
+    }
+  }
 }
 
 struct OpenRouterAPI {
   private static var apiKey: String? = nil
-
   private static let openRouterEndpoint = "https://openrouter.ai/api/v1/chat/completions"
 
   static func configure(apiKey: String) {
@@ -31,8 +45,9 @@ struct OpenRouterAPI {
     request.httpMethod = "POST"
     request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
     request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.addValue("Matcha Note App", forHTTPHeaderField: "HTTP-Referer")
 
-    // Create payload
+    // Create payload with properly formatted model name
     let requestBody: [String: Any] = [
       "model": model,
       "messages": [
@@ -43,28 +58,46 @@ struct OpenRouterAPI {
     ]
 
     // Serialize to JSON
-    request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-
-    // Send request
-    let (data, response) = try await URLSession.shared.data(for: request)
-
-    // Check response
-    guard let httpResponse = response as? HTTPURLResponse,
-      httpResponse.statusCode == 200
-    else {
-      throw LlmError.invalidResponse
+    do {
+      request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+    } catch {
+      throw LlmError.requestFailed(error)
     }
 
-    // Parse response
+    // Send request
     do {
-      let responseObject = try JSONDecoder().decode(OpenRouterResponse.self, from: data)
-      if let message = responseObject.choices.first?.message.content {
-        return message
-      } else {
+      let (data, response) = try await URLSession.shared.data(for: request)
+
+      // Check response
+      guard let httpResponse = response as? HTTPURLResponse else {
         throw LlmError.invalidResponse
       }
+
+      // Debug response
+      if httpResponse.statusCode != 200 {
+        if let errorString = String(data: data, encoding: .utf8) {
+          print("API Error: \(errorString)")
+        }
+        throw LlmError.invalidResponse
+      }
+
+      // Parse response
+      do {
+        let responseObject = try JSONDecoder().decode(OpenRouterResponse.self, from: data)
+        if let message = responseObject.choices.first?.message.content {
+          return message
+        } else {
+          throw LlmError.invalidResponse
+        }
+      } catch {
+        print("Decoding error: \(error)")
+        throw LlmError.decodingFailed(error)
+      }
     } catch {
-      throw LlmError.decodingFailed(error)
+      if let urlError = error as? URLError {
+        print("Network error: \(urlError)")
+      }
+      throw LlmError.requestFailed(error)
     }
   }
 }

@@ -9,6 +9,8 @@ import PencilKit
 import SwiftUI
 import matchanote_app
 
+// import matchanote_app
+
 enum AssistantOrientation {
   case right, left
 }
@@ -27,6 +29,11 @@ struct NoteView: View {
   @State private var isEdited = false
   @State private var toolPickerIsVisible = true
   @StateObject private var assistantState = AIAssistantState()
+
+  // Added for lasso tool functionality
+  @State private var canvasViews: [PKCanvasView] = [PKCanvasView()]
+  @State private var currentPage: Int = 0
+  @State private var currentTool: PenTool? = nil
 
   init(note: Note) {
     self.note = note
@@ -49,9 +56,18 @@ struct NoteView: View {
             switch activeTab.note.noteType {
             case .written:
               WrittenNoteToolbar(
-                isAssistantVisible: $isAssistantVisible, toolPickerIsVisible: $toolPickerIsVisible)
+                isAssistantVisible: $isAssistantVisible,
+                toolPickerIsVisible: $toolPickerIsVisible,
+                canvasViews: $canvasViews,
+                currentPage: $currentPage,
+                currentTool: $currentTool)
             case .text:
-              TextNoteToolbar(isAssistantVisible: $isAssistantVisible)
+              TextNoteToolbar(
+                isAssistantVisible: $isAssistantVisible,
+                canvasViews: $canvasViews,
+                currentPage: $currentPage,
+                currentTool: $currentTool,
+                toolPickerIsVisible: $toolPickerIsVisible)
 
             }
             Divider()
@@ -111,7 +127,12 @@ struct NoteView: View {
         switch activeTab.note.noteType {
         case .written:
           WrittenNoteView(
-            note: activeTab.note, isEdited: $isEdited, toolPickerIsVisible: $toolPickerIsVisible)
+            note: activeTab.note,
+            isEdited: $isEdited,
+            toolPickerIsVisible: $toolPickerIsVisible,
+            canvasViews: $canvasViews,
+            currentPage: $currentPage,
+            currentTool: $currentTool)
         case .text:
           TextNoteView(note: activeTab.note, isEdited: $isEdited)
 
@@ -122,7 +143,12 @@ struct NoteView: View {
         switch firstTab.note.noteType {
         case .written:
           WrittenNoteView(
-            note: firstTab.note, isEdited: $isEdited, toolPickerIsVisible: $toolPickerIsVisible)
+            note: firstTab.note,
+            isEdited: $isEdited,
+            toolPickerIsVisible: $toolPickerIsVisible,
+            canvasViews: $canvasViews,
+            currentPage: $currentPage,
+            currentTool: $currentTool)
         case .text:
           TextNoteView(note: firstTab.note, isEdited: $isEdited)
 
@@ -145,7 +171,7 @@ struct NoteView: View {
   {
     ZStack {
       // Semi-transparent overlay covering the whole screen
-      Color.black.opacity(0.05)
+      Color.black.opacity(0.1)
         .edgesIgnoringSafeArea(.all)
 
       // Position indicator
@@ -153,26 +179,70 @@ struct NoteView: View {
         switch orientation {
         case .right:
           Rectangle()
-            .fill(Color.matchaGreen.opacity(0.2))
+            .fill(Color.green.opacity(0.2))
             .frame(width: assistantWidth, height: size.height)
             .overlay(
               Rectangle()
-                .strokeBorder(Color.matchaGreen.opacity(0.5), lineWidth: 2)
+                .strokeBorder(Color.green.opacity(0.5), lineWidth: 2)
             )
             .position(x: size.width - assistantWidth / 2, y: size.height / 2)
         case .left:
           Rectangle()
-            .fill(Color.matchaGreen.opacity(0.2))
+            .fill(Color.green.opacity(0.2))
             .frame(width: assistantWidth, height: size.height)
             .overlay(
               Rectangle()
-                .strokeBorder(Color.matchaGreen.opacity(0.5), lineWidth: 2)
+                .strokeBorder(Color.green.opacity(0.5), lineWidth: 2)
             )
             .position(x: assistantWidth / 2, y: size.height / 2)
         }
       }
 
     }
+  }
+
+  // Resizable handle view
+  @ViewBuilder
+  private func resizeHandleView() -> some View {
+    ZStack {
+      Rectangle()
+        .fill(Color.gray.opacity(0.07))
+        .frame(width: 6)
+
+      // Grip indicator
+      VStack(spacing: 6) {
+        ForEach(0..<3) { _ in
+          Circle()
+            .fill(Color.gray.opacity(0.5))
+            .frame(width: 5, height: 5)
+
+        }
+      }
+
+    }
+    .contentShape(Rectangle())
+    .gesture(
+      DragGesture(minimumDistance: 2)
+        .onChanged { value in
+          let newWidth =
+            assistantOrientation == .left
+            ? max(250, min(500, assistantWidth + value.translation.width))
+            : max(250, min(500, assistantWidth - value.translation.width))
+          assistantWidth = newWidth
+        }
+    )
+    .highPriorityGesture(
+
+      DragGesture(minimumDistance: 2)
+        .onChanged { value in
+
+          let newWidth =
+            assistantOrientation == .left
+            ? max(250, min(500, assistantWidth + value.translation.width))
+            : max(250, min(500, assistantWidth - value.translation.width))
+          assistantWidth = newWidth
+        }
+    )
   }
 
   // Extracted assistant panel view
@@ -192,7 +262,8 @@ struct NoteView: View {
         .gesture(
           DragGesture(minimumDistance: 20, coordinateSpace: .global)
             .onChanged { value in
-              // Update dragging state and position
+              // Only start dragging if we're not interacting with the resize handle
+              // (This is implicit since the resize handle has a higher priority gesture)
               isDraggingAssistant = true
               dragLocation = value.location
 
@@ -230,36 +301,6 @@ struct NoteView: View {
       }
     }
     .transition(assistantOrientation == .right ? .move(edge: .trailing) : .move(edge: .leading))
-  }
-
-  // Resizable handle view
-  @ViewBuilder
-  private func resizeHandleView() -> some View {
-    ZStack {
-      Rectangle()
-        .fill(Color.gray.opacity(0.07))
-        .frame(width: 6)
-
-      // Grip indicator
-      VStack(spacing: 6) {
-        ForEach(0..<3) { _ in
-          Circle()
-            .fill(Color.gray.opacity(0.5))
-            .frame(width: 5, height: 5)
-        }
-      }
-    }
-    .gesture(
-      DragGesture()
-        .onChanged { value in
-          // Horizontal resizing (left/right)
-          let newWidth =
-            assistantOrientation == .left
-            ? max(250, min(500, assistantWidth + value.translation.width))
-            : max(250, min(500, assistantWidth - value.translation.width))
-          assistantWidth = newWidth
-        }
-    )
   }
 }
 

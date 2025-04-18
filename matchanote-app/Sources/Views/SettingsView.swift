@@ -3,6 +3,7 @@ import matchanote_app
 
 // Settings popover view
 struct SettingsPopover: View {
+    @Environment(\.colorScheme) private var colorScheme
   var body: some View {
     VStack(alignment: .leading, spacing: 15) {
       Text("Settings")
@@ -16,23 +17,27 @@ struct SettingsPopover: View {
       }) {
         Label("Account", systemImage: "person.circle")
       }
+      .foregroundColor(colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
 
       Button(action: {
         // Theme action
       }) {
         Label("Theme", systemImage: "paintpalette")
       }
+      .foregroundColor(colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
 
       Button(action: {
         // About action
       }) {
         Label("About", systemImage: "info.circle")
       }
+      .foregroundColor(colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
       Button(action: {
         // Trashcan
       }) {
         Label("Trash", systemImage: "trash")
       }
+      .foregroundColor(colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
       Divider()
 
       Button(action: {

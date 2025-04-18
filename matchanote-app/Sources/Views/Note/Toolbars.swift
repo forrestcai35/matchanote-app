@@ -1,5 +1,20 @@
+import PencilKit
 import SwiftUI
 import matchanote_app
+
+enum PenTool {
+  case pen
+  case lasso
+
+  var toolInstance: PKTool {
+    switch self {
+    case .pen:
+      return PKInkingTool(.pen)
+    case .lasso:
+      return PKLassoTool()
+    }
+  }
+}
 
 // Contextual Toolbars
 struct WrittenNoteToolbar: View {
@@ -8,6 +23,11 @@ struct WrittenNoteToolbar: View {
 
   // Reference to the PKToolPicker visibility
   @Binding var toolPickerIsVisible: Bool
+
+  // Added to reference canvas array and current page
+  @Binding var canvasViews: [PKCanvasView]
+  @Binding var currentPage: Int
+  @Binding var currentTool: PenTool?
 
   var body: some View {
     HStack {
@@ -28,13 +48,33 @@ struct WrittenNoteToolbar: View {
       }
 
       Spacer()
-
+      // PLACE TOOLS HERE
       // Toggle ToolPicker visibility
       Button(action: {
         toolPickerIsVisible.toggle()
       }) {
         Image(systemName: "pencil.tip.crop.circle")
-          .foregroundColor(toolPickerIsVisible ? .matchaGreen : .gray)
+          .foregroundColor(toolPickerIsVisible ? .green : .gray)
+      }
+
+      // Lasso Tool
+      Button(action: {
+        if currentTool == .lasso {
+          // If lasso is already selected, deselect it and revert to pen
+          currentTool = .pen
+          if currentPage < canvasViews.count {
+            canvasViews[currentPage].tool = PenTool.pen.toolInstance
+          }
+        } else {
+          // Select lasso tool
+          currentTool = .lasso
+          if currentPage < canvasViews.count {
+            canvasViews[currentPage].tool = PenTool.lasso.toolInstance
+          }
+        }
+      }) {
+        Image(systemName: "lasso")
+          .foregroundColor(currentTool == .lasso ? .green : .gray)
       }
       // Add text
       Button(action: {
@@ -43,14 +83,14 @@ struct WrittenNoteToolbar: View {
         Image(systemName: "character.textbox")
           .foregroundColor(.gray)
       }
+
+      Spacer()
       Button(action: {
         // Add functionality
       }) {
         Image(systemName: "plus.circle")
           .foregroundColor(.gray)
       }
-      Spacer()
-
       //Share Button
       Button(action: {
         // Share functionality
@@ -64,7 +104,7 @@ struct WrittenNoteToolbar: View {
         isAssistantVisible.toggle()
       }) {
         Image(systemName: "wand.and.rays")
-          .foregroundColor(isAssistantVisible ? .matchaGreen : .gray)
+          .foregroundColor(isAssistantVisible ? .green : .gray)
       }
     }
     .padding(.horizontal, 20)
@@ -79,6 +119,13 @@ struct WrittenNoteToolbar: View {
 struct TextNoteToolbar: View {
   @Binding var isAssistantVisible: Bool
   @Environment(\.colorScheme) private var colorScheme
+
+  // Add the properties for compatibility, even if not used in text mode
+  @Binding var canvasViews: [PKCanvasView]
+  @Binding var currentPage: Int
+  @Binding var currentTool: PenTool?
+  @Binding var toolPickerIsVisible: Bool
+
   var body: some View {
     HStack {
 

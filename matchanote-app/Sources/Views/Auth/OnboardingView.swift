@@ -112,24 +112,6 @@ struct OnboardingView: View {
             }
             .frame(width: min(geometry.size.width * 0.8, 450))
 
-            // Apple Sign In Button
-            // Button(action: {
-            //   signInWithApple()
-            // }) {
-            //   HStack {
-            //     Image(systemName: "apple.logo")
-            //       .font(.title3)
-            //     Text("Continue with Apple")
-            //       .fontWeight(.semibold)
-            //   }
-            //   .frame(maxWidth: .infinity)
-            //   .padding()
-            //   .background(Color.black)
-            //   .foregroundColor(.white)
-            //   .cornerRadius(10)
-            // }
-            // .frame(width: min(geometry.size.width * 0.7, 450))
-
             // Google Sign In Button
             Button(action: {
               signInWithGoogle()
@@ -196,20 +178,9 @@ struct OnboardingView: View {
   }
 
   // MARK: - Authentication Methods
-  // private func signInWithApple() {
-  //   isLoading = true
-  //   errorMessage = nil
-
-  //   DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-  //     self.isLoading = false
-  //     self.authManager.setLoggedIn()
-  //   }
-  // }
-
   private func signInWithGoogle() {
     isLoading = true
     errorMessage = nil
-
     // Simulate network request
     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
       self.isLoading = false

@@ -7,16 +7,16 @@ import matchanote_app
   import AppKit
 #endif
 
-// import matchanote_app  // Commented out until correct module name is confirmed
-
-// Add a state object to share assistant state across orientation changes
 class AIAssistantState: ObservableObject {
   @Published var messages: [ChatMessage] = []
   @Published var userInput = ""
   @Published var selectedModel = "qwen/qwq-32b:free"
   @Published var isLoading = false
   @Published var errorMessage: String? = nil
-  @Published var availableModels = ["qwen/qwq-32b:free", "deepseek/deepseek-r1-zero:free"]
+  @Published var availableModels = [
+    "qwen/qwq-32b:free", "deepseek/deepseek-r1-zero:free", "google/gemma-3-1b-it:free",
+    "mistralai/mistral-small-3.1-24b-instruct:free",
+  ]
 }
 
 struct ChatMessage: Identifiable {
@@ -38,7 +38,7 @@ struct AIAssistantView: View {
   @EnvironmentObject private var state: AIAssistantState
   @State private var showingImagePicker = false
   @State private var contextInfo = ""
-
+    @Environment(\.colorScheme) private var colorScheme
   // Configure models
   init() {
     OpenRouterAPI.configure(apiKey: EnvironmentManager.shared.getLlmAPIKey(for: "OPENROUTER")!)
@@ -49,7 +49,7 @@ struct AIAssistantView: View {
       // Assistant header
       HStack {
         Image(systemName: "sparkles")
-          .foregroundColor(.green)
+          .foregroundColor(colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
         Text("Matcha Assistant")
           .font(.headline)
 
@@ -57,7 +57,7 @@ struct AIAssistantView: View {
 
       }
       .padding()
-      .background(Color.green.opacity(0.1))
+      .background(colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light)
 
       // Chat history area
       ScrollView {
@@ -130,7 +130,6 @@ struct AIAssistantView: View {
         }
         .padding(.horizontal)
 
-        // Custom text input with embedded button
         ZStack(alignment: .bottomTrailing) {
           GrowingTextEditor(text: $state.userInput, placeholderText: "Ask Matcha Assistant...")
             .padding(.vertical, 8)
@@ -148,7 +147,6 @@ struct AIAssistantView: View {
               }
             }
 
-          // Send message when the user presses the send button
           Button(action: {
             sendMessage()
           }) {
@@ -268,7 +266,7 @@ struct UserMessageView: View {
         Menu {
           ForEach(state.availableModels, id: \.self) { model in
             Button(model) {
-              // This would update the model if needed
+              state.selectedModel = model
             }
           }
         } label: {

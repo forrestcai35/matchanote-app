@@ -29,7 +29,7 @@ struct DocumentsView: View {
     @State private var refreshID = UUID()
     @ObservedObject private var tabManager = TabManager.shared
     @Environment(\.colorScheme) private var colorScheme
-    // Enum to track what type of item is being dragged
+
     private enum DragItemType {
         case folder
         case note
@@ -76,26 +76,54 @@ struct DocumentsView: View {
         NavigationView {
             // Sidebar
             VStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    Image("Logo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 24)  // Adjust logo size
+
+                    Text("Matcha")
+                        .font(.title)
+                        .fontWeight(.bold)
+                }
                 searchBar
                 sidebarList
             }
-            .navigationTitle("Matcha")
+
+            .background(
+                LinearGradient(
+                    gradient: Gradient(
+                        colors: [
+                            colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light,
+                            colorScheme == .dark ? Color.black : Color.white,
+                        ]
+                    ),
+                    startPoint: .bottom,
+                    endPoint: .top
+                )
+            )
             contentView
         }
-        .accentColor(colorScheme == .dark ? Color.white : Color.black)
-
+        .accentColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
     }
+
     // MARK: - Component Views
     private var searchBar: some View {
         HStack {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(.matchaGreen)
+                .foregroundColor(.gray)
             TextField("Search", text: $searchText)
                 .textFieldStyle(PlainTextFieldStyle())
         }
         .padding(8)
-        .background(Color.gray.opacity(0.2))
-        .cornerRadius(8)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(colorScheme == .dark ? .black : .white).opacity(0.7))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                )
+        )
         .padding(.horizontal)
         .padding(.top, 10)
     }
@@ -105,27 +133,29 @@ struct DocumentsView: View {
             ForEach(sidebarItems) { item in
                 HStack {
                     Image(systemName: item.icon)
-                        .foregroundColor(.matchaGreen)
+                        .fontWeight(.medium)
+                        .foregroundColor(
+                            colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
                     Text(item.title)
-
                     Spacer()
-
                 }
+                .fontWeight(.medium)
                 .padding(.vertical, 8)
-                .padding(.leading)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     selectedItem = item.id
-                    // Reset folder navigation when selecting "Documents"
                     if item.id == "documents" {
                         currentFolderID = nil
                         folderPath = []
                     }
                 }
                 .listRowBackground(
-                    (selectedItem == item.id ? Color.matchaGreen.opacity(0.2) : Color.clear)
+                    (selectedItem == item.id
+                        ? (colorScheme == .dark
+                            ? Color.matchalight_dark.opacity(0.2)
+                            : Color.matchalight_light.opacity(0.2)) : Color.clear)
                         .cornerRadius(8)
-                        .padding(.horizontal, 6)
+                        .padding(.horizontal, 0)
                         .padding(.vertical, 8)
                 )
             }
@@ -147,17 +177,22 @@ struct DocumentsView: View {
                             showSettings.toggle()
                         }) {
                             Image(systemName: "gear")
-                                .foregroundColor(colorScheme == .dark ? Color.white : Color.black)
+                                .fontWeight(.medium)
+                                .foregroundColor(
+                                    colorScheme == .dark
+                                        ? Color.matchabrown_dark : Color.matchabrown_light)
                         }
                         .popover(isPresented: $showSettings, arrowEdge: .top) {
                             SettingsPopover()
                         }
                     }
                 }
+
         }
+
     }
 
-    // Document view
+    // MARK: - Document view
     private var documentsView: some View {
         VStack(alignment: .leading, spacing: 0) {
             documentHeader
@@ -166,7 +201,7 @@ struct DocumentsView: View {
         }
     }
 
-    // Folder navigation breadcrumbs
+    // MARK: - Folder navigation breadcrumbs
     private var folderPathBreadcrumbs: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             folderPathContent
@@ -247,12 +282,15 @@ struct DocumentsView: View {
             .padding(.horizontal, 8)
             .background(
                 index == folderPath.count - 1
-                    ? Color.matchaGreen.opacity(0.2) : Color.gray.opacity(0.1)
+                    ? (colorScheme == .dark
+                        ? Color.matchalight_dark.opacity(0.2)
+                        : Color.matchalight_light.opacity(0.2)) : Color.gray.opacity(0.1)
             )
             .cornerRadius(8)
         }
         .buttonStyle(PlainButtonStyle())
     }
+    // MARK: - Document View Components
     private var documentHeader: some View {
         HStack {
             Text(currentFolderID == nil ? "Documents" : folderPath.last?.name ?? "Documents")
@@ -260,6 +298,7 @@ struct DocumentsView: View {
                 .bold()
             Spacer()
             sortMenu
+
             viewToggleButton
         }
         .padding(.horizontal)
@@ -269,14 +308,24 @@ struct DocumentsView: View {
     private var sortMenu: some View {
         Menu {
             Button("Date", action: { sortOption = "Date" })
+                .fontWeight(.medium)
             Button("Name", action: { sortOption = "Name" })
+                .fontWeight(.medium)
             Button("Type", action: { sortOption = "Type" })
+                .fontWeight(.medium)
             Button("Favorites", action: { sortOption = "Favorites" })
+                .fontWeight(.medium)
         } label: {
-            Label(sortOption, systemImage: "arrow.up.arrow.down")
-                .foregroundColor(colorScheme == .dark ? Color.white : Color.black)
-                .padding(8)
-                .cornerRadius(8)
+            Label {
+                Text(sortOption)
+                    .fontWeight(.medium)
+            } icon: {
+                Image(systemName: "arrow.up.arrow.down")
+            }
+            .foregroundColor(
+                colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+            )
+            .fontWeight(.medium)
         }
     }
     private var viewToggleButton: some View {
@@ -285,7 +334,10 @@ struct DocumentsView: View {
                 isGridView ? "Grid View" : "List View",
                 systemImage: isGridView ? "square.grid.2x2" : "list.bullet"
             )
-            .foregroundColor(colorScheme == .dark ? Color.white : Color.black)
+            .fontWeight(.medium)
+            .foregroundColor(
+                colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+            )
             .labelStyle(.iconOnly)
             .padding(8)
             .cornerRadius(8)
@@ -342,51 +394,132 @@ struct DocumentsView: View {
         self.dragItem = nil
     }
 
-    // Helper function to create a folder grid item
-    private func folderGridItem(for folder: Folder) -> some View {
-        GridFolderItemView(folder: folder)
+    // Helper to apply common modifiers for items (both notes and folders)
+    private func applyCommonItemModifiers<T: View, U: Identifiable>(
+        view: T,
+        for item: U,
+        onTap: @escaping () -> Void,
+        contextMenu: @escaping () -> some View,
+        dragStartHandler: @escaping () -> NSItemProvider,
+        dragPreviewHandler: @escaping () -> some View,
+        dropHandler: @escaping () -> Bool
+    ) -> some View {
+        view
             .onTapGesture {
-                navigateToFolder(folder)
+                onTap()
             }
             .contextMenu {
-                folderContextMenu(folder)
+                contextMenu()
             }
-            // Simplify folder dragging
             .onDrag {
-                startDragging(folder: folder)
+                dragStartHandler()
             } preview: {
-                folderDragPreview(for: folder)
+                dragPreviewHandler()
             }
-            // Simplify drop handling
             .onDrop(of: ["public.text"], isTargeted: nil) { _, _ in
-                handleDrop(onto: folder)
+                dropHandler()
             }
     }
-    // Folder drag preview
-    private func folderDragPreview(for folder: Folder) -> some View {
-        ZStack {
-            // Folder background
-            RoundedRectangle(cornerRadius: 10)
-                .fill(folder.color)
-                .frame(width: 120, height: 150)
-                .shadow(
-                    color: colorScheme == .dark
-                        ? Color.white.opacity(0.4) : Color.black.opacity(0.2),
-                    radius: 5,
-                    x: 0,
-                    y: 2
-                )
 
-            Image(systemName: "folder")
-                .font(.system(size: 30))
-                .foregroundColor(Color.white.opacity(0.3))
+    // Helper to add consistent shadow styling
+    private func itemShadow(in colorScheme: ColorScheme) -> Color {
+        return colorScheme == .dark ? Color.white.opacity(0.4) : Color.black.opacity(0.2)
+    }
+
+    // Centralize note type icon logic
+    private func noteTypeIcon(_ type: NoteType) -> String {
+        switch type {
+        case .written:
+            return "pencil"
+        case .text:
+            return "text.page"
         }
     }
+
+    // MARK: - Drag and Drop Handling
+    // Generic drag preview function that works for both folders and notes
+    private func dragPreview(for item: Any) -> some View {
+        let width: CGFloat = 120
+        let height: CGFloat = 150
+
+        if let folder = item as? Folder {
+            return AnyView(
+                ZStack {
+                    Image("folder")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 175, height: 140)
+                        .clipped()
+
+                }
+            )
+        } else if let note = item as? Note {
+            return AnyView(
+                ZStack {
+                    if note.noteType == .written {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(note.color)
+                            .frame(width: width, height: height)
+                            .shadow(
+                                color: itemShadow(in: colorScheme),
+                                radius: 5,
+                                x: 0,
+                                y: 2
+                            )
+
+                        Image(systemName: "pencil.tip")
+                            .font(.system(size: 30))
+                            .foregroundColor(Color.white.opacity(0.3))
+                    } else if note.noteType == .text {
+                        RoundedRectangle(cornerRadius: 0)
+                            .fill(note.color)
+                            .frame(width: width, height: height)
+                            .shadow(
+                                color: itemShadow(in: colorScheme),
+                                radius: 6,
+                                x: 0,
+                                y: 2
+                            )
+                        Image(systemName: "text.alignleft")
+                            .font(.system(size: 30))
+                            .foregroundColor(Color.white.opacity(0.3))
+                    }
+                }
+            )
+        } else {
+            return AnyView(EmptyView())
+        }
+    }
+
+    // Helper function to create a folder grid item
+    private func folderGridItem(for folder: Folder) -> some View {
+        applyCommonItemModifiers(
+            view: GridFolderItemView(folder: folder),
+            for: folder,
+            onTap: {
+                navigateToFolder(folder)
+            },
+            contextMenu: {
+                folderContextMenu(folder)
+            },
+            dragStartHandler: {
+                startDragging(folder: folder)
+            },
+            dragPreviewHandler: {
+                dragPreview(for: folder)
+            },
+            dropHandler: {
+                handleDrop(onto: folder)
+            }
+        )
+    }
+
     // Helper function to create a note grid item
     private func noteGridItem(for note: Note) -> some View {
-        NavigationLink(
+        let baseView = NavigationLink(
             destination: NoteView(note: note)
                 .navigationBarBackButtonHidden(true)
+
         ) {
             GridItemView(note: note)
         }
@@ -396,53 +529,17 @@ struct DocumentsView: View {
                 TabManager.shared.openTab(note: note)
             }
         )
-        .contextMenu {
-            noteContextMenu(note)
-        }
-        // Simplify note dragging
-        .onDrag {
-            startDragging(note: note)
-        } preview: {
-            noteDragPreview(for: note)
-        }
-    }
+        return
 
-    // Note drag preview
-    private func noteDragPreview(for note: Note) -> some View {
-        ZStack {
-            if note.noteType == .written {
-                // Background
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(note.color)
-                    .frame(width: 120, height: 150)
-                    .shadow(
-                        color: colorScheme == .dark
-                            ? Color.white.opacity(0.4) : Color.black.opacity(0.2),
-                        radius: 5,
-                        x: 0,
-                        y: 2
-                    )
-
-                Image(systemName: "pencil.tip")
-                    .font(.system(size: 30))
-                    .foregroundColor(Color.white.opacity(0.3))
-            } else if note.noteType == .text {
-                // Background
-                RoundedRectangle(cornerRadius: 0)
-                    .fill(note.color)
-                    .frame(width: 120, height: 150)
-                    .shadow(
-                        color: colorScheme == .dark
-                            ? Color.white.opacity(0.4) : Color.black.opacity(0.2),
-                        radius: 6,
-                        x: 0,
-                        y: 2
-                    )
-                Image(systemName: "text.alignleft")
-                    .font(.system(size: 30))
-                    .foregroundColor(Color.white.opacity(0.3))
+            baseView
+            .contextMenu {
+                noteContextMenu(note)
             }
-        }
+            .onDrag {
+                startDragging(note: note)
+            } preview: {
+                dragPreview(for: note)
+            }
     }
 
     private var listView: some View {
@@ -452,9 +549,7 @@ struct DocumentsView: View {
         }
         .padding(.vertical)
         .id(refreshID)
-        // Simplify root drop target
         .onDrop(of: ["public.text"], isTargeted: nil) { _, _ in
-            // Only handle drop if we're at the root level
             guard currentFolderID == nil else { return false }
             return handleDrop()
         }
@@ -465,7 +560,6 @@ struct DocumentsView: View {
         LazyVStack(spacing: 8) {
             // Show folders first
             foldersListContent
-
             // Then show notes
             notesListContent
         }
@@ -487,28 +581,31 @@ struct DocumentsView: View {
 
     // Helper function to create a folder list item
     private func folderListItem(for folder: Folder) -> some View {
-        ListFolderItemView(folder: folder)
-            .onTapGesture {
+        applyCommonItemModifiers(
+            view: ListFolderItemView(folder: folder),
+            for: folder,
+            onTap: {
                 navigateToFolder(folder)
-            }
-            .contextMenu {
+            },
+            contextMenu: {
                 folderContextMenu(folder)
-            }
-            // Simplify folder dragging
-            .onDrag {
+            },
+            dragStartHandler: {
                 startDragging(folder: folder)
-            } preview: {
-                folderDragPreview(for: folder)
-            }
-            // Simplify drop handling
-            .onDrop(of: ["public.text"], isTargeted: nil) { _, _ in
+            },
+            dragPreviewHandler: {
+                dragPreview(for: folder)
+            },
+            dropHandler: {
                 handleDrop(onto: folder)
             }
+        )
     }
 
     // Helper function to create a note list item
     private func noteListItem(for note: Note) -> some View {
-        NavigationLink(
+        // NavigationLink needs special handling since we can't directly apply modifiers to it
+        let baseView = NavigationLink(
             destination: NoteView(note: note)
                 .navigationBarBackButtonHidden(true)
         ) {
@@ -520,15 +617,29 @@ struct DocumentsView: View {
                 TabManager.shared.openTab(note: note)
             }
         )
-        .contextMenu {
-            noteContextMenu(note)
-        }
-        // Simplify note dragging
-        .onDrag {
-            startDragging(note: note)
-        } preview: {
-            noteDragPreview(for: note)
-        }
+
+        return
+            baseView
+            .contextMenu {
+                noteContextMenu(note)
+            }
+            .onDrag {
+                startDragging(note: note)
+            } preview: {
+                dragPreview(for: note)
+            }
+    }
+
+    // Start dragging a folder
+    private func startDragging(folder: Folder) -> NSItemProvider {
+        dragItem = (.folder, folder.id)
+        return NSItemProvider(object: folder.id.uuidString as NSString)
+    }
+
+    // Start dragging a note
+    private func startDragging(note: Note) -> NSItemProvider {
+        dragItem = (.note, note.id)
+        return NSItemProvider(object: note.id.uuidString as NSString)
     }
 
     // Handle drop to root level
@@ -539,7 +650,6 @@ struct DocumentsView: View {
 
         // Create a new copy of the folders array
         var newFolders = folders
-
         switch draggedItemType.type {
         case .folder:
             // Move folder to root level
@@ -549,7 +659,7 @@ struct DocumentsView: View {
                 // Replace the entire folders array
                 DispatchQueue.main.async {
                     self.folders = newFolders
-                    self.forceRefresh()
+
                 }
 
                 return true
@@ -570,7 +680,7 @@ struct DocumentsView: View {
                 // Replace the entire folders array
                 DispatchQueue.main.async {
                     self.folders = newFolders
-                    self.forceRefresh()
+
                 }
             }
 
@@ -583,7 +693,6 @@ struct DocumentsView: View {
     // Handle drop onto a specific folder
     private func handleDrop(onto targetFolder: Folder? = nil) -> Bool {
         guard let (type, id) = dragItem else { return false }
-
         // Create a working copy of folders
         var newFolders = folders
 
@@ -695,7 +804,8 @@ struct DocumentsView: View {
             Button(action: {
                 // Toggle favorite
                 if let index = folders.firstIndex(where: { $0.id == folder.id }) {
-                    folders[index].toggleFavorite()
+                    folders[index].isFavorite.toggle()
+
                 }
             }) {
                 Label(
@@ -731,6 +841,7 @@ struct DocumentsView: View {
                 // Toggle favorite
                 if let index = notes.firstIndex(where: { $0.id == note.id }) {
                     notes[index].isFavorite.toggle()
+
                 }
             }) {
                 Label(
@@ -758,7 +869,7 @@ struct DocumentsView: View {
             Button {
                 let newNote = Note(
                     title: "New Note",
-                    color: .matchaGreen,
+                    color: .green,
                     dateCreated: Date(),
                     dateModified: Date(),
                     noteType: .written
@@ -779,7 +890,7 @@ struct DocumentsView: View {
             Button {
                 let newFolder = Folder(
                     name: "New Folder",
-                    color: .matchaGreen,
+                    color: .green,
                     parentID: currentFolderID,
                     dateCreated: Date()
                 )
@@ -828,9 +939,9 @@ struct DocumentsView: View {
         HStack {
             Image(systemName: "plus.circle.fill")
                 .font(.title2)
-                .foregroundColor(colorScheme == .dark ? Color.white : Color.black)
+
             Text("New...")
-                .foregroundColor(colorScheme == .dark ? Color.white : Color.black)
+
                 .fontWeight(.medium)
             Spacer()
         }
@@ -838,7 +949,6 @@ struct DocumentsView: View {
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .stroke(
-                    colorScheme == .dark ? Color.white : Color.black,
                     style: StrokeStyle(lineWidth: 2, dash: [5])
                 )
                 .background(
@@ -846,6 +956,7 @@ struct DocumentsView: View {
                         .fill(Color.gray.opacity(0.03))
                 )
         )
+        .foregroundColor(colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
         .padding(.horizontal)
         .contentShape(Rectangle())
     }
@@ -855,19 +966,20 @@ struct DocumentsView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 10)
                     .stroke(
-                        colorScheme == .dark ? Color.white : Color.black,
-                        style: StrokeStyle(lineWidth: 1, dash: [5])
+                        style: StrokeStyle(lineWidth: 2, dash: [5])
                     )
                     .frame(width: 160, height: 200)
                 Image(systemName: "plus")
                     .font(.largeTitle)
-                    .foregroundColor(colorScheme == .dark ? Color.white : Color.black)
             }
+            .foregroundColor(colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
 
             // Match title text padding and style
             Text("New...")
                 .padding(.top, 5)
-                .foregroundColor(colorScheme == .dark ? Color.white : Color.black)
+                .foregroundColor(
+                    colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light
+                )
                 .frame(width: 160)
                 .fontWeight(.medium)
                 .multilineTextAlignment(.center)
@@ -880,20 +992,6 @@ struct DocumentsView: View {
                 .frame(width: 160)
         }
         .frame(width: 160)
-    }
-
-    // MARK: - Drag and Drop Handling
-
-    // Start dragging a folder
-    private func startDragging(folder: Folder) -> NSItemProvider {
-        dragItem = (.folder, folder.id)
-        return NSItemProvider(object: folder.id.uuidString as NSString)
-    }
-
-    // Start dragging a note
-    private func startDragging(note: Note) -> NSItemProvider {
-        dragItem = (.note, note.id)
-        return NSItemProvider(object: note.id.uuidString as NSString)
     }
 
     // Helper to find the UISplitViewController in the view controller hierarchy
@@ -913,272 +1011,8 @@ struct DocumentsView: View {
         return nil
     }
 
-    // Force a refresh of the view
-    private func forceRefresh() {
-        DispatchQueue.main.async {
-            print("Forcing UI refresh")
-            self.refreshID = UUID()
-        }
-    }
 }
 
-// Add a helper view for list items
-private struct ListItemView: View {
-    @Environment(\.colorScheme) private var colorScheme
-    let note: Note
-    var body: some View {
-        HStack {
-            // Color indicator
-            RoundedRectangle(cornerRadius: 4)
-                .fill(note.color)
-                .frame(width: 6)
-                .frame(maxHeight: .infinity)
-
-            // Note info
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 4) {
-                    // Type icon next to title
-                    Image(systemName: noteTypeIcon(note.noteType))
-                        .foregroundColor(colorScheme == .dark ? Color.white : Color.black)
-                        .font(.caption)
-
-                    Text(note.title)
-                        .fontWeight(.medium)
-                        .lineLimit(1)
-                }
-
-                Text(note.dateModified, style: .date)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .padding(.vertical, 6)
-            .padding(.horizontal, 4)
-
-            Spacer()
-
-            // Star indicator
-            Image(systemName: note.isFavorite ? "star.fill" : "star")
-                .foregroundColor(note.isFavorite ? .yellow : .gray)
-                .font(.caption)
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 56)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.secondary.opacity(0.05))
-
-        )
-        .padding(.horizontal)
-        .contentShape(Rectangle())
-
-    }
-
-    private func noteTypeIcon(_ type: NoteType) -> String {
-        switch type {
-        case .written:
-            return "pencil"
-        case .text:
-            return "text.page"
-        }
-    }
-}
-
-// Add a helper view for folder list items
-private struct ListFolderItemView: View {
-    @Environment(\.colorScheme) private var colorScheme
-    let folder: Folder
-
-    var body: some View {
-        HStack {
-            // Color indicator
-            RoundedRectangle(cornerRadius: 4)
-                .fill(folder.color)
-                .frame(width: 6)
-                .frame(maxHeight: .infinity)
-
-            // Folder info
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 4) {
-                    Image(systemName: "folder")
-                        .foregroundColor(colorScheme == .dark ? Color.white : Color.black)
-                        .font(.caption)
-                    Text(folder.name)
-                        .fontWeight(.medium)
-                        .lineLimit(1)
-                }
-
-                Text(folder.dateModified, style: .date)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .padding(.vertical, 6)
-            .padding(.horizontal, 4)
-
-            Spacer()
-
-            // Star indicator
-            Image(systemName: folder.isFavorite ? "star.fill" : "star")
-                .foregroundColor(folder.isFavorite ? .yellow : .gray)
-                .font(.caption)
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 56)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.secondary.opacity(0.05))
-        )
-        .padding(.horizontal)
-        .contentShape(Rectangle())
-    }
-}
-
-// Add a helper view for folder grid items
-private struct GridFolderItemView: View {
-    let folder: Folder
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        VStack(spacing: 2) {
-            // Folder card
-            ZStack {
-                // Folder background
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(folder.color)
-                    .frame(width: 160, height: 140)
-                    .shadow(
-                        color: colorScheme == .dark
-                            ? Color.white.opacity(0.4) : Color.black.opacity(0.2),
-                        radius: 5,
-                        x: 0,
-                        y: 2
-                    )
-                Image(systemName: "folder")
-                    .font(.system(size: 40))
-                    .foregroundColor(Color.white.opacity(0.3))
-                // Favorite indicator
-                Image(systemName: folder.isFavorite ? "star.fill" : "star")
-                    .foregroundColor(folder.isFavorite ? .yellow : .gray)
-                    .padding(8)
-                    .frame(maxWidth: .infinity, maxHeight: 140, alignment: .topTrailing)
-            }
-            // Folder title
-            Text(folder.name)
-                .padding(.top, 5)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .frame(width: 160)
-                .multilineTextAlignment(.center)
-                .fontWeight(.medium)
-                .font(.subheadline)
-            // Date
-            Text(folder.dateModified, style: .date)
-                .padding(.bottom, 5)
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .frame(width: 160)
-                .multilineTextAlignment(.center)
-        }
-        .frame(width: 160)
-        .contentShape(Rectangle())
-    }
-}
-
-// Add a helper view for grid items
-private struct GridItemView: View {
-    let note: Note
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        VStack(spacing: 2) {
-            // Note card
-            ZStack {
-
-                // Written note cover
-                if note.noteType == .written {
-                    // Background
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(note.color)
-                        .frame(width: 160, height: 200)
-                        .shadow(
-                            color: colorScheme == .dark
-                                ? Color.white.opacity(0.4) : Color.black.opacity(0.2),
-                            radius: 5,
-                            x: 0,
-                            y: 2
-                        )
-
-                    Image(systemName: "pencil.tip")
-                        .font(.system(size: 40))
-                        .foregroundColor(Color.white.opacity(0.3))
-                        .offset(x: 0, y: -30)
-                    //Text note cover
-                } else if note.noteType == .text {
-                    // Background
-                    RoundedRectangle(cornerRadius: 0)
-                        .fill(note.color)
-                        .frame(width: 160, height: 200)
-                        .shadow(
-                            color: colorScheme == .dark
-                                ? Color.white.opacity(0.4) : Color.black.opacity(0.2),
-                            radius: 6,
-                            x: 0,
-                            y: 2
-                        )
-                    Image(systemName: "text.alignleft")
-                        .font(.system(size: 40))
-                        .foregroundColor(Color.white.opacity(0.3))
-                        .offset(x: 0, y: -30)
-                }
-
-                // Favorite indicator
-                Image(systemName: note.isFavorite ? "star.fill" : "star")
-                    .foregroundColor(note.isFavorite ? .yellow : .gray)
-                    .padding(8)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-
-                // Type indicator badge
-                Image(systemName: noteTypeIcon(note.noteType))
-                    .foregroundColor(.white)
-                    .padding(6)
-                    .background(Color.black.opacity(0.3))
-                    .clipShape(Circle())
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    .padding(8)
-            }
-
-            // Note title
-            Text(note.title)
-                .padding(.top, 5)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .frame(width: 160)
-                .multilineTextAlignment(.center)
-                .fontWeight(.medium)
-                .font(.subheadline)
-
-            // Date
-            Text(note.dateModified, style: .date)
-                .padding(.bottom, 5)
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .frame(width: 160)
-                .multilineTextAlignment(.center)
-        }
-        .frame(width: 160)
-        .contentShape(Rectangle())
-
-    }
-
-    // Helper function to get the correct icon name
-    private func noteTypeIcon(_ type: NoteType) -> String {
-        switch type {
-        case .written:
-            return "pencil"
-        case .text:
-            return "text.page"
-        }
-    }
-}
 
 #Preview {
     DocumentsView()

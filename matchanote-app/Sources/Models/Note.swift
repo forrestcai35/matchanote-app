@@ -62,14 +62,14 @@ public struct Note: Identifiable {
   // Sample notes
   public static let samples = [
     Note(
-      title: "Blank", color: .matchaGreen, dateCreated: Date(), dateModified: Date(),
+        title: "Blank", color: .matchalight_light, dateCreated: Date(), dateModified: Date(),
       noteType: .written),
     Note(
-      title: "Grid", color: .matchaGreen, dateCreated: Date(), dateModified: Date(),
+        title: "Grid", color: .matchalight_light, dateCreated: Date(), dateModified: Date(),
       noteType: .written,
       paperStyle: .grid),
     Note(
-      title: "Written grid infinite", color: .matchaGreen, dateCreated: Date(),
+        title: "Written grid infinite", color: .matchalight_light, dateCreated: Date(),
       dateModified: Date(),
       noteType: .written,
       paperStyle: .grid),

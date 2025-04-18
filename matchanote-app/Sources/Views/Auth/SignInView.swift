@@ -98,18 +98,6 @@ struct SignInView: View {
 
           HStack(spacing: isLandscape ? 15 : 20) {
 
-            // Button(action: {
-            //   signInWithApple()
-            // }) {
-            //   Image(systemName: "apple.logo")
-            //     .font(.title2)
-            //     .frame(width: isLandscape ? 50 : 60, height: isLandscape ? 50 : 60)
-            //     .background(Color.black)
-            //     .foregroundColor(.white)
-            //     .clipShape(Circle())
-            // }
-            // .disabled(isLoading)
-
             Button(action: {
               signInWithGoogle()
             }) {
@@ -168,17 +156,6 @@ struct SignInView: View {
       self.authManager.setLoggedIn()
     }
   }
-
-  // private func signInWithApple() {
-  //   isLoading = true
-  //   errorMessage = nil
-
-  //   // Simulate network request
-  //   DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-  //     self.isLoading = false
-  //     self.authManager.setLoggedIn()
-  //   }
-  // }
 
   private func signInWithGoogle() {
     isLoading = true

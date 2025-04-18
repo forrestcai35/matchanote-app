@@ -8,18 +8,18 @@ struct WrittenNoteView: View {
   var note: Note
   @Binding var isEdited: Bool
   @Binding var toolPickerIsVisible: Bool
-  @State private var currentPage = 0
+  @Binding var canvasViews: [PKCanvasView]
+  @Binding var currentPage: Int
+  @Binding var currentTool: PenTool?
   @State private var pageCount = 1
   @State private var currentScale: CGFloat = 1.25
   @State private var finalScale: CGFloat = 1.0
-  @State private var canvasViews: [PKCanvasView] = [PKCanvasView()]
   @State private var toolPicker = PKToolPicker()
-
+    @Environment(\.colorScheme) private var colorScheme
   private let infiniteScrollHeight: CGFloat = 10000
 
   var body: some View {
     VStack(spacing: 0) {
-      // Always use TabView for page navigation
       TabView(selection: $currentPage) {
         ForEach(0..<pageCount, id: \.self) { pageIndex in
           pageContent(pageIndex: pageIndex, isInfinite: false)
@@ -38,7 +38,7 @@ struct WrittenNoteView: View {
         controlsOverlay
       }
     }
-    .background(Color.gray.opacity(0.03))
+    .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
     .onAppear {
       setupToolPicker()
     }
@@ -46,8 +46,10 @@ struct WrittenNoteView: View {
       updateToolPickerVisibility(newValue)
     }
     .onChange(of: currentPage) { _, newPage in
-      // When page changes, update which canvas view is the first responder
       updateActiveCanvas()
+    }
+    .onChange(of: currentTool) { _, newTool in
+      updateCanvasTool()
     }
   }
 
@@ -55,7 +57,13 @@ struct WrittenNoteView: View {
   private func setupToolPicker() {
     guard let currentCanvas = getCurrentCanvas() else { return }
 
-    currentCanvas.tool = PKInkingTool(.pen, color: .black, width: 1.0)
+    // Set tool based on current selection
+    if let selectedTool = currentTool {
+      currentCanvas.tool = selectedTool.toolInstance
+    } else {
+      // Default to pen if no tool is selected
+      currentCanvas.tool = PKInkingTool(.pen, color: .black, width: 1.0)
+    }
 
     // Let the PencilKit system handle drawing policies
     toolPicker.setVisible(toolPickerIsVisible, forFirstResponder: currentCanvas)
@@ -66,7 +74,6 @@ struct WrittenNoteView: View {
     }
   }
 
-  // Get current canvas view
   private func getCurrentCanvas() -> PKCanvasView? {
     guard currentPage < canvasViews.count else { return nil }
     return canvasViews[currentPage]
@@ -74,7 +81,6 @@ struct WrittenNoteView: View {
 
   // Update active canvas when page changes
   private func updateActiveCanvas() {
-    // Make sure we have a canvas for this page
     ensureCanvasExists(for: currentPage)
 
     // Update tool picker for the current canvas
@@ -115,49 +121,69 @@ struct WrittenNoteView: View {
   // Extracted Page Content View Builder
   @ViewBuilder
   private func pageContent(pageIndex: Int, isInfinite: Bool) -> some View {
-    // Wrap Canvas in a ScrollView for panning fixed-size content
-    ScrollView([.horizontal, .vertical], showsIndicators: false) {
-      ZStack {
-        // Background with paper style
-        paperBackground()
+    // Wrap Canvas in a GeometryReader to get parent size for centering
+    GeometryReader { geometry in
+      // Scroll view now explicitly centers content
+      ScrollView([.horizontal, .vertical], showsIndicators: false) {
+        ZStack {
+          // Background with paper style
+          paperBackground()
 
-        // PencilKit Canvas - use the canvas for this specific page
-        if pageIndex < canvasViews.count {
-          PencilKitCanvasView(canvasView: canvasViews[pageIndex])
-            .frame(
-              width: getPaperWidth(for: note.paperSize),
-              height: getPaperHeight(for: note.paperSize)
-            )
-            .onChange(of: canvasViews[pageIndex].drawing) { _, _ in
-              isEdited = true
-            }
-        } else {
-          Text("Error: Canvas not available for page \(pageIndex + 1)")
-            .foregroundColor(.red)
-            .frame(
-              width: getPaperWidth(for: note.paperSize),
-              height: getPaperHeight(for: note.paperSize)
-            )
+          // PencilKit Canvas - use the canvas for this specific page
+          if pageIndex < canvasViews.count {
+            PencilKitCanvasView(canvasView: canvasViews[pageIndex])
+              .frame(
+                width: getPaperWidth(for: note.paperSize),
+                height: getPaperHeight(for: note.paperSize)
+              )
+              .onChange(of: canvasViews[pageIndex].drawing) { _, _ in
+                isEdited = true
+              }
+          } else {
+            Text("Error: Canvas not available for page \(pageIndex + 1)")
+              .foregroundColor(.red)
+              .frame(
+                width: getPaperWidth(for: note.paperSize),
+                height: getPaperHeight(for: note.paperSize)
+              )
+          }
         }
+
+        .cornerRadius(10)
+        .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
+        .padding(.top, 20)
+        .scaleEffect(finalScale * currentScale)
+        // Add frame with minWidth/minHeight to ensure it stays centered
+        .frame(
+          minWidth: geometry.size.width,
+          minHeight: geometry.size.height
+        )
+        // Add some padding to keep content from touching edges
+        .padding(20)
       }
-      .background(Color.white)
-      .cornerRadius(10)
-      .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
-      .padding(.top, 20)
-      .scaleEffect(finalScale * currentScale)
+      .frame(width: geometry.size.width, height: geometry.size.height)
+      .coordinateSpace(name: "scroll")
+      .gesture(
+        MagnificationGesture()
+          .onChanged { value in
+            // Use a more forgiving magnification with damping
+            let dampedValue = 1.0 + ((value - 1.0) * 0.8)  // Apply 20% damping
+            // Limit scaling with stricter bounds (0.8 min, 3.0 max considering finalScale)
+            let newScale = dampedValue
+            if finalScale * newScale >= 0.8 && finalScale * newScale <= 3.0 {
+              currentScale = newScale
+            }
+          }
+          .onEnded { value in
+            // Apply a smoother scale change with the damping factor
+            let dampedFinalValue = 1.0 + ((value - 1.0) * 0.8)
+            // Apply the scale change with stricter limits
+            let potentialFinalScale = finalScale * dampedFinalValue
+            finalScale = min(max(potentialFinalScale, 0.8), 3.0)
+            currentScale = 1.0
+          }
+      )
     }
-    .gesture(
-      MagnificationGesture()
-        .onChanged { value in
-          let dampedValue = 1.0 + ((value - 1.0) * 0.8)
-          currentScale = max(dampedValue, 0.5 / finalScale)
-        }
-        .onEnded { value in
-          let dampedFinalValue = 1.0 + ((value - 1.0) * 0.8)
-          finalScale = max(finalScale * dampedFinalValue, 0.5)
-          currentScale = 1.0
-        }
-    )
   }
 
   // Paper background with styles
@@ -255,7 +281,7 @@ struct WrittenNoteView: View {
       } label: {
         Image(systemName: "plus.circle.fill")
           .font(.caption)
-          .foregroundColor(.matchaGreen)
+          .foregroundColor(Color.matchalight_dark)
       }
     }
     .padding(8)
@@ -264,6 +290,7 @@ struct WrittenNoteView: View {
     .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 1)
     .padding(16)
   }
+    
   // Helper function for background color
   private func getPaperBackgroundColor(for color: PaperColor) -> Color {
     switch color {
@@ -298,6 +325,18 @@ struct WrittenNoteView: View {
       return 1224  // 11 x 17 inches at 72 dpi
     case .a4:
       return 842  // 210 × 297 mm at 72 dpi
+    }
+  }
+
+  // Update canvas tool when tool selection changes
+  private func updateCanvasTool() {
+    guard let currentCanvas = getCurrentCanvas() else { return }
+
+    if let selectedTool = currentTool {
+      currentCanvas.tool = selectedTool.toolInstance
+    } else {
+      // Default to pen if no tool is selected
+      currentCanvas.tool = PKInkingTool(.pen, color: .black, width: 1.0)
     }
   }
 }
@@ -336,7 +375,7 @@ struct TextNoteView: View {
   @State private var currentScale: CGFloat = 1.0
   @State private var finalScale: CGFloat = 1.0
   private let infiniteScrollHeight: CGFloat = 10000
-
+    @Environment(\.colorScheme) private var colorScheme
   init(note: Note, isEdited: Binding<Bool>) {
     self.note = note
     _textContent = State(initialValue: note.content)
@@ -344,44 +383,55 @@ struct TextNoteView: View {
   }
 
   var body: some View {
-    ScrollView(.vertical, showsIndicators: true) {
-      VStack {
-        SwiftDownEditor(text: $textContent)
-          .insetsSize(40)
-          .theme(Theme.BuiltIn.defaultLight.theme())
-          .scrollContentBackground(.hidden)
-          .frame(minHeight: infiniteScrollHeight)
-          .frame(width: 700)  //SET WIDTH
-          .background(getPaperBackgroundColor(for: note.paperColor))
-          .cornerRadius(10)
-          .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
-          .padding(20)
-          .onChange(of: textContent) { oldValue, newValue in
-            if oldValue != newValue {
-              isEdited = true
+    GeometryReader { geometry in
+      ScrollView(.vertical, showsIndicators: true) {
+        VStack {
+          SwiftDownEditor(text: $textContent)
+            .insetsSize(40)
+            .theme(Theme.BuiltIn.defaultLight.theme())
+            .scrollContentBackground(.hidden)
+            .frame(minHeight: infiniteScrollHeight)
+            .frame(width: 700)
+            .background(getPaperBackgroundColor(for: note.paperColor))
+            .cornerRadius(10)
+
+            .padding(20)
+            .onChange(of: textContent) { oldValue, newValue in
+              if oldValue != newValue {
+                isEdited = true
+              }
+            }
+            .scaleEffect(finalScale * currentScale)
+            // Center the content in the available space
+            .frame(minWidth: geometry.size.width, minHeight: geometry.size.height)
+        }
+      }
+      .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
+      .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
+      .frame(width: geometry.size.width, height: geometry.size.height)
+
+      // Make zooming more forgiving with damping and strict limits
+      .gesture(
+        MagnificationGesture()
+          .onChanged { value in
+            // Use a more forgiving magnification with damping
+            let dampedValue = 1.0 + ((value - 1.0) * 0.8)  // Apply 20% damping
+            // Limit scaling with stricter bounds
+            let potentialScale = finalScale * dampedValue
+            if potentialScale >= 0.8 && potentialScale <= 3.0 {
+              currentScale = dampedValue
             }
           }
-          .scaleEffect(finalScale * currentScale)
-      }
+          .onEnded { value in
+            // Apply a smoother scale change with the damping factor
+            let dampedFinalValue = 1.0 + ((value - 1.0) * 0.8)
+            // Apply the scale change with strict limits
+            let potentialFinalScale = finalScale * dampedFinalValue
+            finalScale = min(max(potentialFinalScale, 0.8), 3.0)
+            currentScale = 1.0
+          }
+      )
     }
-
-    // Make zooming more forgiving with damping
-    .gesture(
-      MagnificationGesture()
-        .onChanged { value in
-          // Use a more forgiving magnification with damping
-          let dampedValue = 1.0 + ((value - 1.0) * 0.8)  // Apply 20% damping
-          // Limit scaling to not go below 0.5 (prevent zooming out too far)
-          currentScale = max(dampedValue, 0.5 / finalScale)
-        }
-        .onEnded { value in
-          // Apply a smoother scale change with the damping factor
-          let dampedFinalValue = 1.0 + ((value - 1.0) * 0.8)
-          // Apply the scale change but ensure minimum 0.5 scale
-          finalScale = max(finalScale * dampedFinalValue, 0.5)
-          currentScale = 1.0
-        }
-    )
   }
 
   // Helper function for background color
