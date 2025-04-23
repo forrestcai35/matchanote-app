@@ -20,7 +20,7 @@ struct OnboardingView: View {
   @State private var showSignInView = false
 
   var body: some View {
-    NavigationView {
+    NavigationStack {
       GeometryReader { geometry in
         let isLandscape = geometry.size.width > geometry.size.height
         let spacing: CGFloat = isLandscape ? 10 : 30
@@ -162,19 +162,14 @@ struct OnboardingView: View {
           .frame(minHeight: geometry.size.height)
           .frame(width: geometry.size.width)
           .navigationBarHidden(true)
-          .background(
-            NavigationLink(
-              "",
-              destination: SignInView()
-                .environmentObject(authManager),
-              isActive: $showSignInView
-            )
-            .opacity(0)
-          )
+          .navigationDestination(isPresented: $showSignInView) {
+            SignInView()
+              .environmentObject(authManager)
+          }
         }
       }
     }
-    .navigationViewStyle(StackNavigationViewStyle())
+
   }
 
   // MARK: - Authentication Methods

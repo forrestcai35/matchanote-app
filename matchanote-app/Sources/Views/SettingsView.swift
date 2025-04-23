@@ -3,7 +3,7 @@ import matchanote_app
 
 // Settings popover view
 struct SettingsPopover: View {
-    @Environment(\.colorScheme) private var colorScheme
+  @Environment(\.colorScheme) private var colorScheme
   var body: some View {
     VStack(alignment: .leading, spacing: 15) {
       Text("Settings")
@@ -22,7 +22,7 @@ struct SettingsPopover: View {
       Button(action: {
         // Theme action
       }) {
-        Label("Theme", systemImage: "paintpalette")
+        Label("Preferences", systemImage: "paintpalette")
       }
       .foregroundColor(colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
 

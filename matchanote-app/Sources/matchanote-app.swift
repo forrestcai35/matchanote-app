@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import matchanote_app
 
 @main
 struct matchanote_App: App {

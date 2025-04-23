@@ -18,7 +18,9 @@ public struct ListItemView: View {
                 HStack(spacing: 4) {
                     // Type icon next to title
                     Image(systemName: noteTypeIcon(note.noteType))
-                        .foregroundColor(colorScheme == .dark ? Color.white : Color.black)
+                        .foregroundColor(
+                            colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+                        )
                         .font(.caption)
 
                     Text(note.title)
@@ -69,17 +71,18 @@ public struct ListFolderItemView: View {
 
     public var body: some View {
         HStack {
-            // Color indicator
+
             RoundedRectangle(cornerRadius: 4)
                 .fill(folder.color)
                 .frame(width: 6)
                 .frame(maxHeight: .infinity)
 
-            // Folder info
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 4) {
                     Image(systemName: "folder")
-                        .foregroundColor(colorScheme == .dark ? Color.white : Color.black)
+                        .foregroundColor(
+                            colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+                        )
                         .font(.caption)
                     Text(folder.name)
                         .fontWeight(.medium)
@@ -154,6 +157,7 @@ public struct GridFolderItemView: View {
                 .frame(width: 160)
                 .multilineTextAlignment(.center)
         }
+        .padding(.top,60)
         .frame(width: 160)
         .contentShape(Rectangle())
     }
@@ -172,10 +176,7 @@ public struct GridItemView: View {
         VStack(spacing: 2) {
             // Note card
             ZStack {
-
-                // Written note cover
                 if note.noteType == .written {
-                    // Background
                     RoundedRectangle(cornerRadius: 10)
                         .fill(note.color)
                         .frame(width: 160, height: 200)
@@ -190,9 +191,9 @@ public struct GridItemView: View {
                         .font(.system(size: 40))
                         .foregroundColor(Color.white.opacity(0.3))
                         .offset(x: 0, y: -30)
-                    //Text note cover
+
                 } else if note.noteType == .text {
-                    // Background
+
                     RoundedRectangle(cornerRadius: 0)
                         .fill(note.color)
                         .frame(width: 160, height: 200)
@@ -208,13 +209,11 @@ public struct GridItemView: View {
                         .offset(x: 0, y: -30)
                 }
 
-                // Favorite indicator
                 Image(systemName: note.isFavorite ? "star.fill" : "star")
                     .foregroundColor(note.isFavorite ? .yellow : .gray)
                     .padding(8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
 
-                // Type indicator badge
                 Image(systemName: noteTypeIcon(note.noteType))
                     .foregroundColor(.white)
                     .padding(6)
@@ -224,7 +223,6 @@ public struct GridItemView: View {
                     .padding(8)
             }
 
-            // Note title
             Text(note.title)
                 .padding(.top, 5)
                 .lineLimit(1)
@@ -234,7 +232,6 @@ public struct GridItemView: View {
                 .fontWeight(.medium)
                 .font(.subheadline)
 
-            // Date
             Text(note.dateModified, style: .date)
                 .padding(.bottom, 5)
                 .font(.caption)
@@ -256,9 +253,4 @@ public struct GridItemView: View {
             return "text.page"
         }
     }
-}
-
-#Preview {
-    DocumentsView()
-        .environmentObject(AIAssistantState())
 }

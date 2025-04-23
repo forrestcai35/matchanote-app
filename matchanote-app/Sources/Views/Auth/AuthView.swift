@@ -7,7 +7,7 @@ struct AuthView: View {
   var body: some View {
     Group {
       if authManager.isLoggedIn {
-        DocumentsView()
+        HomeView()
       } else if authManager.isFirstLaunch {
         OnboardingView()
           .environmentObject(authManager)

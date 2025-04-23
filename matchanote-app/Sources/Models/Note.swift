@@ -6,10 +6,11 @@
 //
 
 import SwiftUI
+import matchanote_app
 
 // Paper properties enums
 public enum PaperColor: String, CaseIterable, Codable {
-  case white, offwhite, yellow
+  case white, offwhite, dark
 }
 
 public enum PaperStyle: String, CaseIterable, Codable {
@@ -62,17 +63,29 @@ public struct Note: Identifiable {
   // Sample notes
   public static let samples = [
     Note(
-        title: "Blank", color: .matchalight_light, dateCreated: Date(), dateModified: Date(),
+      title: "Blank", color: .matchalight_light, dateCreated: Date(), dateModified: Date(),
       noteType: .written),
     Note(
-        title: "Grid", color: .matchalight_light, dateCreated: Date(), dateModified: Date(),
+      title: "Grid", color: .matchalight_light, dateCreated: Date(), dateModified: Date(),
       noteType: .written,
       paperStyle: .grid),
     Note(
-        title: "Written grid infinite", color: .matchalight_light, dateCreated: Date(),
+      title: "Dotted", color: .matchalight_light, dateCreated: Date(),
       dateModified: Date(),
       noteType: .written,
-      paperStyle: .grid),
-
+      paperStyle: .dotted),
+    Note(
+      title: "Offwhite dotted", color: .matchalight_light, dateCreated: Date(),
+      dateModified: Date(),
+      noteType: .written,
+      paperColor:.offwhite,
+      paperStyle: .dotted),
+    Note(
+      title: "Offwhite dotted", color: .matchalight_light, dateCreated: Date(),
+      dateModified: Date(),
+      noteType: .written,
+      paperColor:.dark,
+      paperStyle: .dotted),
+    
   ]
 }

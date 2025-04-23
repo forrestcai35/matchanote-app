@@ -15,7 +15,7 @@ struct WrittenNoteView: View {
   @State private var currentScale: CGFloat = 1.25
   @State private var finalScale: CGFloat = 1.0
   @State private var toolPicker = PKToolPicker()
-    @Environment(\.colorScheme) private var colorScheme
+  @Environment(\.colorScheme) private var colorScheme
   private let infiniteScrollHeight: CGFloat = 10000
 
   var body: some View {
@@ -33,7 +33,7 @@ struct WrittenNoteView: View {
       }
       .animation(.spring(response: 0.3, dampingFraction: 0.8), value: currentPage)
       .animation(.spring(response: 0.3, dampingFraction: 0.8), value: pageCount)
-      .tabViewStyle(.page(indexDisplayMode: .automatic))
+      .tabViewStyle(.page(indexDisplayMode: .never))
       .overlay(alignment: .bottomTrailing) {
         controlsOverlay
       }
@@ -149,17 +149,7 @@ struct WrittenNoteView: View {
           }
         }
 
-        .cornerRadius(10)
-        .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
-        .padding(.top, 20)
         .scaleEffect(finalScale * currentScale)
-        // Add frame with minWidth/minHeight to ensure it stays centered
-        .frame(
-          minWidth: geometry.size.width,
-          minHeight: geometry.size.height
-        )
-        // Add some padding to keep content from touching edges
-        .padding(20)
       }
       .frame(width: geometry.size.width, height: geometry.size.height)
       .coordinateSpace(name: "scroll")
@@ -175,9 +165,7 @@ struct WrittenNoteView: View {
             }
           }
           .onEnded { value in
-            // Apply a smoother scale change with the damping factor
             let dampedFinalValue = 1.0 + ((value - 1.0) * 0.8)
-            // Apply the scale change with stricter limits
             let potentialFinalScale = finalScale * dampedFinalValue
             finalScale = min(max(potentialFinalScale, 0.8), 3.0)
             currentScale = 1.0
@@ -186,7 +174,6 @@ struct WrittenNoteView: View {
     }
   }
 
-  // Paper background with styles
   @ViewBuilder
   private func paperBackground() -> some View {
     let paperBackground: Color = getPaperBackgroundColor(for: note.paperColor)
@@ -197,7 +184,6 @@ struct WrittenNoteView: View {
         height: getPaperHeight(for: note.paperSize)
       )
       .overlay {
-        // Draw paper style
         GeometryReader { geometry in
           switch note.paperStyle {
           case .grid:
@@ -213,7 +199,6 @@ struct WrittenNoteView: View {
       }
   }
 
-  // Grid overlay
   @ViewBuilder
   private func gridOverlay(size: CGSize) -> some View {
     let gridSpacing: CGFloat = 20
@@ -235,24 +220,46 @@ struct WrittenNoteView: View {
     }
   }
 
-  // Dotted overlay
   @ViewBuilder
   private func dottedOverlay(size: CGSize) -> some View {
-    let dotSpacing: CGFloat = 20
+    let baseSpacing: CGFloat = 18
+    let dotRadius: CGFloat = 1
+    let margin: CGFloat = baseSpacing
 
-    Canvas { context, size in
-      for y in stride(from: dotSpacing, to: size.height - dotSpacing, by: dotSpacing) {
-        for x in stride(from: dotSpacing, to: size.width - dotSpacing, by: dotSpacing) {
+    Canvas { context, canvasSize in
+      // Calculate available space after margins
+      let availableWidth = canvasSize.width - 2 * margin
+      let availableHeight = canvasSize.height - 2 * margin
+
+      // Calculate number of intervals that can fit
+      let horizontalIntervals = max(1, Int(availableWidth / baseSpacing))
+      let verticalIntervals = max(1, Int(availableHeight / baseSpacing))
+
+      // Calculate dynamic spacing to fill available width
+      let horizontalSpacing = availableWidth / CGFloat(horizontalIntervals)
+      let verticalSpacing = availableHeight / CGFloat(verticalIntervals)
+
+      // Draw dots within margins
+      for y in 0...verticalIntervals {
+        for x in 0...horizontalIntervals {
+          let xPos = margin + CGFloat(x) * horizontalSpacing
+          let yPos = margin + CGFloat(y) * verticalSpacing
           context.fill(
-            Path(ellipseIn: CGRect(x: x - 1, y: y - 1, width: 2, height: 2)),
+            Path(
+              ellipseIn: CGRect(
+                x: xPos - dotRadius,
+                y: yPos - dotRadius,
+                width: 2 * dotRadius,
+                height: 2 * dotRadius
+              )),
             with: .color(Color.gray.opacity(0.3))
           )
         }
       }
     }
+    .frame(width: size.width, height: size.height)
   }
 
-  // Lined overlay
   @ViewBuilder
   private func linedOverlay(size: CGSize) -> some View {
     let lineSpacing: CGFloat = 24
@@ -271,12 +278,14 @@ struct WrittenNoteView: View {
   @ViewBuilder
   private var controlsOverlay: some View {
     VStack(spacing: 8) {
-      Text("\(currentPage + 1)/\(pageCount)")
-        .font(.caption)
-        .foregroundColor(.gray)
+      HStack {
+        Text("\(currentPage + 1)/\(pageCount)")
+          .font(.caption)
+          .foregroundColor(.gray)
+
+      }
       Button {
         pageCount += 1
-        // Ensure canvas exists for the new page
         ensureCanvasExists(for: pageCount - 1)
       } label: {
         Image(systemName: "plus.circle.fill")
@@ -290,7 +299,7 @@ struct WrittenNoteView: View {
     .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 1)
     .padding(16)
   }
-    
+
   // Helper function for background color
   private func getPaperBackgroundColor(for color: PaperColor) -> Color {
     switch color {
@@ -298,8 +307,8 @@ struct WrittenNoteView: View {
       return .white
     case .offwhite:
       return Color(red: 0.98, green: 0.96, blue: 0.9)
-    case .yellow:
-      return Color(red: 1.0, green: 0.98, blue: 0.8)
+    case .dark:
+      return Color(red: 0.1961, green: 0.1961, blue: 0.2000)
     }
   }
   // Helper functions to get paper dimensions
@@ -331,11 +340,9 @@ struct WrittenNoteView: View {
   // Update canvas tool when tool selection changes
   private func updateCanvasTool() {
     guard let currentCanvas = getCurrentCanvas() else { return }
-
     if let selectedTool = currentTool {
       currentCanvas.tool = selectedTool.toolInstance
     } else {
-      // Default to pen if no tool is selected
       currentCanvas.tool = PKInkingTool(.pen, color: .black, width: 1.0)
     }
   }
@@ -344,7 +351,6 @@ struct WrittenNoteView: View {
 // Line Shape for drawing grids and lines
 struct Line: Shape {
   var start, end: CGPoint
-
   func path(in rect: CGRect) -> Path {
     var path = Path()
     path.move(to: start)
@@ -359,6 +365,7 @@ struct PencilKitCanvasView: UIViewRepresentable {
 
   func makeUIView(context: Context) -> PKCanvasView {
     canvasView.backgroundColor = .clear
+    canvasView.isScrollEnabled = false
     return canvasView
   }
 
@@ -372,10 +379,8 @@ struct TextNoteView: View {
   var note: Note
   @State private var textContent: String
   @Binding var isEdited: Bool
-  @State private var currentScale: CGFloat = 1.0
-  @State private var finalScale: CGFloat = 1.0
   private let infiniteScrollHeight: CGFloat = 10000
-    @Environment(\.colorScheme) private var colorScheme
+  @Environment(\.colorScheme) private var colorScheme
   init(note: Note, isEdited: Binding<Bool>) {
     self.note = note
     _textContent = State(initialValue: note.content)
@@ -393,16 +398,12 @@ struct TextNoteView: View {
             .frame(minHeight: infiniteScrollHeight)
             .frame(width: 700)
             .background(getPaperBackgroundColor(for: note.paperColor))
-            .cornerRadius(10)
-
-            .padding(20)
             .onChange(of: textContent) { oldValue, newValue in
               if oldValue != newValue {
                 isEdited = true
               }
             }
-            .scaleEffect(finalScale * currentScale)
-            // Center the content in the available space
+
             .frame(minWidth: geometry.size.width, minHeight: geometry.size.height)
         }
       }
@@ -410,27 +411,6 @@ struct TextNoteView: View {
       .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
       .frame(width: geometry.size.width, height: geometry.size.height)
 
-      // Make zooming more forgiving with damping and strict limits
-      .gesture(
-        MagnificationGesture()
-          .onChanged { value in
-            // Use a more forgiving magnification with damping
-            let dampedValue = 1.0 + ((value - 1.0) * 0.8)  // Apply 20% damping
-            // Limit scaling with stricter bounds
-            let potentialScale = finalScale * dampedValue
-            if potentialScale >= 0.8 && potentialScale <= 3.0 {
-              currentScale = dampedValue
-            }
-          }
-          .onEnded { value in
-            // Apply a smoother scale change with the damping factor
-            let dampedFinalValue = 1.0 + ((value - 1.0) * 0.8)
-            // Apply the scale change with strict limits
-            let potentialFinalScale = finalScale * dampedFinalValue
-            finalScale = min(max(potentialFinalScale, 0.8), 3.0)
-            currentScale = 1.0
-          }
-      )
     }
   }
 
@@ -441,8 +421,8 @@ struct TextNoteView: View {
       return .white
     case .offwhite:
       return Color(red: 0.98, green: 0.96, blue: 0.9)
-    case .yellow:
-      return Color(red: 1.0, green: 0.98, blue: 0.8)
+    case .dark:
+      return Color(red: 0.196, green: 0.196, blue: 0.200)
     }
   }
 

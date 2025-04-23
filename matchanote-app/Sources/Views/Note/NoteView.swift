@@ -29,7 +29,7 @@ struct NoteView: View {
   @State private var isEdited = false
   @State private var toolPickerIsVisible = true
   @StateObject private var assistantState = AIAssistantState()
-
+  @Environment(\.colorScheme) private var colorScheme
   // Added for lasso tool functionality
   @State private var canvasViews: [PKCanvasView] = [PKCanvasView()]
   @State private var currentPage: Int = 0
@@ -205,19 +205,17 @@ struct NoteView: View {
   @ViewBuilder
   private func resizeHandleView() -> some View {
     ZStack {
+          VStack(spacing: 8) {
+                ForEach(0..<5) { _ in
+                    Capsule()
+                        .fill(Color.gray.opacity(0.5))
+                        .frame(width: 8, height: 2)
+                }
+            }
       Rectangle()
-        .fill(Color.gray.opacity(0.07))
-        .frame(width: 6)
+        .fill(colorScheme == .dark ? Color.gray.opacity(0.2) : Color.gray.opacity(0.07))
+        .frame(width: 10)
 
-      // Grip indicator
-      VStack(spacing: 6) {
-        ForEach(0..<3) { _ in
-          Circle()
-            .fill(Color.gray.opacity(0.5))
-            .frame(width: 5, height: 5)
-
-        }
-      }
 
     }
     .contentShape(Rectangle())
@@ -250,7 +248,7 @@ struct NoteView: View {
   private func assistantPanelView() -> some View {
     // Horizontal layout (left/right)
     HStack(spacing: 0) {
-      // Resize handle with visual indicator (flipped for left orientation)
+
       if assistantOrientation == .right {
         resizeHandleView()
       }
@@ -258,12 +256,11 @@ struct NoteView: View {
       AIAssistantView()
         .environmentObject(assistantState)
         .frame(width: assistantWidth)
-        .contentShape(Rectangle())  // Make entire area draggable
+        .contentShape(Rectangle())
         .gesture(
           DragGesture(minimumDistance: 20, coordinateSpace: .global)
             .onChanged { value in
-              // Only start dragging if we're not interacting with the resize handle
-              // (This is implicit since the resize handle has a higher priority gesture)
+
               isDraggingAssistant = true
               dragLocation = value.location
 
@@ -279,8 +276,6 @@ struct NoteView: View {
             .onEnded { value in
               // Reset dragging state
               isDraggingAssistant = false
-
-              // Determine direction based on significant horizontal movement
               if abs(value.translation.width) > 50 {
                 if value.translation.width > 0 {
                   // Dragged right

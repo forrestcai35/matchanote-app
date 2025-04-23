@@ -14,7 +14,7 @@ struct SidebarItem: Identifiable {
     var icon: String
 }
 
-struct DocumentsView: View {
+struct HomeView: View {
     @State private var notes = Note.samples
     @State private var folders = Folder.samples
     @State private var searchText = ""
@@ -35,7 +35,9 @@ struct DocumentsView: View {
         case note
     }
     let sidebarItems = [
-        SidebarItem(id: "documents", title: "Documents", icon: "folder")
+        SidebarItem(id: "documents", title: "Documents", icon: "folder"),
+        SidebarItem(id: "favorites", title: "Favorites", icon: "star")
+        
     ]
     // Filtered notes based on search text and current folder
     var filteredNotes: [Note] {
@@ -72,40 +74,41 @@ struct DocumentsView: View {
             return folderItems.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
         }
     }
-    var body: some View {
-        NavigationView {
-            // Sidebar
-            VStack(spacing: 0) {
-                HStack(spacing: 8) {
-                    Image("Logo")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(height: 24)  // Adjust logo size
+var body: some View {
+    NavigationSplitView {
+        // Sidebar
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Image("Logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 24)  
 
-                    Text("Matcha")
-                        .font(.title)
-                        .fontWeight(.bold)
-                }
-                searchBar
-                sidebarList
+                Text("Matcha")
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
             }
-
-            .background(
-                LinearGradient(
-                    gradient: Gradient(
-                        colors: [
-                            colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light,
-                            colorScheme == .dark ? Color.black : Color.white,
-                        ]
-                    ),
-                    startPoint: .bottom,
-                    endPoint: .top
-                )
-            )
-            contentView
+            searchBar
+            sidebarList
         }
-        .accentColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+        .background(
+            LinearGradient(
+                gradient: Gradient(
+                    colors: [
+                        colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light,
+                        colorScheme == .dark ? Color.black : Color.white,
+                    ]
+                ),
+                startPoint: .bottom,
+                endPoint: .top
+            )
+        )
+    } detail: {
+        contentView
     }
+    .accentColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+}
 
     // MARK: - Component Views
     private var searchBar: some View {
@@ -134,9 +137,10 @@ struct DocumentsView: View {
                 HStack {
                     Image(systemName: item.icon)
                         .fontWeight(.medium)
-                        .foregroundColor(
+                        .foregroundStyle(
                             colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
                     Text(item.title)
+                        .foregroundStyle(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                     Spacer()
                 }
                 .fontWeight(.medium)
@@ -161,7 +165,7 @@ struct DocumentsView: View {
             }
 
         }
-
+        .scrollDisabled(true)
         .padding(.top, 10)
         .listStyle(SidebarListStyle())
         .scrollContentBackground(.hidden)
@@ -178,7 +182,7 @@ struct DocumentsView: View {
                         }) {
                             Image(systemName: "gear")
                                 .fontWeight(.medium)
-                                .foregroundColor(
+                                .foregroundStyle(
                                     colorScheme == .dark
                                         ? Color.matchabrown_dark : Color.matchabrown_light)
                         }
@@ -296,9 +300,11 @@ struct DocumentsView: View {
             Text(currentFolderID == nil ? "Documents" : folderPath.last?.name ?? "Documents")
                 .font(.largeTitle)
                 .bold()
+                .foregroundStyle(
+                    colorScheme == .dark
+                        ? Color.matchabrown_dark : Color.matchabrown_light)
             Spacer()
             sortMenu
-
             viewToggleButton
         }
         .padding(.horizontal)
@@ -313,8 +319,8 @@ struct DocumentsView: View {
                 .fontWeight(.medium)
             Button("Type", action: { sortOption = "Type" })
                 .fontWeight(.medium)
-            Button("Favorites", action: { sortOption = "Favorites" })
-                .fontWeight(.medium)
+
+    
         } label: {
             Label {
                 Text(sortOption)
@@ -441,8 +447,8 @@ struct DocumentsView: View {
     private func dragPreview(for item: Any) -> some View {
         let width: CGFloat = 120
         let height: CGFloat = 150
-
-        if let folder = item as? Folder {
+            
+        if item is Folder {
             return AnyView(
                 ZStack {
                     Image("folder")
@@ -834,6 +840,12 @@ struct DocumentsView: View {
                 // Move note functionality
                 // This would open a move to folder dialog
             }) {
+                Label("Rename", systemImage: "pencil")
+            }
+            Button(action: {
+                // Move note functionality
+                // This would open a move to folder dialog
+            }) {
                 Label("Move to Folder", systemImage: "folder")
             }
 
@@ -869,7 +881,7 @@ struct DocumentsView: View {
             Button {
                 let newNote = Note(
                     title: "New Note",
-                    color: .green,
+                    color: .matchalight_dark,
                     dateCreated: Date(),
                     dateModified: Date(),
                     noteType: .written
@@ -890,7 +902,7 @@ struct DocumentsView: View {
             Button {
                 let newFolder = Folder(
                     name: "New Folder",
-                    color: .green,
+                    color: .blue,
                     parentID: currentFolderID,
                     dateCreated: Date()
                 )
@@ -902,7 +914,7 @@ struct DocumentsView: View {
             Button {
                 let newNote = Note(
                     title: "New Text Note",
-                    color: .blue,
+                    color: .matchalight_light,
                     dateCreated: Date(),
                     dateModified: Date(),
                     noteType: .text
@@ -941,7 +953,7 @@ struct DocumentsView: View {
                 .font(.title2)
 
             Text("New...")
-
+                .font(.subheadline)
                 .fontWeight(.medium)
             Spacer()
         }
@@ -974,7 +986,7 @@ struct DocumentsView: View {
             }
             .foregroundColor(colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
 
-            // Match title text padding and style
+
             Text("New...")
                 .padding(.top, 5)
                 .foregroundColor(
@@ -983,9 +995,9 @@ struct DocumentsView: View {
                 .frame(width: 160)
                 .fontWeight(.medium)
                 .multilineTextAlignment(.center)
-                .font(.caption)
+                .font(.subheadline)
 
-            // Add empty space where date would be
+     
             Text(" ")
                 .padding(.bottom, 5)
                 .font(.caption)
@@ -1015,6 +1027,6 @@ struct DocumentsView: View {
 
 
 #Preview {
-    DocumentsView()
+    HomeView()
         .environmentObject(AIAssistantState())
 }

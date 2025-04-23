@@ -39,9 +39,22 @@
 		A871553B2D9FC9EC005FA72A /* matchanote-appUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "matchanote-appUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A8AB3C192DB228950009CBF5 /* Exceptions for "matchanote-app" folder in "matchanote-app" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = A87155202D9FC9EA005FA72A /* matchanote-app */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A87155232D9FC9EA005FA72A /* matchanote-app */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A8AB3C192DB228950009CBF5 /* Exceptions for "matchanote-app" folder in "matchanote-app" target */,
+			);
 			path = "matchanote-app";
 			sourceTree = "<group>";
 		};
