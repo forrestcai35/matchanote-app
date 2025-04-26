@@ -1,5 +1,5 @@
 import SwiftUI
-import matchanote_app
+
 
 struct AuthView: View {
   @StateObject private var authManager = LocalAuthManager.shared

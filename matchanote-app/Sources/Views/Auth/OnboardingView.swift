@@ -8,7 +8,7 @@
 import AuthenticationServices
 import Foundation
 import SwiftUI
-import matchanote_app
+
 
 struct OnboardingView: View {
   @EnvironmentObject private var authManager: LocalAuthManager

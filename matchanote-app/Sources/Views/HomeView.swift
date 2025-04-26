@@ -6,7 +6,7 @@
 //
 
 import SwiftUI
-import matchanote_app
+
 
 struct SidebarItem: Identifiable {
     var id: String
@@ -29,6 +29,10 @@ struct HomeView: View {
     @State private var refreshID = UUID()
     @ObservedObject private var tabManager = TabManager.shared
     @Environment(\.colorScheme) private var colorScheme
+    @State private var showNewWrittenNoteView = false
+    @State private var showNewFolderView = false
+    @State private var showingFileImporter = false
+
 
     private enum DragItemType {
         case folder
@@ -59,7 +63,7 @@ struct HomeView: View {
             return folderNotes.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
         }
     }
-    // Filtered folders based on search text and current folder
+    // Filtered Notes
     var filteredFolders: [Folder] {
         let folderItems = folders.filter { folder in
             if let currentFolderID = currentFolderID {
@@ -879,34 +883,14 @@ var body: some View {
         Menu {
             // Note creation options
             Button {
-                let newNote = Note(
-                    title: "New Note",
-                    color: .matchalight_dark,
-                    dateCreated: Date(),
-                    dateModified: Date(),
-                    noteType: .written
-                )
-                // Add to current folder if we're in one
-                if let currentFolderID = currentFolderID,
-                    let index = folders.firstIndex(where: { $0.id == currentFolderID })
-                {
-                    folders[index].addNote(noteID: newNote.id)
-                }
-                notes.append(newNote)
-                TabManager.shared.openTab(note: newNote)
+                showNewWrittenNoteView = true
             } label: {
                 Label("Note", systemImage: "pencil")
             }
 
             // Folder creation option
             Button {
-                let newFolder = Folder(
-                    name: "New Folder",
-                    color: .blue,
-                    parentID: currentFolderID,
-                    dateCreated: Date()
-                )
-                folders.append(newFolder)
+                showNewFolderView = true
             } label: {
                 Label("Folder", systemImage: "folder")
             }
@@ -930,9 +914,10 @@ var body: some View {
             } label: {
                 Label("Text", systemImage: "text.alignleft")
             }
-
+            
+            // Upload
             Button {
-                print("Upload action triggered")
+                showingFileImporter = true
             } label: {
                 Label("Upload", systemImage: "arrow.up.doc")
             }
@@ -945,6 +930,73 @@ var body: some View {
             }
         }
         .buttonStyle(PlainButtonStyle())
+        .sheet(isPresented: $showNewWrittenNoteView) {
+            NewWrittenNoteView(onSave: { newNote in
+                // Add to current folder if we're in one
+                if let currentFolderID = currentFolderID,
+                    let index = folders.firstIndex(where: { $0.id == currentFolderID })
+                {
+                    folders[index].addNote(noteID: newNote.id)
+                }
+                notes.append(newNote)
+                TabManager.shared.openTab(note: newNote)
+            })
+        }
+        .sheet(isPresented: $showNewFolderView) {
+            NewFolderView(
+                parentFolderID: currentFolderID,
+                onSave: { newFolder in
+                    folders.append(newFolder)
+                }
+            )
+        }
+        .fileImporter(
+            isPresented: $showingFileImporter,
+            allowedContentTypes: [.item],
+            allowsMultipleSelection: true
+        ) { result in
+            do {
+                let urls = try result.get()
+                handleImportedFiles(urls)
+            } catch {
+                print("Error importing file: \(error)")
+            }
+        }
+    }
+
+    private func handleImportedFiles(_ urls: [URL]) {
+        for url in urls {
+            #if canImport(UIKit)
+            if url.startAccessingSecurityScopedResource() {
+                createNoteFromImportedFile(url)
+                url.stopAccessingSecurityScopedResource()
+            }
+            #else
+            createNoteFromImportedFile(url)
+            #endif
+        }
+    }
+    
+    private func createNoteFromImportedFile(_ url: URL) {
+        let newNote = Note(
+            title: url.lastPathComponent,
+            color: .matchalight_light,
+            dateCreated: Date(),
+            dateModified: Date(),
+            content: "Imported from \(url.lastPathComponent)",
+            noteType: .text
+        )
+        
+        // Add to current folder if we're in one
+        if let currentFolderID = currentFolderID,
+            let index = folders.firstIndex(where: { $0.id == currentFolderID })
+        {
+            folders[index].addNote(noteID: newNote.id)
+        }
+        
+        notes.append(newNote)
+        // Optionally open the imported note
+        TabManager.shared.openTab(note: newNote)
     }
 
     private var listNewButton: some View {

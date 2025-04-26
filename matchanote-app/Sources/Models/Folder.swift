@@ -72,7 +72,6 @@ struct Folder: Identifiable, Hashable {
     updateModificationDate()
   }
 
-
   /// Rename folder
   mutating func rename(to newName: String) {
     name = newName

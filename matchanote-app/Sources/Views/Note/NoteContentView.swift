@@ -1,7 +1,7 @@
 import PencilKit
 import SwiftDown
 import SwiftUI
-import matchanote_app
+
 
 // Written Note View with PencilKit
 struct WrittenNoteView: View {
@@ -407,7 +407,7 @@ struct TextNoteView: View {
             .frame(minWidth: geometry.size.width, minHeight: geometry.size.height)
         }
       }
-      .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
+      .shadow(color: Color.black.opacity(0.4), radius: 5, x: 0, y: 2)
       .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
       .frame(width: geometry.size.width, height: geometry.size.height)
 

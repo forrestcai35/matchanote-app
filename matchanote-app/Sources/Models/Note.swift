@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import matchanote_app
 
 // Paper properties enums
 public enum PaperColor: String, CaseIterable, Codable {

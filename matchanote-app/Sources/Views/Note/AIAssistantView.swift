@@ -7,51 +7,6 @@ import SwiftUI
   import AppKit
 #endif
 
-// Stub for OpenRouterAPI since it's missing
-class OpenRouterAPI {
-  static func configure(apiKey: String) {
-    // Stub implementation
-    print("Configured OpenRouterAPI with key")
-  }
-
-  static func sendMessage(userMessage: String, model: String) async throws -> String {
-    // Stub implementation
-    return "This is a sample response. The actual API implementation is required."
-  }
-}
-
-// Stub for EnvironmentManager since it's missing
-class EnvironmentManager {
-  static let shared = EnvironmentManager()
-
-  func getLlmAPIKey(for service: String) -> String? {
-    return "sample-api-key"
-  }
-}
-
-// Replacement for GrowingTextEditor since it's missing
-struct GrowingTextEditor: View {
-  @Binding var text: String
-  var placeholderText: String
-
-  var body: some View {
-    TextEditor(text: $text)
-      .frame(minHeight: 40)
-      .overlay(
-        Group {
-          if text.isEmpty {
-            HStack {
-              Text(placeholderText)
-                .foregroundColor(.gray)
-                .padding(.leading, 5)
-              Spacer()
-            }
-          }
-        }
-      )
-  }
-}
-
 class AIAssistantState: ObservableObject {
   @Published var messages: [ChatMessage] = []
   @Published var userInput = ""
@@ -87,7 +42,7 @@ struct MediaItem: Identifiable {
 
   enum MediaType {
     case image
-    case file(String)  // filename with extension
+    case file(String)
   }
 }
 
@@ -101,10 +56,6 @@ struct AIAssistantView: View {
   @State private var contextInfo = ""
   @Environment(\.colorScheme) private var colorScheme
   @State private var isInputTargeted = false
-  #if canImport(UIKit)
-    @State private var photoPickerItems: [PhotosPickerItem] = []
-    @State private var isImagePickerPresented = false
-  #endif
 
   // Configure models
   init() {
@@ -128,7 +79,8 @@ struct AIAssistantView: View {
 
       // Chat history area
       ScrollView {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
+
           // Display messages
           ForEach(state.messages) { message in
             if message.isUser {
@@ -187,35 +139,23 @@ struct AIAssistantView: View {
 
           // Add media menu
           Menu {
+            Button {
+              showingImagePicker = true
+            } label: {
+              Label("Choose Image", systemImage: "photo")
+            }
+
+            Button {
+              showingFileImporter = true
+            } label: {
+              Label("Import File", systemImage: "doc")
+            }
+
             #if canImport(UIKit)
-              Button {
-                showingFileImporter = true
-              } label: {
-                Label("Import File", systemImage: "doc")
-              }
-
-              Button {
-                isImagePickerPresented = true
-              } label: {
-                Label("Photo Library", systemImage: "photo.on.rectangle")
-              }
-
               Button {
                 showingCamera = true
               } label: {
                 Label("Take Photo", systemImage: "camera")
-              }
-            #else
-              Button {
-                showingFileImporter = true
-              } label: {
-                Label("Import File", systemImage: "doc")
-              }
-
-              Button {
-                showingImagePicker = true
-              } label: {
-                Label("Choose Image", systemImage: "photo")
               }
             #endif
           } label: {
@@ -230,7 +170,6 @@ struct AIAssistantView: View {
 
         ZStack(alignment: .bottomTrailing) {
           VStack {
-            // Display temporary media items
             if !state.tempMediaItems.isEmpty {
               ScrollView(.horizontal) {
                 HStack {
@@ -337,7 +276,6 @@ struct AIAssistantView: View {
       }
     }
     #if canImport(UIKit)
-      .background(Color(UIColor.systemBackground))
       .sheet(isPresented: $showingCamera) {
         CameraView { image in
           if let imageData = image.jpegData(compressionQuality: 0.8) {
@@ -346,62 +284,40 @@ struct AIAssistantView: View {
           }
         }
       }
-      .sheet(isPresented: $isImagePickerPresented) {
+    #endif
+
+    .sheet(isPresented: $showingImagePicker) {
+      #if canImport(UIKit)
         ImagePicker { image in
           if let imageData = image.jpegData(compressionQuality: 0.8) {
             let mediaItem = MediaItem(data: imageData, type: .image)
             state.tempMediaItems.append(mediaItem)
           }
         }
-      }
-      .fileImporter(
-        isPresented: $showingFileImporter,
-        allowedContentTypes: [.item],
-        allowsMultipleSelection: true
-      ) { result in
-        do {
-          let urls = try result.get()
-          for url in urls {
+      #endif
+    }
+
+    .fileImporter(
+      isPresented: $showingFileImporter,
+      allowedContentTypes: [.item],
+      allowsMultipleSelection: true
+    ) { result in
+      do {
+        let urls = try result.get()
+        for url in urls {
+          #if canImport(UIKit)
             if url.startAccessingSecurityScopedResource() {
               handleDroppedMedia(from: url)
               url.stopAccessingSecurityScopedResource()
             }
-          }
-        } catch {
-          print("Error importing file: \(error)")
-        }
-      }
-    #else
-      .background(Color(.windowBackgroundColor))
-      .fileImporter(
-        isPresented: $showingImagePicker,
-        allowedContentTypes: [.image],
-        allowsMultipleSelection: true
-      ) { result in
-        do {
-          let urls = try result.get()
-          for url in urls {
+          #else
             handleDroppedMedia(from: url)
-          }
-        } catch {
-          print("Error selecting image: \(error)")
+          #endif
         }
+      } catch {
+        print("Error importing file: \(error)")
       }
-      .fileImporter(
-        isPresented: $showingFileImporter,
-        allowedContentTypes: [.item],
-        allowsMultipleSelection: true
-      ) { result in
-        do {
-          let urls = try result.get()
-          for url in urls {
-            handleDroppedMedia(from: url)
-          }
-        } catch {
-          print("Error importing file: \(error)")
-        }
-      }
-    #endif
+    }
   }
 
   #if canImport(UIKit)
@@ -424,7 +340,6 @@ struct AIAssistantView: View {
     do {
       let data = try Data(contentsOf: url)
 
-      // Create a new media item
       let mediaType: MediaItem.MediaType
       if url.pathExtension.lowercased() == "jpg" || url.pathExtension.lowercased() == "jpeg"
         || url.pathExtension.lowercased() == "png"
@@ -436,7 +351,6 @@ struct AIAssistantView: View {
 
       let mediaItem = MediaItem(data: data, type: mediaType)
 
-      // Add to temporary media items
       state.tempMediaItems.append(mediaItem)
     } catch {
       print("Error handling dropped media: \(error)")
@@ -502,8 +416,9 @@ struct AssistantMessageView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
+
       Text(message.content)
-        .padding(8)
+        .padding(10)
         .background(Color.green.opacity(0.1))
         .cornerRadius(10)
 
@@ -522,6 +437,7 @@ struct AssistantMessageView: View {
             .foregroundColor(.gray)
         }
         .buttonStyle(.plain)
+
       }
       .padding(.top, 4)
     }
@@ -542,7 +458,7 @@ struct UserMessageView: View {
       // Message section with chat bubble
       VStack(alignment: .trailing) {
         Text(message.content)
-          .padding(8)
+          .padding(10)
 
         // Display media if available
         if let mediaItems = message.mediaItems {
@@ -553,7 +469,7 @@ struct UserMessageView: View {
                   Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFit()
-                    .frame(maxHeight: 150)
+                    .frame(maxHeight: 200)
                     .cornerRadius(8)
                 }
               #elseif canImport(AppKit)
@@ -561,7 +477,7 @@ struct UserMessageView: View {
                   Image(nsImage: nsImage)
                     .resizable()
                     .scaledToFit()
-                    .frame(maxHeight: 150)
+                    .frame(maxHeight: 200)
                     .cornerRadius(8)
                 }
               #endif
@@ -570,14 +486,14 @@ struct UserMessageView: View {
                 Image(systemName: "doc")
                 Text(name)
               }
-              .padding(4)
+              .padding(6)
               .background(Color.gray.opacity(0.1))
               .cornerRadius(6)
             }
           }
         }
       }
-      .padding(8)
+      .padding(10)
       .background(Color.gray.opacity(0.1))
       .foregroundColor(.primary)
       .cornerRadius(10)
@@ -701,7 +617,7 @@ struct UserMessageView: View {
     }
   }
 
-  // Using UIImagePickerController for photos instead of PhotosPicker
+  // Image picker for selecting from photo library
   struct ImagePicker: UIViewControllerRepresentable {
     let onImagePicked: (UIImage) -> Void
 

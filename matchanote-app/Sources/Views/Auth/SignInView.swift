@@ -1,7 +1,7 @@
 import AuthenticationServices
 import Foundation
 import SwiftUI
-import matchanote_app
+
 
 struct SignInView: View {
   @EnvironmentObject private var authManager: LocalAuthManager

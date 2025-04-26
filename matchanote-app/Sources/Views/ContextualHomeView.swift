@@ -1,5 +1,5 @@
 import SwiftUI
-import matchanote_app
+
 
 public struct ListItemView: View {
     @Environment(\.colorScheme) private var colorScheme

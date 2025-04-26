@@ -1,5 +1,4 @@
 import SwiftUI
-import matchanote_app
 
 // Settings popover view
 struct SettingsPopover: View {

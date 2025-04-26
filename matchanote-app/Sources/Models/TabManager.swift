@@ -1,6 +1,4 @@
 import SwiftUI
-import matchanote_app
-
 // Tab model to represent an open note tab
 struct NoteTab: Identifiable {
   var id = UUID()
