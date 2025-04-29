@@ -377,7 +377,6 @@ struct AIAssistantView: View {
     // Store the input and clear the field
     let input = state.userInput
     state.userInput = ""
-    let mediaItems = state.tempMediaItems
     state.tempMediaItems = []
 
     // Set loading state
