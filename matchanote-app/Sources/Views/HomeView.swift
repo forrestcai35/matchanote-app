@@ -796,7 +796,7 @@ var body: some View {
         }
     }
 
-    // Context menu for folders
+
     private func folderContextMenu(_ folder: Folder) -> some View {
         Group {
             Button(action: {
