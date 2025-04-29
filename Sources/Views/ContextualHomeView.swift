@@ -17,21 +17,21 @@ public struct GridFolderItemView: View {
         Image("folder")
           .resizable()
           .scaledToFill()
-          .frame(width: 112, height: 89.6)
+          .frame(width: 140, height: 112)
           .clipped()
 
         // Favorite indicator
         Image(systemName: folder.isFavorite ? "star.fill" : "star")
           .foregroundColor(folder.isFavorite ? .yellow : .gray)
           .padding(6)
-          .frame(maxWidth: 105.6, maxHeight: 62.4, alignment: .topTrailing)
+          .frame(maxWidth: 132, maxHeight: 76, alignment: .topTrailing)
       }
       // Folder title
       Text(folder.name)
         .padding(.top, 4)
         .lineLimit(1)
         .truncationMode(.tail)
-        .frame(width: 102.4)
+        .frame(width: 128)
         .multilineTextAlignment(.center)
         .fontWeight(.medium)
         .font(.subheadline)
@@ -40,11 +40,11 @@ public struct GridFolderItemView: View {
         .padding(.bottom, 4)
         .font(.caption)
         .foregroundColor(.secondary)
-        .frame(width: 102.4)
+        .frame(width: 128)
         .multilineTextAlignment(.center)
     }
-    .padding(.top, 38.4)
-    .frame(width: 102.4)
+    .padding(.top, 48)
+    .frame(width: 128)
     .contentShape(Rectangle())
   }
 }
@@ -65,7 +65,7 @@ public struct GridItemView: View {
         if note.noteType == .written {
           RoundedRectangle(cornerRadius: 8)
             .fill(note.color)
-            .frame(width: 102.4, height: 128)
+            .frame(width: 128, height: 160)
             .shadow(
               color: itemShadow(in: colorScheme),
               radius: 4,
@@ -74,15 +74,15 @@ public struct GridItemView: View {
             )
 
           Image(systemName: "pencil.tip")
-            .font(.system(size: 25.6))
+            .font(.system(size: 32))
             .foregroundColor(Color.white.opacity(0.3))
-            .offset(x: 0, y: -19.2)
+            .offset(x: 0, y: -24)
 
         } else if note.noteType == .text {
 
           RoundedRectangle(cornerRadius: 0)
             .fill(note.color)
-            .frame(width: 102.4, height: 128)
+            .frame(width: 128, height: 160)
             .shadow(
               color: itemShadow(in: colorScheme),
               radius: 5,
@@ -90,9 +90,9 @@ public struct GridItemView: View {
               y: 2
             )
           Image(systemName: "text.alignleft")
-            .font(.system(size: 25.6))
+            .font(.system(size: 32))
             .foregroundColor(Color.white.opacity(0.3))
-            .offset(x: 0, y: -19.2)
+            .offset(x: 0, y: -24)
         }
 
         Image(systemName: note.isFavorite ? "star.fill" : "star")
@@ -113,7 +113,7 @@ public struct GridItemView: View {
         .padding(.top, 4)
         .lineLimit(1)
         .truncationMode(.tail)
-        .frame(width: 102.4)
+        .frame(width: 128)
         .multilineTextAlignment(.center)
         .fontWeight(.medium)
         .font(.subheadline)
@@ -122,10 +122,10 @@ public struct GridItemView: View {
         .padding(.bottom, 4)
         .font(.caption)
         .foregroundColor(.secondary)
-        .frame(width: 102.4)
+        .frame(width: 128)
         .multilineTextAlignment(.center)
     }
-    .frame(width: 102.4)
+    .frame(width: 128)
     .contentShape(Rectangle())
   }
 
