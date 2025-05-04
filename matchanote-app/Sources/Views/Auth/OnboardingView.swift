@@ -7,8 +7,8 @@
 
 import AuthenticationServices
 import Foundation
+import Supabase
 import SwiftUI
-
 
 struct OnboardingView: View {
   @EnvironmentObject private var authManager: LocalAuthManager
@@ -17,7 +17,6 @@ struct OnboardingView: View {
   @State private var email = ""
   @State private var password = ""
   @State private var confirmPassword = ""
-  @State private var showSignInView = false
 
   var body: some View {
     NavigationStack {
@@ -87,7 +86,9 @@ struct OnboardingView: View {
 
             // Sign Up Button
             Button(action: {
-              signUpWithEmail()
+              Task {
+                await signUpWithEmail()
+              }
             }) {
               if isLoading {
                 ProgressView()
@@ -104,7 +105,6 @@ struct OnboardingView: View {
             .cornerRadius(10)
             .disabled(isLoading || email.isEmpty || password.isEmpty || password != confirmPassword)
 
-            // Or continue with divider
             HStack {
               Rectangle().fill(Color.secondary.opacity(0.3)).frame(height: 1)
               Text("OR").foregroundColor(.secondary).font(.caption)
@@ -114,7 +114,9 @@ struct OnboardingView: View {
 
             // Google Sign In Button
             Button(action: {
-              signInWithGoogle()
+              Task {
+                await signInWithGoogle()
+              }
             }) {
               HStack {
                 Image(systemName: "g.circle.fill")
@@ -147,7 +149,7 @@ struct OnboardingView: View {
                 .foregroundColor(.secondary)
 
               Button("Sign In") {
-                showSignInView = true
+                authManager.showSignInView()
               }
               .foregroundColor(.green)
               .fontWeight(.semibold)
@@ -162,10 +164,7 @@ struct OnboardingView: View {
           .frame(minHeight: geometry.size.height)
           .frame(width: geometry.size.width)
           .navigationBarHidden(true)
-          .navigationDestination(isPresented: $showSignInView) {
-            SignInView()
-              .environmentObject(authManager)
-          }
+
         }
       }
     }
@@ -173,13 +172,20 @@ struct OnboardingView: View {
   }
 
   // MARK: - Authentication Methods
-  private func signInWithGoogle() {
+  private func signInWithGoogle() async {
     isLoading = true
     errorMessage = nil
-    // Simulate network request
-    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+
+    do {
+      let _ = try await supabase.auth.signInWithOAuth(
+        provider: .google
+      ) { (session: ASWebAuthenticationSession) in
+        // customize session
+      }
       self.isLoading = false
       self.authManager.setLoggedIn()
+    } catch {
+      handleAuthError(error)
     }
   }
 
@@ -190,7 +196,7 @@ struct OnboardingView: View {
     print("Auth error: \(error)")
   }
 
-  private func signUpWithEmail() {
+  private func signUpWithEmail() async {
     isLoading = true
     errorMessage = nil
 
@@ -201,17 +207,15 @@ struct OnboardingView: View {
       return
     }
 
-    // Simulate network request
-    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-
-      // try await supabase.auth.signUp(email: email, password: password)
+    do {
+      try await supabase.auth.signUp(
+        email: email,
+        password: password
+      )
       self.isLoading = false
       self.authManager.setLoggedIn()
+    } catch {
+      handleAuthError(error)
     }
   }
-}
-
-#Preview {
-  OnboardingView()
-    .environmentObject(LocalAuthManager.shared)
 }

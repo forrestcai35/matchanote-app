@@ -1,6 +1,5 @@
 import SwiftUI
 
-
 public struct ListItemView: View {
     @Environment(\.colorScheme) private var colorScheme
     let note: Note
@@ -98,10 +97,6 @@ public struct ListFolderItemView: View {
 
             Spacer()
 
-            // Star indicator
-            Image(systemName: folder.isFavorite ? "star.fill" : "star")
-                .foregroundColor(folder.isFavorite ? .yellow : .gray)
-                .font(.caption)
         }
         .frame(maxWidth: .infinity)
         .frame(height: 56)
@@ -134,11 +129,6 @@ public struct GridFolderItemView: View {
                     .frame(width: 175, height: 140)
                     .clipped()
 
-                // Favorite indicator
-                Image(systemName: folder.isFavorite ? "star.fill" : "star")
-                    .foregroundColor(folder.isFavorite ? .yellow : .gray)
-                    .padding(8)
-                    .frame(maxWidth: 165, maxHeight: 95, alignment: .topTrailing)
             }
             // Folder title
             Text(folder.name)
@@ -157,7 +147,7 @@ public struct GridFolderItemView: View {
                 .frame(width: 160)
                 .multilineTextAlignment(.center)
         }
-        .padding(.top,60)
+        .padding(.top, 60)
         .frame(width: 160)
         .contentShape(Rectangle())
     }

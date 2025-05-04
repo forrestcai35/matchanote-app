@@ -1,6 +1,5 @@
 import SwiftUI
 
-
 struct AuthView: View {
   @StateObject private var authManager = LocalAuthManager.shared
 
@@ -8,7 +7,7 @@ struct AuthView: View {
     Group {
       if authManager.isLoggedIn {
         HomeView()
-      } else if authManager.isFirstLaunch {
+      } else if !authManager.showSignIn {
         OnboardingView()
           .environmentObject(authManager)
       } else {
@@ -17,8 +16,4 @@ struct AuthView: View {
       }
     }
   }
-}
-
-#Preview {
-  AuthView()
 }

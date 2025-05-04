@@ -9,10 +9,12 @@ class LocalAuthManager: ObservableObject {
 
   @Published var isFirstLaunch: Bool
   @Published var isLoggedIn: Bool
+  @Published var showSignIn: Bool = true
 
   private init() {
     isFirstLaunch = !userDefaults.bool(forKey: hasLaunchedBeforeKey)
     isLoggedIn = userDefaults.bool(forKey: isLoggedInKey)
+    showSignIn = !isFirstLaunch
 
     // If this is the first launch, update the flag
     if isFirstLaunch {
@@ -36,5 +38,16 @@ class LocalAuthManager: ObservableObject {
   func resetFirstLaunch() {
     userDefaults.set(false, forKey: hasLaunchedBeforeKey)
     isFirstLaunch = true
+  }
+
+  // Switch to sign in view
+  func showSignInView() {
+    showSignIn = true
+    isFirstLaunch = false
+  }
+
+  // Switch to onboarding view
+  func showOnboardingView() {
+    showSignIn = false
   }
 }

@@ -13,7 +13,6 @@ struct Folder: Identifiable, Hashable {
   var color: Color
   var dateCreated: Date
   var dateModified: Date
-  var isFavorite: Bool = false
 
   // Parent-child relationships
   var parentID: UUID?
@@ -23,14 +22,14 @@ struct Folder: Identifiable, Hashable {
   // MARK: - Initialization
   init(
     name: String, color: Color = .blue,
-    parentID: UUID? = nil, dateCreated: Date = Date(), isFavorite: Bool = false
+    parentID: UUID? = nil, dateCreated: Date = Date()
   ) {
     self.name = name
     self.color = color
     self.parentID = parentID
     self.dateCreated = dateCreated
     self.dateModified = dateCreated
-    self.isFavorite = isFavorite
+
   }
 
   // MARK: - Helper computed properties
@@ -103,7 +102,7 @@ struct Folder: Identifiable, Hashable {
       Folder(name: "Documents", color: .blue),
       Folder(name: "Projects", color: .blue),
       Folder(name: "School", color: .blue),
-      Folder(name: "Work", color: .blue, isFavorite: true),
+      Folder(name: "Work", color: .blue),
       Folder(name: "Personal", color: .blue),
     ]
   }

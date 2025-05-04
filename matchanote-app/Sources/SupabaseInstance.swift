@@ -10,9 +10,11 @@ let supabase = {
   guard let supabaseUrl = supabaseUrl, let supabaseKey = supabaseKey else {
     fatalError("Missing Supabase credentials")
   }
-  print("✅ Loaded Supabase credentials from environment")
+
   return SupabaseClient(
     supabaseURL: URL(string: supabaseUrl)!,
     supabaseKey: supabaseKey
   )
 }()
+
+let auth = supabase.auth

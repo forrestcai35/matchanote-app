@@ -55,7 +55,7 @@ struct StorageFolder: Codable {
   var colorString: String
   var dateCreated: Date
   var dateModified: Date
-  var isFavorite: Bool
+
   var parentID: UUID?
   var childFolderIDs: [UUID]
   var noteIDs: [UUID]
@@ -67,7 +67,7 @@ struct StorageFolder: Codable {
     self.colorString = colorToString(folder.color)
     self.dateCreated = folder.dateCreated
     self.dateModified = folder.dateModified
-    self.isFavorite = folder.isFavorite
+
     self.parentID = folder.parentID
     self.childFolderIDs = folder.childFolders.map { $0.id }
     self.noteIDs = folder.noteIDs
@@ -79,8 +79,8 @@ struct StorageFolder: Codable {
       name: name,
       color: stringToColor(colorString),
       parentID: parentID,
-      dateCreated: dateCreated,
-      isFavorite: isFavorite
+      dateCreated: dateCreated
+  
     )
     folder.id = id
     folder.dateModified = dateModified

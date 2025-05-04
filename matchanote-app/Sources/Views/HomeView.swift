@@ -7,7 +7,6 @@
 
 import SwiftUI
 
-
 struct SidebarItem: Identifiable {
     var id: String
     var title: String
@@ -15,8 +14,7 @@ struct SidebarItem: Identifiable {
 }
 
 struct HomeView: View {
-    @State private var notes = Note.samples
-    @State private var folders = Folder.samples
+    @EnvironmentObject private var storageManager: StorageManager
     @State private var searchText = ""
     @State private var selectedNote: Note? = nil
     @State private var selectedItem = "documents"
@@ -33,28 +31,27 @@ struct HomeView: View {
     @State private var showNewFolderView = false
     @State private var showingFileImporter = false
 
-
     private enum DragItemType {
         case folder
         case note
     }
     let sidebarItems = [
         SidebarItem(id: "documents", title: "Documents", icon: "folder"),
-        SidebarItem(id: "favorites", title: "Favorites", icon: "star")
-        
+        SidebarItem(id: "favorites", title: "Favorites", icon: "star"),
+
     ]
     // Filtered notes based on search text and current folder
     var filteredNotes: [Note] {
-        let folderNotes = notes.filter { note in
+        let folderNotes = storageManager.notes.filter { note in
             if let currentFolderID = currentFolderID {
                 // Get the folder to check its noteIDs
-                if let folder = folders.first(where: { $0.id == currentFolderID }) {
+                if let folder = storageManager.folders.first(where: { $0.id == currentFolderID }) {
                     return folder.noteIDs.contains(note.id)
                 }
                 return false
             } else {
                 // Root level - show notes that don't belong to any folder
-                return !folders.flatMap { $0.noteIDs }.contains(note.id)
+                return !storageManager.folders.flatMap { $0.noteIDs }.contains(note.id)
             }
         }
         if searchText.isEmpty {
@@ -65,7 +62,7 @@ struct HomeView: View {
     }
     // Filtered Notes
     var filteredFolders: [Folder] {
-        let folderItems = folders.filter { folder in
+        let folderItems = storageManager.folders.filter { folder in
             if let currentFolderID = currentFolderID {
                 return folder.parentID == currentFolderID
             } else {
@@ -78,41 +75,51 @@ struct HomeView: View {
             return folderItems.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
         }
     }
-var body: some View {
-    NavigationSplitView {
-        // Sidebar
-        VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                Image("Logo")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: 24)  
 
-                Text("Matcha")
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
-            }
-            searchBar
-            sidebarList
+    var filteredFavoriteNotes: [Note] {
+        let favoriteNotes = storageManager.notes.filter { $0.isFavorite }
+        if searchText.isEmpty {
+            return favoriteNotes
+        } else {
+            return favoriteNotes.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
         }
-        .background(
-            LinearGradient(
-                gradient: Gradient(
-                    colors: [
-                        colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light,
-                        colorScheme == .dark ? Color.black : Color.white,
-                    ]
-                ),
-                startPoint: .bottom,
-                endPoint: .top
-            )
-        )
-    } detail: {
-        contentView
     }
-    .accentColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
-}
+    var body: some View {
+        NavigationSplitView {
+            // Sidebar
+            VStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    Image("Logo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 24)
+
+                    Text("Matcha")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundColor(
+                            colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+                }
+                searchBar
+                sidebarList
+            }
+            .background(
+                LinearGradient(
+                    gradient: Gradient(
+                        colors: [
+                            colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light,
+                            colorScheme == .dark ? Color.black : Color.white,
+                        ]
+                    ),
+                    startPoint: .bottom,
+                    endPoint: .top
+                )
+            )
+        } detail: {
+            contentView
+        }
+        .accentColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+    }
 
     // MARK: - Component Views
     private var searchBar: some View {
@@ -144,7 +151,8 @@ var body: some View {
                         .foregroundStyle(
                             colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
                     Text(item.title)
-                        .foregroundStyle(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+                        .foregroundStyle(
+                            colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                     Spacer()
                 }
                 .fontWeight(.medium)
@@ -195,9 +203,32 @@ var body: some View {
                         }
                     }
                 }
+                .background(
+                    colorScheme == .dark
+                        ? Color.matchabackground_dark : Color.matchabackground_light)
 
+        } else if selectedItem == "favorites" {
+            favoritesView
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: {
+                            showSettings.toggle()
+                        }) {
+                            Image(systemName: "gear")
+                                .fontWeight(.medium)
+                                .foregroundStyle(
+                                    colorScheme == .dark
+                                        ? Color.matchabrown_dark : Color.matchabrown_light)
+                        }
+                        .popover(isPresented: $showSettings, arrowEdge: .top) {
+                            SettingsPopover()
+                        }
+                    }
+                }
+                .background(
+                    colorScheme == .dark
+                        ? Color.matchabackground_dark : Color.matchabackground_light)
         }
-
     }
 
     // MARK: - Document view
@@ -324,7 +355,6 @@ var body: some View {
             Button("Type", action: { sortOption = "Type" })
                 .fontWeight(.medium)
 
-    
         } label: {
             Label {
                 Text(sortOption)
@@ -451,7 +481,7 @@ var body: some View {
     private func dragPreview(for item: Any) -> some View {
         let width: CGFloat = 120
         let height: CGFloat = 150
-            
+
         if item is Folder {
             return AnyView(
                 ZStack {
@@ -658,42 +688,29 @@ var body: some View {
             return false
         }
 
-        // Create a new copy of the folders array
-        var newFolders = folders
         switch draggedItemType.type {
         case .folder:
             // Move folder to root level
-            if let index = newFolders.firstIndex(where: { $0.id == draggedItemType.id }) {
-                newFolders[index].parentID = nil
-
-                // Replace the entire folders array
-                DispatchQueue.main.async {
-                    self.folders = newFolders
-
-                }
-
+            if let sourceFolder = storageManager.folders.first(where: {
+                $0.id == draggedItemType.id
+            }) {
+                var updatedFolder = sourceFolder
+                updatedFolder.parentID = nil
+                storageManager.saveFolder(updatedFolder)
                 return true
             }
         case .note:
             // Remove note from all folders
-            var madeChanges = false
-            for i in 0..<newFolders.count {
-                if newFolders[i].noteIDs.contains(draggedItemType.id) {
-                    newFolders[i].noteIDs.removeAll(where: { $0 == draggedItemType.id })
-                    newFolders[i].dateModified = Date()
-                    madeChanges = true
-                    print("Removed note \(draggedItemType.id) from folder \(newFolders[i].id)")
-                }
+            let foldersContainingNote = storageManager.folders.filter {
+                $0.noteIDs.contains(draggedItemType.id)
             }
-
-            if madeChanges {
-                // Replace the entire folders array
-                DispatchQueue.main.async {
-                    self.folders = newFolders
-
-                }
+            for folder in foldersContainingNote {
+                var updatedFolder = folder
+                updatedFolder.noteIDs.removeAll(where: { $0 == draggedItemType.id })
+                updatedFolder.dateModified = Date()
+                storageManager.saveFolder(updatedFolder)
+                print("Removed note \(draggedItemType.id) from folder \(updatedFolder.id)")
             }
-
             return true
         }
 
@@ -703,8 +720,6 @@ var body: some View {
     // Handle drop onto a specific folder
     private func handleDrop(onto targetFolder: Folder? = nil) -> Bool {
         guard let (type, id) = dragItem else { return false }
-        // Create a working copy of folders
-        var newFolders = folders
 
         switch type {
         case .folder:
@@ -717,40 +732,52 @@ var body: some View {
                 }
 
                 // Move folder to target folder
-                if let index = newFolders.firstIndex(where: { $0.id == id }),
-                    let targetIndex = newFolders.firstIndex(where: { $0.id == targetFolder.id })
+                if let sourceFolder = storageManager.folders.first(where: { $0.id == id }),
+                    let _ = storageManager.folders.firstIndex(where: {
+                        $0.id == targetFolder.id
+                    })
                 {
-                    newFolders[index].parentID = targetFolder.id
-                    newFolders[targetIndex].dateModified = Date()
+                    var updatedSourceFolder = sourceFolder
+                    var updatedTargetFolder = targetFolder
+
+                    updatedSourceFolder.parentID = targetFolder.id
+                    updatedTargetFolder.dateModified = Date()
+
+                    storageManager.saveFolder(updatedSourceFolder)
+                    storageManager.saveFolder(updatedTargetFolder)
                 }
             } else {
                 // Move to root
-                if let index = newFolders.firstIndex(where: { $0.id == id }) {
-                    newFolders[index].parentID = nil
+                if let sourceFolder = storageManager.folders.first(where: { $0.id == id }) {
+                    var updatedFolder = sourceFolder
+                    updatedFolder.parentID = nil
+                    storageManager.saveFolder(updatedFolder)
                 }
             }
 
         case .note:
+            // Get all folders that contain this note
+            let foldersContainingNote = storageManager.folders.filter { $0.noteIDs.contains(id) }
+
             // Remove note from all folders first
-            for i in 0..<newFolders.count {
-                if newFolders[i].noteIDs.contains(id) {
-                    newFolders[i].noteIDs.removeAll(where: { $0 == id })
-                    newFolders[i].dateModified = Date()
-                }
+            for folder in foldersContainingNote {
+                var updatedFolder = folder
+                updatedFolder.noteIDs.removeAll(where: { $0 == id })
+                updatedFolder.dateModified = Date()
+                storageManager.saveFolder(updatedFolder)
             }
 
             // Add to target folder if provided
-            if let targetFolder = targetFolder,
-                let targetIndex = newFolders.firstIndex(where: { $0.id == targetFolder.id })
-            {
-                newFolders[targetIndex].noteIDs.append(id)
-                newFolders[targetIndex].dateModified = Date()
+            if let targetFolder = targetFolder {
+                var updatedFolder = targetFolder
+                updatedFolder.noteIDs.append(id)
+                updatedFolder.dateModified = Date()
+                storageManager.saveFolder(updatedFolder)
             }
         }
 
-        // Update folders and refresh UI
+        // Refresh UI
         DispatchQueue.main.async {
-            self.folders = newFolders
             self.refreshID = UUID()
             self.dragItem = nil
         }
@@ -758,7 +785,7 @@ var body: some View {
         return true
     }
 
-    // Check if moving a folder would create a circular reference
+    // Helper to check if moving a folder would create a circular reference
     private func wouldCreateCircularReference(sourceID: UUID, targetID: UUID) -> Bool {
         // If source and target are the same, it would create a circular reference
         if sourceID == targetID {
@@ -767,7 +794,7 @@ var body: some View {
 
         // Check if target is a child of source (which would create a loop)
         var currentID = targetID
-        while let folder = folders.first(where: { $0.id == currentID }) {
+        while let folder = storageManager.folders.first(where: { $0.id == currentID }) {
             if folder.parentID == sourceID {
                 return true
             }
@@ -796,7 +823,6 @@ var body: some View {
         }
     }
 
-
     private func folderContextMenu(_ folder: Folder) -> some View {
         Group {
             Button(action: {
@@ -811,25 +837,12 @@ var body: some View {
                 Label("Change Color", systemImage: "paintpalette")
             }
 
-            Button(action: {
-                // Toggle favorite
-                if let index = folders.firstIndex(where: { $0.id == folder.id }) {
-                    folders[index].isFavorite.toggle()
-
-                }
-            }) {
-                Label(
-                    folder.isFavorite ? "Remove from Favorites" : "Add to Favorites",
-                    systemImage: folder.isFavorite ? "star.slash" : "star"
-                )
-            }
-
             Divider()
 
             Button(
                 role: .destructive,
                 action: {
-                    // Delete folder functionality would go here
+                    storageManager.deleteFolder(withID: folder.id)
                 }
             ) {
                 Label("Delete", systemImage: "trash")
@@ -855,10 +868,9 @@ var body: some View {
 
             Button(action: {
                 // Toggle favorite
-                if let index = notes.firstIndex(where: { $0.id == note.id }) {
-                    notes[index].isFavorite.toggle()
-
-                }
+                var updatedNote = note
+                updatedNote.isFavorite.toggle()
+                storageManager.saveNote(updatedNote)
             }) {
                 Label(
                     note.isFavorite ? "Remove from Favorites" : "Add to Favorites",
@@ -871,7 +883,7 @@ var body: some View {
             Button(
                 role: .destructive,
                 action: {
-                    // Delete note functionality would go here
+                    storageManager.deleteNote(withID: note.id)
                 }
             ) {
                 Label("Delete", systemImage: "trash")
@@ -905,16 +917,20 @@ var body: some View {
                 )
                 // Add to current folder if we're in one
                 if let currentFolderID = currentFolderID,
-                    let index = folders.firstIndex(where: { $0.id == currentFolderID })
+                    let folderIndex = storageManager.folders.firstIndex(where: {
+                        $0.id == currentFolderID
+                    })
                 {
-                    folders[index].addNote(noteID: newNote.id)
+                    var updatedFolder = storageManager.folders[folderIndex]
+                    updatedFolder.addNote(noteID: newNote.id)
+                    storageManager.saveFolder(updatedFolder)
                 }
-                notes.append(newNote)
+                storageManager.saveNote(newNote)
                 TabManager.shared.openTab(note: newNote)
             } label: {
                 Label("Text", systemImage: "text.alignleft")
             }
-            
+
             // Upload
             Button {
                 showingFileImporter = true
@@ -934,11 +950,15 @@ var body: some View {
             NewWrittenNoteView(onSave: { newNote in
                 // Add to current folder if we're in one
                 if let currentFolderID = currentFolderID,
-                    let index = folders.firstIndex(where: { $0.id == currentFolderID })
+                    let folderIndex = storageManager.folders.firstIndex(where: {
+                        $0.id == currentFolderID
+                    })
                 {
-                    folders[index].addNote(noteID: newNote.id)
+                    var updatedFolder = storageManager.folders[folderIndex]
+                    updatedFolder.addNote(noteID: newNote.id)
+                    storageManager.saveFolder(updatedFolder)
                 }
-                notes.append(newNote)
+                storageManager.saveNote(newNote)
                 TabManager.shared.openTab(note: newNote)
             })
         }
@@ -946,7 +966,7 @@ var body: some View {
             NewFolderView(
                 parentFolderID: currentFolderID,
                 onSave: { newFolder in
-                    folders.append(newFolder)
+                    storageManager.saveFolder(newFolder)
                 }
             )
         }
@@ -967,16 +987,16 @@ var body: some View {
     private func handleImportedFiles(_ urls: [URL]) {
         for url in urls {
             #if canImport(UIKit)
-            if url.startAccessingSecurityScopedResource() {
-                createNoteFromImportedFile(url)
-                url.stopAccessingSecurityScopedResource()
-            }
+                if url.startAccessingSecurityScopedResource() {
+                    createNoteFromImportedFile(url)
+                    url.stopAccessingSecurityScopedResource()
+                }
             #else
-            createNoteFromImportedFile(url)
+                createNoteFromImportedFile(url)
             #endif
         }
     }
-    
+
     private func createNoteFromImportedFile(_ url: URL) {
         let newNote = Note(
             title: url.lastPathComponent,
@@ -986,15 +1006,17 @@ var body: some View {
             content: "Imported from \(url.lastPathComponent)",
             noteType: .text
         )
-        
+
         // Add to current folder if we're in one
         if let currentFolderID = currentFolderID,
-            let index = folders.firstIndex(where: { $0.id == currentFolderID })
+            let folderIndex = storageManager.folders.firstIndex(where: { $0.id == currentFolderID })
         {
-            folders[index].addNote(noteID: newNote.id)
+            var updatedFolder = storageManager.folders[folderIndex]
+            updatedFolder.addNote(noteID: newNote.id)
+            storageManager.saveFolder(updatedFolder)
         }
-        
-        notes.append(newNote)
+
+        storageManager.saveNote(newNote)
         // Optionally open the imported note
         TabManager.shared.openTab(note: newNote)
     }
@@ -1038,7 +1060,6 @@ var body: some View {
             }
             .foregroundColor(colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
 
-
             Text("New...")
                 .padding(.top, 5)
                 .foregroundColor(
@@ -1049,7 +1070,6 @@ var body: some View {
                 .multilineTextAlignment(.center)
                 .font(.subheadline)
 
-     
             Text(" ")
                 .padding(.bottom, 5)
                 .font(.caption)
@@ -1058,27 +1078,65 @@ var body: some View {
         .frame(width: 160)
     }
 
-    // Helper to find the UISplitViewController in the view controller hierarchy
-    private func findSplitViewController(in viewController: UIViewController)
-        -> UISplitViewController?
-    {
-        if let splitViewController = viewController as? UISplitViewController {
-            return splitViewController
+    // MARK: - Favorites view
+    private var favoritesView: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            favoritesHeader
+            favoritesContent
         }
-
-        for child in viewController.children {
-            if let splitViewController = findSplitViewController(in: child) {
-                return splitViewController
-            }
-        }
-
-        return nil
     }
 
-}
+    private var favoritesHeader: some View {
+        HStack {
+            Text("Favorites")
+                .font(.largeTitle)
+                .bold()
+                .foregroundStyle(
+                    colorScheme == .dark
+                        ? Color.matchabrown_dark : Color.matchabrown_light)
+            Spacer()
+            sortMenu
+            viewToggleButton
+        }
+        .padding(.horizontal)
+        .padding(.bottom, 10)
+    }
 
+    private var favoritesContent: some View {
+        ScrollView {
+            if isGridView {
+                favoritesGridView
+            } else {
+                favoritesListView
+            }
+        }
+    }
 
-#Preview {
-    HomeView()
-        .environmentObject(AIAssistantState())
+    private var favoritesGridView: some View {
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: 160), spacing: 12)],
+            spacing: 12
+        ) {
+
+            //  favorite notes
+            ForEach(filteredFavoriteNotes) { note in
+                noteGridItem(for: note)
+            }
+        }
+        .padding(.horizontal)
+        .padding(.top, 8)
+        .id(refreshID)
+    }
+
+    private var favoritesListView: some View {
+        LazyVStack(spacing: 8) {
+
+            //  show favorite notes
+            ForEach(filteredFavoriteNotes) { note in
+                noteListItem(for: note)
+            }
+        }
+        .padding(.vertical)
+        .id(refreshID)
+    }
 }
