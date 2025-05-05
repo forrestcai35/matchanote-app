@@ -7,5 +7,16 @@
 		<key>UIImageName</key>
 		<string>logo_small</string>
 	</dict>
+	<key>CFBundleURLTypes</key>
+    <array>
+      <dict>
+        <key>CFBundleTypeRole</key>
+        <string>Editor</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>app.matchanote://auth-callback</string>
+        </array>
+      </dict>
+    </array>
 </dict>
 </plist>

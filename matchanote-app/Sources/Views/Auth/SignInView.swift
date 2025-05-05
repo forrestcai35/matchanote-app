@@ -9,6 +9,9 @@ struct SignInView: View {
   @State private var errorMessage: String? = nil
   @State private var email = ""
   @State private var password = ""
+  @State private var showEmailPopup = false
+  @State private var popupEmail = ""
+  @State private var popupAction: ((String) -> Void)? = nil
 
   var body: some View {
     NavigationStack {
@@ -41,8 +44,8 @@ struct SignInView: View {
               Text("Email")
                 .font(.caption)
                 .foregroundColor(.secondary)
+                
               TextField("you@example.com", text: $email)
-
                 .padding()
                 .background(Color.secondary.opacity(0.1))
                 .cornerRadius(8)
@@ -58,6 +61,20 @@ struct SignInView: View {
                 .padding()
                 .background(Color.secondary.opacity(0.1))
                 .cornerRadius(8)
+
+              Button("Forgot Password?") {
+                Task {
+                  showEmailPopupWith { email in
+                    Task {
+                      await resetPasswordWithEmail(email)
+                    }
+                  }
+                }
+              }
+              .font(.caption)
+              .foregroundColor(.green)
+              .frame(maxWidth: .infinity, alignment: .trailing)
+              .padding(.top, 4)
             }
             .frame(width: min(geometry.size.width * 0.8, 450))
 
@@ -101,11 +118,33 @@ struct SignInView: View {
 
               Button(action: {
                 Task {
-                  await signInWithGoogle()
+                  await oauthWithGoogle()
                 }
               }) {
                 Image(systemName: "g.circle.fill")
                   .font(.title2)
+                  .frame(width: isLandscape ? 50 : 60, height: isLandscape ? 50 : 60)
+                  .background(Color.white)
+                  .foregroundColor(.black)
+                  .clipShape(Circle())
+                  .overlay(
+                    Circle()
+                      .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                  )
+              }
+              .disabled(isLoading)
+
+              Button(action: {
+                Task {
+                  showEmailPopupWith { email in
+                    Task {
+                      await signInWithOTPEmail(email)
+                    }
+                  }
+                }
+              }) {
+                Image(systemName: "envelope")
+                  .font(.title3)
                   .frame(width: isLandscape ? 50 : 60, height: isLandscape ? 50 : 60)
                   .background(Color.white)
                   .foregroundColor(.black)
@@ -145,7 +184,27 @@ struct SignInView: View {
           EmptyView()
         }
       }
+      .overlay {
+        if showEmailPopup {
+          EmailPopupView(
+            email: $popupEmail,
+            isShowing: $showEmailPopup,
+            onSubmit: {
+              if let action = popupAction {
+                action(popupEmail)
+              }
+              showEmailPopup = false
+            }
+          )
+        }
+      }
     }
+  }
+
+  private func showEmailPopupWith(completion: @escaping (String) -> Void) {
+    popupEmail = email  // Pre-populate with current email if any
+    popupAction = completion
+    showEmailPopup = true
   }
 
   // MARK: - Authentication Methods
@@ -172,19 +231,66 @@ struct SignInView: View {
     }
   }
 
-  private func signInWithGoogle() async {
+  private func resetPasswordWithEmail(_ email: String) async {
+    isLoading = true
+    errorMessage = nil
+
+    if email.isEmpty {
+      errorMessage = "Please enter your email address"
+      isLoading = false
+      return
+    }
+
+    do {
+      try await supabase.auth.signInWithOTP(
+        email: email,
+        redirectTo: URL(string: "https://matchanote.app/app/reset-password"),
+        shouldCreateUser: false
+      )
+      isLoading = false
+      errorMessage = "Password reset instructions sent to your email"
+    } catch {
+      self.isLoading = false
+    }
+  }
+
+  private func signInWithOTPEmail(_ email: String) async {
+    isLoading = true
+    errorMessage = nil
+
+    if email.isEmpty {
+      errorMessage = "Please enter your email address"
+      isLoading = false
+      return
+    }
+
+    do {
+      try await supabase.auth.signInWithOTP(
+        email: email,
+        redirectTo: URL(string: "app.matchanote://auth-callback")!
+      )
+      self.isLoading = false
+      self.authManager.setLoggedIn()
+    } catch {
+      self.isLoading = false
+    }
+  }
+
+  private func oauthWithGoogle() async {
     isLoading = true
     errorMessage = nil
 
     do {
       let _ = try await supabase.auth.signInWithOAuth(
-        provider: .google
+        provider: .google,
+        redirectTo: URL(string: "app.matchanote://auth-callback")!
       ) { (session: ASWebAuthenticationSession) in
+        // Session handling
       }
       self.isLoading = false
       self.authManager.setLoggedIn()
     } catch {
-      handleAuthError(error)
+      self.isLoading = false
     }
   }
 
@@ -192,6 +298,55 @@ struct SignInView: View {
   private func handleAuthError(_ error: Error) {
     isLoading = false
     errorMessage = "Authentication failed: \(error.localizedDescription)"
-    print("Auth error: \(error)")
+
+  }
+}
+
+struct EmailPopupView: View {
+  @Binding var email: String
+  @Binding var isShowing: Bool
+  var onSubmit: () -> Void
+
+  var body: some View {
+    ZStack {
+      Color.black.opacity(0.4)
+        .edgesIgnoringSafeArea(.all)
+        .onTapGesture {
+          isShowing = false
+        }
+
+      VStack(spacing: 20) {
+        Text("Enter Your Email")
+          .font(.headline)
+          .padding(.top)
+
+        TextField("you@example.com", text: $email)
+          .padding()
+          .background(Color.secondary.opacity(0.1))
+          .cornerRadius(8)
+          .padding(.horizontal)
+
+        HStack {
+          Button("Cancel") {
+            isShowing = false
+          }
+          .foregroundColor(.red)
+
+          Spacer()
+
+          Button("Submit") {
+            onSubmit()
+          }
+          .foregroundColor(.green)
+          .disabled(email.isEmpty)
+        }
+        .padding(.horizontal)
+        .padding(.bottom)
+      }
+      .background(Color(UIColor.systemBackground))
+      .cornerRadius(12)
+      .padding(.horizontal, 40)
+      .frame(maxWidth: 400)
+    }
   }
 }

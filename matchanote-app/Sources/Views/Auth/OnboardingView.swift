@@ -115,7 +115,7 @@ struct OnboardingView: View {
             // Google Sign In Button
             Button(action: {
               Task {
-                await signInWithGoogle()
+                await oauthWithGoogle()
               }
             }) {
               HStack {
@@ -172,30 +172,6 @@ struct OnboardingView: View {
   }
 
   // MARK: - Authentication Methods
-  private func signInWithGoogle() async {
-    isLoading = true
-    errorMessage = nil
-
-    do {
-      let _ = try await supabase.auth.signInWithOAuth(
-        provider: .google
-      ) { (session: ASWebAuthenticationSession) in
-        // customize session
-      }
-      self.isLoading = false
-      self.authManager.setLoggedIn()
-    } catch {
-      handleAuthError(error)
-    }
-  }
-
-  // Handle authentication errors
-  private func handleAuthError(_ error: Error) {
-    isLoading = false
-    errorMessage = "Authentication failed: \(error.localizedDescription)"
-    print("Auth error: \(error)")
-  }
-
   private func signUpWithEmail() async {
     isLoading = true
     errorMessage = nil
@@ -210,12 +186,40 @@ struct OnboardingView: View {
     do {
       try await supabase.auth.signUp(
         email: email,
-        password: password
+        password: password,
+        redirectTo: URL(string: "app.matchanote://auth-callback")!
       )
       self.isLoading = false
       self.authManager.setLoggedIn()
+
     } catch {
-      handleAuthError(error)
+      self.isLoading = false
     }
   }
+
+  private func oauthWithGoogle() async {
+    isLoading = true
+    errorMessage = nil
+
+    do {
+      let _ = try await supabase.auth.signInWithOAuth(
+        provider: .google,
+        redirectTo: URL(string: "app.matchanote://auth-callback")!
+      ) { (session: ASWebAuthenticationSession) in
+
+      }
+      self.isLoading = false
+      self.authManager.setLoggedIn()
+    } catch {
+      self.isLoading = false
+    }
+  }
+
+  // Handle authentication errors
+  private func handleAuthError(_ error: Error) {
+    isLoading = false
+    errorMessage = "Authentication failed: \(error.localizedDescription)"
+    print("Auth error: \(error)")
+  }
+
 }

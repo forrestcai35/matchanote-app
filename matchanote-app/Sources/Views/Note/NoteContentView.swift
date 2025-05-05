@@ -31,8 +31,6 @@ struct WrittenNoteView: View {
               ))
         }
       }
-      .animation(.spring(response: 0.3, dampingFraction: 0.8), value: currentPage)
-      .animation(.spring(response: 0.3, dampingFraction: 0.8), value: pageCount)
       .tabViewStyle(.page(indexDisplayMode: .never))
       .overlay(alignment: .bottomTrailing) {
         controlsOverlay
@@ -153,6 +151,7 @@ struct WrittenNoteView: View {
       }
       .frame(width: geometry.size.width, height: geometry.size.height)
       .coordinateSpace(name: "scroll")
+      .shadow(color: Color.black.opacity(0.3), radius: 3, x: 0, y: 1)
       .gesture(
         MagnificationGesture()
           .onChanged { value in
@@ -407,7 +406,7 @@ struct TextNoteView: View {
             .frame(minWidth: geometry.size.width, minHeight: geometry.size.height)
         }
       }
-      .shadow(color: Color.black.opacity(0.4), radius: 5, x: 0, y: 2)
+      .shadow(color: Color.black.opacity(0.3), radius: 5, x: 0, y: 2)
       .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
       .frame(width: geometry.size.width, height: geometry.size.height)
 
