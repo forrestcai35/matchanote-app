@@ -24,7 +24,7 @@ struct NoteView: View {
   @State private var dragLocation: CGPoint = .zero
   @ObservedObject private var tabManager = TabManager.shared
   @State private var isEdited = false
-  @State private var toolPickerIsVisible = true
+  @State private var toolPickerIsVisible = false
   @StateObject private var assistantState = AIAssistantState()
   @Environment(\.colorScheme) private var colorScheme
   // Added for lasso tool functionality
@@ -54,7 +54,7 @@ struct NoteView: View {
             case .written:
               WrittenNoteToolbar(
                 isAssistantVisible: $isAssistantVisible,
-                toolPickerIsVisible: $toolPickerIsVisible,
+
                 canvasViews: $canvasViews,
                 currentPage: $currentPage,
                 currentTool: $currentTool)
@@ -63,8 +63,7 @@ struct NoteView: View {
                 isAssistantVisible: $isAssistantVisible,
                 canvasViews: $canvasViews,
                 currentPage: $currentPage,
-                currentTool: $currentTool,
-                toolPickerIsVisible: $toolPickerIsVisible)
+                currentTool: $currentTool)
 
             }
             Divider()

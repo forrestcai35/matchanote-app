@@ -1,6 +1,7 @@
 import PencilKit
 import SwiftDown
 import SwiftUI
+import UIKit
 
 // Written Note View with PencilKit
 struct WrittenNoteView: View {
@@ -129,7 +130,12 @@ struct WrittenNoteView: View {
         ZStack {
           paperBackground()
           if pageIndex < canvasViews.count {
-            PencilKitCanvasView(canvasView: canvasViews[pageIndex])
+            PencilKitCanvasView(
+              canvasView: canvasViews[pageIndex],
+              currentTool: $currentTool,
+              canvasViews: $canvasViews,
+              currentPage: $currentPage
+            )
               .frame(
                 width: getPaperWidth(for: note.paperSize),
                 height: getPaperHeight(for: note.paperSize)
@@ -338,15 +344,66 @@ struct Line: Shape {
 // PencilKit Canvas SwiftUI wrapper
 struct PencilKitCanvasView: UIViewRepresentable {
   var canvasView: PKCanvasView
+  @Binding var currentTool: PenTool?
+  @Binding var canvasViews: [PKCanvasView]
+  @Binding var currentPage: Int
 
   func makeUIView(context: Context) -> PKCanvasView {
     canvasView.backgroundColor = .clear
     canvasView.isScrollEnabled = false
+    
+    // Add pencil interaction for double tap
+    if UIPencilInteraction.preferredTapAction == .switchEraser {
+      let pencilInteraction = UIPencilInteraction()
+      pencilInteraction.delegate = context.coordinator
+      canvasView.addInteraction(pencilInteraction)
+    }
+    
     return canvasView
   }
 
   func updateUIView(_ uiView: PKCanvasView, context: Context) {
     // No custom policy updates needed
+  }
+  
+  func makeCoordinator() -> Coordinator {
+    Coordinator(self)
+  }
+  
+  class Coordinator: NSObject, UIPencilInteractionDelegate {
+    var parent: PencilKitCanvasView
+    private var previousTool: PenTool = .pen
+    
+    init(_ parent: PencilKitCanvasView) {
+      self.parent = parent
+    }
+    
+    func pencilInteractionDidTap(_ interaction: UIPencilInteraction) {
+      // Handle double tap to switch between eraser and previous tool
+      if let currentTool = parent.currentTool {
+        if currentTool == .eraser {
+          // Switch back to previous tool
+          parent.currentTool = previousTool
+          if parent.currentPage < parent.canvasViews.count {
+            parent.canvasViews[parent.currentPage].tool = previousTool.toolInstance
+          }
+        } else {
+          // Store current tool and switch to eraser
+          previousTool = currentTool
+          parent.currentTool = .eraser
+          if parent.currentPage < parent.canvasViews.count {
+            parent.canvasViews[parent.currentPage].tool = PenTool.eraser.toolInstance
+          }
+        }
+      } else {
+        // If no current tool, default to pen then switch to eraser
+        previousTool = .pen
+        parent.currentTool = .eraser
+        if parent.currentPage < parent.canvasViews.count {
+          parent.canvasViews[parent.currentPage].tool = PenTool.eraser.toolInstance
+        }
+      }
+    }
   }
 }
 
@@ -369,11 +426,10 @@ struct TextNoteView: View {
         VStack {
           SwiftDownEditor(text: $textContent)
             .insetsSize(40)
-            .theme(Theme.BuiltIn.defaultLight.theme())
+            .theme(colorScheme == .dark ? Theme.BuiltIn.defaultDark.theme() : Theme.BuiltIn.defaultLight.theme())
             .scrollContentBackground(.hidden)
             .frame(minHeight: infiniteScrollHeight)
             .frame(width: 700)
-            .background(getPaperBackgroundColor(for: note.paperColor))
             .onChange(of: textContent) { oldValue, newValue in
               if oldValue != newValue {
                 isEdited = true

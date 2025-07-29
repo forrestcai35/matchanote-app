@@ -822,13 +822,6 @@ struct HomeView: View {
             }) {
                 Label("Rename", systemImage: "pencil")
             }
-
-            Button(action: {
-                // Change color functionality would go here
-            }) {
-                Label("Change Color", systemImage: "paintpalette")
-            }
-
             Divider()
 
             Button(

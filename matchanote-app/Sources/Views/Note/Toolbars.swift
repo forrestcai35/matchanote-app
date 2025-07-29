@@ -3,12 +3,18 @@ import SwiftUI
 
 enum PenTool {
   case pen
+  case marker
+  case eraser
   case lasso
 
   var toolInstance: PKTool {
     switch self {
     case .pen:
       return PKInkingTool(.pen)
+    case .marker:
+      return PKInkingTool(.marker)
+    case .eraser:
+      return PKEraserTool(.bitmap)
     case .lasso:
       return PKLassoTool()
     }
@@ -19,9 +25,6 @@ enum PenTool {
 struct WrittenNoteToolbar: View {
   @Binding var isAssistantVisible: Bool
   @Environment(\.colorScheme) private var colorScheme
-
-  // Reference to the PKToolPicker visibility
-  @Binding var toolPickerIsVisible: Bool
 
   // Added to reference canvas array and current page
   @Binding var canvasViews: [PKCanvasView]
@@ -47,13 +50,39 @@ struct WrittenNoteToolbar: View {
       }
 
       Spacer()
-      // PLACE TOOLS HERE
-      // Toggle ToolPicker visibility
+      
+      // Individual Tool Buttons
+      // Pen Tool
       Button(action: {
-        toolPickerIsVisible.toggle()
+        currentTool = .pen
+        if currentPage < canvasViews.count {
+          canvasViews[currentPage].tool = PenTool.pen.toolInstance
+        }
       }) {
-        Image(systemName: "pencil.tip.crop.circle")
-          .foregroundColor(toolPickerIsVisible ? .green : .gray)
+        Image(systemName: "pencil")
+          .foregroundColor(currentTool == .pen ? .green : .gray)
+      }
+      
+      // Marker Tool
+      Button(action: {
+        currentTool = .marker
+        if currentPage < canvasViews.count {
+          canvasViews[currentPage].tool = PenTool.marker.toolInstance
+        }
+      }) {
+        Image(systemName: "highlighter")
+          .foregroundColor(currentTool == .marker ? .green : .gray)
+      }
+      
+      // Eraser Tool
+      Button(action: {
+        currentTool = .eraser
+        if currentPage < canvasViews.count {
+          canvasViews[currentPage].tool = PenTool.eraser.toolInstance
+        }
+      }) {
+        Image(systemName: "eraser")
+          .foregroundColor(currentTool == .eraser ? .green : .gray)
       }
 
       // Lasso Tool
@@ -75,6 +104,7 @@ struct WrittenNoteToolbar: View {
         Image(systemName: "lasso")
           .foregroundColor(currentTool == .lasso ? .green : .gray)
       }
+      
       // Add text
       Button(action: {
 
@@ -123,7 +153,6 @@ struct TextNoteToolbar: View {
   @Binding var canvasViews: [PKCanvasView]
   @Binding var currentPage: Int
   @Binding var currentTool: PenTool?
-  @Binding var toolPickerIsVisible: Bool
 
   var body: some View {
     HStack {
