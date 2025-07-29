@@ -104,17 +104,9 @@ struct HomeView: View {
                 sidebarList
             }
             .background(
-                LinearGradient(
-                    gradient: Gradient(
-                        colors: [
-                            colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light,
-                            colorScheme == .dark ? Color.black : Color.white,
-                        ]
-                    ),
-                    startPoint: .bottom,
-                    endPoint: .top
+                            colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light
                 )
-            )
+    
         } detail: {
             contentView
         }
@@ -854,8 +846,7 @@ struct HomeView: View {
     private func noteContextMenu(_ note: Note) -> some View {
         Group {
             Button(action: {
-                // Move note functionality
-                // This would open a move to folder dialog
+                //Rename functionality
             }) {
                 Label("Rename", systemImage: "pencil")
             }
@@ -910,7 +901,7 @@ struct HomeView: View {
             Button {
                 let newNote = Note(
                     title: "New Text Note",
-                    color: .matchalight_light,
+                    color: .white,
                     dateCreated: Date(),
                     dateModified: Date(),
                     noteType: .text

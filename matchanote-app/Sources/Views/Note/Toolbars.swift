@@ -1,7 +1,6 @@
 import PencilKit
 import SwiftUI
 
-
 enum PenTool {
   case pen
   case lasso

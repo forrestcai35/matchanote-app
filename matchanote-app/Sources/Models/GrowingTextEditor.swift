@@ -16,7 +16,7 @@ struct GrowingTextEditor: View {
       TextEditor(text: $text)
         .frame(height: min(max(textEditorHeight, 80), maxHeight))
         .scrollContentBackground(.hidden)
-        .onChange(of: text) { newValue in
+        .onChange(of: text) { oldValue, newValue in
           let size = CGSize(width: UIScreen.main.bounds.width - 80, height: .infinity)
           let estimatedSize = newValue.boundingRect(
             with: size,

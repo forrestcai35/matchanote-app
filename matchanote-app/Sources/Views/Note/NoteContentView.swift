@@ -2,7 +2,6 @@ import PencilKit
 import SwiftDown
 import SwiftUI
 
-
 // Written Note View with PencilKit
 struct WrittenNoteView: View {
   var note: Note
@@ -12,11 +11,8 @@ struct WrittenNoteView: View {
   @Binding var currentPage: Int
   @Binding var currentTool: PenTool?
   @State private var pageCount = 1
-  @State private var currentScale: CGFloat = 1.25
-  @State private var finalScale: CGFloat = 1.0
   @State private var toolPicker = PKToolPicker()
   @Environment(\.colorScheme) private var colorScheme
-  private let infiniteScrollHeight: CGFloat = 10000
 
   var body: some View {
     VStack(spacing: 0) {
@@ -31,6 +27,7 @@ struct WrittenNoteView: View {
               ))
         }
       }
+      .shadow(color: Color.black.opacity(0.3), radius: 3, x: 0, y: 1)
       .tabViewStyle(.page(indexDisplayMode: .never))
       .overlay(alignment: .bottomTrailing) {
         controlsOverlay
@@ -121,13 +118,16 @@ struct WrittenNoteView: View {
   private func pageContent(pageIndex: Int, isInfinite: Bool) -> some View {
     // Wrap Canvas in a GeometryReader to get parent size for centering
     GeometryReader { geometry in
-      // Scroll view now explicitly centers content
-      ScrollView([.horizontal, .vertical], showsIndicators: false) {
-        ZStack {
-          // Background with paper style
-          paperBackground()
+      ZoomableScrollView(
+        minScale: 0.8,
+        maxScale: 3.0,
+        resetOnDoubleTap: true
+      ) {
 
-          // PencilKit Canvas - use the canvas for this specific page
+        // Content is now fixed without scrolling
+
+        ZStack {
+          paperBackground()
           if pageIndex < canvasViews.count {
             PencilKitCanvasView(canvasView: canvasViews[pageIndex])
               .frame(
@@ -146,30 +146,8 @@ struct WrittenNoteView: View {
               )
           }
         }
-
-        .scaleEffect(finalScale * currentScale)
       }
-      .frame(width: geometry.size.width, height: geometry.size.height)
       .coordinateSpace(name: "scroll")
-      .shadow(color: Color.black.opacity(0.3), radius: 3, x: 0, y: 1)
-      .gesture(
-        MagnificationGesture()
-          .onChanged { value in
-            // Use a more forgiving magnification with damping
-            let dampedValue = 1.0 + ((value - 1.0) * 0.8)  // Apply 20% damping
-            // Limit scaling with stricter bounds (0.8 min, 3.0 max considering finalScale)
-            let newScale = dampedValue
-            if finalScale * newScale >= 0.8 && finalScale * newScale <= 3.0 {
-              currentScale = newScale
-            }
-          }
-          .onEnded { value in
-            let dampedFinalValue = 1.0 + ((value - 1.0) * 0.8)
-            let potentialFinalScale = finalScale * dampedFinalValue
-            finalScale = min(max(potentialFinalScale, 0.8), 3.0)
-            currentScale = 1.0
-          }
-      )
     }
   }
 
@@ -209,7 +187,6 @@ struct WrittenNoteView: View {
         Line(start: CGPoint(x: 0, y: y), end: CGPoint(x: size.width, y: y))
           .stroke(Color.gray.opacity(0.3), lineWidth: 0.5)
       }
-
       // Vertical lines
       ForEach(0..<Int(size.width / gridSpacing + 1), id: \.self) { i in
         let x = CGFloat(i) * gridSpacing
@@ -425,4 +402,135 @@ struct TextNoteView: View {
     }
   }
 
+}
+
+// Custom ZoomableScrollView that provides a much more natural zooming experience
+struct ZoomableScrollView<Content: View>: UIViewRepresentable {
+  private var content: Content
+  private var minScale: CGFloat
+  private var maxScale: CGFloat
+  private var resetOnDoubleTap: Bool
+
+  @Binding private var currentScale: CGFloat
+
+  // Initialize with default scale binding
+  init(
+    minScale: CGFloat = 1.0,
+    maxScale: CGFloat = 3.0,
+    resetOnDoubleTap: Bool = true,
+    currentScale: Binding<CGFloat> = .constant(1.0),
+    @ViewBuilder content: () -> Content
+  ) {
+    self.minScale = minScale
+    self.maxScale = maxScale
+    self.resetOnDoubleTap = resetOnDoubleTap
+    self._currentScale = currentScale
+    self.content = content()
+  }
+
+  func makeUIView(context: Context) -> UIScrollView {
+    // Set up the UIScrollView
+    let scrollView = UIScrollView()
+    scrollView.delegate = context.coordinator
+    scrollView.maximumZoomScale = maxScale
+    scrollView.minimumZoomScale = minScale
+    scrollView.bouncesZoom = true
+    scrollView.showsHorizontalScrollIndicator = false
+    scrollView.showsVerticalScrollIndicator = false
+    scrollView.clipsToBounds = false
+
+    // Add the SwiftUI content
+    let hostedView = UIHostingController(rootView: content).view!
+    hostedView.translatesAutoresizingMaskIntoConstraints = false
+    hostedView.backgroundColor = .clear
+
+    scrollView.addSubview(hostedView)
+
+    NSLayoutConstraint.activate([
+      hostedView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
+      hostedView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+      hostedView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+      hostedView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
+      hostedView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
+      hostedView.heightAnchor.constraint(equalTo: scrollView.frameLayoutGuide.heightAnchor),
+    ])
+
+    // Add double-tap gesture if needed
+    if resetOnDoubleTap {
+      let doubleTapGesture = UITapGestureRecognizer(
+        target: context.coordinator, action: #selector(Coordinator.handleDoubleTap(_:)))
+      doubleTapGesture.numberOfTapsRequired = 2
+      scrollView.addGestureRecognizer(doubleTapGesture)
+    }
+
+    return scrollView
+  }
+
+  func updateUIView(_ uiView: UIScrollView, context: Context) {
+    // Update the view if needed
+    context.coordinator.parent = self
+
+    // Update the hosting controller's rootView
+    if let hostedView = uiView.subviews.first,
+      let hostingController = hostedView.findViewController() as? UIHostingController<Content>
+    {
+      hostingController.rootView = content
+    }
+  }
+
+  func makeCoordinator() -> Coordinator {
+    Coordinator(self)
+  }
+
+  class Coordinator: NSObject, UIScrollViewDelegate {
+    var parent: ZoomableScrollView
+
+    init(_ parent: ZoomableScrollView) {
+      self.parent = parent
+    }
+
+    func viewForZooming(in scrollView: UIScrollView) -> UIView? {
+      return scrollView.subviews.first
+    }
+
+    func scrollViewDidZoom(_ scrollView: UIScrollView) {
+      // Update the binding
+      parent.currentScale = scrollView.zoomScale
+
+      // Center the content
+      let offsetX = max((scrollView.bounds.width - scrollView.contentSize.width) * 0.5, 0)
+      let offsetY = max((scrollView.bounds.height - scrollView.contentSize.height) * 0.5, 0)
+      scrollView.contentInset = UIEdgeInsets(top: offsetY, left: offsetX, bottom: 0, right: 0)
+    }
+
+    @objc func handleDoubleTap(_ gestureRecognizer: UITapGestureRecognizer) {
+      guard let scrollView = gestureRecognizer.view as? UIScrollView else { return }
+
+      if scrollView.zoomScale > scrollView.minimumZoomScale {
+        scrollView.setZoomScale(scrollView.minimumZoomScale, animated: true)
+      } else {
+        let point = gestureRecognizer.location(in: scrollView)
+        let zoomRect = CGRect(
+          x: point.x - 50,
+          y: point.y - 50,
+          width: 100,
+          height: 100
+        )
+        scrollView.zoom(to: zoomRect, animated: true)
+      }
+    }
+  }
+}
+
+// Extension to find the UIViewController
+extension UIView {
+  func findViewController() -> UIViewController? {
+    if let nextResponder = self.next as? UIViewController {
+      return nextResponder
+    } else if let nextResponder = self.next as? UIView {
+      return nextResponder.findViewController()
+    } else {
+      return nil
+    }
+  }
 }

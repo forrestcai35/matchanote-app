@@ -45,7 +45,10 @@ struct SignInView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
                 
-              TextField("you@example.com", text: $email)
+              TextField("", text: $email)
+                    .textContentType(.emailAddress)
+                    .autocapitalization(.none)
+                    .autocorrectionDisabled()
                 .padding()
                 .background(Color.secondary.opacity(0.1))
                 .cornerRadius(8)
@@ -57,8 +60,9 @@ struct SignInView: View {
               Text("Password")
                 .font(.caption)
                 .foregroundColor(.secondary)
-              SecureField("Your password", text: $password)
+              SecureField("", text: $password)
                 .padding()
+                
                 .background(Color.secondary.opacity(0.1))
                 .cornerRadius(8)
 
@@ -320,12 +324,14 @@ struct EmailPopupView: View {
           .font(.headline)
           .padding(.top)
 
-        TextField("you@example.com", text: $email)
+        TextField("", text: $email)
           .padding()
           .background(Color.secondary.opacity(0.1))
           .cornerRadius(8)
           .padding(.horizontal)
-
+          .textContentType(.emailAddress)
+            .autocapitalization(.none)
+            .autocorrectionDisabled()
         HStack {
           Button("Cancel") {
             isShowing = false

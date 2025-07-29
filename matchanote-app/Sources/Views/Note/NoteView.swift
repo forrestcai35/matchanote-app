@@ -8,9 +8,6 @@
 import PencilKit
 import SwiftUI
 
-
-
-
 enum AssistantOrientation {
   case right, left
 }
@@ -114,7 +111,7 @@ struct NoteView: View {
       }
     }
     .navigationBarHidden(true)
-    .navigationViewStyle(StackNavigationViewStyle())
+
   }
 
   // NOTES MAIN CONTENT VIEW
@@ -205,17 +202,16 @@ struct NoteView: View {
   @ViewBuilder
   private func resizeHandleView() -> some View {
     ZStack {
-          VStack(spacing: 8) {
-                ForEach(0..<5) { _ in
-                    Capsule()
-                        .fill(Color.gray.opacity(0.5))
-                        .frame(width: 8, height: 2)
-                }
-            }
+      VStack(spacing: 8) {
+        ForEach(0..<5) { _ in
+          Capsule()
+            .fill(Color.gray.opacity(0.5))
+            .frame(width: 8, height: 2)
+        }
+      }
       Rectangle()
         .fill(colorScheme == .dark ? Color.gray.opacity(0.2) : Color.gray.opacity(0.07))
         .frame(width: 10)
-
 
     }
     .contentShape(Rectangle())

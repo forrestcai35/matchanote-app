@@ -122,6 +122,8 @@ struct TabItemView: View {
 
 // Empty state view when no tabs are open
 struct EmptyStateView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    
   var body: some View {
     VStack(spacing: 20) {
       Image(systemName: "doc.text")
@@ -139,6 +141,6 @@ struct EmptyStateView: View {
         .padding(.horizontal, 40)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(Color.white)
+    .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
   }
 }
