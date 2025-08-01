@@ -112,6 +112,7 @@ struct AIAssistantView: View {
         }
         .padding()
       }
+      .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
 
       // Input area
       VStack(spacing: 8) {
@@ -275,6 +276,7 @@ struct AIAssistantView: View {
         .padding([.horizontal, .bottom])
       }
     }
+    .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
     #if canImport(UIKit)
       .sheet(isPresented: $showingCamera) {
         CameraView { image in
