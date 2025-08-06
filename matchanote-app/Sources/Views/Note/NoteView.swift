@@ -28,12 +28,16 @@ struct NoteView: View {
   @StateObject private var assistantState = AIAssistantState()
   @Environment(\.colorScheme) private var colorScheme
   // Added for lasso tool functionality
-  @State private var canvasViews: [PKCanvasView] = [PKCanvasView()]
+  @State private var canvasViews: [PKCanvasView] = []
   @State private var currentPage: Int = 0
   @State private var currentTool: PenTool? = .pen
 
   init(note: Note) {
     self.note = note
+    // Initialize with a properly configured canvas view
+    let initialCanvas = PKCanvasView()
+    initialCanvas.overrideUserInterfaceStyle = .light
+    self._canvasViews = State(initialValue: [initialCanvas])
   }
 
   // Opens note in tab

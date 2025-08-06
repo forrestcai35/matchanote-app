@@ -109,6 +109,7 @@ struct WrittenNoteView: View {
     while canvasViews.count <= pageIndex {
       let newCanvas = PKCanvasView()
       newCanvas.tool = PKInkingTool(.pen, color: .black, width: 1.0)
+      newCanvas.overrideUserInterfaceStyle = .light
       toolPicker.addObserver(newCanvas)
       canvasViews.append(newCanvas)
     }
@@ -351,6 +352,7 @@ struct PencilKitCanvasView: UIViewRepresentable {
   func makeUIView(context: Context) -> PKCanvasView {
     canvasView.backgroundColor = .clear
     canvasView.isScrollEnabled = false
+    canvasView.overrideUserInterfaceStyle = .light
     
     // Add pencil interaction for double tap
     if UIPencilInteraction.preferredTapAction == .switchEraser {
