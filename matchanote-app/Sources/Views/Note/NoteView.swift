@@ -109,7 +109,6 @@ struct NoteView: View {
         openNoteInTab()
       }
     }
-    .navigationBarHidden(true)
 
   }
 

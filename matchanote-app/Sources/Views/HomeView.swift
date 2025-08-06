@@ -230,6 +230,9 @@ struct HomeView: View {
             folderPathBreadcrumbs
             documentContent
         }
+        .fullScreenCover(item: $selectedNote) { note in
+            NoteView(note: note)
+        }
     }
 
     // MARK: - Folder navigation breadcrumbs
@@ -548,30 +551,21 @@ struct HomeView: View {
 
     // Helper function to create a note grid item
     private func noteGridItem(for note: Note) -> some View {
-        let baseView = NavigationLink(
-            destination: NoteView(note: note)
-                .navigationBarBackButtonHidden(true)
-
-        ) {
+        Button(action: {
+            TabManager.shared.openTab(note: note)
+            selectedNote = note
+        }) {
             GridItemView(note: note)
         }
         .buttonStyle(PlainButtonStyle())
-        .simultaneousGesture(
-            TapGesture().onEnded {
-                TabManager.shared.openTab(note: note)
-            }
-        )
-        return
-
-            baseView
-            .contextMenu {
-                noteContextMenu(note)
-            }
-            .onDrag {
-                startDragging(note: note)
-            } preview: {
-                dragPreview(for: note)
-            }
+        .contextMenu {
+            noteContextMenu(note)
+        }
+        .onDrag {
+            startDragging(note: note)
+        } preview: {
+            dragPreview(for: note)
+        }
     }
 
     private var listView: some View {
@@ -636,30 +630,21 @@ struct HomeView: View {
 
     // Helper function to create a note list item
     private func noteListItem(for note: Note) -> some View {
-        // NavigationLink needs special handling since we can't directly apply modifiers to it
-        let baseView = NavigationLink(
-            destination: NoteView(note: note)
-                .navigationBarBackButtonHidden(true)
-        ) {
+        Button(action: {
+            TabManager.shared.openTab(note: note)
+            selectedNote = note
+        }) {
             ListItemView(note: note)
         }
         .buttonStyle(PlainButtonStyle())
-        .simultaneousGesture(
-            TapGesture().onEnded {
-                TabManager.shared.openTab(note: note)
-            }
-        )
-
-        return
-            baseView
-            .contextMenu {
-                noteContextMenu(note)
-            }
-            .onDrag {
-                startDragging(note: note)
-            } preview: {
-                dragPreview(for: note)
-            }
+        .contextMenu {
+            noteContextMenu(note)
+        }
+        .onDrag {
+            startDragging(note: note)
+        } preview: {
+            dragPreview(for: note)
+        }
     }
 
     // Start dragging a folder
@@ -1067,6 +1052,9 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 0) {
             favoritesHeader
             favoritesContent
+        }
+        .fullScreenCover(item: $selectedNote) { note in
+            NoteView(note: note)
         }
     }
 
