@@ -60,7 +60,7 @@ struct WrittenNoteToolbar: View {
         }
       }) {
         Image(systemName: "pencil")
-          .foregroundColor(currentTool == .pen ? .green : .gray)
+          .foregroundColor(currentTool == .pen ? .matchalight_dark : .gray)
       }
       
       // Marker Tool
@@ -71,7 +71,7 @@ struct WrittenNoteToolbar: View {
         }
       }) {
         Image(systemName: "highlighter")
-          .foregroundColor(currentTool == .marker ? .green : .gray)
+          .foregroundColor(currentTool == .marker ? .matchalight_dark : .gray)
       }
       
       // Eraser Tool
@@ -82,7 +82,7 @@ struct WrittenNoteToolbar: View {
         }
       }) {
         Image(systemName: "eraser")
-          .foregroundColor(currentTool == .eraser ? .green : .gray)
+          .foregroundColor(currentTool == .eraser ? .matchalight_dark : .gray)
       }
 
       // Lasso Tool
@@ -102,7 +102,7 @@ struct WrittenNoteToolbar: View {
         }
       }) {
         Image(systemName: "lasso")
-          .foregroundColor(currentTool == .lasso ? .green : .gray)
+          .foregroundColor(currentTool == .lasso ? .matchalight_dark : .gray)
       }
       
       // Add text

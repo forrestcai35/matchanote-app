@@ -30,7 +30,7 @@ struct NoteView: View {
   // Added for lasso tool functionality
   @State private var canvasViews: [PKCanvasView] = [PKCanvasView()]
   @State private var currentPage: Int = 0
-  @State private var currentTool: PenTool? = nil
+  @State private var currentTool: PenTool? = .pen
 
   init(note: Note) {
     self.note = note
