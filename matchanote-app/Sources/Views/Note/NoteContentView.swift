@@ -55,7 +55,7 @@ struct WrittenNoteView: View {
 
     // Set tool based on current selection
     if let selectedTool = currentTool {
-      currentCanvas.tool = selectedTool.toolInstance
+      currentCanvas.tool = selectedTool.toolInstance()
     } else {
       // Default to pen if no tool is selected
       currentCanvas.tool = PKInkingTool(.pen, color: .black, width: 1.0)
@@ -323,7 +323,7 @@ struct WrittenNoteView: View {
   private func updateCanvasTool() {
     guard let currentCanvas = getCurrentCanvas() else { return }
     if let selectedTool = currentTool {
-      currentCanvas.tool = selectedTool.toolInstance
+      currentCanvas.tool = selectedTool.toolInstance()
     } else {
       currentCanvas.tool = PKInkingTool(.pen, color: .black, width: 1.0)
     }
@@ -385,14 +385,14 @@ struct PencilKitCanvasView: UIViewRepresentable {
           // Switch back to previous tool
           parent.currentTool = previousTool
           if parent.currentPage < parent.canvasViews.count {
-            parent.canvasViews[parent.currentPage].tool = previousTool.toolInstance
+            parent.canvasViews[parent.currentPage].tool = previousTool.toolInstance()
           }
         } else {
           // Store current tool and switch to eraser
           previousTool = currentTool
           parent.currentTool = .eraser
           if parent.currentPage < parent.canvasViews.count {
-            parent.canvasViews[parent.currentPage].tool = PenTool.eraser.toolInstance
+            parent.canvasViews[parent.currentPage].tool = PenTool.eraser.toolInstance()
           }
         }
       } else {
@@ -400,7 +400,7 @@ struct PencilKitCanvasView: UIViewRepresentable {
         previousTool = .pen
         parent.currentTool = .eraser
         if parent.currentPage < parent.canvasViews.count {
-          parent.canvasViews[parent.currentPage].tool = PenTool.eraser.toolInstance
+          parent.canvasViews[parent.currentPage].tool = PenTool.eraser.toolInstance()
         }
       }
     }
