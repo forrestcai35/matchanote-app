@@ -62,122 +62,9 @@ enum ToolWidth: CGFloat, CaseIterable {
   }
 }
 
-// Color palette management
-class ColorPaletteManager: ObservableObject {
-  @Published var penColors: [Color] = []
-  @Published var markerColors: [Color] = []
-  @Published var showingColorPicker = false
-  @Published var editingPenColors = false
-  @Published var colorToEdit: Color = .black
-  @Published var editingColorIndex: Int = 0
-  
-  // Default color options for selection
-  let availableColors: [Color] = [
-    .black, .white, .gray, .red, .orange, .yellow, .green, .blue, 
-    .purple, .pink, .brown, .cyan, .indigo, .mint, .teal,
-    .matchalight_dark, .matchalight_light, .matchadark_light, .matchadark_dark
-  ]
-  
-  private let penColorsKey = "PenColors"
-  private let markerColorsKey = "MarkerColors"
-  
-  init() {
-    loadColors()
-  }
-  
-  private func loadColors() {
-    // Load pen colors
-    if let penData = UserDefaults.standard.array(forKey: penColorsKey) as? [String] {
-      penColors = penData.compactMap { stringToColor($0) }
-    }
-    
-    // Load marker colors
-    if let markerData = UserDefaults.standard.array(forKey: markerColorsKey) as? [String] {
-      markerColors = markerData.compactMap { stringToColor($0) }
-    }
-    
-    // Set defaults if empty
-    if penColors.isEmpty {
-      penColors = [.black, .blue, .red, .green]
-    }
-    
-    if markerColors.isEmpty {
-      markerColors = [.yellow, .pink, .green, .blue]
-    }
-  }
-  
-  private func saveColors() {
-    // Save pen colors
-    let penData = penColors.map { colorToString($0) }
-    UserDefaults.standard.set(penData, forKey: penColorsKey)
-    
-    // Save marker colors
-    let markerData = markerColors.map { colorToString($0) }
-    UserDefaults.standard.set(markerData, forKey: markerColorsKey)
-  }
-  
-  func updatePenColor(at index: Int, with color: Color) {
-    if index < penColors.count {
-      penColors[index] = color
-      saveColors()
-    }
-  }
-  
-  func updateMarkerColor(at index: Int, with color: Color) {
-    if index < markerColors.count {
-      markerColors[index] = color
-      saveColors()
-    }
-  }
-  
-  func addPenColor(_ color: Color) {
-    if penColors.count < 8 {
-      penColors.append(color)
-      saveColors()
-    }
-  }
-  
-  func addMarkerColor(_ color: Color) {
-    if markerColors.count < 8 {
-      markerColors.append(color)
-      saveColors()
-    }
-  }
-  
-  func removePenColor(at index: Int) {
-    if index < penColors.count && penColors.count > 1 {
-      penColors.remove(at: index)
-      saveColors()
-    }
-  }
-  
-  func removeMarkerColor(at index: Int) {
-    if index < markerColors.count && markerColors.count > 1 {
-      markerColors.remove(at: index)
-      saveColors()
-    }
-  }
-  
-  func startEditingColor(_ color: Color, at index: Int, forPen: Bool) {
-    colorToEdit = color
-    editingColorIndex = index
-    editingPenColors = forPen
-    showingColorPicker = true
-  }
-  
-  func finishEditingColor(with newColor: Color) {
-    if editingPenColors {
-      updatePenColor(at: editingColorIndex, with: newColor)
-    } else {
-      updateMarkerColor(at: editingColorIndex, with: newColor)
-    }
-    showingColorPicker = false
-  }
-}
-
 // Tool state management
 class ToolState: ObservableObject {
-  @Published var penColor: Color = ColorPaletteManager.penColors[0]
+  @Published var penColor: Color = .black
   @Published var penWidth: ToolWidth = .medium
   @Published var markerColor: Color = .yellow
   @Published var markerWidth: ToolWidth = .medium
@@ -190,12 +77,20 @@ struct WrittenNoteToolbar: View {
   @Binding var isAssistantVisible: Bool
   @Environment(\.colorScheme) private var colorScheme
   @StateObject private var toolState = ToolState()
-  @StateObject private var colorPalette = ColorPaletteManager()
 
   // Added to reference canvas array and current page
   @Binding var canvasViews: [PKCanvasView]
   @Binding var currentPage: Int
   @Binding var currentTool: PenTool?
+
+  // Color palettes
+  private let penColors: [Color] = [
+    .black, .blue, .red, .green, .purple, .orange, .brown, .pink
+  ]
+  
+  private let markerColors: [Color] = [
+    .yellow, .pink, .green, .blue, .orange, .purple, .red, .cyan
+  ]
 
   var body: some View {
     HStack {
@@ -223,7 +118,7 @@ struct WrittenNoteToolbar: View {
           penToolWithOptions
         } else {
           Button(action: { selectTool(.pen) }) {
-        Image(systemName: "pencil")
+            Image(systemName: "pencil")
               .foregroundColor(.gray)
           }
         }
@@ -233,11 +128,11 @@ struct WrittenNoteToolbar: View {
           markerToolWithOptions
         } else {
           Button(action: { selectTool(.marker) }) {
-        Image(systemName: "highlighter")
+            Image(systemName: "highlighter")
               .foregroundColor(.gray)
           }
-      }
-      
+        }
+        
         // Eraser Tool with options
         if currentTool == .eraser {
           eraserToolWithOptions
@@ -254,21 +149,21 @@ struct WrittenNoteToolbar: View {
             selectTool(.pen)
           } else {
             selectTool(.lasso)
+          }
+        }) {
+          Image(systemName: "lasso")
+            .foregroundColor(currentTool == .lasso ? .matchalight_dark : .gray)
         }
-      }) {
-        Image(systemName: "lasso")
-          .foregroundColor(currentTool == .lasso ? .matchalight_dark : .gray)
+        
+        // Add text
+        Button(action: {
+          // Text functionality
+        }) {
+          Image(systemName: "character.textbox")
+            .foregroundColor(.gray)
+        }
       }
       
-      // Add text
-      Button(action: {
-          // Text functionality
-      }) {
-        Image(systemName: "character.textbox")
-          .foregroundColor(.gray)
-        }
-      }
-
       Spacer()
       
       // Right side buttons
@@ -299,9 +194,6 @@ struct WrittenNoteToolbar: View {
     .buttonStyle(PlainButtonStyle())
     .background(colorScheme == .dark ? Color.gray.opacity(0.3) : Color.white)
     .foregroundColor(colorScheme == .dark ? Color.white.opacity(0.8) : Color.black.opacity(0.8))
-    .sheet(isPresented: $colorPalette.showingColorPicker) {
-      ColorCustomizationSheet(colorPalette: colorPalette)
-    }
   }
   
   @ViewBuilder
@@ -315,7 +207,7 @@ struct WrittenNoteToolbar: View {
       
       // Color options
       HStack(spacing: 3) {
-        ForEach(Array(colorPalette.penColors.enumerated()), id: \.offset) { index, color in
+        ForEach(Array(penColors.prefix(4)), id: \.self) { color in
           Button(action: {
             toolState.penColor = color
             updateCanvasTool()
@@ -331,30 +223,11 @@ struct WrittenNoteToolbar: View {
                   )
               )
               .overlay(
-                // Special indicator for black/white
-                (color == .black || color == .white) ?
+                // Special indicator for black
+                color == .black ?
                 Circle()
                   .stroke(Color.gray.opacity(0.3), lineWidth: 0.5)
                 : nil
-              )
-          }
-          .onLongPressGesture {
-            colorPalette.startEditingColor(color, at: index, forPen: true)
-          }
-        }
-        
-        // Add color button
-        if colorPalette.penColors.count < 8 {
-          Button(action: {
-            colorPalette.startEditingColor(.black, at: colorPalette.penColors.count, forPen: true)
-          }) {
-            Circle()
-              .stroke(Color.gray, style: StrokeStyle(lineWidth: 1, dash: [2]))
-              .frame(width: 16, height: 16)
-              .overlay(
-                Image(systemName: "plus")
-                  .font(.caption2)
-                  .foregroundColor(.gray)
               )
           }
         }
@@ -391,7 +264,7 @@ struct WrittenNoteToolbar: View {
       
       // Color options
       HStack(spacing: 3) {
-        ForEach(Array(colorPalette.markerColors.enumerated()), id: \.offset) { index, color in
+        ForEach(Array(markerColors.prefix(4)), id: \.self) { color in
           Button(action: {
             toolState.markerColor = color
             updateCanvasTool()
@@ -405,25 +278,6 @@ struct WrittenNoteToolbar: View {
                     toolState.markerColor == color ? Color.matchalight_dark : Color.clear,
                     lineWidth: 1.5
                   )
-              )
-          }
-          .onLongPressGesture {
-            colorPalette.startEditingColor(color, at: index, forPen: false)
-          }
-        }
-        
-        // Add color button
-        if colorPalette.markerColors.count < 8 {
-          Button(action: {
-            colorPalette.startEditingColor(.yellow, at: colorPalette.markerColors.count, forPen: false)
-          }) {
-            Circle()
-              .stroke(Color.gray, style: StrokeStyle(lineWidth: 1, dash: [2]))
-              .frame(width: 16, height: 16)
-              .overlay(
-                Image(systemName: "plus")
-                  .font(.caption2)
-                  .foregroundColor(.gray)
               )
           }
         }
@@ -518,75 +372,6 @@ struct WrittenNoteToolbar: View {
       canvas.tool = tool.toolInstance(eraserType: toolState.eraserType)
     case .lasso:
       canvas.tool = tool.toolInstance()
-    }
-  }
-}
-
-// Color customization sheet
-struct ColorCustomizationSheet: View {
-  @ObservedObject var colorPalette: ColorPaletteManager
-  @Environment(\.dismiss) private var dismiss
-  @State private var selectedColor: Color = .black
-  
-  var body: some View {
-    NavigationView {
-      VStack(spacing: 20) {
-        Text("Customize Color")
-          .font(.title2)
-          .fontWeight(.semibold)
-        
-        // Color preview
-        Circle()
-          .fill(selectedColor)
-          .frame(width: 60, height: 60)
-          .overlay(
-            Circle()
-              .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-          )
-        
-        // Available colors grid
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 12) {
-          ForEach(colorPalette.availableColors, id: \.self) { color in
-            Button(action: {
-              selectedColor = color
-            }) {
-              Circle()
-                .fill(color)
-                .frame(width: 40, height: 40)
-                .overlay(
-                  Circle()
-                    .stroke(
-                      selectedColor == color ? Color.blue : Color.gray.opacity(0.3),
-                      lineWidth: selectedColor == color ? 2 : 1
-                    )
-                )
-            }
-          }
-        }
-        .padding(.horizontal)
-        
-        Spacer()
-      }
-      .padding()
-      .navigationBarTitleDisplayMode(.inline)
-      .toolbar {
-        ToolbarItem(placement: .navigationBarLeading) {
-          Button("Cancel") {
-            dismiss()
-          }
-        }
-        
-        ToolbarItem(placement: .navigationBarTrailing) {
-          Button("Done") {
-            colorPalette.finishEditingColor(with: selectedColor)
-            dismiss()
-          }
-          .fontWeight(.semibold)
-        }
-      }
-    }
-    .onAppear {
-      selectedColor = colorPalette.colorToEdit
     }
   }
 }
