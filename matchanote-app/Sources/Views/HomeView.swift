@@ -839,7 +839,8 @@ struct HomeView: View {
                 // Toggle favorite
                 var updatedNote = note
                 updatedNote.isFavorite.toggle()
-                storageManager.saveNote(updatedNote)
+                let savedNote = storageManager.saveNote(updatedNote)
+                TabManager.shared.updateNote(savedNote)
             }) {
                 Label(
                     note.isFavorite ? "Remove from Favorites" : "Add to Favorites",

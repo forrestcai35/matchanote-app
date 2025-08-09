@@ -74,7 +74,7 @@ struct AIAssistantView: View {
 
       }
       .padding()
-      .background(colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light)
+      .background(colorScheme == .dark ? Color.matchadark_light : Color.matchalight_light)
 
       // Chat history area
       ScrollView {

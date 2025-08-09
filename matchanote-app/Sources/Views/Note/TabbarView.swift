@@ -12,7 +12,6 @@ struct TabBarView: View {
       ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: 2) {
           Button(action: {
-            // TODO: Check if there are unsaved changes before dismissing BUT SHOULD AUTO SAVE
             dismiss()
           }) {
             Image(systemName: "house")
