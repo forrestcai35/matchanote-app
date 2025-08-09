@@ -38,13 +38,16 @@ public struct Note: Identifiable {
   public var paperColor: PaperColor = .white
   public var paperStyle: PaperStyle = .blank
   public var paperSize: PaperSize = .a4
+  // Store drawing data by page using String keys for better JSON compatibility
+  public var drawingDataByPage: [String: Data] = [:]
 
   public init(
     title: String, subject: String = "", color: Color = .white, dateCreated: Date,
     dateModified: Date, isFavorite: Bool = false,
     content: String = "", noteType: NoteType,
     paperColor: PaperColor = .white,
-    paperStyle: PaperStyle = .blank, paperSize: PaperSize = .a4
+    paperStyle: PaperStyle = .blank, paperSize: PaperSize = .a4,
+    drawingDataByPage: [String: Data] = [:]
   ) {
     self.title = title
     self.subject = subject
@@ -57,6 +60,7 @@ public struct Note: Identifiable {
     self.paperColor = paperColor
     self.paperStyle = paperStyle
     self.paperSize = paperSize
+    self.drawingDataByPage = drawingDataByPage
   }
 
   // Sample notes

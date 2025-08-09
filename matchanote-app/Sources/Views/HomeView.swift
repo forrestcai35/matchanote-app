@@ -894,8 +894,8 @@ struct HomeView: View {
                     updatedFolder.addNote(noteID: newNote.id)
                     storageManager.saveFolder(updatedFolder)
                 }
-                storageManager.saveNote(newNote)
-                TabManager.shared.openTab(note: newNote)
+                let savedNote = storageManager.saveNote(newNote)
+                TabManager.shared.openTab(note: savedNote)
             } label: {
                 Label("Text", systemImage: "text.alignleft")
             }
@@ -927,8 +927,8 @@ struct HomeView: View {
                     updatedFolder.addNote(noteID: newNote.id)
                     storageManager.saveFolder(updatedFolder)
                 }
-                storageManager.saveNote(newNote)
-                TabManager.shared.openTab(note: newNote)
+                let savedNote = storageManager.saveNote(newNote)
+                TabManager.shared.openTab(note: savedNote)
             })
         }
         .sheet(isPresented: $showNewFolderView) {
@@ -985,9 +985,9 @@ struct HomeView: View {
             storageManager.saveFolder(updatedFolder)
         }
 
-        storageManager.saveNote(newNote)
+        let savedNote = storageManager.saveNote(newNote)
         // Optionally open the imported note
-        TabManager.shared.openTab(note: newNote)
+        TabManager.shared.openTab(note: savedNote)
     }
 
     private var listNewButton: some View {

@@ -10,13 +10,12 @@ import SwiftUI
 class AIAssistantState: ObservableObject {
   @Published var messages: [ChatMessage] = []
   @Published var userInput = ""
-  @Published var selectedModel = "qwen/qwq-32b:free"
+  @Published var selectedModel = "Matcha Assistant"
   @Published var isLoading = false
   @Published var errorMessage: String? = nil
   @Published var tempMediaItems: [MediaItem] = []
   @Published var availableModels = [
-    "qwen/qwq-32b:free", "deepseek/deepseek-r1-zero:free", "google/gemma-3-1b-it:free",
-    "mistralai/mistral-small-3.1-24b-instruct:free",
+    "Matcha Assistant",
   ]
 }
 
@@ -391,7 +390,7 @@ struct AIAssistantView: View {
         // Note: Media handling for API call would need to be implemented
         // Currently this just sends the text content
         let response = try await OpenRouterAPI.sendMessage(
-          userMessage: input, model: state.selectedModel)
+          userMessage: input, model_string: state.selectedModel)
 
         await MainActor.run {
           state.messages.append(

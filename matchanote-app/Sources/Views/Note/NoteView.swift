@@ -12,6 +12,19 @@ enum AssistantOrientation {
   case right, left
 }
 
+// Canvas manager to track canvas views per note
+class CanvasManager: ObservableObject {
+  @Published var canvasViews: [PKCanvasView] = []
+  
+  init() {
+    // Initialize with a single canvas
+    let initialCanvas = PKCanvasView()
+    initialCanvas.overrideUserInterfaceStyle = .light
+    initialCanvas.tool = PKInkingTool(.pen, color: .black, width: 1.0)
+    canvasViews = [initialCanvas]
+  }
+}
+
 struct NoteView: View {
   var note: Note
   @Environment(\.dismiss) var dismiss
@@ -27,17 +40,14 @@ struct NoteView: View {
   @State private var toolPickerIsVisible = false
   @StateObject private var assistantState = AIAssistantState()
   @Environment(\.colorScheme) private var colorScheme
-  // Added for lasso tool functionality
-  @State private var canvasViews: [PKCanvasView] = []
+  @EnvironmentObject private var storageManager: StorageManager
+  // Added for lasso tool functionality - now managed per note
+  @State private var canvasManager = CanvasManager()
   @State private var currentPage: Int = 0
   @State private var currentTool: PenTool? = .pen
 
   init(note: Note) {
     self.note = note
-    // Initialize with a properly configured canvas view
-    let initialCanvas = PKCanvasView()
-    initialCanvas.overrideUserInterfaceStyle = .light
-    self._canvasViews = State(initialValue: [initialCanvas])
   }
 
   // Opens note in tab
@@ -59,13 +69,13 @@ struct NoteView: View {
               WrittenNoteToolbar(
                 isAssistantVisible: $isAssistantVisible,
 
-                canvasViews: $canvasViews,
+                canvasViews: $canvasManager.canvasViews,
                 currentPage: $currentPage,
                 currentTool: $currentTool)
             case .text:
               TextNoteToolbar(
                 isAssistantVisible: $isAssistantVisible,
-                canvasViews: $canvasViews,
+                canvasViews: $canvasManager.canvasViews,
                 currentPage: $currentPage,
                 currentTool: $currentTool)
 
@@ -111,9 +121,19 @@ struct NoteView: View {
       }
       .onAppear {
         openNoteInTab()
+        cleanupOrphanedTabs()
       }
     }
-
+  }
+  
+  // Clean up tabs for notes that no longer exist
+  private func cleanupOrphanedTabs() {
+    let existingNoteIds = Set(storageManager.notes.map { $0.id })
+    let tabsToClose = tabManager.tabs.filter { !existingNoteIds.contains($0.note.id) }
+    
+    for tab in tabsToClose {
+      tabManager.closeTab(id: tab.id)
+    }
   }
 
   // NOTES MAIN CONTENT VIEW
@@ -121,39 +141,63 @@ struct NoteView: View {
   private func mainContentView() -> some View {
     VStack {
       if let activeTab = tabManager.getActiveTab() {
-        // Switch view based on note type
-
-        switch activeTab.note.noteType {
-        case .written:
-          WrittenNoteView(
-            note: activeTab.note,
-            isEdited: $isEdited,
-            toolPickerIsVisible: $toolPickerIsVisible,
-            canvasViews: $canvasViews,
-            currentPage: $currentPage,
-            currentTool: $currentTool)
-        case .text:
-          TextNoteView(note: activeTab.note, isEdited: $isEdited)
-
+        // Check if the note still exists in storage
+        if storageManager.notes.contains(where: { $0.id == activeTab.note.id }) {
+          // Switch view based on note type
+          switch activeTab.note.noteType {
+          case .written:
+            WrittenNoteView(
+              note: activeTab.note,
+              isEdited: $isEdited,
+              toolPickerIsVisible: $toolPickerIsVisible,
+              canvasViews: $canvasManager.canvasViews,
+              currentPage: $currentPage,
+              currentTool: $currentTool)
+          case .text:
+            TextNoteView(note: activeTab.note, isEdited: $isEdited)
+          }
+        } else {
+          // Note has been deleted, show message and close tab
+          VStack {
+            Text("This note has been deleted")
+              .foregroundColor(.red)
+              .font(.headline)
+            Button("Close Tab") {
+              tabManager.closeTab(id: activeTab.id)
+            }
+            .padding()
+          }
         }
       } else if !tabManager.tabs.isEmpty {
         let firstTab = tabManager.tabs[0]
-        // Switch view based on note type for fallback if we close a tab
-        switch firstTab.note.noteType {
-        case .written:
-          WrittenNoteView(
-            note: firstTab.note,
-            isEdited: $isEdited,
-            toolPickerIsVisible: $toolPickerIsVisible,
-            canvasViews: $canvasViews,
-            currentPage: $currentPage,
-            currentTool: $currentTool)
-        case .text:
-          TextNoteView(note: firstTab.note, isEdited: $isEdited)
-
+        // Check if the note still exists in storage
+        if storageManager.notes.contains(where: { $0.id == firstTab.note.id }) {
+          // Switch view based on note type for fallback if we close a tab
+          switch firstTab.note.noteType {
+          case .written:
+            WrittenNoteView(
+              note: firstTab.note,
+              isEdited: $isEdited,
+              toolPickerIsVisible: $toolPickerIsVisible,
+              canvasViews: $canvasManager.canvasViews,
+              currentPage: $currentPage,
+              currentTool: $currentTool)
+          case .text:
+            TextNoteView(note: firstTab.note, isEdited: $isEdited)
+          }
+        } else {
+          // Note has been deleted, show message and close tab
+          VStack {
+            Text("This note has been deleted")
+              .foregroundColor(.red)
+              .font(.headline)
+            Button("Close Tab") {
+              tabManager.closeTab(id: firstTab.id)
+            }
+            .padding()
+          }
         }
       } else {
-
         EmptyStateView()
           .onAppear {
             toolPickerIsVisible = false
@@ -304,3 +348,4 @@ struct NoteView_Previews: PreviewProvider {
     NoteView(note: Note.samples[2])
   }
 }
+

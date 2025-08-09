@@ -31,7 +31,8 @@ struct OpenRouterAPI {
     self.apiKey = apiKey
   }
 
-  static func sendMessage(userMessage: String, model: String) async throws -> String {
+  static func sendMessage(userMessage: String, model_string: String) async throws -> String {
+    var model :String = ""
     guard let apiKey = apiKey else {
       throw LlmError.missingAPIKey
     }
@@ -46,12 +47,18 @@ struct OpenRouterAPI {
     request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
     request.addValue("application/json", forHTTPHeaderField: "Content-Type")
     request.addValue("Matcha Note App", forHTTPHeaderField: "HTTP-Referer")
-
-    // Create payload with properly formatted model name
+    
+    if model_string == "Matcha Assistant" {
+       model = "deepseek/deepseek-chat-v3-0324:free"
+    }
+      else {
+         model = model_string
+    }
+      
     let requestBody: [String: Any] = [
       "model": model,
       "messages": [
-        ["role": "system", "content": "You are a helpful assistant."],
+        ["role": "system", "content": "You are a helpful assistant called Matcha Assistant."],
         ["role": "user", "content": userMessage],
       ],
       "temperature": 0.7,

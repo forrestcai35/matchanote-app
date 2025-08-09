@@ -16,6 +16,7 @@ struct StorageNote: Codable {
   var paperColor: String
   var paperStyle: String
   var paperSize: String
+  var drawingDataByPage: [String: Data]
 
   init(from note: Note) {
     self.id = note.id
@@ -30,6 +31,7 @@ struct StorageNote: Codable {
     self.paperColor = note.paperColor.rawValue
     self.paperStyle = note.paperStyle.rawValue
     self.paperSize = note.paperSize.rawValue
+    self.drawingDataByPage = note.drawingDataByPage
   }
 
   func toNote() -> Note {
@@ -44,7 +46,8 @@ struct StorageNote: Codable {
       noteType: NoteType(rawValue: noteType) ?? .written,
       paperColor: PaperColor(rawValue: paperColor) ?? .white,
       paperStyle: PaperStyle(rawValue: paperStyle) ?? .blank,
-      paperSize: PaperSize(rawValue: paperSize) ?? .a4
+      paperSize: PaperSize(rawValue: paperSize) ?? .a4,
+      drawingDataByPage: drawingDataByPage
     )
   }
 }
@@ -160,12 +163,71 @@ class StorageManager: ObservableObject {
 
   // MARK: - Data Operations
 
-  func saveNote(_ note: Note) {
+  func saveNote(_ note: Note) -> Note {
+    // Ensure unique title before saving
+    var noteToSave = note
+    noteToSave.title = generateUniqueTitle(for: noteToSave.title, excludingNoteId: noteToSave.id)
+    
     // If user is non-premium or user storage is full, save to local storage
-    saveNoteLocally(note)
+    saveNoteLocally(noteToSave)
 
     // In the future: save to Supabase if user is premium
-    // saveNoteToSupabase(note)
+    // saveNoteToSupabase(noteToSave)
+    
+    return noteToSave
+  }
+  
+  // Update a note's title while ensuring uniqueness
+  func updateNoteTitle(noteId: UUID, newTitle: String) -> Note? {
+    guard let noteIndex = notes.firstIndex(where: { $0.id == noteId }) else {
+      return nil
+    }
+    
+    var noteToUpdate = notes[noteIndex]
+    let uniqueTitle = generateUniqueTitle(for: newTitle, excludingNoteId: noteId)
+    noteToUpdate.title = uniqueTitle
+    noteToUpdate.dateModified = Date()
+    
+    // Save the updated note
+    let savedNote = saveNote(noteToUpdate)
+    return savedNote
+  }
+  
+  // Generate a unique title by appending numbers if duplicates exist
+  func generateUniqueTitle(for proposedTitle: String, excludingNoteId: UUID? = nil) -> String {
+    let baseTitle = proposedTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+    
+    // Get all existing note titles, excluding the current note if updating
+    let existingTitles = notes
+      .filter { $0.id != excludingNoteId }
+      .map { $0.title }
+    
+    // If the title is unique, return it as is
+    if !existingTitles.contains(baseTitle) {
+      return baseTitle
+    }
+    
+    // Find the highest number suffix for this base title
+    var highestNumber = 1
+    let titlePattern = "^" + NSRegularExpression.escapedPattern(for: baseTitle) + "( \\((\\d+)\\))?$"
+    
+    for existingTitle in existingTitles {
+      if let regex = try? NSRegularExpression(pattern: titlePattern, options: []),
+         let match = regex.firstMatch(in: existingTitle, options: [], range: NSRange(location: 0, length: existingTitle.count)) {
+        
+        // If there's a number in parentheses, extract it
+        if match.numberOfRanges > 2,
+           let numberRange = Range(match.range(at: 2), in: existingTitle),
+           let number = Int(existingTitle[numberRange]) {
+          highestNumber = max(highestNumber, number + 1)
+        } else if existingTitle == baseTitle {
+          // Exact match without number, so next should be (2)
+          highestNumber = max(highestNumber, 2)
+        }
+      }
+    }
+    
+    return "\(baseTitle) (\(highestNumber))"
   }
 
   func saveFolder(_ folder: Folder) {
@@ -334,6 +396,9 @@ class StorageManager: ObservableObject {
   func deleteNote(withID id: UUID) {
     // Remove from local array
     notes.removeAll(where: { $0.id == id })
+
+    // Close any open tabs for this note
+    TabManager.shared.closeTabsForDeletedNote(noteId: id)
 
     // Convert to storage models
     let storageNotes = notes.map { StorageNote(from: $0) }

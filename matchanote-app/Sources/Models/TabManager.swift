@@ -58,4 +58,22 @@ class TabManager: ObservableObject {
   func getActiveTab() -> NoteTab? {
     return tabs.first(where: { $0.isActive })
   }
+  
+  func updateNote(_ updatedNote: Note) {
+    // Update the note in any tabs that contain it
+    for i in 0..<tabs.count {
+      if tabs[i].note.id == updatedNote.id {
+        tabs[i].note = updatedNote
+      }
+    }
+  }
+  
+  func closeTabsForDeletedNote(noteId: UUID) {
+    // Find and close all tabs with this note ID
+    let tabsToClose = tabs.filter { $0.note.id == noteId }
+    
+    for tab in tabsToClose {
+      closeTab(id: tab.id)
+    }
+  }
 }

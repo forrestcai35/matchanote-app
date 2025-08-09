@@ -14,6 +14,9 @@ struct WrittenNoteView: View {
   @State private var pageCount = 1
   @State private var toolPicker = PKToolPicker()
   @Environment(\.colorScheme) private var colorScheme
+  @EnvironmentObject private var storageManager: StorageManager
+  @ObservedObject private var tabManager = TabManager.shared
+  @State private var currentNoteId: UUID?
 
   var body: some View {
     VStack(spacing: 0) {
@@ -36,7 +39,20 @@ struct WrittenNoteView: View {
     }
     .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
     .onAppear {
+      // Only load if this is a different note
+      if currentNoteId != note.id {
+        currentNoteId = note.id
+        loadDrawingData()
+      }
       setupToolPicker()
+    }
+    .onChange(of: note.id) { _, newNoteId in
+      // Note changed, load new drawing data
+      if currentNoteId != newNoteId {
+        saveCurrentDrawingData() // Save current note before switching
+        currentNoteId = newNoteId
+        loadDrawingData()
+      }
     }
     .onChange(of: toolPickerIsVisible) { _, newValue in
       updateToolPickerVisibility(newValue)
@@ -46,6 +62,98 @@ struct WrittenNoteView: View {
     }
     .onChange(of: currentTool) { _, newTool in
       updateCanvasTool()
+    }
+    .onChange(of: isEdited) { _, newValue in
+      if newValue {
+        saveCurrentDrawingData()
+      }
+    }
+    .onDisappear {
+      // Save any unsaved drawing data when view disappears
+      saveCurrentDrawingData()
+    }
+  }
+  
+  // Load drawing data when view appears
+  private func loadDrawingData() {
+    // Clear existing canvas views to start fresh
+    canvasViews.removeAll()
+    
+    // Determine the number of pages based on stored drawings
+    let maxPage = note.drawingDataByPage.keys.compactMap { Int($0) }.max() ?? 0
+    let requiredPageCount = max(1, maxPage + 1)
+    
+    // Create canvas views for all required pages
+    for pageIndex in 0..<requiredPageCount {
+      let canvas = PKCanvasView()
+      canvas.overrideUserInterfaceStyle = .light
+      canvas.tool = PKInkingTool(.pen, color: .black, width: 1.0)
+      canvas.isScrollEnabled = false
+      canvas.backgroundColor = .clear
+      
+      // Load drawing data if it exists for this page
+      if let drawingData = note.drawingDataByPage[String(pageIndex)] {
+        do {
+          let drawing = try PKDrawing(data: drawingData)
+          canvas.drawing = drawing
+        } catch {
+          print("Error loading drawing for page \(pageIndex): \(error)")
+        }
+      }
+      
+      canvasViews.append(canvas)
+    }
+    
+    // Update page count
+    pageCount = requiredPageCount
+  }
+  
+  // Save drawing data for the current note
+  private func saveCurrentDrawingData() {
+    
+    var updatedNote = note
+    var hasChanges = false
+    
+    // Create new drawing data dictionary
+    var newDrawingData: [String: Data] = [:]
+    
+    for (index, canvas) in canvasViews.enumerated() {
+      if !canvas.drawing.strokes.isEmpty {
+        let drawingData = canvas.drawing.dataRepresentation()
+        newDrawingData[String(index)] = drawingData
+      }
+    }
+    
+    // Quick check: if the number of pages with data changed
+    if newDrawingData.keys.count != note.drawingDataByPage.keys.count {
+      hasChanges = true
+    } else {
+      // Check if any drawing data actually changed
+      for (key, newData) in newDrawingData {
+        if let existingData = note.drawingDataByPage[key] {
+          // Compare data sizes first for quick comparison
+          if newData.count != existingData.count || newData != existingData {
+            hasChanges = true
+            break
+          }
+        } else {
+          hasChanges = true
+          break
+        }
+      }
+    }
+    
+    // Only save if there are actual changes
+    if hasChanges {
+      updatedNote.drawingDataByPage = newDrawingData
+      updatedNote.dateModified = Date()
+      let savedNote = storageManager.saveNote(updatedNote)
+      tabManager.updateNote(savedNote)
+      
+      // Reset edited flag
+      DispatchQueue.main.async {
+        isEdited = false
+      }
     }
   }
 
@@ -110,6 +218,8 @@ struct WrittenNoteView: View {
       let newCanvas = PKCanvasView()
       newCanvas.tool = PKInkingTool(.pen, color: .black, width: 1.0)
       newCanvas.overrideUserInterfaceStyle = .light
+      newCanvas.isScrollEnabled = false
+      newCanvas.backgroundColor = .clear
       toolPicker.addObserver(newCanvas)
       canvasViews.append(newCanvas)
     }
