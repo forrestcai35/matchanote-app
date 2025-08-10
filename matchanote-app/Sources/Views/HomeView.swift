@@ -517,7 +517,7 @@ struct HomeView: View {
                             )
                         Image(systemName: "text.alignleft")
                             .font(.system(size: 30))
-                            .foregroundColor(Color.white.opacity(0.3))
+                            .foregroundColor(Color.black.opacity(0.6))
                     }
                 }
             )

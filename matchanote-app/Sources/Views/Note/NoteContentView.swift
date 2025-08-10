@@ -526,6 +526,12 @@ struct TextNoteView: View {
   @Binding var isEdited: Bool
   private let infiniteScrollHeight: CGFloat = 10000
   @Environment(\.colorScheme) private var colorScheme
+  
+  // Use computed property instead of @State for theme
+  private var currentTheme: Theme {
+    colorScheme == .dark ? Theme.BuiltIn.defaultDark.theme() : Theme.BuiltIn.defaultLight.theme()
+  }
+  
   init(note: Note, isEdited: Binding<Bool>) {
     self.note = note
     _textContent = State(initialValue: note.content)
@@ -538,10 +544,11 @@ struct TextNoteView: View {
         VStack {
           SwiftDownEditor(text: $textContent)
             .insetsSize(40)
-            .theme(colorScheme == .dark ? Theme.BuiltIn.defaultDark.theme() : Theme.BuiltIn.defaultLight.theme())
+            .theme(currentTheme)
             .scrollContentBackground(.hidden)
             .frame(minHeight: infiniteScrollHeight)
             .frame(width: 700)
+            .id(colorScheme) // Force recreation when color scheme changes
             .onChange(of: textContent) { oldValue, newValue in
               if oldValue != newValue {
                 isEdited = true
@@ -554,7 +561,6 @@ struct TextNoteView: View {
       .shadow(color: Color.black.opacity(0.3), radius: 5, x: 0, y: 2)
       .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
       .frame(width: geometry.size.width, height: geometry.size.height)
-
     }
   }
 

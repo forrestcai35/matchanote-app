@@ -18,7 +18,8 @@ public struct ListItemView: View {
                     // Type icon next to title
                     Image(systemName: noteTypeIcon(note.noteType))
                         .foregroundColor(
-                            colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+                            note.noteType == .text ? .black : 
+                            (colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                         )
                         .font(.caption)
 
@@ -195,7 +196,7 @@ public struct GridItemView: View {
                         )
                     Image(systemName: "text.alignleft")
                         .font(.system(size: 40))
-                        .foregroundColor(Color.white.opacity(0.3))
+                        .foregroundColor(Color.black.opacity(0.8))
                         .offset(x: 0, y: -30)
                 }
 
