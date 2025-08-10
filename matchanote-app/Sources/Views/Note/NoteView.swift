@@ -204,7 +204,7 @@ struct NoteView: View {
           }
       }
     }
-    .background(Color.white)
+    .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
   }
 
   // Orientation hover indicator
@@ -213,8 +213,8 @@ struct NoteView: View {
     -> some View
   {
     ZStack {
-      // Semi-transparent overlay covering the whole screen
-      Color.black.opacity(0.1)
+      // Transparent overlay to avoid darkening content
+      Color.clear
         .edgesIgnoringSafeArea(.all)
 
       // Position indicator
@@ -244,42 +244,27 @@ struct NoteView: View {
     }
   }
 
-  // Resizable handle view
+  // Resizable handle overlay (transparent, does not consume width)
   @ViewBuilder
-  private func resizeHandleView() -> some View {
-    ZStack {
-      VStack(spacing: 8) {
-        ForEach(0..<5) { _ in
-          Capsule()
-            .fill(Color.gray.opacity(0.5))
-            .frame(width: 8, height: 2)
-        }
-      }
-      Rectangle()
-        .fill(colorScheme == .dark ? Color.gray.opacity(0.2) : Color.gray.opacity(0.07))
-        .frame(width: 10)
+  private func resizeHandleOverlay(for orientation: AssistantOrientation) -> some View {
+    let hitWidth: CGFloat = 28
+    // Use a clear overlay for large hit target; optionally add a 1pt separator if desired
+    ZStack(alignment: orientation == .right ? .trailing : .leading) {
+      Color.clear
 
     }
+    .frame(width: hitWidth)
     .contentShape(Rectangle())
     .gesture(
       DragGesture(minimumDistance: 2)
         .onChanged { value in
-          let newWidth =
-            assistantOrientation == .left
-            ? max(250, min(500, assistantWidth + value.translation.width))
-            : max(250, min(500, assistantWidth - value.translation.width))
-          assistantWidth = newWidth
-        }
-    )
-    .highPriorityGesture(
-
-      DragGesture(minimumDistance: 2)
-        .onChanged { value in
-
-          let newWidth =
-            assistantOrientation == .left
-            ? max(250, min(500, assistantWidth + value.translation.width))
-            : max(250, min(500, assistantWidth - value.translation.width))
+          let newWidth: CGFloat
+          switch orientation {
+          case .left:
+            newWidth = max(250, min(700, assistantWidth + value.translation.width))
+          case .right:
+            newWidth = max(250, min(700, assistantWidth - value.translation.width))
+          }
           assistantWidth = newWidth
         }
     )
@@ -291,14 +276,11 @@ struct NoteView: View {
     // Horizontal layout (left/right)
     HStack(spacing: 0) {
 
-      if assistantOrientation == .right {
-        resizeHandleView()
-      }
-
       AIAssistantView()
         .environmentObject(assistantState)
         .frame(width: assistantWidth)
         .contentShape(Rectangle())
+        // Drag to flip orientation
         .gesture(
           DragGesture(minimumDistance: 20, coordinateSpace: .global)
             .onChanged { value in
@@ -332,10 +314,34 @@ struct NoteView: View {
               draggedPosition = nil
             }
         )
+        // Transparent resize handle overlaid so it does not consume width
+        .overlay(alignment: assistantOrientation == .right ? .leading : .trailing) {
+          ZStack(alignment: assistantOrientation == .right ? .leading : .trailing) {
+            // Subtle edge shadow to separate from note area (under the handle)
+            let edgeWidth: CGFloat = 5
+            let startPoint: UnitPoint = assistantOrientation == .right ? .trailing : .leading
+            let endPoint: UnitPoint = assistantOrientation == .right ? .leading : .trailing
+            let noteBg = colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light
 
-      if assistantOrientation == .left {
-        resizeHandleView()
-      }
+            // Background strip matching the note area to create a seamless overlap
+            Rectangle()
+              .fill(noteBg)
+              .frame(width: edgeWidth)
+              .allowsHitTesting(false)
+
+            LinearGradient(
+              colors: [Color.black.opacity(0.12), Color.black.opacity(0.0)],
+              startPoint: startPoint,
+              endPoint: endPoint
+            )
+            .frame(width: edgeWidth)
+            .allowsHitTesting(false)
+
+            // Clear, wide hit-target for resizing
+            resizeHandleOverlay(for: assistantOrientation)
+          }
+        }
+        .background()
     }
     .transition(assistantOrientation == .right ? .move(edge: .trailing) : .move(edge: .leading))
   }

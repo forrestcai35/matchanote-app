@@ -17,6 +17,9 @@ struct WrittenNoteView: View {
   @EnvironmentObject private var storageManager: StorageManager
   @ObservedObject private var tabManager = TabManager.shared
   @State private var currentNoteId: UUID?
+  
+  // Persist a unified zoom scale across pages
+  @State private var unifiedZoomScale: CGFloat = 1.0
 
   var body: some View {
     VStack(spacing: 0) {
@@ -33,6 +36,7 @@ struct WrittenNoteView: View {
       }
       .shadow(color: Color.black.opacity(0.3), radius: 3, x: 0, y: 1)
       .tabViewStyle(.page(indexDisplayMode: .never))
+      .clipped()
       .overlay(alignment: .bottomTrailing) {
         controlsOverlay
       }
@@ -216,7 +220,6 @@ struct WrittenNoteView: View {
     // Add new canvases if needed
     while canvasViews.count <= pageIndex {
       let newCanvas = PKCanvasView()
-      newCanvas.tool = PKInkingTool(.pen, color: .black, width: 1.0)
       newCanvas.overrideUserInterfaceStyle = .light
       newCanvas.isScrollEnabled = false
       newCanvas.backgroundColor = .clear
@@ -233,7 +236,8 @@ struct WrittenNoteView: View {
       ZoomableScrollView(
         minScale: 0.8,
         maxScale: 3.0,
-        resetOnDoubleTap: true
+        resetOnDoubleTap: true,
+        currentScale: $unifiedZoomScale
       ) {
 
         // Content is now fixed without scrolling
@@ -611,7 +615,11 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     scrollView.bouncesZoom = true
     scrollView.showsHorizontalScrollIndicator = false
     scrollView.showsVerticalScrollIndicator = false
-    scrollView.clipsToBounds = false
+    scrollView.clipsToBounds = true
+
+    // Apply initial zoom scale from binding
+    let initialScale = max(min(currentScale, maxScale), minScale)
+    scrollView.zoomScale = initialScale
 
     // Add the SwiftUI content
     let hostedView = UIHostingController(rootView: content).view!
@@ -649,6 +657,12 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
       let hostingController = hostedView.findViewController() as? UIHostingController<Content>
     {
       hostingController.rootView = content
+    }
+
+    // Apply bound zoom scale on updates when it changes externally
+    let clampedScale = max(min(currentScale, maxScale), minScale)
+    if abs(uiView.zoomScale - clampedScale) > 0.001 {
+      uiView.setZoomScale(clampedScale, animated: false)
     }
   }
 

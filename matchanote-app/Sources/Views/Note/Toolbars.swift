@@ -65,10 +65,20 @@ enum ToolWidth: CGFloat, CaseIterable {
 // Tool state management
 class ToolState: ObservableObject {
   @Published var penColor: Color = .black
-  @Published var penWidth: ToolWidth = .medium
   @Published var markerColor: Color = .yellow
-  @Published var markerWidth: ToolWidth = .medium
-  @Published var eraserWidth: ToolWidth = .medium
+
+  // Dynamic palettes
+  @Published var penPalette: [Color] = [.black, .blue, .red, .green, .purple, .orange, .brown, .pink]
+  @Published var markerPalette: [Color] = [.yellow, .pink, .green, .blue, .orange, .purple, .red, .cyan]
+
+  // Width presets (3 each) and selected index
+  @Published var penWidthPresets: [CGFloat] = [1.0, 3.0, 6.0]
+  @Published var selectedPenPresetIndex: Int = 1
+
+  @Published var markerWidthPresets: [CGFloat] = [3.0, 6.0, 12.0]
+  @Published var selectedMarkerPresetIndex: Int = 1
+
+  // Eraser configuration
   @Published var eraserType: EraserType = .object
 }
 
@@ -83,14 +93,13 @@ struct WrittenNoteToolbar: View {
   @Binding var currentPage: Int
   @Binding var currentTool: PenTool?
 
-  // Color palettes
-  private let penColors: [Color] = [
-    .black, .blue, .red, .green, .purple, .orange, .brown, .pink
-  ]
-  
-  private let markerColors: [Color] = [
-    .yellow, .pink, .green, .blue, .orange, .purple, .red, .cyan
-  ]
+  // Local state for ColorPickers
+  @State private var newPenColor: Color = .black
+  @State private var newMarkerColor: Color = .yellow
+
+  // Dropdown slider visibility per tool
+  @State private var expandedPenPresetIndex: Int? = nil
+  @State private var expandedMarkerPresetIndex: Int? = nil
 
   var body: some View {
     HStack {
@@ -111,39 +120,20 @@ struct WrittenNoteToolbar: View {
 
       Spacer()
       
-      // Tool buttons with inline customization
+      // Tool buttons (icons only)
       HStack(spacing: 12) {
-        // Pen Tool with options
-        if currentTool == .pen {
-          penToolWithOptions
-        } else {
-          Button(action: { selectTool(.pen) }) {
-            Image(systemName: "pencil")
-              .foregroundColor(.gray)
-          }
+        Button(action: { selectTool(.pen) }) {
+          Image(systemName: "pencil")
+            .foregroundColor(currentTool == .pen ? .matchalight_dark : .gray)
         }
-        
-        // Marker Tool with options
-        if currentTool == .marker {
-          markerToolWithOptions
-        } else {
-          Button(action: { selectTool(.marker) }) {
-            Image(systemName: "highlighter")
-              .foregroundColor(.gray)
-          }
+        Button(action: { selectTool(.marker) }) {
+          Image(systemName: "highlighter")
+            .foregroundColor(currentTool == .marker ? .matchalight_dark : .gray)
         }
-        
-        // Eraser Tool with options
-        if currentTool == .eraser {
-          eraserToolWithOptions
-        } else {
-          Button(action: { selectTool(.eraser) }) {
-            Image(systemName: "eraser")
-              .foregroundColor(.gray)
-          }
+        Button(action: { selectTool(.eraser) }) {
+          Image(systemName: "eraser")
+            .foregroundColor(currentTool == .eraser ? .matchalight_dark : .gray)
         }
-
-        // Lasso Tool (no customization)
         Button(action: {
           if currentTool == .lasso {
             selectTool(.pen)
@@ -154,14 +144,17 @@ struct WrittenNoteToolbar: View {
           Image(systemName: "lasso")
             .foregroundColor(currentTool == .lasso ? .matchalight_dark : .gray)
         }
-        
-        // Add text
         Button(action: {
           // Text functionality
         }) {
           Image(systemName: "character.textbox")
             .foregroundColor(.gray)
         }
+      }
+
+      // Options panel positioned to the right of all tool icons
+      if let activeTool = currentTool {
+        toolOptionsPanel(for: activeTool)
       }
       
       Spacer()
@@ -194,163 +187,259 @@ struct WrittenNoteToolbar: View {
     .buttonStyle(PlainButtonStyle())
     .background(colorScheme == .dark ? Color.gray.opacity(0.3) : Color.white)
     .foregroundColor(colorScheme == .dark ? Color.white.opacity(0.8) : Color.black.opacity(0.8))
-  }
-  
-  @ViewBuilder
-  private var penToolWithOptions: some View {
-    HStack(spacing: 6) {
-      // Pen icon
-      Button(action: { selectTool(.pen) }) {
-        Image(systemName: "pencil")
-          .foregroundColor(.matchalight_dark)
-      }
-      
-      // Color options
-      HStack(spacing: 3) {
-        ForEach(Array(penColors.prefix(4)), id: \.self) { color in
-          Button(action: {
-            toolState.penColor = color
-            updateCanvasTool()
-          }) {
-            Circle()
-              .fill(color)
-              .frame(width: 16, height: 16)
-              .overlay(
-                Circle()
-                  .stroke(
-                    toolState.penColor == color ? Color.matchalight_dark : Color.clear,
-                    lineWidth: 1.5
-                  )
-              )
-              .overlay(
-                // Special indicator for black
-                color == .black ?
-                Circle()
-                  .stroke(Color.gray.opacity(0.3), lineWidth: 0.5)
-                : nil
-              )
-          }
-        }
-      }
-      
-      // Width options
-      HStack(spacing: 3) {
-        ForEach(ToolWidth.allCases, id: \.self) { width in
-          Button(action: {
-            toolState.penWidth = width
-            updateCanvasTool()
-          }) {
-            Circle()
-              .fill(toolState.penWidth == width ? Color.matchalight_dark : Color.gray.opacity(0.5))
-              .frame(width: width.visualSize, height: width.visualSize)
-          }
-        }
-      }
+    .onAppear {
+      // Ensure we start with a known tool/color instead of any remembered system default
+      if currentTool == nil { currentTool = .pen }
+      updateCanvasTool()
     }
-    .padding(.horizontal, 8)
-    .padding(.vertical, 4)
-    .background(Color.matchalight_dark.opacity(0.1))
-    .cornerRadius(8)
-  }
-  
-  @ViewBuilder
-  private var markerToolWithOptions: some View {
-    HStack(spacing: 6) {
-      // Marker icon
-      Button(action: { selectTool(.marker) }) {
-        Image(systemName: "highlighter")
-          .foregroundColor(.matchalight_dark)
-      }
-      
-      // Color options
-      HStack(spacing: 3) {
-        ForEach(Array(markerColors.prefix(4)), id: \.self) { color in
-          Button(action: {
-            toolState.markerColor = color
-            updateCanvasTool()
-          }) {
-            Circle()
-              .fill(color)
-              .frame(width: 16, height: 16)
-              .overlay(
-                Circle()
-                  .stroke(
-                    toolState.markerColor == color ? Color.matchalight_dark : Color.clear,
-                    lineWidth: 1.5
-                  )
-              )
-          }
-        }
-      }
-      
-      // Width options
-      HStack(spacing: 3) {
-        ForEach(ToolWidth.allCases, id: \.self) { width in
-          Button(action: {
-            toolState.markerWidth = width
-            updateCanvasTool()
-          }) {
-            Circle()
-              .fill(toolState.markerWidth == width ? Color.matchalight_dark : Color.gray.opacity(0.5))
-              .frame(width: width.visualSize, height: width.visualSize)
-          }
-        }
-      }
+    .onChange(of: currentPage) { _ in
+      updateCanvasTool()
     }
-    .padding(.horizontal, 8)
-    .padding(.vertical, 4)
-    .background(Color.matchalight_dark.opacity(0.1))
-    .cornerRadius(8)
+    .onChange(of: currentTool) { _ in
+      // Collapse dropdowns when switching tools and re-apply tool
+      expandedPenPresetIndex = nil
+      expandedMarkerPresetIndex = nil
+      updateCanvasTool()
+    }
+    .zIndex((expandedPenPresetIndex != nil || expandedMarkerPresetIndex != nil) ? 1000 : 0)
   }
   
   @ViewBuilder
-  private var eraserToolWithOptions: some View {
-    HStack(spacing: 6) {
-      // Eraser icon
-      Button(action: { selectTool(.eraser) }) {
-        Image(systemName: "eraser")
-          .foregroundColor(.matchalight_dark)
-      }
-      
-      // Eraser type options
-      HStack(spacing: 3) {
-        ForEach(EraserType.allCases, id: \.self) { type in
-          Button(action: {
-            toolState.eraserType = type
-            updateCanvasTool()
-          }) {
-            Image(systemName: type.icon)
-              .font(.caption)
-              .foregroundColor(
-                toolState.eraserType == type 
-                  ? .matchalight_dark 
-                  : .gray
-              )
-              .frame(width: 20, height: 16)
-          }
-        }
-      }
-      
-      // Width options (only for area eraser)
-      if toolState.eraserType == .area {
-        HStack(spacing: 3) {
-          ForEach(ToolWidth.allCases, id: \.self) { width in
-            Button(action: {
-              toolState.eraserWidth = width
-              updateCanvasTool()
-            }) {
+  private func toolOptionsPanel(for tool: PenTool) -> some View {
+    switch tool {
+    case .pen:
+      VStack(alignment: .leading, spacing: 6) {
+        HStack(spacing: 10) {
+          // Colors (with delete and add)
+          HStack(spacing: 6) {
+            ForEach(Array(toolState.penPalette.enumerated()), id: \.offset) { index, color in
               Circle()
-                .fill(toolState.eraserWidth == width ? Color.matchalight_dark : Color.gray.opacity(0.5))
-                .frame(width: width.visualSize, height: width.visualSize)
+                .fill(color)
+                .frame(width: 18, height: 18)
+                .overlay(
+                  Circle()
+                    .stroke(toolState.penColor == color ? Color.matchalight_dark : Color.clear, lineWidth: 1.5)
+                )
+                .contentShape(Circle())
+                .onTapGesture {
+                  toolState.penColor = color
+                  updateCanvasTool()
+                }
+                .contextMenu {
+                  Button(role: .destructive) {
+                    deletePenColor(at: index)
+                  } label: {
+                    Label("Delete Color", systemImage: "trash")
+                  }
+                }
+            }
+
+            // Add new color
+            HStack(spacing: 4) {
+              ColorPicker("", selection: $newPenColor, supportsOpacity: true)
+                .labelsHidden()
+                .frame(width: 22, height: 22)
+              Button {
+                addPenColor(newPenColor)
+              } label: {
+                Image(systemName: "plus.circle.fill")
+                  .foregroundColor(.matchalight_dark)
+              }
+            }
+          }
+
+          // Width presets with dropdown slider
+          VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+              ForEach(0..<toolState.penWidthPresets.count, id: \.self) { i in
+                Button {
+                  if toolState.selectedPenPresetIndex != i {
+                    toolState.selectedPenPresetIndex = i
+                    withAnimation { expandedPenPresetIndex = nil }
+                    updateCanvasTool()
+                  } else {
+                    withAnimation { expandedPenPresetIndex = (expandedPenPresetIndex == i ? nil : i) }
+                  }
+                } label: {
+                  ZStack {
+                    Circle()
+                      .fill(toolState.selectedPenPresetIndex == i ? Color.matchalight_dark : Color.gray.opacity(0.5))
+                      .frame(
+                        width: max(12, min(20, toolState.penWidthPresets[i])),
+                        height: max(12, min(20, toolState.penWidthPresets[i]))
+                      )
+                    Image(systemName: expandedPenPresetIndex == i ? "chevron.up" : "chevron.down")
+                      .font(.system(size: 8, weight: .bold))
+                      .foregroundColor(.white.opacity(0.9))
+                  }
+                }
+                .buttonStyle(PlainButtonStyle())
+              }
             }
           }
         }
       }
+      .padding(.horizontal, 8)
+      .padding(.vertical, 4)
+      .background(Color.matchalight_dark.opacity(0.1))
+      .cornerRadius(8)
+      .overlay(alignment: .topTrailing) {
+        if let expanded = expandedPenPresetIndex {
+          let binding = Binding<CGFloat>(
+            get: { toolState.penWidthPresets[expanded] },
+            set: { newValue in
+              toolState.penWidthPresets[expanded] = newValue
+              if toolState.selectedPenPresetIndex == expanded { updateCanvasTool() }
+            }
+          )
+          VStack(spacing: 8) {
+            HStack(spacing: 6) {
+              Image(systemName: "scribble.variable")
+                .font(.caption)
+                .foregroundColor(.gray)
+              Slider(value: binding, in: 0.5...30, step: 0.5)
+                .frame(width: 200)
+            }
+          }
+          .padding(10)
+          .background(.ultraThinMaterial)
+          .cornerRadius(10)
+          .shadow(radius: 8)
+          .offset(y: 30)
+          .zIndex(2000)
+          .allowsHitTesting(true)
+        }
+      }
+
+    case .marker:
+      VStack(alignment: .leading, spacing: 6) {
+        HStack(spacing: 10) {
+          // Colors (with delete and add)
+          HStack(spacing: 6) {
+            ForEach(Array(toolState.markerPalette.enumerated()), id: \.offset) { index, color in
+              Circle()
+                .fill(color)
+                .frame(width: 18, height: 18)
+                .overlay(
+                  Circle()
+                    .stroke(toolState.markerColor == color ? Color.matchalight_dark : Color.clear, lineWidth: 1.5)
+                )
+                .contentShape(Circle())
+                .onTapGesture {
+                  toolState.markerColor = color
+                  updateCanvasTool()
+                }
+                .contextMenu {
+                  Button(role: .destructive) {
+                    deleteMarkerColor(at: index)
+                  } label: {
+                    Label("Delete Color", systemImage: "trash")
+                  }
+                }
+            }
+
+            // Add new color
+            HStack(spacing: 4) {
+              ColorPicker("", selection: $newMarkerColor, supportsOpacity: true)
+                .labelsHidden()
+                .frame(width: 22, height: 22)
+              Button {
+                addMarkerColor(newMarkerColor)
+              } label: {
+                Image(systemName: "plus.circle.fill")
+                  .foregroundColor(.matchalight_dark)
+              }
+            }
+          }
+
+          // Width presets with dropdown slider
+          VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+              ForEach(0..<toolState.markerWidthPresets.count, id: \.self) { i in
+                Button {
+                  if toolState.selectedMarkerPresetIndex != i {
+                    toolState.selectedMarkerPresetIndex = i
+                    withAnimation { expandedMarkerPresetIndex = nil }
+                    updateCanvasTool()
+                  } else {
+                    withAnimation { expandedMarkerPresetIndex = (expandedMarkerPresetIndex == i ? nil : i) }
+                  }
+                } label: {
+                  ZStack {
+                    Circle()
+                      .fill(toolState.selectedMarkerPresetIndex == i ? Color.matchalight_dark : Color.gray.opacity(0.5))
+                      .frame(
+                        width: max(12, min(20, toolState.markerWidthPresets[i])),
+                        height: max(12, min(20, toolState.markerWidthPresets[i]))
+                      )
+                    Image(systemName: expandedMarkerPresetIndex == i ? "chevron.up" : "chevron.down")
+                      .font(.system(size: 8, weight: .bold))
+                      .foregroundColor(.white.opacity(0.9))
+                  }
+                }
+                .buttonStyle(PlainButtonStyle())
+              }
+            }
+          }
+        }
+      }
+      .padding(.horizontal, 8)
+      .padding(.vertical, 4)
+      .background(Color.matchalight_dark.opacity(0.1))
+      .cornerRadius(8)
+      .overlay(alignment: .topTrailing) {
+        if let expanded = expandedMarkerPresetIndex {
+          let binding = Binding<CGFloat>(
+            get: { toolState.markerWidthPresets[expanded] },
+            set: { newValue in
+              toolState.markerWidthPresets[expanded] = newValue
+              if toolState.selectedMarkerPresetIndex == expanded { updateCanvasTool() }
+            }
+          )
+          VStack(spacing: 8) {
+            HStack(spacing: 6) {
+              Image(systemName: "scribble")
+                .font(.caption)
+                .foregroundColor(.gray)
+              Slider(value: binding, in: 0.5...40, step: 0.5)
+                .frame(width: 200)
+            }
+          }
+          .padding(10)
+          .background(.ultraThinMaterial)
+          .cornerRadius(10)
+          .shadow(radius: 8)
+          .offset(y: 30)
+          .zIndex(2000)
+          .allowsHitTesting(true)
+        }
+      }
+
+    case .eraser:
+      HStack(spacing: 10) {
+        // Eraser type select
+        HStack(spacing: 6) {
+          ForEach(EraserType.allCases, id: \.self) { type in
+            Button(action: {
+              toolState.eraserType = type
+              updateCanvasTool()
+            }) {
+              Image(systemName: type.icon)
+                .font(.caption)
+                .foregroundColor(toolState.eraserType == type ? .matchalight_dark : .gray)
+                .frame(width: 24, height: 18)
+            }
+          }
+        }
+      }
+      .padding(.horizontal, 8)
+      .padding(.vertical, 4)
+      .background(Color.matchalight_dark.opacity(0.1))
+      .cornerRadius(8)
+
+    case .lasso:
+      EmptyView()
     }
-    .padding(.horizontal, 8)
-    .padding(.vertical, 4)
-    .background(Color.matchalight_dark.opacity(0.1))
-    .cornerRadius(8)
   }
   
   private func selectTool(_ tool: PenTool) {
@@ -360,19 +449,60 @@ struct WrittenNoteToolbar: View {
   
   private func updateCanvasTool() {
     guard currentPage < canvasViews.count, let tool = currentTool else { return }
-    
     let canvas = canvasViews[currentPage]
-    
+
     switch tool {
     case .pen:
-      canvas.tool = tool.toolInstance(color: toolState.penColor, width: toolState.penWidth.rawValue)
+      let width = toolState.penWidthPresets[safe: toolState.selectedPenPresetIndex] ?? 3.0
+      canvas.tool = tool.toolInstance(color: toolState.penColor, width: width)
     case .marker:
-      canvas.tool = tool.toolInstance(color: toolState.markerColor, width: toolState.markerWidth.rawValue)
+      let width = toolState.markerWidthPresets[safe: toolState.selectedMarkerPresetIndex] ?? 6.0
+      canvas.tool = tool.toolInstance(color: toolState.markerColor, width: width)
     case .eraser:
       canvas.tool = tool.toolInstance(eraserType: toolState.eraserType)
     case .lasso:
       canvas.tool = tool.toolInstance()
     }
+  }
+
+  private func deletePenColor(at index: Int) {
+    guard toolState.penPalette.indices.contains(index) else { return }
+    let colorToRemove = toolState.penPalette[index]
+    toolState.penPalette.remove(at: index)
+    if toolState.penColor == colorToRemove {
+      toolState.penColor = toolState.penPalette.first ?? .black
+      updateCanvasTool()
+    }
+  }
+
+  private func addPenColor(_ color: Color) {
+    toolState.penPalette.append(color)
+    toolState.penColor = color
+    updateCanvasTool()
+  }
+
+  private func deleteMarkerColor(at index: Int) {
+    guard toolState.markerPalette.indices.contains(index) else { return }
+    let colorToRemove = toolState.markerPalette[index]
+    toolState.markerPalette.remove(at: index)
+    if toolState.markerColor == colorToRemove {
+      toolState.markerColor = toolState.markerPalette.first ?? .yellow
+      updateCanvasTool()
+    }
+  }
+
+  private func addMarkerColor(_ color: Color) {
+    toolState.markerPalette.append(color)
+    toolState.markerColor = color
+    updateCanvasTool()
+  }
+}
+
+// Safe index extension
+private extension Array {
+  subscript(safe index: Int) -> Element? {
+    guard indices.contains(index) else { return nil }
+    return self[index]
   }
 }
 
