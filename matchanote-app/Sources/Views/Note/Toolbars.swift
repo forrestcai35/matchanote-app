@@ -64,6 +64,17 @@ enum ToolWidth: CGFloat, CaseIterable {
 
 // Tool state management
 class ToolState: ObservableObject {
+  // MARK: - Persistence Keys
+  private enum DefaultsKeys {
+    static let penWidthPresets = "tool.penWidthPresets"
+    static let selectedPenPresetIndex = "tool.selectedPenPresetIndex"
+    static let markerWidthPresets = "tool.markerWidthPresets"
+    static let selectedMarkerPresetIndex = "tool.selectedMarkerPresetIndex"
+    static let eraserType = "tool.eraserType"
+    static let eraserAreaWidthPresets = "tool.eraserAreaWidthPresets"
+    static let selectedEraserAreaPresetIndex = "tool.selectedEraserAreaPresetIndex"
+  }
+
   @Published var penColor: Color = .black
   @Published var markerColor: Color = .yellow
 
@@ -72,14 +83,74 @@ class ToolState: ObservableObject {
   @Published var markerPalette: [Color] = [.yellow, .pink, .green, .blue, .orange, .purple, .red, .cyan]
 
   // Width presets (3 each) and selected index
-  @Published var penWidthPresets: [CGFloat] = [1.0, 3.0, 6.0]
-  @Published var selectedPenPresetIndex: Int = 1
+  @Published var penWidthPresets: [CGFloat] = [1.0, 3.0, 6.0] {
+    didSet { savePenPresets() }
+  }
+  @Published var selectedPenPresetIndex: Int = 1 {
+    didSet { UserDefaults.standard.set(selectedPenPresetIndex, forKey: DefaultsKeys.selectedPenPresetIndex) }
+  }
 
-  @Published var markerWidthPresets: [CGFloat] = [3.0, 6.0, 12.0]
-  @Published var selectedMarkerPresetIndex: Int = 1
+  @Published var markerWidthPresets: [CGFloat] = [3.0, 6.0, 12.0] {
+    didSet { saveMarkerPresets() }
+  }
+  @Published var selectedMarkerPresetIndex: Int = 1 {
+    didSet { UserDefaults.standard.set(selectedMarkerPresetIndex, forKey: DefaultsKeys.selectedMarkerPresetIndex) }
+  }
 
   // Eraser configuration
-  @Published var eraserType: EraserType = .object
+  @Published var eraserType: EraserType = .object {
+    didSet { UserDefaults.standard.set(eraserType == .object ? 0 : 1, forKey: DefaultsKeys.eraserType) }
+  }
+  // UI-only width presets for Area eraser (PencilKit does not expose eraser radius programmatically)
+  @Published var eraserAreaWidthPresets: [CGFloat] = [8.0, 16.0, 28.0] {
+    didSet { saveEraserAreaPresets() }
+  }
+  @Published var selectedEraserAreaPresetIndex: Int = 1 {
+    didSet { UserDefaults.standard.set(selectedEraserAreaPresetIndex, forKey: DefaultsKeys.selectedEraserAreaPresetIndex) }
+  }
+
+  init() {
+    loadFromDefaults()
+  }
+
+  // MARK: - Persistence Helpers
+  private func loadFromDefaults() {
+    let defaults = UserDefaults.standard
+
+    if let penArray = defaults.array(forKey: DefaultsKeys.penWidthPresets) as? [Double] {
+      penWidthPresets = penArray.map { CGFloat($0) }
+    }
+    if let markerArray = defaults.array(forKey: DefaultsKeys.markerWidthPresets) as? [Double] {
+      markerWidthPresets = markerArray.map { CGFloat($0) }
+    }
+    if let eraserAreaArray = defaults.array(forKey: DefaultsKeys.eraserAreaWidthPresets) as? [Double] {
+      eraserAreaWidthPresets = eraserAreaArray.map { CGFloat($0) }
+    }
+
+    let penIndex = defaults.integer(forKey: DefaultsKeys.selectedPenPresetIndex)
+    if penIndex >= 0 && penIndex < penWidthPresets.count { selectedPenPresetIndex = penIndex }
+
+    let markerIndex = defaults.integer(forKey: DefaultsKeys.selectedMarkerPresetIndex)
+    if markerIndex >= 0 && markerIndex < markerWidthPresets.count { selectedMarkerPresetIndex = markerIndex }
+
+    let eraserTypeRaw = defaults.integer(forKey: DefaultsKeys.eraserType)
+    if eraserTypeRaw == 0 { eraserType = .object } else if eraserTypeRaw == 1 { eraserType = .area }
+
+    let eraserIndex = defaults.integer(forKey: DefaultsKeys.selectedEraserAreaPresetIndex)
+    if eraserIndex >= 0 && eraserIndex < eraserAreaWidthPresets.count { selectedEraserAreaPresetIndex = eraserIndex }
+  }
+
+  private func savePenPresets() {
+    UserDefaults.standard.set(penWidthPresets.map { Double($0) }, forKey: DefaultsKeys.penWidthPresets)
+  }
+
+  private func saveMarkerPresets() {
+    UserDefaults.standard.set(markerWidthPresets.map { Double($0) }, forKey: DefaultsKeys.markerWidthPresets)
+  }
+
+  private func saveEraserAreaPresets() {
+    UserDefaults.standard.set(eraserAreaWidthPresets.map { Double($0) }, forKey: DefaultsKeys.eraserAreaWidthPresets)
+  }
 }
 
 // Contextual Toolbars
@@ -100,6 +171,7 @@ struct WrittenNoteToolbar: View {
   // Dropdown slider visibility per tool
   @State private var expandedPenPresetIndex: Int? = nil
   @State private var expandedMarkerPresetIndex: Int? = nil
+  @State private var expandedEraserPresetIndex: Int? = nil
 
   var body: some View {
     HStack {
@@ -199,9 +271,10 @@ struct WrittenNoteToolbar: View {
       // Collapse dropdowns when switching tools and re-apply tool
       expandedPenPresetIndex = nil
       expandedMarkerPresetIndex = nil
+      expandedEraserPresetIndex = nil
       updateCanvasTool()
     }
-    .zIndex((expandedPenPresetIndex != nil || expandedMarkerPresetIndex != nil) ? 1000 : 0)
+    .zIndex((expandedPenPresetIndex != nil || expandedMarkerPresetIndex != nil || expandedEraserPresetIndex != nil) ? 1000 : 0)
   }
   
   @ViewBuilder
@@ -265,8 +338,8 @@ struct WrittenNoteToolbar: View {
                     Circle()
                       .fill(toolState.selectedPenPresetIndex == i ? Color.matchalight_dark : Color.gray.opacity(0.5))
                       .frame(
-                        width: max(12, min(20, toolState.penWidthPresets[i])),
-                        height: max(12, min(20, toolState.penWidthPresets[i]))
+                        width: dotDiameter(for: toolState.penWidthPresets[i], maxRange: 30),
+                        height: dotDiameter(for: toolState.penWidthPresets[i], maxRange: 30)
                       )
                     Image(systemName: expandedPenPresetIndex == i ? "chevron.up" : "chevron.down")
                       .font(.system(size: 8, weight: .bold))
@@ -369,8 +442,8 @@ struct WrittenNoteToolbar: View {
                     Circle()
                       .fill(toolState.selectedMarkerPresetIndex == i ? Color.matchalight_dark : Color.gray.opacity(0.5))
                       .frame(
-                        width: max(12, min(20, toolState.markerWidthPresets[i])),
-                        height: max(12, min(20, toolState.markerWidthPresets[i]))
+                        width: dotDiameter(for: toolState.markerWidthPresets[i], maxRange: 40),
+                        height: dotDiameter(for: toolState.markerWidthPresets[i], maxRange: 40)
                       )
                     Image(systemName: expandedMarkerPresetIndex == i ? "chevron.up" : "chevron.down")
                       .font(.system(size: 8, weight: .bold))
@@ -416,7 +489,7 @@ struct WrittenNoteToolbar: View {
       }
 
     case .eraser:
-      HStack(spacing: 10) {
+      HStack(spacing: 12) {
         // Eraser type select
         HStack(spacing: 6) {
           ForEach(EraserType.allCases, id: \.self) { type in
@@ -431,11 +504,70 @@ struct WrittenNoteToolbar: View {
             }
           }
         }
+
+        // Area eraser width presets (UI only)
+        if toolState.eraserType == .area {
+          VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+              ForEach(0..<toolState.eraserAreaWidthPresets.count, id: \.self) { i in
+                Button {
+                  if toolState.selectedEraserAreaPresetIndex != i {
+                    toolState.selectedEraserAreaPresetIndex = i
+                    withAnimation { expandedEraserPresetIndex = nil }
+                    // No direct eraser width API to update tool here
+                  } else {
+                    withAnimation { expandedEraserPresetIndex = (expandedEraserPresetIndex == i ? nil : i) }
+                  }
+                } label: {
+                  ZStack {
+                    Circle()
+                      .fill(toolState.selectedEraserAreaPresetIndex == i ? Color.matchalight_dark : Color.gray.opacity(0.5))
+                      .frame(
+                        width: dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: 40),
+                        height: dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: 40)
+                      )
+                    Image(systemName: expandedEraserPresetIndex == i ? "chevron.up" : "chevron.down")
+                      .font(.system(size: 8, weight: .bold))
+                      .foregroundColor(.white.opacity(0.9))
+                  }
+                }
+                .buttonStyle(PlainButtonStyle())
+              }
+            }
+          }
+        }
       }
       .padding(.horizontal, 8)
       .padding(.vertical, 4)
       .background(Color.matchalight_dark.opacity(0.1))
       .cornerRadius(8)
+      .overlay(alignment: .topTrailing) {
+        if toolState.eraserType == .area, let expanded = expandedEraserPresetIndex {
+          let binding = Binding<CGFloat>(
+            get: { toolState.eraserAreaWidthPresets[expanded] },
+            set: { newValue in
+              toolState.eraserAreaWidthPresets[expanded] = newValue
+              // No direct eraser width API to update tool here
+            }
+          )
+          VStack(spacing: 8) {
+            HStack(spacing: 6) {
+              Image(systemName: "eraser")
+                .font(.caption)
+                .foregroundColor(.gray)
+              Slider(value: binding, in: 4...60, step: 1)
+                .frame(width: 200)
+            }
+          }
+          .padding(10)
+          .background(.ultraThinMaterial)
+          .cornerRadius(10)
+          .shadow(radius: 8)
+          .offset(y: 30)
+          .zIndex(2000)
+          .allowsHitTesting(true)
+        }
+      }
 
     case .lasso:
       EmptyView()
@@ -495,6 +627,15 @@ struct WrittenNoteToolbar: View {
     toolState.markerPalette.append(color)
     toolState.markerColor = color
     updateCanvasTool()
+  }
+
+  // Map a tool width to a visually distinct diameter for the preset dot
+  private func dotDiameter(for width: CGFloat, maxRange: CGFloat) -> CGFloat {
+    let minDiam: CGFloat = 12
+    let maxDiam: CGFloat = 26
+    let clamped = max(0.001, min(width, maxRange))
+    let fraction = sqrt(clamped / maxRange) // emphasize separation at lower widths
+    return minDiam + fraction * (maxDiam - minDiam)
   }
 }
 
