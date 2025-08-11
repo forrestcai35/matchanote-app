@@ -206,22 +206,22 @@ struct WrittenNoteToolbar: View {
             .renderingMode(.original)
             .resizable()
             .scaledToFit()
-            .frame(width: 22, height: 22)
+            .frame(width: 26, height: 26)
         }
         Button(action: { selectTool(.marker) }) {
           Image(currentTool == .marker ? "highlighter_fill" : "highlighter_outline")
             .renderingMode(.original)
             .resizable()
             .scaledToFit()
-            .frame(width: 22, height: 22)
+            .frame(width: 26, height: 26)
         }
         Button(action: { selectTool(.eraser) }) {
           Image(currentTool == .eraser ? "eraser_fill" : "eraser_outline")
             .renderingMode(.original)
             .resizable()
             .scaledToFit()
-            .frame(width: 22, height: 22)
-        }
+            .frame(width: 26, height: 26)
+        } 
         Button(action: {
           if currentTool == .lasso {
             selectTool(.pen)
@@ -230,17 +230,23 @@ struct WrittenNoteToolbar: View {
           }
         }) {
           Image(systemName: "lasso")
+            .font(.system(size: 25))
+            .frame(width: 25, height: 25)
             .foregroundColor(currentTool == .lasso ? .matchalight_dark : .gray)
         }
         Button(action: {
           // Text functionality
         }) {
           Image(systemName: "character.textbox")
+            .font(.system(size: 25))
+            .frame(width: 25, height: 25)
             .foregroundColor(.gray)
         }
       }
       .frame(width: toolIconBarWidth) // keep icon positions fixed
-
+      Divider()
+        .frame(height: 24)
+        .padding(.horizontal, 8)
       // Options panel positioned to the right of all tool icons
       ZStack(alignment: .leading) {
         if let activeTool = currentTool {
@@ -322,9 +328,7 @@ struct WrittenNoteToolbar: View {
             }
           }
 
-          Divider()
-            .frame(height: 24)
-            .padding(.horizontal, 2)
+
 
           // Colors (with delete and add)
           HStack(spacing: 6) {
