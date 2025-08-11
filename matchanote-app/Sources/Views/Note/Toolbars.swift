@@ -32,10 +32,11 @@ enum EraserType: CaseIterable {
     }
   }
   
+  // Use custom asset names instead of SF Symbols
   var icon: String {
     switch self {
-    case .object: return "eraser.line.dashed"
-    case .area: return "eraser.fill"
+    case .object: return "eraser_outline"
+    case .area: return "eraser_fill"
     }
   }
 }
@@ -167,11 +168,17 @@ struct WrittenNoteToolbar: View {
   // Local state for ColorPickers
   @State private var newPenColor: Color = .black
   @State private var newMarkerColor: Color = .yellow
+  @State private var showPenColorPicker: Bool = false
+  @State private var showMarkerColorPicker: Bool = false
 
   // Dropdown slider visibility per tool
   @State private var expandedPenPresetIndex: Int? = nil
   @State private var expandedMarkerPresetIndex: Int? = nil
   @State private var expandedEraserPresetIndex: Int? = nil
+
+  // Reserve fixed widths so icons do not shift
+  private let toolIconBarWidth: CGFloat = 180
+  private let optionsPanelReservedWidth: CGFloat = 420
 
   var body: some View {
     HStack {
@@ -195,16 +202,25 @@ struct WrittenNoteToolbar: View {
       // Tool buttons (icons only)
       HStack(spacing: 12) {
         Button(action: { selectTool(.pen) }) {
-          Image(systemName: "pencil")
-            .foregroundColor(currentTool == .pen ? .matchalight_dark : .gray)
+          Image(currentTool == .pen ? "pen_fill" : "pen_outline")
+            .renderingMode(.original)
+            .resizable()
+            .scaledToFit()
+            .frame(width: 22, height: 22)
         }
         Button(action: { selectTool(.marker) }) {
-          Image(systemName: "highlighter")
-            .foregroundColor(currentTool == .marker ? .matchalight_dark : .gray)
+          Image(currentTool == .marker ? "highlighter_fill" : "highlighter_outline")
+            .renderingMode(.original)
+            .resizable()
+            .scaledToFit()
+            .frame(width: 22, height: 22)
         }
         Button(action: { selectTool(.eraser) }) {
-          Image(systemName: "eraser")
-            .foregroundColor(currentTool == .eraser ? .matchalight_dark : .gray)
+          Image(currentTool == .eraser ? "eraser_fill" : "eraser_outline")
+            .renderingMode(.original)
+            .resizable()
+            .scaledToFit()
+            .frame(width: 22, height: 22)
         }
         Button(action: {
           if currentTool == .lasso {
@@ -223,28 +239,20 @@ struct WrittenNoteToolbar: View {
             .foregroundColor(.gray)
         }
       }
+      .frame(width: toolIconBarWidth) // keep icon positions fixed
 
       // Options panel positioned to the right of all tool icons
-      if let activeTool = currentTool {
-        toolOptionsPanel(for: activeTool)
+      ZStack(alignment: .leading) {
+        if let activeTool = currentTool {
+          toolOptionsPanel(for: activeTool)
+        }
       }
+      .frame(width: optionsPanelReservedWidth, alignment: .leading)
       
       Spacer()
       
       // Right side buttons
-      Button(action: {
-        // Add functionality
-      }) {
-        Image(systemName: "plus.circle")
-          .foregroundColor(.gray)
-      }
-      
-      Button(action: {
-        // Share functionality
-      }) {
-        Image(systemName: "square.and.arrow.up")
-          .foregroundColor(.gray)
-      }
+
 
       // AI assistant toggle
       Button(action: {
@@ -256,6 +264,7 @@ struct WrittenNoteToolbar: View {
     }
     .padding(.horizontal, 20)
     .padding(.vertical, 8)
+    .frame(height: 40)
     .buttonStyle(PlainButtonStyle())
     .background(colorScheme == .dark ? Color.gray.opacity(0.3) : Color.white)
     .foregroundColor(colorScheme == .dark ? Color.white.opacity(0.8) : Color.black.opacity(0.8))
@@ -264,10 +273,10 @@ struct WrittenNoteToolbar: View {
       if currentTool == nil { currentTool = .pen }
       updateCanvasTool()
     }
-    .onChange(of: currentPage) { _ in
+    .onChange(of: currentPage) {
       updateCanvasTool()
     }
-    .onChange(of: currentTool) { _ in
+    .onChange(of: currentTool) {
       // Collapse dropdowns when switching tools and re-apply tool
       expandedPenPresetIndex = nil
       expandedMarkerPresetIndex = nil
@@ -283,44 +292,6 @@ struct WrittenNoteToolbar: View {
     case .pen:
       VStack(alignment: .leading, spacing: 6) {
         HStack(spacing: 10) {
-          // Colors (with delete and add)
-          HStack(spacing: 6) {
-            ForEach(Array(toolState.penPalette.enumerated()), id: \.offset) { index, color in
-              Circle()
-                .fill(color)
-                .frame(width: 18, height: 18)
-                .overlay(
-                  Circle()
-                    .stroke(toolState.penColor == color ? Color.matchalight_dark : Color.clear, lineWidth: 1.5)
-                )
-                .contentShape(Circle())
-                .onTapGesture {
-                  toolState.penColor = color
-                  updateCanvasTool()
-                }
-                .contextMenu {
-                  Button(role: .destructive) {
-                    deletePenColor(at: index)
-                  } label: {
-                    Label("Delete Color", systemImage: "trash")
-                  }
-                }
-            }
-
-            // Add new color
-            HStack(spacing: 4) {
-              ColorPicker("", selection: $newPenColor, supportsOpacity: true)
-                .labelsHidden()
-                .frame(width: 22, height: 22)
-              Button {
-                addPenColor(newPenColor)
-              } label: {
-                Image(systemName: "plus.circle.fill")
-                  .foregroundColor(.matchalight_dark)
-              }
-            }
-          }
-
           // Width presets with dropdown slider
           VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
@@ -348,6 +319,60 @@ struct WrittenNoteToolbar: View {
                 }
                 .buttonStyle(PlainButtonStyle())
               }
+            }
+          }
+
+          Divider()
+            .frame(height: 24)
+            .padding(.horizontal, 2)
+
+          // Colors (with delete and add)
+          HStack(spacing: 6) {
+            ForEach(Array(toolState.penPalette.enumerated()), id: \.offset) { index, color in
+              Circle()
+                .fill(color)
+                .frame(width: 18, height: 18)
+                .overlay(
+                  Circle()
+                    .stroke(toolState.penColor == color ? Color.matchalight_dark : Color.clear, lineWidth: 1.5)
+                )
+                .contentShape(Circle())
+                .onTapGesture {
+                  toolState.penColor = color
+                  updateCanvasTool()
+                }
+                .contextMenu {
+                  Button(role: .destructive) {
+                    deletePenColor(at: index)
+                  } label: {
+                    Label("Delete Color", systemImage: "trash")
+                  }
+                }
+            }
+
+            // Add new color
+            Button {
+              showPenColorPicker = true
+            } label: {
+              Image(systemName: "plus.circle.fill")
+                .foregroundColor(.matchalight_dark)
+            }
+            .popover(isPresented: $showPenColorPicker) {
+              VStack(spacing: 12) {
+                ColorPicker("Pick a color", selection: $newPenColor, supportsOpacity: true)
+                  .padding(.horizontal)
+                HStack {
+                  Button("Cancel") { showPenColorPicker = false }
+                  Spacer()
+                  Button("Add") {
+                    addPenColor(newPenColor)
+                    showPenColorPicker = false
+                  }
+                }
+                .padding(.horizontal)
+              }
+              .padding(.vertical, 12)
+              .frame(minWidth: 260)
             }
           }
         }
@@ -387,44 +412,6 @@ struct WrittenNoteToolbar: View {
     case .marker:
       VStack(alignment: .leading, spacing: 6) {
         HStack(spacing: 10) {
-          // Colors (with delete and add)
-          HStack(spacing: 6) {
-            ForEach(Array(toolState.markerPalette.enumerated()), id: \.offset) { index, color in
-              Circle()
-                .fill(color)
-                .frame(width: 18, height: 18)
-                .overlay(
-                  Circle()
-                    .stroke(toolState.markerColor == color ? Color.matchalight_dark : Color.clear, lineWidth: 1.5)
-                )
-                .contentShape(Circle())
-                .onTapGesture {
-                  toolState.markerColor = color
-                  updateCanvasTool()
-                }
-                .contextMenu {
-                  Button(role: .destructive) {
-                    deleteMarkerColor(at: index)
-                  } label: {
-                    Label("Delete Color", systemImage: "trash")
-                  }
-                }
-            }
-
-            // Add new color
-            HStack(spacing: 4) {
-              ColorPicker("", selection: $newMarkerColor, supportsOpacity: true)
-                .labelsHidden()
-                .frame(width: 22, height: 22)
-              Button {
-                addMarkerColor(newMarkerColor)
-              } label: {
-                Image(systemName: "plus.circle.fill")
-                  .foregroundColor(.matchalight_dark)
-              }
-            }
-          }
-
           // Width presets with dropdown slider
           VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
@@ -452,6 +439,60 @@ struct WrittenNoteToolbar: View {
                 }
                 .buttonStyle(PlainButtonStyle())
               }
+            }
+          }
+
+          Divider()
+            .frame(height: 24)
+            .padding(.horizontal, 2)
+
+          // Colors (with delete and add)
+          HStack(spacing: 6) {
+            ForEach(Array(toolState.markerPalette.enumerated()), id: \.offset) { index, color in
+              Circle()
+                .fill(color)
+                .frame(width: 18, height: 18)
+                .overlay(
+                  Circle()
+                    .stroke(toolState.markerColor == color ? Color.matchalight_dark : Color.clear, lineWidth: 1.5)
+                )
+                .contentShape(Circle())
+                .onTapGesture {
+                  toolState.markerColor = color
+                  updateCanvasTool()
+                }
+                .contextMenu {
+                  Button(role: .destructive) {
+                    deleteMarkerColor(at: index)
+                  } label: {
+                    Label("Delete Color", systemImage: "trash")
+                  }
+                }
+            }
+
+            // Add new color
+            Button {
+              showMarkerColorPicker = true
+            } label: {
+              Image(systemName: "plus.circle.fill")
+                .foregroundColor(.matchalight_dark)
+            }
+            .popover(isPresented: $showMarkerColorPicker) {
+              VStack(spacing: 12) {
+                ColorPicker("Pick a color", selection: $newMarkerColor, supportsOpacity: true)
+                  .padding(.horizontal)
+                HStack {
+                  Button("Cancel") { showMarkerColorPicker = false }
+                  Spacer()
+                  Button("Add") {
+                    addMarkerColor(newMarkerColor)
+                    showMarkerColorPicker = false
+                  }
+                }
+                .padding(.horizontal)
+              }
+              .padding(.vertical, 12)
+              .frame(minWidth: 260)
             }
           }
         }
@@ -497,10 +538,12 @@ struct WrittenNoteToolbar: View {
               toolState.eraserType = type
               updateCanvasTool()
             }) {
-              Image(systemName: type.icon)
-                .font(.caption)
-                .foregroundColor(toolState.eraserType == type ? .matchalight_dark : .gray)
-                .frame(width: 24, height: 18)
+              Image(type.icon)
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 18, height: 18)
+                .opacity(toolState.eraserType == type ? 1.0 : 0.5)
             }
           }
         }
@@ -552,9 +595,11 @@ struct WrittenNoteToolbar: View {
           )
           VStack(spacing: 8) {
             HStack(spacing: 6) {
-              Image(systemName: "eraser")
-                .font(.caption)
-                .foregroundColor(.gray)
+              Image("eraser_outline")
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 12, height: 12)
               Slider(value: binding, in: 4...60, step: 1)
                 .frame(width: 200)
             }
@@ -670,7 +715,6 @@ struct TextNoteToolbar: View {
 
       //View Button
       Button(action: {
-        // Share functionality
       }) {
         Image(systemName: "square.grid.2x2")
           .foregroundColor(.gray)
@@ -681,13 +725,6 @@ struct TextNoteToolbar: View {
       Button(action: {}) { Image(systemName: "underline") }
       Button(action: {}) { Image(systemName: "list.bullet") }
       Spacer()
-      //Share Button
-      Button(action: {
-        // Share functionality
-      }) {
-        Image(systemName: "square.and.arrow.up")
-          .foregroundColor(.gray)
-      }
 
       // AI assistant toggle
       Button(action: {
@@ -700,6 +737,7 @@ struct TextNoteToolbar: View {
     }
     .padding(.horizontal, 20)
     .padding(.vertical, 8)
+    .frame(height: 56)
     .buttonStyle(PlainButtonStyle())
     .foregroundColor(.gray)
     .background(colorScheme == .dark ? Color.gray.opacity(0.3) : Color.white)

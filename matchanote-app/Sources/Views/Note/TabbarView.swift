@@ -26,6 +26,20 @@ struct TabBarView: View {
           }
         }
       }
+      // Add button
+      Button(action: {
+        // Add functionality
+      }) {
+        Image(systemName: "plus.circle")
+          .foregroundColor(.gray)
+      }
+        //Share Button
+      Button(action: {
+        // Share functionality
+      }) {
+        Image(systemName: "square.and.arrow.up")
+          .foregroundColor(.gray)
+      }
 
       // 3 DOTS MORE OPTIIONS
       Button(action: {

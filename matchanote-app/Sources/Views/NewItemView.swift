@@ -52,6 +52,7 @@ struct NewWrittenNoteView: View {
         }
       }
       .navigationTitle("New Written Note")
+      .navigationBarTitleDisplayMode(.inline)
       .navigationBarItems(
         trailing: Button("Cancel") {
           dismiss()
@@ -92,6 +93,7 @@ struct NewFolderView: View {
         }
       }
       .navigationTitle("New Folder")
+      .navigationBarTitleDisplayMode(.inline)
       .navigationBarItems(
         trailing: Button("Cancel") {
           dismiss()

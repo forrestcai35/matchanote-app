@@ -183,11 +183,6 @@ struct SignInView: View {
         }
       }
       .navigationBarBackButtonHidden(true)
-      .toolbar {
-        ToolbarItem(placement: .navigationBarLeading) {
-          EmptyView()
-        }
-      }
       .overlay {
         if showEmailPopup {
           EmailPopupView(
