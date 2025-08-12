@@ -286,7 +286,7 @@ struct WrittenNoteToolbar: View {
       .frame(width: optionsPanelReservedWidth, alignment: .leading)
 
       Spacer()
-        .frame(maxWidth: 50)
+        .frame(minWidth: 20, maxWidth: 50)
       
       // Right side buttons
 
@@ -358,9 +358,7 @@ struct WrittenNoteToolbar: View {
               }
             }
           }
-
-
-
+        
           // Colors (with delete and add)
           HStack(spacing: 6) {
             ForEach(Array(toolState.penPalette.enumerated()), id: \.offset) { index, color in
@@ -384,7 +382,8 @@ struct WrittenNoteToolbar: View {
                   }
                 }
             }
-
+            
+            
             // Add new color
             Button {
               showPenColorPicker = true
