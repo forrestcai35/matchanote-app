@@ -92,6 +92,9 @@ struct NoteView: View {
             // Left-side assistant
             if isAssistantVisible && assistantOrientation == .left {
               assistantPanelView()
+                .transition(.move(edge: .leading).combined(with: .opacity))
+                .animation(.spring(), value: isAssistantVisible)
+                .animation(.spring(), value: assistantOrientation)
             }
 
             // Main content
@@ -101,10 +104,11 @@ struct NoteView: View {
             // Right-side assistant
             if isAssistantVisible && assistantOrientation == .right {
               assistantPanelView()
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+                .animation(.spring(), value: isAssistantVisible)
+                .animation(.spring(), value: assistantOrientation)
             }
           }
-          .animation(.spring(), value: isAssistantVisible)
-          .animation(.spring(), value: assistantOrientation)
         }
         .edgesIgnoringSafeArea(.bottom)
         .edgesIgnoringSafeArea(.leading)

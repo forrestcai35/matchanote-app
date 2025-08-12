@@ -187,40 +187,53 @@ struct WrittenNoteToolbar: View {
         // Bookmark functionality
       }) {
         Image(systemName: "bookmark")
-          .foregroundColor(.gray)
+          .foregroundColor(colorScheme == .dark ? .gray : .black)
       }
 
       Button(action: {
         // View functionality
       }) {
         Image(systemName: "square.grid.2x2")
-          .foregroundColor(.gray)
+          .foregroundColor(colorScheme == .dark ? .gray : .black)
       }
 
+      // Fixed spacing to push tools to the right
       Spacer()
+        .frame(minWidth: 60)
       
       // Tool buttons (icons only)
       HStack(spacing: 12) {
         Button(action: { selectTool(.pen) }) {
-          Image(currentTool == .pen ? "pen_fill" : "pen_outline")
-            .renderingMode(.original)
+          Image("pen_outline")
+            .renderingMode(.template)
             .resizable()
             .scaledToFit()
             .frame(width: 26, height: 26)
+            .foregroundColor(currentTool == .pen ? toolState.penColor : (colorScheme == .dark ? .gray : .black))
         }
         Button(action: { selectTool(.marker) }) {
-          Image(currentTool == .marker ? "highlighter_fill" : "highlighter_outline")
-            .renderingMode(.original)
+          Image("highlighter_outline")
+            .renderingMode(.template)
             .resizable()
             .scaledToFit()
             .frame(width: 26, height: 26)
+            .foregroundColor(currentTool == .marker ? toolState.markerColor : (colorScheme == .dark ? .gray : .black))
         }
         Button(action: { selectTool(.eraser) }) {
-          Image(currentTool == .eraser ? "eraser_fill" : "eraser_outline")
-            .renderingMode(.original)
-            .resizable()
-            .scaledToFit()
-            .frame(width: 26, height: 26)
+          if currentTool == .eraser {
+            Image("eraser_fill")
+              .renderingMode(.original)
+              .resizable()
+              .scaledToFit()
+              .frame(width: 26, height: 26)
+          } else {
+            Image("eraser_outline")
+              .renderingMode(.template)
+              .resizable()
+              .scaledToFit()
+              .frame(width: 26, height: 26)
+              .foregroundColor(colorScheme == .dark ? .gray : .black)
+          }
         } 
         Button(action: {
           if currentTool == .lasso {
@@ -229,33 +242,51 @@ struct WrittenNoteToolbar: View {
             selectTool(.lasso)
           }
         }) {
-          Image(systemName: "lasso")
-            .font(.system(size: 25))
-            .frame(width: 25, height: 25)
-            .foregroundColor(currentTool == .lasso ? .matchalight_dark : .gray)
+          Image("lasso_outline")
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .frame(width: 26, height: 26)
+            .foregroundColor(currentTool == .lasso ? .matchalight_dark : (colorScheme == .dark ? .gray : .black))
+        }
+        Button(action: {
+          // Image functionality
+        }) {
+          Image("photo_outline")
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .frame(width: 26, height: 26)
+            .foregroundColor(colorScheme == .dark ? .gray : .black)
         }
         Button(action: {
           // Text functionality
         }) {
-          Image(systemName: "character.textbox")
-            .font(.system(size: 25))
-            .frame(width: 25, height: 25)
-            .foregroundColor(.gray)
+          Image("textbox_outline")
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .frame(width: 26, height: 26)
+            .foregroundColor(colorScheme == .dark ? .gray : .black)
         }
       }
       .frame(width: toolIconBarWidth) // keep icon positions fixed
+
       Divider()
         .frame(height: 24)
         .padding(.horizontal, 8)
       // Options panel positioned to the right of all tool icons
+
+
       ZStack(alignment: .leading) {
         if let activeTool = currentTool {
           toolOptionsPanel(for: activeTool)
         }
       }
       .frame(width: optionsPanelReservedWidth, alignment: .leading)
-      
+
       Spacer()
+        .frame(maxWidth: 50)
       
       // Right side buttons
 
@@ -265,7 +296,7 @@ struct WrittenNoteToolbar: View {
         isAssistantVisible.toggle()
       }) {
         Image(systemName: "wand.and.rays")
-          .foregroundColor(isAssistantVisible ? .green : .gray)
+          .foregroundColor(isAssistantVisible ? .green : (colorScheme == .dark ? .gray : .black))
       }
     }
     .padding(.horizontal, 20)
@@ -446,9 +477,6 @@ struct WrittenNoteToolbar: View {
             }
           }
 
-          Divider()
-            .frame(height: 24)
-            .padding(.horizontal, 2)
 
           // Colors (with delete and add)
           HStack(spacing: 6) {
@@ -714,20 +742,32 @@ struct TextNoteToolbar: View {
         // Bookmark functionality
       }) {
         Image(systemName: "bookmark")
-          .foregroundColor(.gray)
+          .foregroundColor(colorScheme == .dark ? .gray : .black)
       }
 
       //View Button
       Button(action: {
       }) {
         Image(systemName: "square.grid.2x2")
-          .foregroundColor(.gray)
+          .foregroundColor(colorScheme == .dark ? .gray : .black)
       }
       Spacer()
-      Button(action: {}) { Image(systemName: "bold") }
-      Button(action: {}) { Image(systemName: "italic") }
-      Button(action: {}) { Image(systemName: "underline") }
-      Button(action: {}) { Image(systemName: "list.bullet") }
+      Button(action: {}) { 
+        Image(systemName: "bold")
+          .foregroundColor(colorScheme == .dark ? .gray : .black)
+      }
+      Button(action: {}) { 
+        Image(systemName: "italic")
+          .foregroundColor(colorScheme == .dark ? .gray : .black)
+      }
+      Button(action: {}) { 
+        Image(systemName: "underline")
+          .foregroundColor(colorScheme == .dark ? .gray : .black)
+      }
+      Button(action: {}) { 
+        Image(systemName: "list.bullet")
+          .foregroundColor(colorScheme == .dark ? .gray : .black)
+      }
       Spacer()
 
       // AI assistant toggle
@@ -735,7 +775,7 @@ struct TextNoteToolbar: View {
         isAssistantVisible.toggle()
       }) {
         Image(systemName: "wand.and.rays")
-          .foregroundColor(isAssistantVisible ? .green : .gray)
+          .foregroundColor(isAssistantVisible ? .green : (colorScheme == .dark ? .gray : .black))
       }
 
     }

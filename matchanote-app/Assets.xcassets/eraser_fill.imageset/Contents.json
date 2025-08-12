@@ -1,7 +1,7 @@
 {
   "images" : [
     {
-      "filename" : "eraser.png",
+      "filename" : "eraser_fill_light.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
@@ -12,6 +12,7 @@
           "value" : "dark"
         }
       ],
+      "filename" : "eraser_fill_dark.png",
       "idiom" : "universal",
       "scale" : "1x"
     },

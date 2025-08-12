@@ -1,7 +1,7 @@
 {
   "images" : [
     {
-      "filename" : "highlighter_light.png",
+      "filename" : "highlighter_outline_light.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
@@ -12,7 +12,7 @@
           "value" : "dark"
         }
       ],
-      "filename" : "highlighter_dark.png",
+      "filename" : "highlighter_outline_dark.png",
       "idiom" : "universal",
       "scale" : "1x"
     },

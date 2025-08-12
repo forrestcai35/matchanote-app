@@ -65,8 +65,12 @@ struct AIAssistantView: View {
     VStack(spacing: 0) {
       // Assistant header
       HStack {
-        Image(systemName: "sparkles")
-          .foregroundColor(colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
+        Image("logo_icon")
+          .resizable()
+          .scaledToFit()
+          .frame(width: 20, height: 20)
+
+      
         Text("Matcha Assistant")
           .font(.headline)
 
