@@ -110,6 +110,10 @@ class ToolState: ObservableObject {
     didSet { UserDefaults.standard.set(selectedEraserAreaPresetIndex, forKey: DefaultsKeys.selectedEraserAreaPresetIndex) }
   }
 
+  // Undo/Redo state
+  @Published var canUndo: Bool = false
+  @Published var canRedo: Bool = false
+
   init() {
     loadFromDefaults()
   }
@@ -176,9 +180,14 @@ struct WrittenNoteToolbar: View {
   @State private var expandedMarkerPresetIndex: Int? = nil
   @State private var expandedEraserPresetIndex: Int? = nil
 
-  // Reserve fixed widths so icons do not shift
-  private let toolIconBarWidth: CGFloat = 180
-  private let optionsPanelReservedWidth: CGFloat = 420
+  // Undo/Redo state
+  @State private var canUndo: Bool = false
+  @State private var canRedo: Bool = false
+  @State private var undoRedoUpdateTimer: Timer?
+
+  // Reserve fixed widths so icons do not shift - adjusted for better spacing
+  private let toolIconBarWidth: CGFloat = 180 // Reduced to prevent overflow
+  private let optionsPanelReservedWidth: CGFloat = 340 // Reduced to give more room
 
   var body: some View {
     HStack {
@@ -286,20 +295,37 @@ struct WrittenNoteToolbar: View {
       .frame(width: optionsPanelReservedWidth, alignment: .leading)
 
       Spacer()
-        .frame(maxWidth: 50)
+        .frame(maxWidth: 30) // Increased slightly for better balance
       
-      // Right side buttons
+      // Right side buttons grouped together
+      HStack(spacing: 12) {
+        // Undo/Redo buttons
+        HStack(spacing: 6) {
+          Button(action: { performUndo() }) {
+            Image(systemName: "arrow.uturn.backward")
+              .font(.system(size: 16, weight: .medium))
+              .foregroundColor(canUndo ? (colorScheme == .dark ? .matchadark_dark : .matchadark_light) : .gray)
+          }
+          .disabled(!canUndo)
+          
+          Button(action: { performRedo() }) {
+            Image(systemName: "arrow.uturn.forward")
+              .font(.system(size: 16, weight: .medium))
+              .foregroundColor(canRedo ? (colorScheme == .dark ? .matchadark_dark : .matchadark_light) : .gray)
+          }
+          .disabled(!canRedo)
+        }
 
-
-      // AI assistant toggle
-      Button(action: {
-        isAssistantVisible.toggle()
-      }) {
-        Image(systemName: "wand.and.rays")
-          .foregroundColor(isAssistantVisible ? .green : (colorScheme == .dark ? .gray : .black))
+        // AI assistant toggle
+        Button(action: {
+          isAssistantVisible.toggle()
+        }) {
+          Image(systemName: "wand.and.rays")
+            .foregroundColor(isAssistantVisible ? (colorScheme == .dark ? .matchadark_dark : .matchadark_light) : .gray)
+        }
       }
     }
-    .padding(.horizontal, 20)
+    .padding(.horizontal, 12) // Reduced from 20 to prevent overflow
     .padding(.vertical, 8)
     .frame(height: 40)
     .buttonStyle(PlainButtonStyle())
@@ -309,9 +335,14 @@ struct WrittenNoteToolbar: View {
       // Ensure we start with a known tool/color instead of any remembered system default
       if currentTool == nil { currentTool = .pen }
       updateCanvasTool()
+      startUndoRedoTimer()
+    }
+    .onDisappear {
+      stopUndoRedoTimer()
     }
     .onChange(of: currentPage) {
       updateCanvasTool()
+      updateUndoRedoState()
     }
     .onChange(of: currentTool) {
       // Collapse dropdowns when switching tools and re-apply tool
@@ -715,6 +746,44 @@ struct WrittenNoteToolbar: View {
     let fraction = sqrt(clamped / maxRange) // emphasize separation at lower widths
     return minDiam + fraction * (maxDiam - minDiam)
   }
+  
+  // MARK: - Undo/Redo Methods
+  
+  private func performUndo() {
+    guard currentPage < canvasViews.count else { return }
+    let canvas = canvasViews[currentPage]
+    canvas.undoManager?.undo()
+    updateUndoRedoState()
+  }
+  
+  private func performRedo() {
+    guard currentPage < canvasViews.count else { return }
+    let canvas = canvasViews[currentPage]
+    canvas.undoManager?.redo()
+    updateUndoRedoState()
+  }
+  
+  private func updateUndoRedoState() {
+    guard currentPage < canvasViews.count else { 
+      canUndo = false
+      canRedo = false
+      return 
+    }
+    let canvas = canvasViews[currentPage]
+    canUndo = canvas.undoManager?.canUndo ?? false
+    canRedo = canvas.undoManager?.canRedo ?? false
+  }
+  
+  private func startUndoRedoTimer() {
+    undoRedoUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+      updateUndoRedoState()
+    }
+  }
+  
+  private func stopUndoRedoTimer() {
+    undoRedoUpdateTimer?.invalidate()
+    undoRedoUpdateTimer = nil
+  }
 }
 
 // Safe index extension
@@ -769,18 +838,39 @@ struct TextNoteToolbar: View {
         Image(systemName: "list.bullet")
           .foregroundColor(colorScheme == .dark ? .gray : .black)
       }
+      
       Spacer()
 
-      // AI assistant toggle
-      Button(action: {
-        isAssistantVisible.toggle()
-      }) {
-        Image(systemName: "wand.and.rays")
-          .foregroundColor(isAssistantVisible ? .green : (colorScheme == .dark ? .gray : .black))
+      // Right side buttons grouped together  
+      HStack(spacing: 12) {
+        // Undo/Redo buttons (disabled for text mode)
+        HStack(spacing: 6) {
+          Button(action: {}) {
+            Image(systemName: "arrow.uturn.backward")
+              .font(.system(size: 16, weight: .medium))
+              .foregroundColor(.gray)
+          }
+          .disabled(true)
+          
+          Button(action: {}) {
+            Image(systemName: "arrow.uturn.forward")
+              .font(.system(size: 16, weight: .medium))
+              .foregroundColor(.gray)
+          }
+          .disabled(true)
+        }
+
+        // AI assistant toggle
+        Button(action: {
+          isAssistantVisible.toggle()
+        }) {
+          Image(systemName: "wand.and.rays")
+            .foregroundColor(isAssistantVisible ? .green : (colorScheme == .dark ? .gray : .black))
+        }
       }
 
     }
-    .padding(.horizontal, 20)
+    .padding(.horizontal, 12) // Reduced from 20 for consistency
     .padding(.vertical, 8)
     .frame(height: 56)
     .buttonStyle(PlainButtonStyle())

@@ -8,48 +8,54 @@ struct TabBarView: View {
   var dismiss: DismissAction
 
   var body: some View {
-    HStack {
+    HStack(spacing: 8) {
+      // Static Home Button (outside ScrollView)
+      Button(action: {
+        dismiss()
+      }) {
+        Image(systemName: "house")
+          .foregroundColor(.gray)
+      }
+      .buttonStyle(PlainButtonStyle())
+      
+      // Scrollable Tabs Section
       ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: 2) {
-          Button(action: {
-            dismiss()
-          }) {
-            Image(systemName: "house")
-              .foregroundColor(.gray)
-          }
-          .padding(.trailing, 6)
-          .buttonStyle(PlainButtonStyle())
-
           // Existing tabs
           ForEach(tabManager.tabs) { tab in
             TabItemView(tab: tab)
           }
         }
+        .padding(.horizontal, 4) // Add some padding inside scroll view
       }
-      // Add button
-      Button(action: {
-        // Add functionality
-      }) {
-        Image(systemName: "plus.circle")
-          .foregroundColor(.gray)
-      }
+      
+      // Static Action Buttons (outside ScrollView)
+      HStack(spacing: 8) {
+        // Add button
+        Button(action: {
+          // Add functionality
+        }) {
+          Image(systemName: "plus.circle")
+            .foregroundColor(.gray)
+        }
+        
         //Share Button
-      Button(action: {
-        // Share functionality
-      }) {
-        Image(systemName: "square.and.arrow.up")
-          .foregroundColor(.gray)
-      }
+        Button(action: {
+          // Share functionality
+        }) {
+          Image(systemName: "square.and.arrow.up")
+            .foregroundColor(.gray)
+        }
 
-      // 3 DOTS MORE OPTIIONS
-      Button(action: {
-        // TODO: Add more options
-      }) {
-        Image(systemName: "ellipsis")
-              .foregroundColor(.gray)
-
+        // 3 DOTS MORE OPTIONS
+        Button(action: {
+          // TODO: Add more options
+        }) {
+          Image(systemName: "ellipsis")
+                .foregroundColor(.gray)
+        }
+        .buttonStyle(PlainButtonStyle())
       }
-      .buttonStyle(PlainButtonStyle())
     }
     .padding(.top, 6)
     .padding(.horizontal, 18)
@@ -139,9 +145,7 @@ struct EmptyStateView: View {
     
   var body: some View {
     VStack(spacing: 20) {
-      Image(systemName: "w.text")
-        .font(.system(size: 60))
-        .foregroundColor(.gray.opacity(0.6))
+
 
       Text("No Note Selected")
         .font(.title2)

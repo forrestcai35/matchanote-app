@@ -25,11 +25,7 @@ struct SettingsPopover: View {
       }
       .foregroundColor(colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
 
-      Button(action: {
-        // About action
-      }) {
-        Label("About", systemImage: "info.circle")
-      }
+
       .foregroundColor(colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
       Button(action: {
         // Trashcan
