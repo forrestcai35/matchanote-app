@@ -131,10 +131,17 @@ struct WrittenNoteView: View {
     // Create new drawing data dictionary
     var newDrawingData: [String: Data] = [:]
     
-    for (index, canvas) in canvasViews.enumerated() {
-      if !canvas.drawing.strokes.isEmpty {
+    // Save all pages up to the current page count, including empty ones
+    for index in 0..<pageCount {
+      if index < canvasViews.count {
+        let canvas = canvasViews[index]
         let drawingData = canvas.drawing.dataRepresentation()
         newDrawingData[String(index)] = drawingData
+      } else {
+        // For pages that don't have a canvas yet, save empty drawing data
+        let emptyDrawing = PKDrawing()
+        let emptyData = emptyDrawing.dataRepresentation()
+        newDrawingData[String(index)] = emptyData
       }
     }
     
