@@ -68,13 +68,14 @@ struct NoteView: View {
             case .written:
               WrittenNoteToolbar(
                 isAssistantVisible: $isAssistantVisible,
-
+                note: activeTab.note,
                 canvasViews: $canvasManager.canvasViews,
                 currentPage: $currentPage,
                 currentTool: $currentTool)
             case .text:
               TextNoteToolbar(
                 isAssistantVisible: $isAssistantVisible,
+                note: activeTab.note,
                 canvasViews: $canvasManager.canvasViews,
                 currentPage: $currentPage,
                 currentTool: $currentTool)

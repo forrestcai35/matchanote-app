@@ -40,6 +40,8 @@ public struct Note: Identifiable {
   public var paperSize: PaperSize = .a4
   // Store drawing data by page using String keys for better JSON compatibility
   public var drawingDataByPage: [String: Data] = [:]
+  // Track which pages are bookmarked using page indices as Set
+  public var bookmarkedPages: Set<Int> = []
 
   public init(
     title: String, subject: String = "", color: Color = .white, dateCreated: Date,
@@ -47,7 +49,8 @@ public struct Note: Identifiable {
     content: String = "", noteType: NoteType,
     paperColor: PaperColor = .white,
     paperStyle: PaperStyle = .blank, paperSize: PaperSize = .a4,
-    drawingDataByPage: [String: Data] = [:]
+    drawingDataByPage: [String: Data] = [:],
+    bookmarkedPages: Set<Int> = []
   ) {
     self.title = title
     self.subject = subject
@@ -61,34 +64,64 @@ public struct Note: Identifiable {
     self.paperStyle = paperStyle
     self.paperSize = paperSize
     self.drawingDataByPage = drawingDataByPage
+    self.bookmarkedPages = bookmarkedPages
   }
 
-  // Sample notes
-  public static let samples = [
-    Note(
-      title: "Blank", color: .matchalight_light, dateCreated: Date(), dateModified: Date(),
-      noteType: .written),
-    Note(
-      title: "Grid", color: .matchalight_light, dateCreated: Date(), dateModified: Date(),
-      noteType: .written,
-      paperStyle: .grid),
-    Note(
-      title: "Dotted", color: .matchalight_light, dateCreated: Date(),
-      dateModified: Date(),
-      noteType: .written,
-      paperStyle: .dotted),
-    Note(
-      title: "Offwhite dotted", color: .matchalight_light, dateCreated: Date(),
-      dateModified: Date(),
-      noteType: .written,
-      paperColor:.offwhite,
-      paperStyle: .dotted),
-    Note(
-      title: "Offwhite dotted", color: .matchalight_light, dateCreated: Date(),
-      dateModified: Date(),
-      noteType: .written,
-      paperColor:.dark,
-      paperStyle: .dotted),
-    
-  ]
+}
+
+// MARK: - Paper Utilities
+struct PaperUtilities {
+  
+  // MARK: - Paper Dimensions
+  static func getPaperWidth(for size: PaperSize) -> CGFloat {
+    switch size {
+    case .legal:
+      return 612  // 8.5 x 14 inches at 72 dpi
+    case .letter:
+      return 612  // 8.5 x 11 inches at 72 dpi
+    case .tabloid:
+      return 792  // 11 x 17 inches at 72 dpi
+    case .a4:
+      return 595  // 210 × 297 mm at 72 dpi
+    }
+  }
+  
+  static func getPaperHeight(for size: PaperSize) -> CGFloat {
+    switch size {
+    case .legal:
+      return 1008  // 8.5 x 14 inches at 72 dpi
+    case .letter:
+      return 792  // 8.5 x 11 inches at 72 dpi
+    case .tabloid:
+      return 1224  // 11 x 17 inches at 72 dpi
+    case .a4:
+      return 842  // 210 × 297 mm at 72 dpi
+    }
+  }
+  
+  // MARK: - Paper Background Colors
+  static func getPaperBackgroundColor(for color: PaperColor) -> Color {
+    switch color {
+    case .white:
+      return .white
+    case .offwhite:
+      return Color(red: 0.98, green: 0.96, blue: 0.9)
+    case .dark:
+      return Color(red: 0.1961, green: 0.1961, blue: 0.2000)
+    }
+  }
+  
+  // MARK: - Convenience Properties
+  static func paperSize(for size: PaperSize) -> CGSize {
+    return CGSize(
+      width: getPaperWidth(for: size),
+      height: getPaperHeight(for: size)
+    )
+  }
+  
+  static func paperAspectRatio(for size: PaperSize) -> CGFloat {
+    let width = getPaperWidth(for: size)
+    let height = getPaperHeight(for: size)
+    return width / height
+  }
 }

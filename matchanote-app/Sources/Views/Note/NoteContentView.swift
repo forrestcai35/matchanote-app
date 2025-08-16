@@ -20,6 +20,8 @@ struct WrittenNoteView: View {
   
   // Persist a unified zoom scale across pages
   @State private var unifiedZoomScale: CGFloat = 1.0
+  // Persist content offset across pages
+  @State private var unifiedContentOffset: CGPoint = .zero
   
   // Stable page identifiers to prevent view recreation
   @State private var pageIdentifiers: [UUID] = [UUID()]
@@ -245,7 +247,8 @@ struct WrittenNoteView: View {
         minScale: 0.8,
         maxScale: 3.0,
         resetOnDoubleTap: true,
-        currentScale: $unifiedZoomScale
+        currentScale: $unifiedZoomScale,
+        contentOffset: $unifiedContentOffset
       ) {
 
         // Content is now fixed without scrolling
@@ -390,17 +393,19 @@ struct WrittenNoteView: View {
 
       }
       Button {
-        // Preserve current zoom scale during page addition
+        // Preserve current zoom scale and scroll position during page addition
         let currentZoom = unifiedZoomScale
+        let currentOffset = unifiedContentOffset
         
         // Add new page and identifier
         pageCount += 1
         pageIdentifiers.append(UUID())
         ensureCanvasExists(for: pageCount - 1)
         
-        // Restore zoom scale to prevent view jumping
+        // Restore zoom scale and scroll position to prevent view jumping
         DispatchQueue.main.async {
           unifiedZoomScale = currentZoom
+          unifiedContentOffset = currentOffset
         }
       } label: {
         Image(systemName: "plus.circle.fill")
@@ -417,39 +422,16 @@ struct WrittenNoteView: View {
 
   // Helper function for background color
   private func getPaperBackgroundColor(for color: PaperColor) -> Color {
-    switch color {
-    case .white:
-      return .white
-    case .offwhite:
-      return Color(red: 0.98, green: 0.96, blue: 0.9)
-    case .dark:
-      return Color(red: 0.1961, green: 0.1961, blue: 0.2000)
-    }
+    return PaperUtilities.getPaperBackgroundColor(for: color)
   }
+  
   // Helper functions to get paper dimensions
   private func getPaperWidth(for size: PaperSize) -> CGFloat {
-    switch size {
-    case .legal:
-      return 612  // 8.5 x 14 inches at 72 dpi
-    case .letter:
-      return 612  // 8.5 x 11 inches at 72 dpi
-    case .tabloid:
-      return 792  // 11 x 17 inches at 72 dpi
-    case .a4:
-      return 595  // 210 × 297 mm at 72 dpi
-    }
+    return PaperUtilities.getPaperWidth(for: size)
   }
+  
   private func getPaperHeight(for size: PaperSize) -> CGFloat {
-    switch size {
-    case .legal:
-      return 1008  // 8.5 x 14 inches at 72 dpi
-    case .letter:
-      return 792  // 8.5 x 11 inches at 72 dpi
-    case .tabloid:
-      return 1224  // 11 x 17 inches at 72 dpi
-    case .a4:
-      return 842  // 210 × 297 mm at 72 dpi
-    }
+    return PaperUtilities.getPaperHeight(for: size)
   }
 
   // Update canvas tool when tool selection changes
@@ -588,14 +570,7 @@ struct TextNoteView: View {
 
   // Helper function for background color
   private func getPaperBackgroundColor(for color: PaperColor) -> Color {
-    switch color {
-    case .white:
-      return .white
-    case .offwhite:
-      return Color(red: 0.98, green: 0.96, blue: 0.9)
-    case .dark:
-      return Color(red: 0.196, green: 0.196, blue: 0.200)
-    }
+    return PaperUtilities.getPaperBackgroundColor(for: color)
   }
 
 }
@@ -608,6 +583,7 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
   private var resetOnDoubleTap: Bool
 
   @Binding private var currentScale: CGFloat
+  @Binding private var contentOffset: CGPoint
 
   // Initialize with default scale binding
   init(
@@ -615,12 +591,14 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     maxScale: CGFloat = 3.0,
     resetOnDoubleTap: Bool = true,
     currentScale: Binding<CGFloat> = .constant(1.0),
+    contentOffset: Binding<CGPoint> = .constant(.zero),
     @ViewBuilder content: () -> Content
   ) {
     self.minScale = minScale
     self.maxScale = maxScale
     self.resetOnDoubleTap = resetOnDoubleTap
     self._currentScale = currentScale
+    self._contentOffset = contentOffset
     self.content = content()
   }
 
@@ -663,16 +641,19 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
       scrollView.addGestureRecognizer(doubleTapGesture)
     }
 
+    // Apply initial content offset after a brief delay to ensure layout is complete
+    DispatchQueue.main.async {
+      if contentOffset != .zero {
+        scrollView.contentOffset = contentOffset
+      }
+    }
+
     return scrollView
   }
 
   func updateUIView(_ uiView: UIScrollView, context: Context) {
-    // Update the view if needed
+    // Update the coordinator's parent reference
     context.coordinator.parent = self
-
-    // Store current scroll state before updating
-    let currentZoomScale = uiView.zoomScale
-    let currentContentOffset = uiView.contentOffset
 
     // Update the hosting controller's rootView
     if let hostedView = uiView.subviews.first,
@@ -681,18 +662,20 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
       hostingController.rootView = content
     }
 
-    // Apply bound zoom scale on updates when it changes externally
+    // Only update zoom scale if the user is not currently interacting with the scroll view
+    // and if there's a significant difference to avoid unnecessary updates
     let clampedScale = max(min(currentScale, maxScale), minScale)
-    if abs(uiView.zoomScale - clampedScale) > 0.001 {
+    if !context.coordinator.isUserInteracting && abs(uiView.zoomScale - clampedScale) > 0.01 {
       uiView.setZoomScale(clampedScale, animated: false)
-    } else {
-      // Restore the previous zoom scale and offset if no external change required
-      if abs(currentZoomScale - uiView.zoomScale) > 0.001 {
-        uiView.zoomScale = currentZoomScale
-      }
-      // Only restore content offset if zoom scale is the same
-      if abs(currentZoomScale - uiView.zoomScale) < 0.001 {
-        uiView.contentOffset = currentContentOffset
+    }
+
+    // Update content offset if not currently interacting and there's a significant difference
+    if !context.coordinator.isUserInteracting {
+      let currentOffset = uiView.contentOffset
+      let targetOffset = contentOffset
+      let offsetDistance = sqrt(pow(currentOffset.x - targetOffset.x, 2) + pow(currentOffset.y - targetOffset.y, 2))
+      if offsetDistance > 5.0 {
+        uiView.contentOffset = targetOffset
       }
     }
   }
@@ -703,6 +686,7 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
 
   class Coordinator: NSObject, UIScrollViewDelegate {
     var parent: ZoomableScrollView
+    var isUserInteracting = false
 
     init(_ parent: ZoomableScrollView) {
       self.parent = parent
@@ -712,19 +696,62 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
       return scrollView.subviews.first
     }
 
-    func scrollViewDidZoom(_ scrollView: UIScrollView) {
-      // Update the binding using Task to avoid state modification during view update
-      let newScale = scrollView.zoomScale
-      if abs(parent.currentScale - newScale) > 0.001 {
-        Task { @MainActor in
-          parent.currentScale = newScale
-        }
-      }
+    func scrollViewWillBeginZooming(_ scrollView: UIScrollView, with view: UIView?) {
+      isUserInteracting = true
+    }
 
-      // Center the content
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+      isUserInteracting = true
+    }
+
+    func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
+      isUserInteracting = false
+      // Update the binding after user interaction ends
+      if abs(parent.currentScale - scale) > 0.01 {
+        parent.currentScale = scale
+      }
+      // Update content offset
+      parent.contentOffset = scrollView.contentOffset
+    }
+
+    func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+      if !decelerate {
+        isUserInteracting = false
+        parent.contentOffset = scrollView.contentOffset
+      }
+    }
+
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+      isUserInteracting = false
+      parent.contentOffset = scrollView.contentOffset
+    }
+
+    func scrollViewDidZoom(_ scrollView: UIScrollView) {
+      // Center the content during zoom
       let offsetX = max((scrollView.bounds.width - scrollView.contentSize.width) * 0.5, 0)
       let offsetY = max((scrollView.bounds.height - scrollView.contentSize.height) * 0.5, 0)
       scrollView.contentInset = UIEdgeInsets(top: offsetY, left: offsetX, bottom: 0, right: 0)
+      
+      // Only update binding during user interaction if the change is significant
+      // to avoid too frequent updates that can cause shakiness
+      if isUserInteracting {
+        let newScale = scrollView.zoomScale
+        if abs(parent.currentScale - newScale) > 0.05 {
+          parent.currentScale = newScale
+        }
+      }
+    }
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+      // Update content offset during scrolling, but only for significant changes
+      if isUserInteracting {
+        let currentOffset = scrollView.contentOffset
+        let parentOffset = parent.contentOffset
+        let offsetDistance = sqrt(pow(currentOffset.x - parentOffset.x, 2) + pow(currentOffset.y - parentOffset.y, 2))
+        if offsetDistance > 10.0 {
+          parent.contentOffset = currentOffset
+        }
+      }
     }
 
     @objc func handleDoubleTap(_ gestureRecognizer: UITapGestureRecognizer) {

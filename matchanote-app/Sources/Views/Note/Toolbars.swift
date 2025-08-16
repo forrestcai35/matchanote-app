@@ -161,8 +161,11 @@ class ToolState: ObservableObject {
 // Contextual Toolbars
 struct WrittenNoteToolbar: View {
   @Binding var isAssistantVisible: Bool
+  var note: Note
   @Environment(\.colorScheme) private var colorScheme
   @StateObject private var toolState = ToolState()
+  @EnvironmentObject private var storageManager: StorageManager
+  @ObservedObject private var tabManager = TabManager.shared
 
   // Added to reference canvas array and current page
   @Binding var canvasViews: [PKCanvasView]
@@ -185,6 +188,9 @@ struct WrittenNoteToolbar: View {
   @State private var canRedo: Bool = false
   @State private var undoRedoUpdateTimer: Timer?
 
+  // Page overview state
+  @State private var showPageOverview: Bool = false
+
   // Reserve fixed widths so icons do not shift - adjusted for better spacing
   private let toolIconBarWidth: CGFloat = 180 // Reduced to prevent overflow
   private let optionsPanelReservedWidth: CGFloat = 340 // Reduced to give more room
@@ -193,17 +199,17 @@ struct WrittenNoteToolbar: View {
     HStack {
       // Left side buttons
       Button(action: {
-        // Bookmark functionality
+        toggleBookmarkForCurrentPage()
       }) {
-        Image(systemName: "bookmark")
-          .foregroundColor(colorScheme == .dark ? .gray : .black)
+        Image(systemName: isCurrentPageBookmarked ? "bookmark.fill" : "bookmark")
+          .foregroundColor(isCurrentPageBookmarked ? .matchalight_dark : (colorScheme == .dark ? .matchadark_dark : .matchadark_light))
       }
 
       Button(action: {
-        // View functionality
+        showPageOverview = true
       }) {
         Image(systemName: "square.grid.2x2")
-          .foregroundColor(colorScheme == .dark ? .gray : .black)
+          .foregroundColor((colorScheme == .dark ? .matchadark_dark : .matchadark_light))
       }
 
       // Fixed spacing to push tools to the right
@@ -352,6 +358,15 @@ struct WrittenNoteToolbar: View {
       updateCanvasTool()
     }
     .zIndex((expandedPenPresetIndex != nil || expandedMarkerPresetIndex != nil || expandedEraserPresetIndex != nil) ? 1000 : 0)
+    .sheet(isPresented: $showPageOverview) {
+      PageOverviewView(
+        note: note,
+        currentPage: $currentPage,
+        canvasViews: $canvasViews,
+        isPresented: $showPageOverview
+      )
+      .environmentObject(storageManager)
+    }
   }
   
   @ViewBuilder
@@ -784,6 +799,23 @@ struct WrittenNoteToolbar: View {
     undoRedoUpdateTimer?.invalidate()
     undoRedoUpdateTimer = nil
   }
+
+  private func toggleBookmarkForCurrentPage() {
+    var updatedNote = note
+    if updatedNote.bookmarkedPages.contains(currentPage) {
+      updatedNote.bookmarkedPages.remove(currentPage)
+    } else {
+      updatedNote.bookmarkedPages.insert(currentPage)
+    }
+    updatedNote.dateModified = Date()
+    
+    let savedNote = storageManager.saveNote(updatedNote)
+    tabManager.updateNote(savedNote)
+  }
+  
+  private var isCurrentPageBookmarked: Bool {
+    return note.bookmarkedPages.contains(currentPage)
+  }
 }
 
 // Safe index extension
@@ -797,6 +829,7 @@ private extension Array {
 // Toolbar for Text Notes
 struct TextNoteToolbar: View {
   @Binding var isAssistantVisible: Bool
+  var note: Note
   @Environment(\.colorScheme) private var colorScheme
 
   // Add the properties for compatibility, even if not used in text mode
