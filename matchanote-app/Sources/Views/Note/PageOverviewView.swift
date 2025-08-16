@@ -347,11 +347,3 @@ struct PageThumbnailView: View {
   }
 }
 
-#Preview {
-  PageOverviewView(
-    note: Note.samples[0],
-    currentPage: .constant(0),
-    canvasViews: .constant([]),
-    isPresented: .constant(true)
-  )
-} 

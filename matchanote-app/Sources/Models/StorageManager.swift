@@ -17,6 +17,34 @@ struct StorageNote: Codable {
   var paperStyle: String
   var paperSize: String
   var drawingDataByPage: [String: Data]
+  var bookmarkedPages: Set<Int>
+
+  private enum CodingKeys: String, CodingKey {
+    case id, title, subject, colorString, dateCreated, dateModified
+    case isFavorite, content, noteType, paperColor, paperStyle, paperSize
+    case drawingDataByPage, bookmarkedPages
+  }
+
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    
+    id = try container.decode(UUID.self, forKey: .id)
+    title = try container.decode(String.self, forKey: .title)
+    subject = try container.decode(String.self, forKey: .subject)
+    colorString = try container.decode(String.self, forKey: .colorString)
+    dateCreated = try container.decode(Date.self, forKey: .dateCreated)
+    dateModified = try container.decode(Date.self, forKey: .dateModified)
+    isFavorite = try container.decode(Bool.self, forKey: .isFavorite)
+    content = try container.decode(String.self, forKey: .content)
+    noteType = try container.decode(String.self, forKey: .noteType)
+    paperColor = try container.decode(String.self, forKey: .paperColor)
+    paperStyle = try container.decode(String.self, forKey: .paperStyle)
+    paperSize = try container.decode(String.self, forKey: .paperSize)
+    drawingDataByPage = try container.decode([String: Data].self, forKey: .drawingDataByPage)
+    
+    // Handle backwards compatibility - default to empty set if bookmarkedPages doesn't exist
+    bookmarkedPages = try container.decodeIfPresent(Set<Int>.self, forKey: .bookmarkedPages) ?? Set<Int>()
+  }
 
   init(from note: Note) {
     self.id = note.id
@@ -32,6 +60,7 @@ struct StorageNote: Codable {
     self.paperStyle = note.paperStyle.rawValue
     self.paperSize = note.paperSize.rawValue
     self.drawingDataByPage = note.drawingDataByPage
+    self.bookmarkedPages = note.bookmarkedPages
   }
 
   func toNote() -> Note {
@@ -47,7 +76,8 @@ struct StorageNote: Codable {
       paperColor: PaperColor(rawValue: paperColor) ?? .white,
       paperStyle: PaperStyle(rawValue: paperStyle) ?? .blank,
       paperSize: PaperSize(rawValue: paperSize) ?? .a4,
-      drawingDataByPage: drawingDataByPage
+      drawingDataByPage: drawingDataByPage,
+      bookmarkedPages: bookmarkedPages
     )
   }
 }

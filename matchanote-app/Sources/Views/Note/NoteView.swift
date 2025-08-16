@@ -352,11 +352,4 @@ struct NoteView: View {
   }
 }
 
-struct NoteView_Previews: PreviewProvider {
-  static var previews: some View {
-    NoteView(note: Note.samples[0])
-    NoteView(note: Note.samples[1])
-    NoteView(note: Note.samples[2])
-  }
-}
 
