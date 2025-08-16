@@ -14,7 +14,7 @@ enum PenTool {
     case .marker:
       return PKInkingTool(.marker, color: UIColor(color), width: width)
     case .eraser:
-      return eraserType == .object ? PKEraserTool(.vector) : PKEraserTool(.bitmap)
+      return eraserType == .object ? PKEraserTool(.vector) : PKEraserTool(.bitmap, width: width)
     case .lasso:
       return PKLassoTool()
     }
@@ -286,7 +286,7 @@ struct WrittenNoteToolbar: View {
       .frame(width: optionsPanelReservedWidth, alignment: .leading)
 
       Spacer()
-        .frame(minWidth: 20, maxWidth: 50)
+        .frame(maxWidth: 50)
       
       // Right side buttons
 
@@ -358,6 +358,8 @@ struct WrittenNoteToolbar: View {
               }
             }
           }
+
+
         
           // Colors (with delete and add)
           HStack(spacing: 6) {
@@ -382,7 +384,6 @@ struct WrittenNoteToolbar: View {
                   }
                 }
             }
-            
             
             // Add new color
             Button {
@@ -667,7 +668,8 @@ struct WrittenNoteToolbar: View {
       let width = toolState.markerWidthPresets[safe: toolState.selectedMarkerPresetIndex] ?? 6.0
       canvas.tool = tool.toolInstance(color: toolState.markerColor, width: width)
     case .eraser:
-      canvas.tool = tool.toolInstance(eraserType: toolState.eraserType)
+      let width = toolState.eraserType == .area ? toolState.eraserAreaWidthPresets[safe: toolState.selectedEraserAreaPresetIndex] ?? 16.0 : 1.0
+      canvas.tool = tool.toolInstance(width: width, eraserType: toolState.eraserType)
     case .lasso:
       canvas.tool = tool.toolInstance()
     }

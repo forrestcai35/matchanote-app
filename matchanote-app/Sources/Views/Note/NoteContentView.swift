@@ -20,18 +20,23 @@ struct WrittenNoteView: View {
   
   // Persist a unified zoom scale across pages
   @State private var unifiedZoomScale: CGFloat = 1.0
+  
+  // Stable page identifiers to prevent view recreation
+  @State private var pageIdentifiers: [UUID] = [UUID()]
 
   var body: some View {
     VStack(spacing: 0) {
       TabView(selection: $currentPage) {
-        ForEach(0..<pageCount, id: \.self) { pageIndex in
-          pageContent(pageIndex: pageIndex, isInfinite: false)
-            .tag(pageIndex)
-            .transition(
-              .asymmetric(
-                insertion: .opacity.combined(with: .scale),
-                removal: .opacity
-              ))
+        ForEach(Array(pageIdentifiers.enumerated()), id: \.element) { index, pageId in
+          if index < pageCount {
+            pageContent(pageIndex: index, isInfinite: false)
+              .tag(index)
+              .transition(
+                .asymmetric(
+                  insertion: .opacity.combined(with: .scale),
+                  removal: .opacity
+                ))
+          }
         }
       }
       .shadow(color: Color.black.opacity(0.3), radius: 3, x: 0, y: 1)
@@ -86,6 +91,9 @@ struct WrittenNoteView: View {
     // Determine the number of pages based on stored drawings
     let maxPage = note.drawingDataByPage.keys.compactMap { Int($0) }.max() ?? 0
     let requiredPageCount = max(1, maxPage + 1)
+    
+    // Initialize page identifiers for required pages
+    pageIdentifiers = Array(0..<requiredPageCount).map { _ in UUID() }
     
     // Create canvas views for all required pages
     for pageIndex in 0..<requiredPageCount {
@@ -382,8 +390,18 @@ struct WrittenNoteView: View {
 
       }
       Button {
+        // Preserve current zoom scale during page addition
+        let currentZoom = unifiedZoomScale
+        
+        // Add new page and identifier
         pageCount += 1
+        pageIdentifiers.append(UUID())
         ensureCanvasExists(for: pageCount - 1)
+        
+        // Restore zoom scale to prevent view jumping
+        DispatchQueue.main.async {
+          unifiedZoomScale = currentZoom
+        }
       } label: {
         Image(systemName: "plus.circle.fill")
           .font(.caption)
@@ -652,6 +670,10 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     // Update the view if needed
     context.coordinator.parent = self
 
+    // Store current scroll state before updating
+    let currentZoomScale = uiView.zoomScale
+    let currentContentOffset = uiView.contentOffset
+
     // Update the hosting controller's rootView
     if let hostedView = uiView.subviews.first,
       let hostingController = hostedView.findViewController() as? UIHostingController<Content>
@@ -663,6 +685,15 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     let clampedScale = max(min(currentScale, maxScale), minScale)
     if abs(uiView.zoomScale - clampedScale) > 0.001 {
       uiView.setZoomScale(clampedScale, animated: false)
+    } else {
+      // Restore the previous zoom scale and offset if no external change required
+      if abs(currentZoomScale - uiView.zoomScale) > 0.001 {
+        uiView.zoomScale = currentZoomScale
+      }
+      // Only restore content offset if zoom scale is the same
+      if abs(currentZoomScale - uiView.zoomScale) < 0.001 {
+        uiView.contentOffset = currentContentOffset
+      }
     }
   }
 
@@ -682,8 +713,13 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     }
 
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
-      // Update the binding
-      parent.currentScale = scrollView.zoomScale
+      // Update the binding using Task to avoid state modification during view update
+      let newScale = scrollView.zoomScale
+      if abs(parent.currentScale - newScale) > 0.001 {
+        Task { @MainActor in
+          parent.currentScale = newScale
+        }
+      }
 
       // Center the content
       let offsetX = max((scrollView.bounds.width - scrollView.contentSize.width) * 0.5, 0)
