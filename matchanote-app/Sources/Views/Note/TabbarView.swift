@@ -6,6 +6,7 @@ struct TabBarView: View {
   @ObservedObject private var tabManager = TabManager.shared
     @Environment(\.colorScheme) private var colorScheme
   var dismiss: DismissAction
+  var clearPageAction: (() -> Void)?
 
   var body: some View {
     HStack(spacing: 8) {
@@ -30,13 +31,14 @@ struct TabBarView: View {
       }
       
       // Static Action Buttons (outside ScrollView)
-      HStack(spacing: 8) {
+      HStack(spacing: 4) {
         // Add button
         Button(action: {
           // Add functionality
         }) {
           Image(systemName: "plus.circle")
             .foregroundColor(.gray)
+            .padding(4)
         }
         
         //Share Button
@@ -45,20 +47,46 @@ struct TabBarView: View {
         }) {
           Image(systemName: "square.and.arrow.up")
             .foregroundColor(.gray)
+            .padding(4)
         }
 
-        // 3 DOTS MORE OPTIONS
-        Button(action: {
-          // TODO: Add more options
-        }) {
+        // More options dropdown menu
+        Menu {
+          Button(action: {
+            // TODO: Implement rotate page functionality
+          }) {
+            Label("Rotate Page", systemImage: "rotate.right")
+          }
+          
+          Button(action: {
+            // TODO: Implement change template functionality
+          }) {
+            Label("Change Template", systemImage: "doc.text")
+          }
+          
+          Button(action: {
+            clearPageAction?()
+          }) {
+            Label("Clear Page", systemImage: "trash")
+          }
+          
+          Divider()
+          
+          Button(action: {
+            // TODO: Implement move page to trash functionality
+          }) {
+            Label("Move Page to Trash", systemImage: "trash.fill")
+          }
+          .foregroundColor(.red)
+        } label: {
           Image(systemName: "ellipsis")
-                .foregroundColor(.gray)
+            .foregroundColor(.gray)
+            .padding(4)
         }
-        .buttonStyle(PlainButtonStyle())
       }
     }
     .padding(.top, 6)
-    .padding(.horizontal, 18)
+    .padding(.horizontal, 12)
     .frame(height: 40)
     .frame(maxWidth: .infinity)
     .background(colorScheme == .dark ? Color.black : Color.gray.opacity(0.15))

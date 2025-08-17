@@ -55,12 +55,36 @@ struct NoteView: View {
     tabManager.openTab(note: note)
   }
 
+  // Clear the current page
+  private func clearCurrentPage() {
+    guard currentPage < canvasManager.canvasViews.count else { return }
+    
+    let canvas = canvasManager.canvasViews[currentPage]
+    
+    // Store the current drawing for undo functionality
+    let currentDrawing = canvas.drawing
+    
+    // Register undo action before clearing
+    canvas.undoManager?.registerUndo(withTarget: canvas) { targetCanvas in
+      targetCanvas.drawing = currentDrawing
+    }
+    
+    // Set undo action name for better UX
+    canvas.undoManager?.setActionName("Clear Page")
+    
+    // Clear the drawing
+    canvas.drawing = PKDrawing()
+    
+    // Mark as edited to trigger save
+    isEdited = true
+  }
+
   var body: some View {
     GeometryReader { geometry in
       ZStack {
         VStack(spacing: 0) {
           // Tab bar
-          TabBarView(dismiss: dismiss)
+          TabBarView(dismiss: dismiss, clearPageAction: clearCurrentPage)
 
           if let activeTab = tabManager.getActiveTab() {
             // Showcase Contextual Toolbars
