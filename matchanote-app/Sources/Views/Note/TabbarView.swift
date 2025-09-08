@@ -7,6 +7,10 @@ struct TabBarView: View {
     @Environment(\.colorScheme) private var colorScheme
   var dismiss: DismissAction
   var clearPageAction: (() -> Void)?
+  var exportCurrentPageAction: (() -> Void)?
+  var exportAllPagesAction: (() -> Void)?
+  var printCurrentPageAction: (() -> Void)?
+  var printAllPagesAction: (() -> Void)?
 
   var body: some View {
     HStack(spacing: 8) {
@@ -41,10 +45,22 @@ struct TabBarView: View {
             .padding(4)
         }
         
-        //Share Button
-        Button(action: {
-          // Share functionality
-        }) {
+        // Share Menu
+        Menu {
+          Button(action: { exportCurrentPageAction?() }) {
+            Label("Export this page", systemImage: "doc")
+          }
+          Button(action: { exportAllPagesAction?() }) {
+            Label("Export all pages", systemImage: "doc.on.doc")
+          }
+          Divider()
+          Button(action: { printCurrentPageAction?() }) {
+            Label("Print this page", systemImage: "printer")
+          }
+          Button(action: { printAllPagesAction?() }) {
+            Label("Print all pages", systemImage: "printer.fill")
+          }
+        } label: {
           Image(systemName: "square.and.arrow.up")
             .foregroundColor(.gray)
             .padding(4)

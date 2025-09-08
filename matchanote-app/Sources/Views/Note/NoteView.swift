@@ -7,6 +7,7 @@
 
 import PencilKit
 import SwiftUI
+import UIKit
 
 enum AssistantOrientation {
   case right, left
@@ -84,7 +85,14 @@ struct NoteView: View {
       ZStack {
         VStack(spacing: 0) {
           // Tab bar
-          TabBarView(dismiss: dismiss, clearPageAction: clearCurrentPage)
+          TabBarView(
+            dismiss: dismiss,
+            clearPageAction: clearCurrentPage,
+            exportCurrentPageAction: { handleExport(pages: [currentPage]) },
+            exportAllPagesAction: { handleExport(pages: Array(0..<totalPages)) },
+            printCurrentPageAction: { handlePrint(pages: [currentPage]) },
+            printAllPagesAction: { handlePrint(pages: Array(0..<totalPages)) }
+          )
 
           if let activeTab = tabManager.getActiveTab() {
             // Showcase Contextual Toolbars
@@ -124,7 +132,7 @@ struct NoteView: View {
 
             // Main content
             mainContentView()
-              .frame(maxWidth: .infinity)
+
 
             // Right-side assistant
             if isAssistantVisible && assistantOrientation == .right {
@@ -135,10 +143,7 @@ struct NoteView: View {
             }
           }
         }
-        .edgesIgnoringSafeArea(.bottom)
-        .edgesIgnoringSafeArea(.leading)
-        .edgesIgnoringSafeArea(.trailing)
-        .frame(width: geometry.size.width, height: geometry.size.height)
+
 
         // Hover indicator overlay
         if isDraggingAssistant, let hoveredPosition = draggedPosition {
@@ -351,28 +356,102 @@ struct NoteView: View {
             let startPoint: UnitPoint = assistantOrientation == .right ? .trailing : .leading
             let endPoint: UnitPoint = assistantOrientation == .right ? .leading : .trailing
             let noteBg = colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light
+            let shadowColor = colorScheme == .dark ? Color.white.opacity(0.18) : Color.black.opacity(0.12)
 
-            // Background strip matching the note area to create a seamless overlap
             Rectangle()
               .fill(noteBg)
               .frame(width: edgeWidth)
               .allowsHitTesting(false)
 
             LinearGradient(
-              colors: [Color.black.opacity(0.12), Color.black.opacity(0.0)],
+              colors: [shadowColor, shadowColor.opacity(0.0)],
               startPoint: startPoint,
               endPoint: endPoint
             )
             .frame(width: edgeWidth)
             .allowsHitTesting(false)
-
-            // Clear, wide hit-target for resizing
             resizeHandleOverlay(for: assistantOrientation)
           }
         }
         .background()
     }
     .transition(assistantOrientation == .right ? .move(edge: .trailing) : .move(edge: .leading))
+  }
+}
+
+// MARK: - Export / Share helpers in NoteView
+extension NoteView {
+  private var pageBounds: CGRect {
+    CGRect(origin: .zero, size: PaperUtilities.paperSize(for: activeNote.paperSize))
+  }
+
+  // Resolve currently active note (from active tab) to align with toolbar
+  private var activeNote: Note {
+    tabManager.getActiveTab()?.note ?? note
+  }
+
+  private var totalPages: Int {
+    let maxDrawingPage = activeNote.drawingDataByPage.keys.compactMap { Int($0) }.max() ?? -1
+    let canvasPageCount = canvasManager.canvasViews.count
+    return max(1, max(maxDrawingPage + 1, canvasPageCount))
+  }
+
+  private func drawingForPage(_ index: Int) -> PKDrawing? {
+    if index < canvasManager.canvasViews.count {
+      return canvasManager.canvasViews[index].drawing
+    }
+    if let data = activeNote.drawingDataByPage[String(index)], let drawing = try? PKDrawing(data: data) {
+      return drawing
+    }
+    return nil
+  }
+
+  private func exportPDF(forPages pages: [Int]) -> URL? {
+    let renderer = UIGraphicsPDFRenderer(bounds: pageBounds)
+    let sanitizedTitle = activeNote.title.replacingOccurrences(of: "/", with: "-")
+    let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("Note_Export_\(sanitizedTitle)_\(UUID().uuidString).pdf")
+    do {
+      try renderer.writePDF(to: tempURL) { context in
+        for page in pages {
+          context.beginPage()
+          UIColor(PaperUtilities.getPaperBackgroundColor(for: activeNote.paperColor)).setFill()
+          UIRectFill(pageBounds)
+          if let drawing = drawingForPage(page) {
+            let image = drawing.image(from: pageBounds, scale: 2)
+            image.draw(in: pageBounds)
+          }
+        }
+      }
+      return tempURL
+    } catch {
+      print("Failed to write PDF: \(error)")
+      return nil
+    }
+  }
+
+  private func handleExport(pages: [Int]) {
+    guard let url = exportPDF(forPages: pages) else { return }
+    let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+    if let popover = controller.popoverPresentationController {
+      // iPad support: anchor to the key window
+      popover.sourceView = UIApplication.shared.windows.first { $0.isKeyWindow }
+    }
+    topViewController()?.present(controller, animated: true)
+  }
+
+  private func handlePrint(pages: [Int]) {
+    guard let url = exportPDF(forPages: pages) else { return }
+    let controller = UIPrintInteractionController.shared
+    controller.printingItem = url
+    controller.present(animated: true, completionHandler: nil)
+  }
+
+  private func topViewController() -> UIViewController? {
+    guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+          let window = scene.windows.first(where: { $0.isKeyWindow }),
+          var top = window.rootViewController else { return nil }
+    while let presented = top.presentedViewController { top = presented }
+    return top
   }
 }
 

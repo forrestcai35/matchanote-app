@@ -55,6 +55,7 @@ struct AIAssistantView: View {
   @State private var contextInfo = ""
   @Environment(\.colorScheme) private var colorScheme
   @State private var isInputTargeted = false
+  private let inputOuterPadding: CGFloat = 16
 
   // Configure models
   init() {
@@ -63,220 +64,13 @@ struct AIAssistantView: View {
 
   var body: some View {
     VStack(spacing: 0) {
-      // Assistant header
-      HStack {
-        Image("logo_icon")
-          .resizable()
-          .scaledToFit()
-          .frame(width: 20, height: 20)
-
-      
-        Text("Matcha Assistant")
-          .font(.headline)
-
-        Spacer()
-
-      }
-      .padding()
-      .background(colorScheme == .dark ? Color.matchadark_light : Color.matchalight_light)
-
-      // Chat history area
-      ScrollView {
-        VStack(alignment: .leading, spacing: 12) {
-
-          // Display messages
-          ForEach(state.messages) { message in
-            if message.isUser {
-              UserMessageView(message: message)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-            } else {
-              AssistantMessageView(message: message)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-          }
-
-          if state.isLoading {
-            HStack {
-              ProgressView()
-                .padding(.horizontal, 4)
-              Text("Thinking...")
-                .font(.caption)
-                .foregroundColor(.gray)
-            }
-            .padding(.vertical, 8)
-          }
-
-          if let error = state.errorMessage {
-            Text(error)
-              .foregroundColor(.red)
-              .font(.caption)
-              .padding(.vertical, 8)
-          }
-        }
-        .padding()
-      }
-      .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
-
-      // Input area
-      VStack(spacing: 8) {
-        // Controls row
-        HStack {
-          // AI Model dropdown
-          Menu {
-            ForEach(state.availableModels, id: \.self) { model in
-              Button(model) {
-                state.selectedModel = model
-              }
-            }
-          } label: {
-            HStack {
-              Text(state.selectedModel)
-                .font(.caption)
-                .foregroundColor(.primary)
-              Image(systemName: "chevron.down")
-                .font(.caption)
-                .foregroundColor(.gray)
-            }
-            .padding(.horizontal, 6)
-            .cornerRadius(8)
-          }
-
-          // Add media menu
-          Menu {
-            Button {
-              showingImagePicker = true
-            } label: {
-              Label("Choose Image", systemImage: "photo")
-            }
-
-            Button {
-              showingFileImporter = true
-            } label: {
-              Label("Import File", systemImage: "doc")
-            }
-
-            #if canImport(UIKit)
-              Button {
-                showingCamera = true
-              } label: {
-                Label("Take Photo", systemImage: "camera")
-              }
-            #endif
-          } label: {
-            Image(systemName: "plus.circle")
-              .foregroundColor(.gray)
-          }
-          .padding(.horizontal, 6)
-
-          Spacer()
-        }
-        .padding(.horizontal)
-
-        ZStack(alignment: .bottomTrailing) {
-          VStack {
-            if !state.tempMediaItems.isEmpty {
-              ScrollView(.horizontal) {
-                HStack {
-                  ForEach(state.tempMediaItems) { item in
-                    ZStack(alignment: .topTrailing) {
-                      if case .image = item.type {
-                        #if canImport(UIKit)
-                          if let uiImage = UIImage(data: item.data) {
-                            Image(uiImage: uiImage)
-                              .resizable()
-                              .scaledToFit()
-                              .frame(height: 60)
-                              .cornerRadius(6)
-                          }
-                        #elseif canImport(AppKit)
-                          if let nsImage = NSImage(data: item.data) {
-                            Image(nsImage: nsImage)
-                              .resizable()
-                              .scaledToFit()
-                              .frame(height: 60)
-                              .cornerRadius(6)
-                          }
-                        #endif
-                      } else if case .file(let name) = item.type {
-                        HStack {
-                          Image(systemName: "doc")
-                          Text(name)
-                            .lineLimit(1)
-                        }
-                        .padding(6)
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(6)
-                        .frame(height: 60)
-                      }
-
-                      Button(action: {
-                        removeMediaItem(item)
-                      }) {
-                        Image(systemName: "xmark.circle.fill")
-                          .foregroundColor(.red)
-                          .background(Color.white.opacity(0.7))
-                          .clipShape(Circle())
-                      }
-                      .padding(2)
-                    }
-                    .padding(2)
-                  }
-                }
-              }
-              .padding(.horizontal)
-            }
-
-            GrowingTextEditor(text: $state.userInput, placeholderText: "Ask Matcha Assistant...")
-              .padding(.vertical, 8)
-              .padding(.trailing, 40)
-              .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                  .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-              )
-              .cornerRadius(8)
-              .padding(1)
-              .submitLabel(.send)
-              .onSubmit {
-                if (!state.userInput.isEmpty || !state.tempMediaItems.isEmpty) && !state.isLoading {
-                  sendMessage()
-                }
-              }
-              .onDrop(of: ["public.image", "public.file-url"], isTargeted: $isInputTargeted) {
-                providers, _ in
-                for provider in providers {
-                  if provider.canLoadObject(ofClass: URL.self) {
-                    _ = provider.loadObject(ofClass: URL.self) { url, error in
-                      guard let url = url else { return }
-
-                      DispatchQueue.main.async {
-                        handleDroppedMedia(from: url)
-                      }
-                    }
-                    return true
-                  }
-                }
-                return false
-              }
-              .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                  .stroke(isInputTargeted ? Color.blue : Color.clear, lineWidth: 2)
-              )
-          }
-
-          Button(action: {
-            sendMessage()
-          }) {
-            Image(systemName: "arrow.up.circle.fill")
-              .foregroundColor(
-                (state.userInput.isEmpty && state.tempMediaItems.isEmpty) || state.isLoading
-                  ? .gray : .green
-              )
-              .font(.title2)
-          }
-          .disabled((state.userInput.isEmpty && state.tempMediaItems.isEmpty) || state.isLoading)
-          .padding(8)
-        }
-        .padding([.horizontal, .bottom])
+      if state.messages.isEmpty {
+        inputSection
+          .padding(.top, inputOuterPadding)
+        chatHistorySection
+      } else {
+        chatHistorySection
+        inputSection
       }
     }
     .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
@@ -323,6 +117,210 @@ struct AIAssistantView: View {
         print("Error importing file: \(error)")
       }
     }
+  }
+
+  // MARK: - Sections
+  private var chatHistorySection: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: 12) {
+    
+
+        ForEach(state.messages) { message in
+          if message.isUser {
+            UserMessageView(message: message)
+              .frame(maxWidth: .infinity, alignment: .trailing)
+          } else {
+            AssistantMessageView(message: message)
+              .frame(maxWidth: .infinity, alignment: .leading)
+          }
+        }
+
+        if state.isLoading {
+          HStack {
+            ProgressView()
+              .padding(.horizontal, 4)
+            Text("Thinking...")
+              .font(.caption)
+              .foregroundColor(.gray)
+          }
+          .padding(.vertical, 8)
+        }
+
+        if let error = state.errorMessage {
+          Text(error)
+            .foregroundColor(.red)
+            .font(.caption)
+            .padding(.vertical, 8)
+        }
+      }
+      .padding()
+    }
+    .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
+  }
+
+  private var inputSection: some View {
+    VStack(spacing: 8) {
+      // Controls row
+      HStack {
+        // AI Model dropdown
+        Menu {
+          ForEach(state.availableModels, id: \.self) { model in
+            Button(model) {
+              state.selectedModel = model
+            }
+          }
+        } label: {
+          HStack {
+            Text(state.selectedModel)
+              .font(.caption)
+              .foregroundColor(.primary)
+            Image(systemName: "chevron.down")
+              .font(.caption)
+              .foregroundColor(.gray)
+          }
+          .padding(.horizontal, 6)
+          .cornerRadius(8)
+        }
+
+        // Add media menu
+        Menu {
+          Button {
+            showingImagePicker = true
+          } label: {
+            Label("Choose Image", systemImage: "photo")
+          }
+
+          Button {
+            showingFileImporter = true
+          } label: {
+            Label("Import File", systemImage: "doc")
+          }
+
+          #if canImport(UIKit)
+            Button {
+              showingCamera = true
+            } label: {
+              Label("Take Photo", systemImage: "camera")
+            }
+          #endif
+        } label: {
+          Image(systemName: "plus.circle")
+            .foregroundColor(.gray)
+        }
+        .padding(.horizontal, 6)
+
+        Spacer()
+      }
+      .padding(.horizontal)
+
+      ZStack(alignment: .bottomTrailing) {
+        VStack {
+          if !state.tempMediaItems.isEmpty {
+            ScrollView(.horizontal) {
+              HStack {
+                ForEach(state.tempMediaItems) { item in
+                  ZStack(alignment: .topTrailing) {
+                    if case .image = item.type {
+                      #if canImport(UIKit)
+                        if let uiImage = UIImage(data: item.data) {
+                          Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 60)
+                            .cornerRadius(6)
+                        }
+                      #elseif canImport(AppKit)
+                        if let nsImage = NSImage(data: item.data) {
+                          Image(nsImage: nsImage)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 60)
+                            .cornerRadius(6)
+                        }
+                      #endif
+                    } else if case .file(let name) = item.type {
+                      HStack {
+                        Image(systemName: "doc")
+                        Text(name)
+                          .lineLimit(1)
+                      }
+                      .padding(6)
+                      .background(Color.gray.opacity(0.1))
+                      .cornerRadius(6)
+                      .frame(height: 60)
+                    }
+
+                    Button(action: {
+                      removeMediaItem(item)
+                    }) {
+                      Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.red)
+                        .background(Color.white.opacity(0.7))
+                        .clipShape(Circle())
+                    }
+                    .padding(2)
+                  }
+                  .padding(2)
+                }
+              }
+            }
+            .padding(.horizontal)
+          }
+
+          GrowingTextEditor(text: $state.userInput, placeholderText: "Ask Matcha Assistant...")
+            .padding(.vertical, 8)
+            .padding(.trailing, 40)
+            .overlay(
+              RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+            )
+            .cornerRadius(8)
+            .padding(1)
+            .submitLabel(.send)
+            .onSubmit {
+              if (!state.userInput.isEmpty || !state.tempMediaItems.isEmpty) && !state.isLoading {
+                sendMessage()
+              }
+            }
+            .onDrop(of: ["public.image", "public.file-url"], isTargeted: $isInputTargeted) {
+              providers, _ in
+              for provider in providers {
+                if provider.canLoadObject(ofClass: URL.self) {
+                  _ = provider.loadObject(ofClass: URL.self) { url, error in
+                    guard let url = url else { return }
+
+                    DispatchQueue.main.async {
+                      handleDroppedMedia(from: url)
+                    }
+                  }
+                  return true
+                }
+              }
+              return false
+            }
+            .overlay(
+              RoundedRectangle(cornerRadius: 8)
+                .stroke(isInputTargeted ? Color.blue : Color.clear, lineWidth: 2)
+            )
+        }
+
+        Button(action: {
+          sendMessage()
+        }) {
+          Image(systemName: "arrow.up.circle.fill")
+            .foregroundColor(
+              (state.userInput.isEmpty && state.tempMediaItems.isEmpty) || state.isLoading
+                ? .gray : .matchadark_light
+            )
+            .font(.title2)
+        }
+        .disabled((state.userInput.isEmpty && state.tempMediaItems.isEmpty) || state.isLoading)
+        .padding(8)
+      }
+      .padding(.horizontal)
+      .padding(.bottom, inputOuterPadding)
+    }
+    .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
   }
 
   #if canImport(UIKit)

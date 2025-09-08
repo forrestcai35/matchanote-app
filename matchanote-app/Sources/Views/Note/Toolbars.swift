@@ -1,5 +1,6 @@
 import PencilKit
 import SwiftUI
+import UIKit
 
 enum PenTool {
   case pen
@@ -219,20 +220,62 @@ struct WrittenNoteToolbar: View {
       // Tool buttons (icons only)
       HStack(spacing: 12) {
         Button(action: { selectTool(.pen) }) {
-          Image("pen_outline")
-            .renderingMode(.template)
-            .resizable()
-            .scaledToFit()
-            .frame(width: 26, height: 26)
-            .foregroundColor(currentTool == .pen ? toolState.penColor : (colorScheme == .dark ? .gray : .black))
+          if currentTool == .pen {
+            ZStack {
+              if let fillImage = UIImage(named: "pen_fill")  {
+                Image(uiImage: fillImage)
+                  .renderingMode(.template)
+                  .resizable()
+                  .scaledToFit()
+                  .frame(width: 26, height: 26)
+                  .foregroundColor(toolState.penColor)
+              }
+              Image("pen_outline")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 26, height: 26)
+                .foregroundColor(colorScheme == .dark ? .white : .black)
+            }
+          } else {
+            Image("pen_outline")
+              .renderingMode(.template)
+              .resizable()
+              .scaledToFit()
+              .frame(width: 26, height: 26)
+              .foregroundColor(colorScheme == .dark ? .gray : .black)
+          }
         }
         Button(action: { selectTool(.marker) }) {
-          Image("highlighter_outline")
-            .renderingMode(.template)
-            .resizable()
-            .scaledToFit()
-            .frame(width: 26, height: 26)
-            .foregroundColor(currentTool == .marker ? toolState.markerColor : (colorScheme == .dark ? .gray : .black))
+          if currentTool == .marker {
+            ZStack {
+              if let fillImage = UIImage(named: "highlighter_fill") {
+                Image(uiImage: fillImage)
+                  .renderingMode(.template)
+                  .resizable()
+                  .scaledToFit()
+                  .frame(width: 26, height: 26)
+                  .foregroundColor(toolState.markerColor)
+              } else {
+                RoundedRectangle(cornerRadius: 4)
+                  .fill(toolState.markerColor)
+                  .frame(width: 22, height: 14)
+              }
+              Image("highlighter_outline")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 26, height: 26)
+                .foregroundColor(colorScheme == .dark ? .white : .black)
+            }
+          } else {
+            Image("highlighter_outline")
+              .renderingMode(.template)
+              .resizable()
+              .scaledToFit()
+              .frame(width: 26, height: 26)
+              .foregroundColor(colorScheme == .dark ? .gray : .black)
+          }
         }
         Button(action: { selectTool(.eraser) }) {
           if currentTool == .eraser {
@@ -326,8 +369,12 @@ struct WrittenNoteToolbar: View {
         Button(action: {
           isAssistantVisible.toggle()
         }) {
-          Image(systemName: "wand.and.rays")
-            .foregroundColor(isAssistantVisible ? (colorScheme == .dark ? .matchadark_dark : .matchadark_light) : .gray)
+          Image(isAssistantVisible ? "logo_icon" : "logo_small_gray")
+            .renderingMode(.original)
+            .resizable()
+            .scaledToFit()
+            .frame(width: 20, height: 20)
+            .opacity(1.0)
         }
       }
     }
@@ -721,6 +768,7 @@ struct WrittenNoteToolbar: View {
     }
   }
 
+
   private func deletePenColor(at index: Int) {
     guard toolState.penPalette.indices.contains(index) else { return }
     let colorToRemove = toolState.penPalette[index]
@@ -897,15 +945,19 @@ struct TextNoteToolbar: View {
         Button(action: {
           isAssistantVisible.toggle()
         }) {
-          Image(systemName: "wand.and.rays")
-            .foregroundColor(isAssistantVisible ? .green : (colorScheme == .dark ? .gray : .black))
+          Image(isAssistantVisible ? "logo_icon" : "logo_small_gray")
+            .renderingMode(.original)
+            .resizable()
+            .scaledToFit()
+            .frame(width: 20, height: 20)
+            .opacity(1.0)
         }
       }
 
     }
     .padding(.horizontal, 12) // Reduced from 20 for consistency
     .padding(.vertical, 8)
-    .frame(height: 56)
+    .frame(height: 40)
     .buttonStyle(PlainButtonStyle())
     .foregroundColor(.gray)
     .background(colorScheme == .dark ? Color.gray.opacity(0.3) : Color.white)
@@ -913,3 +965,5 @@ struct TextNoteToolbar: View {
 
   }
 }
+
+// ShareSheet was removed; direct presentation is done in NoteView

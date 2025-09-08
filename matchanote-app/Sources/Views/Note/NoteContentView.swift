@@ -636,8 +636,6 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
       hostedView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
       hostedView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
       hostedView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
-      hostedView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
-      hostedView.heightAnchor.constraint(equalTo: scrollView.frameLayoutGuide.heightAnchor),
     ])
 
     // Add double-tap gesture if needed
@@ -734,10 +732,20 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     }
 
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
-      // Center the content during zoom
-      let offsetX = max((scrollView.bounds.width - scrollView.contentSize.width) * 0.5, 0)
-      let offsetY = max((scrollView.bounds.height - scrollView.contentSize.height) * 0.5, 0)
-      scrollView.contentInset = UIEdgeInsets(top: offsetY, left: offsetX, bottom: 0, right: 0)
+      // Provide minimal margins when content is larger to reduce persistent bottom margins
+      let marginSize: CGFloat = 20 // Reduced from 50 to minimize persistent margins
+      
+      if scrollView.contentSize.width <= scrollView.bounds.width && scrollView.contentSize.height <= scrollView.bounds.height {
+        // Content is smaller than viewport - center it perfectly
+        let offsetX = max((scrollView.bounds.width - scrollView.contentSize.width) * 0.5, 0)
+        let offsetY = max((scrollView.bounds.height - scrollView.contentSize.height) * 0.5, 0)
+        scrollView.contentInset = UIEdgeInsets(top: offsetY, left: offsetX, bottom: offsetY, right: offsetX)
+      } else {
+        // Content is larger than viewport - provide minimal equal margins
+        // Only apply bottom margin if content actually extends beyond viewport
+        let bottomMargin = scrollView.contentSize.height > scrollView.bounds.height ? marginSize : 0
+        scrollView.contentInset = UIEdgeInsets(top: marginSize, left: marginSize, bottom: bottomMargin, right: marginSize)
+      }
       
       // Only update binding during user interaction if the change is significant
       // to avoid too frequent updates that can cause shakiness
