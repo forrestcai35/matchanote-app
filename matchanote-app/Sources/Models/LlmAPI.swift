@@ -49,7 +49,7 @@ struct OpenRouterAPI {
     request.addValue("Matcha Note App", forHTTPHeaderField: "HTTP-Referer")
     
     if model_string == "Matcha Assistant" {
-       model = "deepseek/deepseek-chat-v3-0324:free"
+       model = "deepseek/deepseek-chat-v3.1:free"
     }
       else {
          model = model_string

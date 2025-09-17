@@ -192,10 +192,6 @@ struct WrittenNoteToolbar: View {
   // Page overview state
   @State private var showPageOverview: Bool = false
 
-  // Reserve fixed widths so icons do not shift - adjusted for better spacing
-  private let toolIconBarWidth: CGFloat = 180 // Reduced to prevent overflow
-  private let optionsPanelReservedWidth: CGFloat = 340 // Reduced to give more room
-
   var body: some View {
     HStack {
       // Left side buttons
@@ -213,12 +209,13 @@ struct WrittenNoteToolbar: View {
           .foregroundColor((colorScheme == .dark ? .matchadark_dark : .matchadark_light))
       }
 
-      // Fixed spacing to push tools to the right
+      // Flexible spacer to center the main toolbar content
       Spacer()
-        .frame(minWidth: 60)
       
-      // Tool buttons (icons only)
+      // Centered toolbar content
       HStack(spacing: 12) {
+        // Tool buttons (icons only)
+        HStack(spacing: 12) {
         Button(action: { selectTool(.pen) }) {
           if currentTool == .pen {
             ZStack {
@@ -327,24 +324,20 @@ struct WrittenNoteToolbar: View {
             .frame(width: 26, height: 26)
             .foregroundColor(colorScheme == .dark ? .gray : .black)
         }
-      }
-      .frame(width: toolIconBarWidth) // keep icon positions fixed
+        }
 
-      Divider()
-        .frame(height: 24)
-        .padding(.horizontal, 8)
-      // Options panel positioned to the right of all tool icons
-
-
-      ZStack(alignment: .leading) {
+        Divider()
+          .frame(height: 24)
+          .padding(.horizontal, 8)
+        
+        // Options panel for the current tool
         if let activeTool = currentTool {
           toolOptionsPanel(for: activeTool)
         }
       }
-      .frame(width: optionsPanelReservedWidth, alignment: .leading)
-
+      
+      // Flexible spacer to balance the left side
       Spacer()
-        .frame(maxWidth: 30) // Increased slightly for better balance
       
       // Right side buttons grouped together
       HStack(spacing: 12) {
@@ -454,55 +447,59 @@ struct WrittenNoteToolbar: View {
 
 
         
-          // Colors (with delete and add)
-          HStack(spacing: 6) {
-            ForEach(Array(toolState.penPalette.enumerated()), id: \.offset) { index, color in
-              Circle()
-                .fill(color)
-                .frame(width: 18, height: 18)
-                .overlay(
-                  Circle()
-                    .stroke(toolState.penColor == color ? Color.matchalight_dark : Color.clear, lineWidth: 1.5)
-                )
-                .contentShape(Circle())
-                .onTapGesture {
-                  toolState.penColor = color
-                  updateCanvasTool()
-                }
-                .contextMenu {
-                  Button(role: .destructive) {
-                    deletePenColor(at: index)
-                  } label: {
-                    Label("Delete Color", systemImage: "trash")
+          // Colors (with delete and add) - Scrollable with max width
+          ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+              ForEach(Array(toolState.penPalette.enumerated()), id: \.offset) { index, color in
+                Circle()
+                  .fill(color)
+                  .frame(width: 18, height: 18)
+                  .overlay(
+                    Circle()
+                      .stroke(toolState.penColor == color ? Color.matchalight_dark : Color.clear, lineWidth: 1.5)
+                  )
+                  .contentShape(Circle())
+                  .onTapGesture {
+                    toolState.penColor = color
+                    updateCanvasTool()
                   }
-                }
-            }
-            
-            // Add new color
-            Button {
-              showPenColorPicker = true
-            } label: {
-              Image(systemName: "plus.circle.fill")
-                .foregroundColor(.matchalight_dark)
-            }
-            .popover(isPresented: $showPenColorPicker) {
-              VStack(spacing: 12) {
-                ColorPicker("Pick a color", selection: $newPenColor, supportsOpacity: true)
-                  .padding(.horizontal)
-                HStack {
-                  Button("Cancel") { showPenColorPicker = false }
-                  Spacer()
-                  Button("Add") {
-                    addPenColor(newPenColor)
-                    showPenColorPicker = false
+                  .contextMenu {
+                    Button(role: .destructive) {
+                      deletePenColor(at: index)
+                    } label: {
+                      Label("Delete Color", systemImage: "trash")
+                    }
                   }
-                }
-                .padding(.horizontal)
               }
-              .padding(.vertical, 12)
-              .frame(minWidth: 260)
+              
+              // Add new color
+              Button {
+                showPenColorPicker = true
+              } label: {
+                Image(systemName: "plus.circle.fill")
+                  .foregroundColor(.matchalight_dark)
+              }
+              .popover(isPresented: $showPenColorPicker) {
+                VStack(spacing: 12) {
+                  ColorPicker("Pick a color", selection: $newPenColor, supportsOpacity: true)
+                    .padding(.horizontal)
+                  HStack {
+                    Button("Cancel") { showPenColorPicker = false }
+                    Spacer()
+                    Button("Add") {
+                      addPenColor(newPenColor)
+                      showPenColorPicker = false
+                    }
+                  }
+                  .padding(.horizontal)
+                }
+                .padding(.vertical, 12)
+                .frame(minWidth: 260)
+              }
             }
+            .padding(.horizontal, 4)
           }
+          .frame(maxWidth: 200)
         }
       }
       .padding(.horizontal, 8)
@@ -571,55 +568,59 @@ struct WrittenNoteToolbar: View {
           }
 
 
-          // Colors (with delete and add)
-          HStack(spacing: 6) {
-            ForEach(Array(toolState.markerPalette.enumerated()), id: \.offset) { index, color in
-              Circle()
-                .fill(color)
-                .frame(width: 18, height: 18)
-                .overlay(
-                  Circle()
-                    .stroke(toolState.markerColor == color ? Color.matchalight_dark : Color.clear, lineWidth: 1.5)
-                )
-                .contentShape(Circle())
-                .onTapGesture {
-                  toolState.markerColor = color
-                  updateCanvasTool()
-                }
-                .contextMenu {
-                  Button(role: .destructive) {
-                    deleteMarkerColor(at: index)
-                  } label: {
-                    Label("Delete Color", systemImage: "trash")
+          // Colors (with delete and add) - Scrollable with max width
+          ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+              ForEach(Array(toolState.markerPalette.enumerated()), id: \.offset) { index, color in
+                Circle()
+                  .fill(color)
+                  .frame(width: 18, height: 18)
+                  .overlay(
+                    Circle()
+                      .stroke(toolState.markerColor == color ? Color.matchalight_dark : Color.clear, lineWidth: 1.5)
+                  )
+                  .contentShape(Circle())
+                  .onTapGesture {
+                    toolState.markerColor = color
+                    updateCanvasTool()
                   }
-                }
-            }
-
-            // Add new color
-            Button {
-              showMarkerColorPicker = true
-            } label: {
-              Image(systemName: "plus.circle.fill")
-                .foregroundColor(.matchalight_dark)
-            }
-            .popover(isPresented: $showMarkerColorPicker) {
-              VStack(spacing: 12) {
-                ColorPicker("Pick a color", selection: $newMarkerColor, supportsOpacity: true)
-                  .padding(.horizontal)
-                HStack {
-                  Button("Cancel") { showMarkerColorPicker = false }
-                  Spacer()
-                  Button("Add") {
-                    addMarkerColor(newMarkerColor)
-                    showMarkerColorPicker = false
+                  .contextMenu {
+                    Button(role: .destructive) {
+                      deleteMarkerColor(at: index)
+                    } label: {
+                      Label("Delete Color", systemImage: "trash")
+                    }
                   }
-                }
-                .padding(.horizontal)
               }
-              .padding(.vertical, 12)
-              .frame(minWidth: 260)
+
+              // Add new color
+              Button {
+                showMarkerColorPicker = true
+              } label: {
+                Image(systemName: "plus.circle.fill")
+                  .foregroundColor(.matchalight_dark)
+              }
+              .popover(isPresented: $showMarkerColorPicker) {
+                VStack(spacing: 12) {
+                  ColorPicker("Pick a color", selection: $newMarkerColor, supportsOpacity: true)
+                    .padding(.horizontal)
+                  HStack {
+                    Button("Cancel") { showMarkerColorPicker = false }
+                    Spacer()
+                    Button("Add") {
+                      addMarkerColor(newMarkerColor)
+                      showMarkerColorPicker = false
+                    }
+                  }
+                  .padding(.horizontal)
+                }
+                .padding(.vertical, 12)
+                .frame(minWidth: 260)
+              }
             }
+            .padding(.horizontal, 4)
           }
+          .frame(maxWidth: 200)
         }
       }
       .padding(.horizontal, 8)
@@ -887,8 +888,7 @@ struct TextNoteToolbar: View {
 
   var body: some View {
     HStack {
-
-      // Bookmark button
+      // Left side buttons
       Button(action: {
         // Bookmark functionality
       }) {
@@ -896,30 +896,36 @@ struct TextNoteToolbar: View {
           .foregroundColor(colorScheme == .dark ? .gray : .black)
       }
 
-      //View Button
       Button(action: {
       }) {
         Image(systemName: "square.grid.2x2")
           .foregroundColor(colorScheme == .dark ? .gray : .black)
       }
+      
+      // Flexible spacer to center the main content
       Spacer()
-      Button(action: {}) { 
-        Image(systemName: "bold")
-          .foregroundColor(colorScheme == .dark ? .gray : .black)
-      }
-      Button(action: {}) { 
-        Image(systemName: "italic")
-          .foregroundColor(colorScheme == .dark ? .gray : .black)
-      }
-      Button(action: {}) { 
-        Image(systemName: "underline")
-          .foregroundColor(colorScheme == .dark ? .gray : .black)
-      }
-      Button(action: {}) { 
-        Image(systemName: "list.bullet")
-          .foregroundColor(colorScheme == .dark ? .gray : .black)
+      
+      // Centered text formatting tools
+      HStack(spacing: 12) {
+        Button(action: {}) { 
+          Image(systemName: "bold")
+            .foregroundColor(colorScheme == .dark ? .gray : .black)
+        }
+        Button(action: {}) { 
+          Image(systemName: "italic")
+            .foregroundColor(colorScheme == .dark ? .gray : .black)
+        }
+        Button(action: {}) { 
+          Image(systemName: "underline")
+            .foregroundColor(colorScheme == .dark ? .gray : .black)
+        }
+        Button(action: {}) { 
+          Image(systemName: "list.bullet")
+            .foregroundColor(colorScheme == .dark ? .gray : .black)
+        }
       }
       
+      // Flexible spacer to balance the left side
       Spacer()
 
       // Right side buttons grouped together  
