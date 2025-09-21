@@ -16,6 +16,7 @@ enum AssistantOrientation {
 // Canvas manager to track canvas views per note
 class CanvasManager: ObservableObject {
   @Published var canvasViews: [PKCanvasView] = []
+  @Published var imageManager = CanvasImageManager()
   
   init() {
     // Initialize with a single canvas
@@ -103,14 +104,16 @@ struct NoteView: View {
                 note: activeTab.note,
                 canvasViews: $canvasManager.canvasViews,
                 currentPage: $currentPage,
-                currentTool: $currentTool)
+                currentTool: $currentTool,
+                imageManager: canvasManager.imageManager)
             case .text:
               TextNoteToolbar(
                 isAssistantVisible: $isAssistantVisible,
                 note: activeTab.note,
                 canvasViews: $canvasManager.canvasViews,
                 currentPage: $currentPage,
-                currentTool: $currentTool)
+                currentTool: $currentTool,
+                imageManager: canvasManager.imageManager)
 
             }
             Divider()
@@ -179,14 +182,15 @@ struct NoteView: View {
         if storageManager.notes.contains(where: { $0.id == activeTab.note.id }) {
           // Switch view based on note type
           switch activeTab.note.noteType {
-          case .written:
-            WrittenNoteView(
-              note: activeTab.note,
-              isEdited: $isEdited,
-              toolPickerIsVisible: $toolPickerIsVisible,
-              canvasViews: $canvasManager.canvasViews,
-              currentPage: $currentPage,
-              currentTool: $currentTool)
+            case .written:
+              WrittenNoteView(
+                note: activeTab.note,
+                isEdited: $isEdited,
+                toolPickerIsVisible: $toolPickerIsVisible,
+                canvasViews: $canvasManager.canvasViews,
+                currentPage: $currentPage,
+                currentTool: $currentTool,
+                imageManager: canvasManager.imageManager)
           case .text:
             TextNoteView(note: activeTab.note, isEdited: $isEdited)
           }
@@ -215,7 +219,8 @@ struct NoteView: View {
               toolPickerIsVisible: $toolPickerIsVisible,
               canvasViews: $canvasManager.canvasViews,
               currentPage: $currentPage,
-              currentTool: $currentTool)
+              currentTool: $currentTool,
+              imageManager: canvasManager.imageManager)
           case .text:
             TextNoteView(note: firstTab.note, isEdited: $isEdited)
           }
@@ -375,6 +380,7 @@ struct NoteView: View {
         }
         .background()
     }
+    .ignoresSafeArea(.all, edges: .bottom)
     .transition(assistantOrientation == .right ? .move(edge: .trailing) : .move(edge: .leading))
   }
 }
@@ -433,8 +439,10 @@ extension NoteView {
     guard let url = exportPDF(forPages: pages) else { return }
     let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
     if let popover = controller.popoverPresentationController {
-      // iPad support: anchor to the key window
-      popover.sourceView = UIApplication.shared.windows.first { $0.isKeyWindow }
+      if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+         let window = scene.windows.first(where: { $0.isKeyWindow }) {
+        popover.sourceView = window
+      }
     }
     topViewController()?.present(controller, animated: true)
   }

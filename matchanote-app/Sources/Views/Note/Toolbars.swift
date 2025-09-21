@@ -7,6 +7,7 @@ enum PenTool {
   case marker
   case eraser
   case lasso
+  case photo
 
   func toolInstance(color: Color = .black, width: CGFloat = 1.0, eraserType: EraserType = .object) -> PKTool {
     switch self {
@@ -17,6 +18,9 @@ enum PenTool {
     case .eraser:
       return eraserType == .object ? PKEraserTool(.vector) : PKEraserTool(.bitmap, width: width)
     case .lasso:
+      return PKLassoTool()
+    case .photo:
+      // Keep canvas in non-inking mode while photo tool is active
       return PKLassoTool()
     }
   }
@@ -172,12 +176,19 @@ struct WrittenNoteToolbar: View {
   @Binding var canvasViews: [PKCanvasView]
   @Binding var currentPage: Int
   @Binding var currentTool: PenTool?
+  
+  // Image manager for handling images on canvas
+  @ObservedObject var imageManager: CanvasImageManager
 
   // Local state for ColorPickers
   @State private var newPenColor: Color = .black
   @State private var newMarkerColor: Color = .yellow
   @State private var showPenColorPicker: Bool = false
   @State private var showMarkerColorPicker: Bool = false
+  
+  // Image picker state
+  @State private var showImagePicker: Bool = false
+  @State private var previousToolBeforePhoto: PenTool? = nil
 
   // Dropdown slider visibility per tool
   @State private var expandedPenPresetIndex: Int? = nil
@@ -216,7 +227,7 @@ struct WrittenNoteToolbar: View {
       HStack(spacing: 12) {
         // Tool buttons (icons only)
         HStack(spacing: 12) {
-        Button(action: { selectTool(.pen) }) {
+        Button(action: { if currentTool != .photo { selectTool(.pen) } }) {
           if currentTool == .pen {
             ZStack {
               if let fillImage = UIImage(named: "pen_fill")  {
@@ -243,7 +254,8 @@ struct WrittenNoteToolbar: View {
               .foregroundColor(colorScheme == .dark ? .gray : .black)
           }
         }
-        Button(action: { selectTool(.marker) }) {
+        .disabled(currentTool == .photo)
+        Button(action: { if currentTool != .photo { selectTool(.marker) } }) {
           if currentTool == .marker {
             ZStack {
               if let fillImage = UIImage(named: "highlighter_fill") {
@@ -274,7 +286,8 @@ struct WrittenNoteToolbar: View {
               .foregroundColor(colorScheme == .dark ? .gray : .black)
           }
         }
-        Button(action: { selectTool(.eraser) }) {
+        .disabled(currentTool == .photo)
+        Button(action: { if currentTool != .photo { selectTool(.eraser) } }) {
           if currentTool == .eraser {
             Image("eraser_fill")
               .renderingMode(.original)
@@ -289,12 +302,15 @@ struct WrittenNoteToolbar: View {
               .frame(width: 26, height: 26)
               .foregroundColor(colorScheme == .dark ? .gray : .black)
           }
-        } 
+        }
+        .disabled(currentTool == .photo)
         Button(action: {
-          if currentTool == .lasso {
-            selectTool(.pen)
-          } else {
-            selectTool(.lasso)
+          if currentTool != .photo {
+            if currentTool == .lasso {
+              selectTool(.pen)
+            } else {
+              selectTool(.lasso)
+            }
           }
         }) {
           Image("lasso_outline")
@@ -304,15 +320,20 @@ struct WrittenNoteToolbar: View {
             .frame(width: 26, height: 26)
             .foregroundColor(currentTool == .lasso ? .matchalight_dark : (colorScheme == .dark ? .gray : .black))
         }
+        .disabled(currentTool == .photo)
         Button(action: {
-          // Image functionality
+          if currentTool != .photo {
+            previousToolBeforePhoto = currentTool
+            selectTool(.photo)
+          }
+          showImagePicker = true
         }) {
           Image("photo_outline")
             .renderingMode(.template)
             .resizable()
             .scaledToFit()
             .frame(width: 26, height: 26)
-            .foregroundColor(colorScheme == .dark ? .gray : .black)
+            .foregroundColor(currentTool == .photo ? .matchalight_dark : (colorScheme == .dark ? .gray : .black))
         }
         Button(action: {
           // Text functionality
@@ -396,6 +417,16 @@ struct WrittenNoteToolbar: View {
       expandedMarkerPresetIndex = nil
       expandedEraserPresetIndex = nil
       updateCanvasTool()
+      if currentTool == .photo {
+        showImagePicker = true
+      }
+    }
+    .onChange(of: showImagePicker) {
+      if showImagePicker == false && currentTool == .photo {
+        // Restore previous tool when photo picker is dismissed
+        currentTool = previousToolBeforePhoto ?? .pen
+        previousToolBeforePhoto = nil
+      }
     }
     .zIndex((expandedPenPresetIndex != nil || expandedMarkerPresetIndex != nil || expandedEraserPresetIndex != nil) ? 1000 : 0)
     .sheet(isPresented: $showPageOverview) {
@@ -406,6 +437,11 @@ struct WrittenNoteToolbar: View {
         isPresented: $showPageOverview
       )
       .environmentObject(storageManager)
+    }
+    .sheet(isPresented: $showImagePicker) {
+      ImagePickerView(isPresented: $showImagePicker) { selectedImage in
+        addImageToCurrentPage(selectedImage)
+      }
     }
   }
   
@@ -742,6 +778,9 @@ struct WrittenNoteToolbar: View {
 
     case .lasso:
       EmptyView()
+    
+    case .photo:
+      EmptyView()
     }
   }
   
@@ -754,6 +793,9 @@ struct WrittenNoteToolbar: View {
     guard currentPage < canvasViews.count, let tool = currentTool else { return }
     let canvas = canvasViews[currentPage]
 
+    // Ensure image manager has the correct undo manager
+    imageManager.setUndoManager(canvas.undoManager)
+
     switch tool {
     case .pen:
       let width = toolState.penWidthPresets[safe: toolState.selectedPenPresetIndex] ?? 3.0
@@ -765,6 +807,8 @@ struct WrittenNoteToolbar: View {
       let width = toolState.eraserType == .area ? toolState.eraserAreaWidthPresets[safe: toolState.selectedEraserAreaPresetIndex] ?? 16.0 : 1.0
       canvas.tool = tool.toolInstance(width: width, eraserType: toolState.eraserType)
     case .lasso:
+      canvas.tool = tool.toolInstance()
+    case .photo:
       canvas.tool = tool.toolInstance()
     }
   }
@@ -865,6 +909,25 @@ struct WrittenNoteToolbar: View {
   private var isCurrentPageBookmarked: Bool {
     return note.bookmarkedPages.contains(currentPage)
   }
+  
+  // MARK: - Image Handling Methods
+  
+  private func addImageToCurrentPage(_ image: UIImage) {
+    // Calculate center position for the image on the current page
+    let paperSize = CGSize(
+      width: PaperUtilities.getPaperWidth(for: note.paperSize),
+      height: PaperUtilities.getPaperHeight(for: note.paperSize)
+    )
+    
+    let centerPosition = CGPoint(
+      x: paperSize.width / 2 - 150, // Offset by half of initial width
+      y: paperSize.height / 2 - 150 // Offset by half of initial height
+    )
+    
+    // Add image to the current page
+    imageManager.addImageToPage(image, at: centerPosition, pageIndex: currentPage)
+  }
+  
 }
 
 // Safe index extension
@@ -885,6 +948,7 @@ struct TextNoteToolbar: View {
   @Binding var canvasViews: [PKCanvasView]
   @Binding var currentPage: Int
   @Binding var currentTool: PenTool?
+  @ObservedObject var imageManager: CanvasImageManager
 
   var body: some View {
     HStack {

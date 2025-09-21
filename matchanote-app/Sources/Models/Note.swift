@@ -40,6 +40,8 @@ public struct Note: Identifiable {
   public var paperSize: PaperSize = .a4
   // Store drawing data by page using String keys for better JSON compatibility
   public var drawingDataByPage: [String: Data] = [:]
+  // Store image data by page
+  public var imageDataByPage: [String: [Data]] = [:]
   // Track which pages are bookmarked using page indices as Set
   public var bookmarkedPages: Set<Int> = []
 
@@ -50,6 +52,7 @@ public struct Note: Identifiable {
     paperColor: PaperColor = .white,
     paperStyle: PaperStyle = .blank, paperSize: PaperSize = .a4,
     drawingDataByPage: [String: Data] = [:],
+    imageDataByPage: [String: [Data]] = [:],
     bookmarkedPages: Set<Int> = []
   ) {
     self.title = title
@@ -64,6 +67,7 @@ public struct Note: Identifiable {
     self.paperStyle = paperStyle
     self.paperSize = paperSize
     self.drawingDataByPage = drawingDataByPage
+    self.imageDataByPage = imageDataByPage
     self.bookmarkedPages = bookmarkedPages
   }
 

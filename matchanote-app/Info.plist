@@ -4,6 +4,8 @@
 <dict>
 	<key>UILaunchStoryboardName</key>
 	<string>Launch Screen.storyboard</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We need access to your photo library to insert images into notes.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

@@ -17,12 +17,13 @@ struct StorageNote: Codable {
   var paperStyle: String
   var paperSize: String
   var drawingDataByPage: [String: Data]
+  var imageDataByPage: [String: [Data]]
   var bookmarkedPages: Set<Int>
 
   private enum CodingKeys: String, CodingKey {
     case id, title, subject, colorString, dateCreated, dateModified
     case isFavorite, content, noteType, paperColor, paperStyle, paperSize
-    case drawingDataByPage, bookmarkedPages
+    case drawingDataByPage, imageDataByPage, bookmarkedPages
   }
 
   init(from decoder: Decoder) throws {
@@ -42,6 +43,9 @@ struct StorageNote: Codable {
     paperSize = try container.decode(String.self, forKey: .paperSize)
     drawingDataByPage = try container.decode([String: Data].self, forKey: .drawingDataByPage)
     
+    // Handle backwards compatibility - default to empty dict if imageDataByPage doesn't exist
+    imageDataByPage = try container.decodeIfPresent([String: [Data]].self, forKey: .imageDataByPage) ?? [:]
+    
     // Handle backwards compatibility - default to empty set if bookmarkedPages doesn't exist
     bookmarkedPages = try container.decodeIfPresent(Set<Int>.self, forKey: .bookmarkedPages) ?? Set<Int>()
   }
@@ -60,6 +64,7 @@ struct StorageNote: Codable {
     self.paperStyle = note.paperStyle.rawValue
     self.paperSize = note.paperSize.rawValue
     self.drawingDataByPage = note.drawingDataByPage
+    self.imageDataByPage = note.imageDataByPage
     self.bookmarkedPages = note.bookmarkedPages
   }
 
@@ -77,6 +82,7 @@ struct StorageNote: Codable {
       paperStyle: PaperStyle(rawValue: paperStyle) ?? .blank,
       paperSize: PaperSize(rawValue: paperSize) ?? .a4,
       drawingDataByPage: drawingDataByPage,
+      imageDataByPage: imageDataByPage,
       bookmarkedPages: bookmarkedPages
     )
   }

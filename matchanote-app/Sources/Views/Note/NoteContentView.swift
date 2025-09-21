@@ -11,6 +11,7 @@ struct WrittenNoteView: View {
   @Binding var canvasViews: [PKCanvasView]
   @Binding var currentPage: Int
   @Binding var currentTool: PenTool?
+  @ObservedObject var imageManager: CanvasImageManager
   @State private var pageCount = 1
   @State private var toolPicker = PKToolPicker()
   @Environment(\.colorScheme) private var colorScheme
@@ -48,7 +49,10 @@ struct WrittenNoteView: View {
         controlsOverlay
       }
     }
-    .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
+    .background(
+      (colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
+        .ignoresSafeArea(.all, edges: .bottom)
+    )
     .onAppear {
       // Only load if this is a different note
       if currentNoteId != note.id {
@@ -120,6 +124,9 @@ struct WrittenNoteView: View {
     
     // Update page count
     pageCount = requiredPageCount
+    
+    // Load image data
+    imageManager.loadImagesData(note.imageDataByPage)
   }
   
   // Save drawing data for the current note
@@ -164,9 +171,16 @@ struct WrittenNoteView: View {
       }
     }
     
+    // Also save image data
+    let newImageData = imageManager.getAllImagesData()
+    if newImageData != note.imageDataByPage {
+      hasChanges = true
+    }
+    
     // Only save if there are actual changes
     if hasChanges {
       updatedNote.drawingDataByPage = newDrawingData
+      updatedNote.imageDataByPage = newImageData
       updatedNote.dateModified = Date()
       let savedNote = storageManager.saveNote(updatedNote)
       tabManager.updateNote(savedNote)
@@ -190,6 +204,9 @@ struct WrittenNoteView: View {
       currentCanvas.tool = PKInkingTool(.pen, color: .black, width: 1.0)
     }
 
+    // Set the image manager's undo manager to match current canvas
+    imageManager.setUndoManager(currentCanvas.undoManager)
+
     // Let the PencilKit system handle drawing policies
     toolPicker.setVisible(toolPickerIsVisible, forFirstResponder: currentCanvas)
     toolPicker.addObserver(currentCanvas)
@@ -210,6 +227,9 @@ struct WrittenNoteView: View {
 
     // Update tool picker for the current canvas
     guard let currentCanvas = getCurrentCanvas() else { return }
+
+    // Update image manager's undo manager to match current canvas
+    imageManager.setUndoManager(currentCanvas.undoManager)
 
     // Update visibility for current canvas
     toolPicker.setVisible(toolPickerIsVisible, forFirstResponder: currentCanvas)
@@ -242,6 +262,11 @@ struct WrittenNoteView: View {
       newCanvas.backgroundColor = .clear
       toolPicker.addObserver(newCanvas)
       canvasViews.append(newCanvas)
+      
+      // Update image manager's undo manager if this is the current page
+      if pageIndex == currentPage {
+        imageManager.setUndoManager(newCanvas.undoManager)
+      }
     }
   }
 
@@ -255,7 +280,11 @@ struct WrittenNoteView: View {
         maxScale: 3.0,
         resetOnDoubleTap: true,
         currentScale: $unifiedZoomScale,
-        contentOffset: $unifiedContentOffset
+        contentOffset: $unifiedContentOffset,
+        isPanEnabled: Binding<Bool>(
+          get: { !imageManager.hasSelectedImage },
+          set: { _ in }
+        )
       ) {
 
         // Content is now fixed without scrolling
@@ -273,9 +302,25 @@ struct WrittenNoteView: View {
                 width: getPaperWidth(for: note.paperSize),
                 height: getPaperHeight(for: note.paperSize)
               )
+              .ignoresSafeArea(.all, edges: .bottom)
               .onChange(of: canvasViews[pageIndex].drawing) { _, _ in
                 isEdited = true
               }
+            
+            // Image overlay for this page
+            CanvasImageOverlay(
+              imageManager: imageManager,
+              pageIndex: pageIndex,
+              canvasSize: CGSize(
+                width: getPaperWidth(for: note.paperSize),
+                height: getPaperHeight(for: note.paperSize)
+              )
+            )
+            .frame(
+              width: getPaperWidth(for: note.paperSize),
+              height: getPaperHeight(for: note.paperSize)
+            )
+            .ignoresSafeArea(.all, edges: .bottom)
           } else {
             Text("Error: Canvas not available for page \(pageIndex + 1)")
               .foregroundColor(.red)
@@ -285,6 +330,7 @@ struct WrittenNoteView: View {
               )
           }
         }
+        .ignoresSafeArea(.all, edges: .bottom)
       }
       .coordinateSpace(name: "scroll")
     }
@@ -570,7 +616,10 @@ struct TextNoteView: View {
         }
       }
       .shadow(color: Color.black.opacity(0.3), radius: 5, x: 0, y: 2)
-      .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
+      .background(
+        (colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
+          .ignoresSafeArea(.all, edges: .bottom)
+      )
       .frame(width: geometry.size.width, height: geometry.size.height)
     }
   }
@@ -588,6 +637,7 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
   private var minScale: CGFloat
   private var maxScale: CGFloat
   private var resetOnDoubleTap: Bool
+  @Binding private var isPanEnabled: Bool
 
   @Binding private var currentScale: CGFloat
   @Binding private var contentOffset: CGPoint
@@ -599,6 +649,7 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     resetOnDoubleTap: Bool = true,
     currentScale: Binding<CGFloat> = .constant(1.0),
     contentOffset: Binding<CGPoint> = .constant(.zero),
+    isPanEnabled: Binding<Bool> = .constant(true),
     @ViewBuilder content: () -> Content
   ) {
     self.minScale = minScale
@@ -606,6 +657,7 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     self.resetOnDoubleTap = resetOnDoubleTap
     self._currentScale = currentScale
     self._contentOffset = contentOffset
+    self._isPanEnabled = isPanEnabled
     self.content = content()
   }
 
@@ -619,6 +671,8 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     scrollView.showsHorizontalScrollIndicator = false
     scrollView.showsVerticalScrollIndicator = false
     scrollView.clipsToBounds = true
+    // Disable automatic safe area content inset adjustments
+    scrollView.contentInsetAdjustmentBehavior = .never
 
     // Apply initial zoom scale from binding
     let initialScale = max(min(currentScale, maxScale), minScale)
@@ -659,6 +713,9 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
   func updateUIView(_ uiView: UIScrollView, context: Context) {
     // Update the coordinator's parent reference
     context.coordinator.parent = self
+    // Keep zoom enabled but disable panning when requested
+    uiView.isScrollEnabled = true
+    uiView.panGestureRecognizer.isEnabled = isPanEnabled
 
     // Update the hosting controller's rootView
     if let hostedView = uiView.subviews.first,
