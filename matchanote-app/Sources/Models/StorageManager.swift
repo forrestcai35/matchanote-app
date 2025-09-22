@@ -2,16 +2,8 @@ import Foundation
 import Supabase
 import SwiftUI
 
-// MARK: - Supabase User Storage Record
-struct UserStorageRecord: Codable {
-  let id: UUID
-  let user_id: UUID
-  let data_type: String
-  let data_id: String
-  let data: String
-  let created_at: Date
-  let updated_at: Date
-}
+// MARK: - Supabase Integration
+// Note: We now use the user_profiles table with notes and folders JSON columns
 
 struct StorageNote: Codable {
   var id: UUID
@@ -39,7 +31,7 @@ struct StorageNote: Codable {
 
   init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
-    
+
     id = try container.decode(UUID.self, forKey: .id)
     title = try container.decode(String.self, forKey: .title)
     subject = try container.decode(String.self, forKey: .subject)
@@ -54,12 +46,14 @@ struct StorageNote: Codable {
     paperStyle = try container.decode(String.self, forKey: .paperStyle)
     paperSize = try container.decode(String.self, forKey: .paperSize)
     drawingDataByPage = try container.decode([String: Data].self, forKey: .drawingDataByPage)
-    
+
     // Handle backwards compatibility - default to empty dict if imageDataByPage doesn't exist
-    imageDataByPage = try container.decodeIfPresent([String: [Data]].self, forKey: .imageDataByPage) ?? [:]
-    
+    imageDataByPage =
+      try container.decodeIfPresent([String: [Data]].self, forKey: .imageDataByPage) ?? [:]
+
     // Handle backwards compatibility - default to empty set if bookmarkedPages doesn't exist
-    bookmarkedPages = try container.decodeIfPresent(Set<Int>.self, forKey: .bookmarkedPages) ?? Set<Int>()
+    bookmarkedPages =
+      try container.decodeIfPresent(Set<Int>.self, forKey: .bookmarkedPages) ?? Set<Int>()
   }
 
   init(from note: Note) {
@@ -113,7 +107,6 @@ struct StorageFolder: Codable {
   var childFolderIDs: [UUID]
   var noteIDs: [UUID]
 
-
   init(from folder: Folder) {
     self.id = folder.id
     self.name = folder.name
@@ -126,14 +119,13 @@ struct StorageFolder: Codable {
     self.noteIDs = folder.noteIDs
   }
 
-
   func toFolder() -> Folder {
     var folder = Folder(
       name: name,
       color: stringToColor(colorString),
       parentID: parentID,
       dateCreated: dateCreated
-  
+
     )
     folder.id = id
     folder.dateModified = dateModified
@@ -141,7 +133,6 @@ struct StorageFolder: Codable {
     return folder
   }
 }
-
 
 func colorToString(_ color: Color) -> String {
   if color == .blue { return "blue" }
@@ -162,7 +153,7 @@ func colorToString(_ color: Color) -> String {
   if color == .matchadark_dark { return "matchadark_dark" }
   if color == .matchabackground_dark { return "matchabackground_dark" }
   if color == .matchabackground_light { return "matchabackground_light" }
-  return "blue" 
+  return "blue"
 }
 
 func stringToColor(_ string: String) -> Color {
@@ -192,7 +183,7 @@ func stringToColor(_ string: String) -> Color {
 class StorageManager: ObservableObject {
   @Published var folders: [Folder] = []
   @Published var notes: [Note] = []
-  
+
   private let localStorageURL: URL
 
   private let notesFileName = "notes.json"
@@ -228,49 +219,54 @@ class StorageManager: ObservableObject {
 
     return noteToSave
   }
-  
+
   // Update a note's title while ensuring uniqueness
   func updateNoteTitle(noteId: UUID, newTitle: String) -> Note? {
     guard let noteIndex = notes.firstIndex(where: { $0.id == noteId }) else {
       return nil
     }
-    
+
     var noteToUpdate = notes[noteIndex]
     let uniqueTitle = generateUniqueTitle(for: newTitle, excludingNoteId: noteId)
     noteToUpdate.title = uniqueTitle
     noteToUpdate.dateModified = Date()
-    
+
     // Save the updated note
     let savedNote = saveNote(noteToUpdate)
     return savedNote
   }
-  
+
   // Generate a unique title by appending numbers if duplicates exist
   func generateUniqueTitle(for proposedTitle: String, excludingNoteId: UUID? = nil) -> String {
     let baseTitle = proposedTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-    
+
     // Get all existing note titles, excluding the current note if updating
-    let existingTitles = notes
+    let existingTitles =
+      notes
       .filter { $0.id != excludingNoteId }
       .map { $0.title }
-    
+
     // If the title is unique, return it as is
     if !existingTitles.contains(baseTitle) {
       return baseTitle
     }
-    
+
     // Find the highest number suffix for this base title
     var highestNumber = 1
-    let titlePattern = "^" + NSRegularExpression.escapedPattern(for: baseTitle) + "( \\((\\d+)\\))?$"
-    
+    let titlePattern =
+      "^" + NSRegularExpression.escapedPattern(for: baseTitle) + "( \\((\\d+)\\))?$"
+
     for existingTitle in existingTitles {
       if let regex = try? NSRegularExpression(pattern: titlePattern, options: []),
-         let match = regex.firstMatch(in: existingTitle, options: [], range: NSRange(location: 0, length: existingTitle.count)) {
-        
+        let match = regex.firstMatch(
+          in: existingTitle, options: [], range: NSRange(location: 0, length: existingTitle.count))
+      {
+
         // If there's a number in parentheses, extract it
         if match.numberOfRanges > 2,
-           let numberRange = Range(match.range(at: 2), in: existingTitle),
-           let number = Int(existingTitle[numberRange]) {
+          let numberRange = Range(match.range(at: 2), in: existingTitle),
+          let number = Int(existingTitle[numberRange])
+        {
           highestNumber = max(highestNumber, number + 1)
         } else if existingTitle == baseTitle {
           // Exact match without number, so next should be (2)
@@ -278,7 +274,7 @@ class StorageManager: ObservableObject {
         }
       }
     }
-    
+
     return "\(baseTitle) (\(highestNumber))"
   }
 
@@ -448,34 +444,44 @@ class StorageManager: ObservableObject {
 
   private func fetchUserStorageFromSupabase(userId: UUID) async {
     do {
-      // Fetch user storage data from the user_storage table
-      let response: [UserStorageRecord] = try await supabase
-        .from("user_storage")
-        .select("*")
+      // Fetch user profile data from the user_profiles table
+      let response: UserProfile =
+        try await supabase
+        .from("user_profiles")
+        .select("notes, folders")
         .eq("user_id", value: userId)
+        .single()
         .execute()
         .value
 
       await MainActor.run {
         // Process the fetched data and merge with local storage
-        processSupabaseData(response)
+        processSupabaseProfileData(response)
       }
 
     } catch {
-      print("Error fetching from user_storage table: \(error)")
+      print("Error fetching from user_profiles table: \(error)")
     }
   }
 
-  private func processSupabaseData(_ records: [UserStorageRecord]) {
-    // Merge Supabase data with local data
-    // Handle conflicts based on modification dates
-    for record in records {
-      if record.data_type == "note" {
-        if let noteData = record.data.data(using: .utf8),
-           let storageNote = try? JSONDecoder().decode(StorageNote.self, from: noteData) {
+  private func processSupabaseProfileData(_ profile: UserProfile) {
+    // Process notes from user profile
+    if let notesData = profile.notes {
+      do {
+        // Handle both dictionary and string formats
+        let jsonData: Data
+        if let notesString = notesData as? String {
+          jsonData = notesString.data(using: .utf8) ?? Data()
+        } else {
+          jsonData = try JSONSerialization.data(withJSONObject: notesData)
+        }
+
+        let storageNotes = try JSONDecoder().decode([StorageNote].self, from: jsonData)
+
+        // Merge notes with local data based on modification dates
+        for storageNote in storageNotes {
           let note = storageNote.toNote()
 
-          // Check if we should update local data
           if let localNoteIndex = notes.firstIndex(where: { $0.id == note.id }) {
             if note.dateModified > notes[localNoteIndex].dateModified {
               notes[localNoteIndex] = note
@@ -484,12 +490,41 @@ class StorageManager: ObservableObject {
             notes.append(note)
           }
         }
-      } else if record.data_type == "folder" {
-        if let folderData = record.data.data(using: .utf8),
-           let storageFolder = try? JSONDecoder().decode(StorageFolder.self, from: folderData) {
-          let folder = storageFolder.toFolder()
+      } catch {
+        print("Error processing notes from user profile: \(error)")
+      }
+    }
 
-          // Check if we should update local data
+    // Process folders from user profile
+    if let foldersData = profile.folders {
+      do {
+        // Handle both dictionary and string formats
+        let jsonData: Data
+        if let foldersString = foldersData as? String {
+          jsonData = foldersString.data(using: .utf8) ?? Data()
+        } else {
+          jsonData = try JSONSerialization.data(withJSONObject: foldersData)
+        }
+
+        let storageFolders = try JSONDecoder().decode([StorageFolder].self, from: jsonData)
+
+        // First pass: create folders without child folders
+        var tempFolders: [UUID: Folder] = [:]
+        for storageFolder in storageFolders {
+          tempFolders[storageFolder.id] = storageFolder.toFolder()
+        }
+
+        // Second pass: populate childFolders arrays
+        for storageFolder in storageFolders {
+          for childID in storageFolder.childFolderIDs {
+            if let childFolder = tempFolders[childID] {
+              tempFolders[storageFolder.id]?.childFolders.append(childFolder)
+            }
+          }
+        }
+
+        // Merge folders with local data based on modification dates
+        for (_, folder) in tempFolders {
           if let localFolderIndex = folders.firstIndex(where: { $0.id == folder.id }) {
             if folder.dateModified > folders[localFolderIndex].dateModified {
               folders[localFolderIndex] = folder
@@ -498,6 +533,8 @@ class StorageManager: ObservableObject {
             folders.append(folder)
           }
         }
+      } catch {
+        print("Error processing folders from user profile: \(error)")
       }
     }
 
@@ -510,25 +547,19 @@ class StorageManager: ObservableObject {
       let session = try await supabase.auth.session
       let userId = session.user.id
 
-      let storageNote = StorageNote(from: note)
+      // Convert all notes to storage format
+      let storageNotes = notes.map { StorageNote(from: $0) }
       let encoder = JSONEncoder()
-      let jsonData = try encoder.encode(storageNote)
-      let jsonString = String(data: jsonData, encoding: .utf8) ?? "{}"
+      let notesData = try encoder.encode(storageNotes)
 
-      let userStorageRecord = UserStorageRecord(
-        id: UUID(),
-        user_id: userId,
-        data_type: "note",
-        data_id: note.id.uuidString,
-        data: jsonString,
-        created_at: Date(),
-        updated_at: Date()
-      )
+      // Convert to JSON string for Supabase
+      let notesJsonString = String(data: notesData, encoding: .utf8) ?? "[]"
 
-      // Use upsert to handle both insert and update cases
+      // Update the user profile with the new notes data
       try await supabase
-        .from("user_storage")
-        .upsert(userStorageRecord)
+        .from("user_profiles")
+        .update(["notes": notesJsonString])
+        .eq("user_id", value: userId)
         .execute()
 
     } catch {
@@ -541,25 +572,19 @@ class StorageManager: ObservableObject {
       let session = try await supabase.auth.session
       let userId = session.user.id
 
-      let storageFolder = StorageFolder(from: folder)
+      // Convert all folders to storage format
+      let storageFolders = folders.map { StorageFolder(from: $0) }
       let encoder = JSONEncoder()
-      let jsonData = try encoder.encode(storageFolder)
-      let jsonString = String(data: jsonData, encoding: .utf8) ?? "{}"
+      let foldersData = try encoder.encode(storageFolders)
 
-      let userStorageRecord = UserStorageRecord(
-        id: UUID(),
-        user_id: userId,
-        data_type: "folder",
-        data_id: folder.id.uuidString,
-        data: jsonString,
-        created_at: Date(),
-        updated_at: Date()
-      )
+      // Convert to JSON string for Supabase
+      let foldersJsonString = String(data: foldersData, encoding: .utf8) ?? "[]"
 
-      // Use upsert to handle both insert and update cases
+      // Update the user profile with the new folders data
       try await supabase
-        .from("user_storage")
-        .upsert(userStorageRecord)
+        .from("user_profiles")
+        .update(["folders": foldersJsonString])
+        .eq("user_id", value: userId)
         .execute()
 
     } catch {

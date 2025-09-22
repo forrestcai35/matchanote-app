@@ -2,3 +2,5 @@
 .build/
 
 /matchanote-app/.env
+.claude 
+.vscode

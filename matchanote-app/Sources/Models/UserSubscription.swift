@@ -176,7 +176,9 @@ class SubscriptionManager: ObservableObject {
             let response: UserProfile =
                 try await supabase
                 .from("user_profiles")
-                .select("id, created_at, user_id, notes, folders, updated_at, premium_requests, normal_requests, subscription_tier, subscription_start_date, stripe_customer_id, stripe_subscription_id")
+                .select(
+                    "id, created_at, user_id, notes, folders, updated_at, premium_requests, normal_requests, subscription_tier, subscription_start_date, stripe_customer_id, stripe_subscription_id"
+                )
                 .eq("user_id", value: user.id)
                 .single()
                 .execute()
@@ -201,7 +203,8 @@ class SubscriptionManager: ObservableObject {
                 let session = try await supabase.auth.session
                 let user = session.user
 
-                let allRecords: [UserProfile] = try await supabase
+                let allRecords: [UserProfile] =
+                    try await supabase
                     .from("user_profiles")
                     .select("*")
                     .eq("user_id", value: user.id)
@@ -210,7 +213,9 @@ class SubscriptionManager: ObservableObject {
 
                 print("DEBUG: Found \(allRecords.count) user profile records")
                 for (index, record) in allRecords.enumerated() {
-                    print("DEBUG: Record \(index): normal_requests=\(record.normalRequests), premium_requests=\(record.premiumRequests)")
+                    print(
+                        "DEBUG: Record \(index): normal_requests=\(record.normalRequests), premium_requests=\(record.premiumRequests)"
+                    )
                 }
 
                 if let firstRecord = allRecords.first {
@@ -238,10 +243,14 @@ class SubscriptionManager: ObservableObject {
         switch type {
         case .premium:
             canMake = profile.premiumRequests > 0
-            print("DEBUG: canMakeRequest - Premium request check: \(profile.premiumRequests) > 0 = \(canMake)")
+            print(
+                "DEBUG: canMakeRequest - Premium request check: \(profile.premiumRequests) > 0 = \(canMake)"
+            )
         case .normal:
             canMake = profile.normalRequests > 0
-            print("DEBUG: canMakeRequest - Normal request check: \(profile.normalRequests) > 0 = \(canMake)")
+            print(
+                "DEBUG: canMakeRequest - Normal request check: \(profile.normalRequests) > 0 = \(canMake)"
+            )
         }
 
         return canMake
@@ -263,11 +272,15 @@ class SubscriptionManager: ObservableObject {
             switch type {
             case .premium:
                 guard profile.premiumRequests > 0 else {
-                    print("DEBUG: consumeRequest - No premium requests available (\(profile.premiumRequests))")
+                    print(
+                        "DEBUG: consumeRequest - No premium requests available (\(profile.premiumRequests))"
+                    )
                     return false
                 }
 
-                print("DEBUG: consumeRequest - Updating premium requests from \(profile.premiumRequests) to \(profile.premiumRequests - 1)")
+                print(
+                    "DEBUG: consumeRequest - Updating premium requests from \(profile.premiumRequests) to \(profile.premiumRequests - 1)"
+                )
 
                 updatedProfile =
                     try await supabase
@@ -283,11 +296,15 @@ class SubscriptionManager: ObservableObject {
 
             case .normal:
                 guard profile.normalRequests > 0 else {
-                    print("DEBUG: consumeRequest - No normal requests available (\(profile.normalRequests))")
+                    print(
+                        "DEBUG: consumeRequest - No normal requests available (\(profile.normalRequests))"
+                    )
                     return false
                 }
 
-                print("DEBUG: consumeRequest - Updating normal requests from \(profile.normalRequests) to \(profile.normalRequests - 1)")
+                print(
+                    "DEBUG: consumeRequest - Updating normal requests from \(profile.normalRequests) to \(profile.normalRequests - 1)"
+                )
 
                 updatedProfile =
                     try await supabase
@@ -302,7 +319,9 @@ class SubscriptionManager: ObservableObject {
                     .value
             }
 
-            print("DEBUG: consumeRequest - Updated profile: normal=\(updatedProfile.normalRequests), premium=\(updatedProfile.premiumRequests)")
+            print(
+                "DEBUG: consumeRequest - Updated profile: normal=\(updatedProfile.normalRequests), premium=\(updatedProfile.premiumRequests)"
+            )
 
             await MainActor.run {
                 userProfile = updatedProfile
@@ -338,8 +357,9 @@ class SubscriptionManager: ObservableObject {
     // Check if the user profile data is potentially stale
     func isProfileDataStale() -> Bool {
         guard let profile = userProfile,
-              let updatedAt = profile.updatedAt else {
-            return true // No profile or no update timestamp
+            let updatedAt = profile.updatedAt
+        else {
+            return true  // No profile or no update timestamp
         }
 
         // Consider data stale if it's older than 5 minutes

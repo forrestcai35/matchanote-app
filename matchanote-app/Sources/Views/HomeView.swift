@@ -27,6 +27,7 @@ struct HomeView: View {
     @State private var refreshID = UUID()
     @ObservedObject private var tabManager = TabManager.shared
     @Environment(\.colorScheme) private var colorScheme
+    @State private var screenSize: CGSize = .zero
     @State private var showNewWrittenNoteView = false
     @State private var showNewFolderView = false
     @State private var showingFileImporter = false
@@ -41,6 +42,11 @@ struct HomeView: View {
         SidebarItem(id: "favorites", title: "Favorites", icon: "star"),
 
     ]
+    
+    // Dynamic sidebar width based on orientation
+    private var sidebarWidth: CGFloat {
+        return screenSize.width > screenSize.height ? 350 : 300
+    }
     // Filtered notes based on search text and current folder
     var filteredNotes: [Note] {
         let folderNotes = storageManager.notes.filter { note in
@@ -86,8 +92,9 @@ struct HomeView: View {
         }
     }
     var body: some View {
-        NavigationSplitView {
-            // Sidebar
+        GeometryReader { geometry in
+            HStack(spacing: 0) {
+            // Sidebar - Always visible
             VStack(spacing: 0) {
                 HStack(spacing: 8) {
                     Image("Logo")
@@ -100,11 +107,31 @@ struct HomeView: View {
                         .fontWeight(.bold)
                         .foregroundColor(
                             colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+
+                    Spacer()
+
+                    // Settings button in sidebar
+                    Button(action: {
+                        showSettings.toggle()
+                    }) {
+                        Image(systemName: "gear")
+                            .fontWeight(.medium)
+                            .foregroundStyle(
+                                colorScheme == .dark
+                                    ? Color.matchabrown_dark : Color.matchabrown_light)
+                    }
+                    .popover(isPresented: $showSettings, arrowEdge: .top) {
+                        SettingsPopover()
+                    }
                 }
+                .padding(.horizontal)
+                .padding(.top, 10)
+
                 searchBar
                 sidebarList
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(width: sidebarWidth)
+            .frame(maxHeight: .infinity)
             .background(
                 (colorScheme == .dark
                     ? Color.matchabackground_dark
@@ -112,9 +139,17 @@ struct HomeView: View {
                     .brightness(colorScheme == .dark ? -0.05 : 0.05)
                     .ignoresSafeArea()
             )
-    
-        } detail: {
+
+            // Main content area
             contentView
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .onAppear {
+                screenSize = geometry.size
+            }
+            .onChange(of: geometry.size) { newSize in
+                screenSize = newSize
+            }
         }
         .accentColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
     }
@@ -183,81 +218,61 @@ struct HomeView: View {
 
     @ViewBuilder
     private var contentView: some View {
-        if selectedItem == "documents" {
-            documentsView
-                .toolbar {
-                    ToolbarItemGroup(placement: .navigationBarTrailing) {
-                        headerNewButton
-                        Button(action: {
-                            showSettings.toggle()
-                        }) {
-                            Image(systemName: "gear")
-                                .fontWeight(.medium)
-                                .foregroundStyle(
-                                    colorScheme == .dark
-                                        ? Color.matchabrown_dark : Color.matchabrown_light)
-                        }
-                        .popover(isPresented: $showSettings, arrowEdge: .top) {
-                            SettingsPopover()
-                        }
-                    }
-                }
-                .background(
-                    colorScheme == .dark
-                        ? Color.matchabackground_dark : Color.matchabackground_light)
+        VStack(spacing: 0) {
+            // Header with title and controls
+            HStack {
+                Text(currentViewTitle)
+                    .font(.system(.largeTitle, design: .serif))
+                    .bold()
+                    .foregroundStyle(
+                        colorScheme == .dark
+                            ? Color.matchabrown_dark : Color.matchabrown_light)
 
-        } else if selectedItem == "recents" {
-            recentsView
-                .toolbar {
-                    ToolbarItemGroup(placement: .navigationBarTrailing) {
-                        headerNewButton
-                        Button(action: {
-                            showSettings.toggle()
-                        }) {
-                            Image(systemName: "gear")
-                                .fontWeight(.medium)
-                                .foregroundStyle(
-                                    colorScheme == .dark
-                                        ? Color.matchabrown_dark : Color.matchabrown_light)
-                        }
-                        .popover(isPresented: $showSettings, arrowEdge: .top) {
-                            SettingsPopover()
-                        }
-                    }
-                }
-                .background(
-                    colorScheme == .dark
-                        ? Color.matchabackground_dark : Color.matchabackground_light)
+                Spacer()
 
-        } else if selectedItem == "favorites" {
-            favoritesView
-                .toolbar {
-                    ToolbarItemGroup(placement: .navigationBarTrailing) {
-                        headerNewButton
-                        Button(action: {
-                            showSettings.toggle()
-                        }) {
-                            Image(systemName: "gear")
-                                .fontWeight(.medium)
-                                .foregroundStyle(
-                                    colorScheme == .dark
-                                        ? Color.matchabrown_dark : Color.matchabrown_light)
-                        }
-                        .popover(isPresented: $showSettings, arrowEdge: .top) {
-                            SettingsPopover()
-                        }
-                    }
+                // Header controls
+                HStack(spacing: 12) {
+                    viewToggleButton
+                    headerNewButton
                 }
-                .background(
-                    colorScheme == .dark
-                        ? Color.matchabackground_dark : Color.matchabackground_light)
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 12)
+            .background(
+                colorScheme == .dark
+                    ? Color.matchabackground_dark : Color.matchabackground_light)
+
+            // Main content
+            if selectedItem == "documents" {
+                documentsView
+            } else if selectedItem == "recents" {
+                recentsView
+            } else if selectedItem == "favorites" {
+                favoritesView
+            }
+        }
+        .background(
+            colorScheme == .dark
+                ? Color.matchabackground_dark : Color.matchabackground_light)
+    }
+
+    // Helper computed property for the current view title
+    private var currentViewTitle: String {
+        switch selectedItem {
+        case "documents":
+            return currentFolderID == nil ? "Documents" : folderPath.last?.name ?? "Documents"
+        case "recents":
+            return "Recents"
+        case "favorites":
+            return "Favorites"
+        default:
+            return "Documents"
         }
     }
 
     // MARK: - Document view
     private var documentsView: some View {
         VStack(alignment: .leading, spacing: 0) {
-            documentHeader
             folderPathBreadcrumbs
             documentContent
         }
@@ -356,44 +371,30 @@ struct HomeView: View {
         .buttonStyle(PlainButtonStyle())
     }
     // MARK: - Document View Components
-    private var documentHeader: some View {
-        HStack {
-            Text(currentFolderID == nil ? "Documents" : folderPath.last?.name ?? "Documents")
-                .font(.system(.largeTitle, design: .serif))
-                .bold()
-                .foregroundStyle(
-                    colorScheme == .dark
-                        ? Color.matchabrown_dark : Color.matchabrown_light)
-            Spacer()
-//            sortMenu
-            viewToggleButton
-        }
-        .padding(.horizontal)
-        .padding(.bottom, 10)
-    }
+    // Note: documentHeader removed - now handled by unified header in contentView
 
-//    private var sortMenu: some View {
-//        Menu {
-//            Button("Date", action: { sortOption = "Date" })
-//                .fontWeight(.medium)
-//            Button("Name", action: { sortOption = "Name" })
-//                .fontWeight(.medium)
-//            Button("Type", action: { sortOption = "Type" })
-//                .fontWeight(.medium)
-//
-//        } label: {
-//            Label {
-//                Text(sortOption)
-//                    .fontWeight(.medium)
-//            } icon: {
-//                Image(systemName: "arrow.up.arrow.down")
-//            }
-//            .foregroundColor(
-//                colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
-//            )
-//            .fontWeight(.medium)
-//        }
-//    }
+    //    private var sortMenu: some View {
+    //        Menu {
+    //            Button("Date", action: { sortOption = "Date" })
+    //                .fontWeight(.medium)
+    //            Button("Name", action: { sortOption = "Name" })
+    //                .fontWeight(.medium)
+    //            Button("Type", action: { sortOption = "Type" })
+    //                .fontWeight(.medium)
+    //
+    //        } label: {
+    //            Label {
+    //                Text(sortOption)
+    //                    .fontWeight(.medium)
+    //            } icon: {
+    //                Image(systemName: "arrow.up.arrow.down")
+    //            }
+    //            .foregroundColor(
+    //                colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+    //            )
+    //            .fontWeight(.medium)
+    //        }
+    //    }
     private var viewToggleButton: some View {
         Button(action: { isGridView.toggle() }) {
             Label(
@@ -412,7 +413,9 @@ struct HomeView: View {
     }
     private var documentContent: some View {
         ScrollView {
-            if isGridView {
+            if filteredNotes.isEmpty && filteredFolders.isEmpty {
+                EmptyDocumentsView(showNewWrittenNoteView: $showNewWrittenNoteView)
+            } else if isGridView {
                 gridView
             } else {
                 listView
@@ -746,9 +749,9 @@ struct HomeView: View {
 
                 // Move folder to target folder
                 if let sourceFolder = storageManager.folders.first(where: { $0.id == id }),
-                    let _ = storageManager.folders.firstIndex(where: {
+                    storageManager.folders.firstIndex(where: {
                         $0.id == targetFolder.id
-                    })
+                    }) != nil
                 {
                     var updatedSourceFolder = sourceFolder
                     var updatedTargetFolder = targetFolder
@@ -994,7 +997,7 @@ struct HomeView: View {
     private func createNoteFromImportedFile(_ url: URL) {
         let fileExtension = url.pathExtension.lowercased()
         let fileName = url.deletingPathExtension().lastPathComponent
-        
+
         // Check if it's a PDF or image file
         if fileExtension == "pdf" {
             createNoteFromPDF(url: url, fileName: fileName)
@@ -1005,20 +1008,20 @@ struct HomeView: View {
             createTextNoteFromFile(url: url, fileName: fileName)
         }
     }
-    
+
     private func createNoteFromPDF(url: URL, fileName: String) {
         guard let pdf = CGPDFDocument(url as CFURL) else {
             print("Error: Could not load PDF from \(url)")
             return
         }
-        
+
         let pageCount = pdf.numberOfPages
         var imageDataByPage: [String: [Data]] = [:]
-        
+
         // Extract each page as an image
         for pageIndex in 1...pageCount {
             guard let page = pdf.page(at: pageIndex) else { continue }
-            
+
             let pageRect = page.getBoxRect(.mediaBox)
             let renderer = UIGraphicsImageRenderer(size: pageRect.size)
 
@@ -1030,12 +1033,12 @@ struct HomeView: View {
                 context.cgContext.scaleBy(x: 1.0, y: -1.0)
                 context.cgContext.drawPDFPage(page)
             }
-            
+
             if let imageData = image.jpegData(compressionQuality: 0.8) {
                 imageDataByPage[String(pageIndex - 1)] = [imageData]
             }
         }
-        
+
         let newNote = Note(
             title: fileName,
             color: .matchalight_light,
@@ -1046,10 +1049,10 @@ struct HomeView: View {
             paperStyle: .blank,
             imageDataByPage: imageDataByPage
         )
-        
+
         saveAndOpenNote(newNote)
     }
-    
+
     private func createNoteFromImage(url: URL, fileName: String) {
         guard let imageData = try? Data(contentsOf: url) else {
             print("Error: Could not load image data from \(url)")
@@ -1072,7 +1075,7 @@ struct HomeView: View {
 
         saveAndOpenNote(newNote)
     }
-    
+
     private func createTextNoteFromFile(url: URL, fileName: String) {
         let newNote = Note(
             title: fileName,
@@ -1082,10 +1085,10 @@ struct HomeView: View {
             content: "Imported from \(fileName)",
             noteType: .text
         )
-        
+
         saveAndOpenNote(newNote)
     }
-    
+
     private func saveAndOpenNote(_ newNote: Note) {
         // Add to current folder if we're in one
         if let currentFolderID = currentFolderID,
@@ -1162,7 +1165,6 @@ struct HomeView: View {
     // MARK: - Favorites view
     private var favoritesView: some View {
         VStack(alignment: .leading, spacing: 0) {
-            favoritesHeader
             favoritesContent
         }
         .fullScreenCover(item: $selectedNote) { note in
@@ -1170,25 +1172,15 @@ struct HomeView: View {
         }
     }
 
-    private var favoritesHeader: some View {
-        HStack {
-            Text("Favorites")
-                .font(.system(.largeTitle, design: .serif))
-                .bold()
-                .foregroundStyle(
-                    colorScheme == .dark
-                        ? Color.matchabrown_dark : Color.matchabrown_light)
-            Spacer()
-//            sortMenu
-            viewToggleButton
-        }
-        .padding(.horizontal)
-        .padding(.bottom, 10)
-    }
-
     private var favoritesContent: some View {
         ScrollView {
-            if isGridView {
+            if filteredFavoriteNotes.isEmpty {
+                EmptyFavoritesView(
+                    selectedItem: $selectedItem,
+                    currentFolderID: $currentFolderID,
+                    folderPath: $folderPath
+                )
+            } else if isGridView {
                 favoritesGridView
             } else {
                 favoritesListView
@@ -1199,7 +1191,6 @@ struct HomeView: View {
     // MARK: - Recents view
     private var recentsView: some View {
         VStack(alignment: .leading, spacing: 0) {
-            recentsHeader
             recentsContent
         }
         .fullScreenCover(item: $selectedNote) { note in
@@ -1207,25 +1198,15 @@ struct HomeView: View {
         }
     }
 
-    private var recentsHeader: some View {
-        HStack {
-            Text("Recents")
-                .font(.system(.largeTitle, design: .serif))
-                .bold()
-                .foregroundStyle(
-                    colorScheme == .dark
-                        ? Color.matchabrown_dark : Color.matchabrown_light)
-            Spacer()
-//            sortMenu
-            viewToggleButton
-        }
-        .padding(.horizontal)
-        .padding(.bottom, 10)
-    }
-
     private var recentsContent: some View {
         ScrollView {
-            if isGridView {
+            if recentNotes.isEmpty {
+                EmptyRecentsView(
+                    selectedItem: $selectedItem,
+                    currentFolderID: $currentFolderID,
+                    folderPath: $folderPath
+                )
+            } else if isGridView {
                 recentsGridView
             } else {
                 recentsListView
@@ -1234,7 +1215,9 @@ struct HomeView: View {
     }
 
     private var recentNotes: [Note] {
-        let cutoff = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date().addingTimeInterval(-86400)
+        let cutoff =
+            Calendar.current.date(byAdding: .day, value: -1, to: Date())
+            ?? Date().addingTimeInterval(-86400)
         let recents = storageManager.notes.filter { note in
             if let lastOpened = note.lastOpenedAt {
                 return lastOpened >= cutoff
@@ -1242,11 +1225,15 @@ struct HomeView: View {
             return false
         }
         if sortOption == "Name" {
-            return recents.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+            return recents.sorted {
+                $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+            }
         } else if sortOption == "Type" {
             return recents.sorted { $0.noteType.rawValue < $1.noteType.rawValue }
         } else {
-            return recents.sorted { ($0.lastOpenedAt ?? Date.distantPast) > ($1.lastOpenedAt ?? Date.distantPast) }
+            return recents.sorted {
+                ($0.lastOpenedAt ?? Date.distantPast) > ($1.lastOpenedAt ?? Date.distantPast)
+            }
         }
     }
 
@@ -1301,6 +1288,7 @@ struct HomeView: View {
         .padding(.vertical)
         .id(refreshID)
     }
+
 }
 
 // MARK: - Header "+ New" Button
