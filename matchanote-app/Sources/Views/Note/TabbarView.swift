@@ -16,7 +16,7 @@ enum PagePlacement: String, CaseIterable, Hashable {
 struct TabBarView: View {
   @ObservedObject private var tabManager = TabManager.shared
   @Environment(\.colorScheme) private var colorScheme
-  
+
   var dismiss: DismissAction
   var clearPageAction: (() -> Void)?
   var deletePageAction: (() -> Void)?
@@ -29,6 +29,10 @@ struct TabBarView: View {
 
   // Placement selection for add/upload actions
   @State private var selectedPlacement: PagePlacement = .after
+  // Dropdown popover states
+  @State private var showAddPopover: Bool = false
+  @State private var showSharePopover: Bool = false
+  @State private var showMorePopover: Bool = false
 
   var body: some View {
     HStack(spacing: 8) {
@@ -40,7 +44,7 @@ struct TabBarView: View {
           .foregroundColor(.gray)
       }
       .buttonStyle(PlainButtonStyle())
-      
+
       // Scrollable Tabs Section
       ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: 2) {
@@ -49,83 +53,126 @@ struct TabBarView: View {
             TabItemView(tab: tab)
           }
         }
-        .padding(.horizontal, 4) // Add some padding inside scroll view
+        .padding(.horizontal, 4)  // Add some padding inside scroll view
       }
-      
+
       // Static Action Buttons (outside ScrollView)
       HStack(spacing: 8) {
-        // Add / Upload dropdown with inline placement selector
-        Menu {
-          // Inline placement selector with same segmented style as before
-          Picker("", selection: $selectedPlacement) {
-            ForEach(PagePlacement.allCases, id: \.self) { placement in
-              Text(placement.title).tag(placement)
-            }
-          }
-          .labelsHidden()
-          .pickerStyle(.segmented)
-          .frame(width: 300)
-          .padding(.horizontal, 6)
-          .padding(.vertical, 2)
-          Divider()
-          Button(action: { onAddPage?(selectedPlacement) }) {
-            Label("Add Page", systemImage: "doc.badge.plus")
-          }
-          Button(action: { onUpload?(selectedPlacement) }) {
-            Label("Upload", systemImage: "square.and.arrow.up")
-          }
-        } label: {
+        // Add / Upload popover
+        Button(action: { showAddPopover.toggle() }) {
           Image(systemName: "plus.circle")
             .foregroundColor(.gray)
             .padding(4)
         }
-        
-        // Share Menu
-        Menu {
-          Button(action: { exportCurrentPageAction?() }) {
-            Label("Export this page", systemImage: "doc")
+        .buttonStyle(PlainButtonStyle())
+        .popover(isPresented: $showAddPopover) {
+          VStack(spacing: 12) {
+            // Inline placement selector with segmented style
+            Picker("", selection: $selectedPlacement) {
+              ForEach(PagePlacement.allCases, id: \.self) { placement in
+                Text(placement.title).tag(placement)
+              }
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .frame(width: 300)
+            .padding(.horizontal, 6)
+            .padding(.top, 8)
+            Divider()
+            VStack(alignment: .leading, spacing: 8) {
+              Button(action: {
+                onAddPage?(selectedPlacement)
+                showAddPopover = false
+              }) {
+                Label("Add Page", systemImage: "doc.badge.plus")
+              }
+              Button(action: {
+                onUpload?(selectedPlacement)
+                showAddPopover = false
+              }) {
+                Label("Upload", systemImage: "square.and.arrow.up")
+              }
+            }
+            .padding(.horizontal, 6)
           }
-          Button(action: { exportAllPagesAction?() }) {
-            Label("Export all pages", systemImage: "doc.on.doc")
-          }
-          Divider()
-          Button(action: { printCurrentPageAction?() }) {
-            Label("Print this page", systemImage: "printer")
-          }
-          Button(action: { printAllPagesAction?() }) {
-            Label("Print all pages", systemImage: "printer.fill")
-          }
-        } label: {
+          .padding(.vertical, 12)
+          .frame(minWidth: 320)
+        }
+
+        // Share popover
+        Button(action: { showSharePopover.toggle() }) {
           Image(systemName: "square.and.arrow.up")
             .foregroundColor(.gray)
             .padding(4)
         }
-
-        // More options dropdown menu
-        Menu {
-          Button(action: {
-            // TODO: Implement rotate page functionality
-          }) {
-            Label("Rotate Page", systemImage: "rotate.right")
+        .buttonStyle(PlainButtonStyle())
+        .popover(isPresented: $showSharePopover) {
+          VStack(alignment: .leading, spacing: 8) {
+            Button(action: {
+              exportCurrentPageAction?()
+              showSharePopover = false
+            }) {
+              Label("Export this page", systemImage: "doc")
+            }
+            Button(action: {
+              exportAllPagesAction?()
+              showSharePopover = false
+            }) {
+              Label("Export all pages", systemImage: "doc.on.doc")
+            }
+            Divider()
+            Button(action: {
+              printCurrentPageAction?()
+              showSharePopover = false
+            }) {
+              Label("Print this page", systemImage: "printer")
+            }
+            Button(action: {
+              printAllPagesAction?()
+              showSharePopover = false
+            }) {
+              Label("Print all pages", systemImage: "printer.fill")
+            }
           }
+          .padding(.horizontal, 12)
+          .padding(.vertical, 12)
+          .frame(minWidth: 260)
+        }
 
-          Button(role: .destructive, action: {
-            clearPageAction?()
-          }) {
-            Label("Clear Page", systemImage: "trash")
-          }
-
-          Divider()
-
-          Button(role: .destructive, action: {
-            deletePageAction?()
-          }) {
-            Label("Delete Page", systemImage: "trash.fill")
-          }
-        } label: {
+        // More options popover
+        Button(action: { showMorePopover.toggle() }) {
           Image(systemName: "ellipsis")
             .foregroundColor(.gray)
             .padding(4)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .popover(isPresented: $showMorePopover) {
+          VStack(alignment: .leading, spacing: 8) {
+            Button(action: {
+              // TODO: Implement rotate page functionality
+              showMorePopover = false
+            }) {
+              Label("Rotate Page", systemImage: "rotate.right")
+            }
+            Divider()
+            Button(action: {
+              clearPageAction?()
+              showMorePopover = false
+            }) {
+              Label("Clear Page", systemImage: "trash")
+            }
+            .foregroundColor(.red)
+            Button(action: {
+              deletePageAction?()
+              showMorePopover = false
+            }) {
+              Label("Delete Page", systemImage: "trash.fill")
+            }
+            .foregroundColor(.red)
+          }
+          .padding(.horizontal, 12)
+          .padding(.vertical, 12)
+          .frame(minWidth: 240)
         }
       }
     }
@@ -210,4 +257,3 @@ struct TabItemView: View {
     tabManager.closeTab(id: tab.id)
   }
 }
-

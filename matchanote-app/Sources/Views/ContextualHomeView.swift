@@ -3,7 +3,10 @@ import PencilKit
 
 public struct ListItemView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject private var storageManager: StorageManager
     let note: Note
+    @State private var showRenamePopover = false
+    @State private var newTitle = ""
 
     public var body: some View {
         HStack {
@@ -26,6 +29,48 @@ public struct ListItemView: View {
                     Text(note.title)
                         .fontWeight(.medium)
                         .lineLimit(1)
+
+                    // Rename dropdown button
+                    Button(action: {
+                        newTitle = note.title
+                        showRenamePopover = true
+                    }) {
+                        Image(systemName: "chevron.down")
+                            .foregroundColor(.gray)
+                            .font(.system(size: 10))
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .popover(isPresented: $showRenamePopover) {
+                        VStack(spacing: 12) {
+                            Text("Rename Note")
+                                .font(.headline)
+
+                            TextField("Note name", text: $newTitle)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .frame(width: 200)
+
+                            HStack {
+                                Button("Cancel") {
+                                    showRenamePopover = false
+                                }
+                                .foregroundColor(.red)
+
+                                Spacer()
+
+                                Button("Save") {
+                                    var updatedNote = note
+                                    updatedNote.title = newTitle
+                                    updatedNote.dateModified = Date()
+                                    let savedNote = storageManager.saveNote(updatedNote)
+                                    TabManager.shared.updateNote(savedNote)
+                                    showRenamePopover = false
+                                }
+                                .disabled(newTitle.isEmpty)
+                            }
+                        }
+                        .padding()
+                        .frame(minWidth: 250)
+                    }
                 }
 
                 Text(note.dateModified, style: .date)
@@ -67,7 +112,10 @@ public struct ListItemView: View {
 // Add a helper view for folder list items
 public struct ListFolderItemView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject private var storageManager: StorageManager
     let folder: Folder
+    @State private var showRenamePopover = false
+    @State private var newName = ""
 
     public var body: some View {
         HStack {
@@ -87,6 +135,47 @@ public struct ListFolderItemView: View {
                     Text(folder.name)
                         .fontWeight(.medium)
                         .lineLimit(1)
+
+                    // Rename dropdown button
+                    Button(action: {
+                        newName = folder.name
+                        showRenamePopover = true
+                    }) {
+                        Image(systemName: "chevron.down")
+                            .foregroundColor(.gray)
+                            .font(.system(size: 10))
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .popover(isPresented: $showRenamePopover) {
+                        VStack(spacing: 12) {
+                            Text("Rename Folder")
+                                .font(.headline)
+
+                            TextField("Folder name", text: $newName)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .frame(width: 200)
+
+                            HStack {
+                                Button("Cancel") {
+                                    showRenamePopover = false
+                                }
+                                .foregroundColor(.red)
+
+                                Spacer()
+
+                                Button("Save") {
+                                    var updatedFolder = folder
+                                    updatedFolder.name = newName
+                                    updatedFolder.dateModified = Date()
+                                    storageManager.saveFolder(updatedFolder)
+                                    showRenamePopover = false
+                                }
+                                .disabled(newName.isEmpty)
+                            }
+                        }
+                        .padding()
+                        .frame(minWidth: 250)
+                    }
                 }
 
                 Text(folder.dateModified, style: .date)
@@ -114,6 +203,9 @@ public struct ListFolderItemView: View {
 public struct GridFolderItemView: View {
     let folder: Folder
     @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject private var storageManager: StorageManager
+    @State private var showRenamePopover = false
+    @State private var newName = ""
 
     private func itemShadow(in colorScheme: ColorScheme) -> Color {
         return colorScheme == .dark ? Color.white.opacity(0.4) : Color.black.opacity(0.2)
@@ -131,15 +223,58 @@ public struct GridFolderItemView: View {
                     .clipped()
 
             }
-            // Folder title
-            Text(folder.name)
-                .padding(.top, 5)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .frame(width: 160)
-                .multilineTextAlignment(.center)
-                .fontWeight(.medium)
-                .font(.subheadline)
+            // Folder title with rename dropdown
+            HStack(spacing: 4) {
+                Text(folder.name)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .fontWeight(.medium)
+                    .font(.subheadline)
+
+                // Rename dropdown button
+                Button(action: {
+                    newName = folder.name
+                    showRenamePopover = true
+                }) {
+                    Image(systemName: "chevron.down")
+                        .foregroundColor(.gray)
+                        .font(.system(size: 10))
+                }
+                .buttonStyle(PlainButtonStyle())
+                .popover(isPresented: $showRenamePopover) {
+                    VStack(spacing: 12) {
+                        Text("Rename Folder")
+                            .font(.headline)
+
+                        TextField("Folder name", text: $newName)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .frame(width: 200)
+
+                        HStack {
+                            Button("Cancel") {
+                                showRenamePopover = false
+                            }
+                            .foregroundColor(.red)
+
+                            Spacer()
+
+                            Button("Save") {
+                                var updatedFolder = folder
+                                updatedFolder.name = newName
+                                updatedFolder.dateModified = Date()
+                                storageManager.saveFolder(updatedFolder)
+                                showRenamePopover = false
+                            }
+                            .disabled(newName.isEmpty)
+                        }
+                    }
+                    .padding()
+                    .frame(minWidth: 250)
+                }
+            }
+            .padding(.top, 5)
+            .frame(width: 160)
+            .multilineTextAlignment(.center)
             // Date
             Text(folder.dateModified, style: .date)
                 .padding(.bottom, 5)
@@ -158,6 +293,9 @@ public struct GridFolderItemView: View {
 public struct GridItemView: View {
     let note: Note
     @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject private var storageManager: StorageManager
+    @State private var showRenamePopover = false
+    @State private var newTitle = ""
 
     private func itemShadow(in colorScheme: ColorScheme) -> Color {
         return colorScheme == .dark ? Color.white.opacity(0.4) : Color.black.opacity(0.2)
@@ -206,13 +344,14 @@ public struct GridItemView: View {
             // Show drawing preview if available
             if let drawingData = note.drawingDataByPage["0"],
                let pkDrawing = try? PKDrawing(data: drawingData) {
-                // Create a preview image from the drawing
-                let previewBounds = CGRect(x: 0, y: 0, width: 160, height: 200)
-                let previewImage = pkDrawing.image(from: previewBounds, scale: 1.0)
+                // Use actual paper dimensions for proper aspect ratio
+                let paperSize = PaperUtilities.paperSize(for: note.paperSize)
+                let previewBounds = CGRect(origin: .zero, size: paperSize)
+                let previewImage = pkDrawing.image(from: previewBounds, scale: 0.5)
 
                 Image(uiImage: previewImage)
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .aspectRatio(contentMode: .fit) // Use .fit instead of .fill to show full content
             } else {
                 // Empty note - show paper with subtle pencil icon
                 VStack {
@@ -327,14 +466,58 @@ public struct GridItemView: View {
                     .padding(8)
             }
 
-            Text(note.title)
-                .padding(.top, 5)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .frame(width: 160)
-                .multilineTextAlignment(.center)
-                .fontWeight(.medium)
-                .font(.subheadline)
+            HStack(spacing: 4) {
+                Text(note.title)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .fontWeight(.medium)
+                    .font(.subheadline)
+
+                // Rename dropdown button
+                Button(action: {
+                    newTitle = note.title
+                    showRenamePopover = true
+                }) {
+                    Image(systemName: "chevron.down")
+                        .foregroundColor(.gray)
+                        .font(.system(size: 10))
+                }
+                .buttonStyle(PlainButtonStyle())
+                .popover(isPresented: $showRenamePopover) {
+                    VStack(spacing: 12) {
+                        Text("Rename Note")
+                            .font(.headline)
+
+                        TextField("Note name", text: $newTitle)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .frame(width: 200)
+
+                        HStack {
+                            Button("Cancel") {
+                                showRenamePopover = false
+                            }
+                            .foregroundColor(.red)
+
+                            Spacer()
+
+                            Button("Save") {
+                                var updatedNote = note
+                                updatedNote.title = newTitle
+                                updatedNote.dateModified = Date()
+                                let savedNote = storageManager.saveNote(updatedNote)
+                                TabManager.shared.updateNote(savedNote)
+                                showRenamePopover = false
+                            }
+                            .disabled(newTitle.isEmpty)
+                        }
+                    }
+                    .padding()
+                    .frame(minWidth: 250)
+                }
+            }
+            .padding(.top, 5)
+            .frame(width: 160)
+            .multilineTextAlignment(.center)
 
             Text(note.dateModified, style: .date)
                 .padding(.bottom, 5)

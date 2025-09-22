@@ -31,7 +31,7 @@ struct GrowingTextEditor: View {
       if text.isEmpty {
         Text(placeholderText)
           .foregroundColor(.gray.opacity(0.7))
-          .padding(.horizontal, 8)
+          .padding(.horizontal, 4)
           .padding(.vertical, 8)
           .allowsHitTesting(false)
       }

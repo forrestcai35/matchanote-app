@@ -11,6 +11,12 @@ struct SettingsPopover: View {
 
       Divider()
 
+      // Subscription status section
+      CompactSubscriptionStatusView()
+        .padding(.vertical, 4)
+
+      Divider()
+
       Button(action: {
         // Account settings action
       }) {

@@ -43,6 +43,8 @@ public struct Note: Identifiable {
   public var drawingDataByPage: [String: Data] = [:]
   // Store image data by page
   public var imageDataByPage: [String: [Data]] = [:]
+  // Store textbox data by page
+  public var textBoxDataByPage: [String: [Data]] = [:]
   // Track which pages are bookmarked using page indices as Set
   public var bookmarkedPages: Set<Int> = []
 
@@ -54,6 +56,7 @@ public struct Note: Identifiable {
     paperStyle: PaperStyle = .blank, paperSize: PaperSize = .a4,
     drawingDataByPage: [String: Data] = [:],
     imageDataByPage: [String: [Data]] = [:],
+    textBoxDataByPage: [String: [Data]] = [:],
     bookmarkedPages: Set<Int> = []
   ) {
     self.title = title
@@ -70,6 +73,7 @@ public struct Note: Identifiable {
     self.paperSize = paperSize
     self.drawingDataByPage = drawingDataByPage
     self.imageDataByPage = imageDataByPage
+    self.textBoxDataByPage = textBoxDataByPage
     self.bookmarkedPages = bookmarkedPages
   }
 

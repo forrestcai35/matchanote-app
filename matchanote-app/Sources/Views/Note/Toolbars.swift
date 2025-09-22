@@ -8,8 +8,11 @@ enum PenTool {
   case eraser
   case lasso
   case photo
+  case textbox
 
-  func toolInstance(color: Color = .black, width: CGFloat = 1.0, eraserType: EraserType = .object) -> PKTool {
+  func toolInstance(color: Color = .black, width: CGFloat = 1.0, eraserType: EraserType = .object)
+    -> PKTool
+  {
     switch self {
     case .pen:
       return PKInkingTool(.pen, color: UIColor(color), width: width)
@@ -22,6 +25,9 @@ enum PenTool {
     case .photo:
       // Keep canvas in non-inking mode while photo tool is active
       return PKLassoTool()
+    case .textbox:
+      // Keep canvas in non-inking mode while textbox tool is active
+      return PKLassoTool()
     }
   }
 }
@@ -29,14 +35,14 @@ enum PenTool {
 enum EraserType: CaseIterable {
   case object
   case area
-  
+
   var displayName: String {
     switch self {
     case .object: return "Object"
     case .area: return "Area"
     }
   }
-  
+
   // Use custom asset names instead of SF Symbols
   var icon: String {
     switch self {
@@ -50,15 +56,15 @@ enum ToolWidth: CGFloat, CaseIterable {
   case thin = 1.0
   case medium = 3.0
   case thick = 6.0
-  
+
   var displayName: String {
     switch self {
     case .thin: return "Thin"
-    case .medium: return "Medium" 
+    case .medium: return "Medium"
     case .thick: return "Thick"
     }
   }
-  
+
   var visualSize: CGFloat {
     switch self {
     case .thin: return 6.0
@@ -85,34 +91,48 @@ class ToolState: ObservableObject {
   @Published var markerColor: Color = .yellow
 
   // Dynamic palettes
-  @Published var penPalette: [Color] = [.black, .blue, .red, .green, .purple, .orange, .brown, .pink]
-  @Published var markerPalette: [Color] = [.yellow, .pink, .green, .blue, .orange, .purple, .red, .cyan]
+  @Published var penPalette: [Color] = [
+    .black, .blue, .red, .green, .purple, .orange, .brown, .pink,
+  ]
+  @Published var markerPalette: [Color] = [
+    .yellow, .pink, .green, .blue, .orange, .purple, .red, .cyan,
+  ]
 
   // Width presets (3 each) and selected index
   @Published var penWidthPresets: [CGFloat] = [1.0, 3.0, 6.0] {
     didSet { savePenPresets() }
   }
   @Published var selectedPenPresetIndex: Int = 1 {
-    didSet { UserDefaults.standard.set(selectedPenPresetIndex, forKey: DefaultsKeys.selectedPenPresetIndex) }
+    didSet {
+      UserDefaults.standard.set(selectedPenPresetIndex, forKey: DefaultsKeys.selectedPenPresetIndex)
+    }
   }
 
   @Published var markerWidthPresets: [CGFloat] = [3.0, 6.0, 12.0] {
     didSet { saveMarkerPresets() }
   }
   @Published var selectedMarkerPresetIndex: Int = 1 {
-    didSet { UserDefaults.standard.set(selectedMarkerPresetIndex, forKey: DefaultsKeys.selectedMarkerPresetIndex) }
+    didSet {
+      UserDefaults.standard.set(
+        selectedMarkerPresetIndex, forKey: DefaultsKeys.selectedMarkerPresetIndex)
+    }
   }
 
   // Eraser configuration
   @Published var eraserType: EraserType = .object {
-    didSet { UserDefaults.standard.set(eraserType == .object ? 0 : 1, forKey: DefaultsKeys.eraserType) }
+    didSet {
+      UserDefaults.standard.set(eraserType == .object ? 0 : 1, forKey: DefaultsKeys.eraserType)
+    }
   }
   // UI-only width presets for Area eraser (PencilKit does not expose eraser radius programmatically)
   @Published var eraserAreaWidthPresets: [CGFloat] = [8.0, 16.0, 28.0] {
     didSet { saveEraserAreaPresets() }
   }
   @Published var selectedEraserAreaPresetIndex: Int = 1 {
-    didSet { UserDefaults.standard.set(selectedEraserAreaPresetIndex, forKey: DefaultsKeys.selectedEraserAreaPresetIndex) }
+    didSet {
+      UserDefaults.standard.set(
+        selectedEraserAreaPresetIndex, forKey: DefaultsKeys.selectedEraserAreaPresetIndex)
+    }
   }
 
   // Undo/Redo state
@@ -133,7 +153,9 @@ class ToolState: ObservableObject {
     if let markerArray = defaults.array(forKey: DefaultsKeys.markerWidthPresets) as? [Double] {
       markerWidthPresets = markerArray.map { CGFloat($0) }
     }
-    if let eraserAreaArray = defaults.array(forKey: DefaultsKeys.eraserAreaWidthPresets) as? [Double] {
+    if let eraserAreaArray = defaults.array(forKey: DefaultsKeys.eraserAreaWidthPresets)
+      as? [Double]
+    {
       eraserAreaWidthPresets = eraserAreaArray.map { CGFloat($0) }
     }
 
@@ -141,25 +163,32 @@ class ToolState: ObservableObject {
     if penIndex >= 0 && penIndex < penWidthPresets.count { selectedPenPresetIndex = penIndex }
 
     let markerIndex = defaults.integer(forKey: DefaultsKeys.selectedMarkerPresetIndex)
-    if markerIndex >= 0 && markerIndex < markerWidthPresets.count { selectedMarkerPresetIndex = markerIndex }
+    if markerIndex >= 0 && markerIndex < markerWidthPresets.count {
+      selectedMarkerPresetIndex = markerIndex
+    }
 
     let eraserTypeRaw = defaults.integer(forKey: DefaultsKeys.eraserType)
     if eraserTypeRaw == 0 { eraserType = .object } else if eraserTypeRaw == 1 { eraserType = .area }
 
     let eraserIndex = defaults.integer(forKey: DefaultsKeys.selectedEraserAreaPresetIndex)
-    if eraserIndex >= 0 && eraserIndex < eraserAreaWidthPresets.count { selectedEraserAreaPresetIndex = eraserIndex }
+    if eraserIndex >= 0 && eraserIndex < eraserAreaWidthPresets.count {
+      selectedEraserAreaPresetIndex = eraserIndex
+    }
   }
 
   private func savePenPresets() {
-    UserDefaults.standard.set(penWidthPresets.map { Double($0) }, forKey: DefaultsKeys.penWidthPresets)
+    UserDefaults.standard.set(
+      penWidthPresets.map { Double($0) }, forKey: DefaultsKeys.penWidthPresets)
   }
 
   private func saveMarkerPresets() {
-    UserDefaults.standard.set(markerWidthPresets.map { Double($0) }, forKey: DefaultsKeys.markerWidthPresets)
+    UserDefaults.standard.set(
+      markerWidthPresets.map { Double($0) }, forKey: DefaultsKeys.markerWidthPresets)
   }
 
   private func saveEraserAreaPresets() {
-    UserDefaults.standard.set(eraserAreaWidthPresets.map { Double($0) }, forKey: DefaultsKeys.eraserAreaWidthPresets)
+    UserDefaults.standard.set(
+      eraserAreaWidthPresets.map { Double($0) }, forKey: DefaultsKeys.eraserAreaWidthPresets)
   }
 }
 
@@ -176,19 +205,24 @@ struct WrittenNoteToolbar: View {
   @Binding var canvasViews: [PKCanvasView]
   @Binding var currentPage: Int
   @Binding var currentTool: PenTool?
-  
+
   // Image manager for handling images on canvas
   @ObservedObject var imageManager: CanvasImageManager
+
+  // TextBox manager for handling textboxes on canvas
+  @ObservedObject var textBoxManager: TextBoxManager
 
   // Local state for ColorPickers
   @State private var newPenColor: Color = .black
   @State private var newMarkerColor: Color = .yellow
   @State private var showPenColorPicker: Bool = false
   @State private var showMarkerColorPicker: Bool = false
-  
+
   // Image picker state
   @State private var showImagePicker: Bool = false
+  @State private var imagePickerSourceType: UIImagePickerController.SourceType = .photoLibrary
   @State private var previousToolBeforePhoto: PenTool? = nil
+  @State private var pickerID = UUID()  // Force picker recreation
 
   // Dropdown slider visibility per tool
   @State private var expandedPenPresetIndex: Int? = nil
@@ -203,6 +237,9 @@ struct WrittenNoteToolbar: View {
   // Page overview state
   @State private var showPageOverview: Bool = false
 
+  // Shape recognition manager (passed from parent)
+  @ObservedObject var shapeRecognitionManager: ShapeRecognitionManager
+
   var body: some View {
     HStack {
       // Left side buttons
@@ -210,7 +247,9 @@ struct WrittenNoteToolbar: View {
         toggleBookmarkForCurrentPage()
       }) {
         Image(systemName: isCurrentPageBookmarked ? "bookmark.fill" : "bookmark")
-          .foregroundColor(isCurrentPageBookmarked ? .matchalight_dark : (colorScheme == .dark ? .matchadark_dark : .matchadark_light))
+          .foregroundColor(
+            isCurrentPageBookmarked
+              ? .matchalight_dark : (colorScheme == .dark ? .matchadark_dark : .matchadark_light))
       }
 
       Button(action: {
@@ -222,144 +261,151 @@ struct WrittenNoteToolbar: View {
 
       // Flexible spacer to center the main toolbar content
       Spacer()
-      
+
       // Centered toolbar content
       HStack(spacing: 12) {
         // Tool buttons (icons only)
         HStack(spacing: 12) {
-        Button(action: { if currentTool != .photo { selectTool(.pen) } }) {
-          if currentTool == .pen {
-            ZStack {
-              if let fillImage = UIImage(named: "pen_fill")  {
-                Image(uiImage: fillImage)
+          Button(action: { selectTool(.pen) }) {
+            if currentTool == .pen {
+              ZStack {
+                if let fillImage = UIImage(named: "pen_fill") {
+                  Image(uiImage: fillImage)
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 26, height: 26)
+                    .foregroundColor(toolState.penColor)
+                }
+                Image("pen_outline")
                   .renderingMode(.template)
                   .resizable()
                   .scaledToFit()
                   .frame(width: 26, height: 26)
-                  .foregroundColor(toolState.penColor)
+                  .foregroundColor(colorScheme == .dark ? .white : .black)
               }
+            } else {
               Image("pen_outline")
                 .renderingMode(.template)
                 .resizable()
                 .scaledToFit()
                 .frame(width: 26, height: 26)
-                .foregroundColor(colorScheme == .dark ? .white : .black)
+                .foregroundColor(colorScheme == .dark ? .gray : .black)
             }
-          } else {
-            Image("pen_outline")
-              .renderingMode(.template)
-              .resizable()
-              .scaledToFit()
-              .frame(width: 26, height: 26)
-              .foregroundColor(colorScheme == .dark ? .gray : .black)
           }
-        }
-        .disabled(currentTool == .photo)
-        Button(action: { if currentTool != .photo { selectTool(.marker) } }) {
-          if currentTool == .marker {
-            ZStack {
-              if let fillImage = UIImage(named: "highlighter_fill") {
-                Image(uiImage: fillImage)
+          Button(action: { selectTool(.marker) }) {
+            if currentTool == .marker {
+              ZStack {
+                if let fillImage = UIImage(named: "highlighter_fill") {
+                  Image(uiImage: fillImage)
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 26, height: 26)
+                    .foregroundColor(toolState.markerColor)
+                } else {
+                  RoundedRectangle(cornerRadius: 4)
+                    .fill(toolState.markerColor)
+                    .frame(width: 22, height: 14)
+                }
+                Image("highlighter_outline")
                   .renderingMode(.template)
                   .resizable()
                   .scaledToFit()
                   .frame(width: 26, height: 26)
-                  .foregroundColor(toolState.markerColor)
-              } else {
-                RoundedRectangle(cornerRadius: 4)
-                  .fill(toolState.markerColor)
-                  .frame(width: 22, height: 14)
+                  .foregroundColor(colorScheme == .dark ? .white : .black)
               }
+            } else {
               Image("highlighter_outline")
                 .renderingMode(.template)
                 .resizable()
                 .scaledToFit()
                 .frame(width: 26, height: 26)
-                .foregroundColor(colorScheme == .dark ? .white : .black)
+                .foregroundColor(colorScheme == .dark ? .gray : .black)
             }
-          } else {
-            Image("highlighter_outline")
-              .renderingMode(.template)
-              .resizable()
-              .scaledToFit()
-              .frame(width: 26, height: 26)
-              .foregroundColor(colorScheme == .dark ? .gray : .black)
           }
-        }
-        .disabled(currentTool == .photo)
-        Button(action: { if currentTool != .photo { selectTool(.eraser) } }) {
-          if currentTool == .eraser {
-            Image("eraser_fill")
-              .renderingMode(.original)
-              .resizable()
-              .scaledToFit()
-              .frame(width: 26, height: 26)
-          } else {
-            Image("eraser_outline")
-              .renderingMode(.template)
-              .resizable()
-              .scaledToFit()
-              .frame(width: 26, height: 26)
-              .foregroundColor(colorScheme == .dark ? .gray : .black)
+          Button(action: { selectTool(.eraser) }) {
+            if currentTool == .eraser {
+              Image("eraser_fill")
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 26, height: 26)
+            } else {
+              Image("eraser_outline")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 26, height: 26)
+                .foregroundColor(colorScheme == .dark ? .gray : .black)
+            }
           }
-        }
-        .disabled(currentTool == .photo)
-        Button(action: {
-          if currentTool != .photo {
+          Button(action: {
             if currentTool == .lasso {
               selectTool(.pen)
             } else {
               selectTool(.lasso)
             }
+          }) {
+            Image("lasso_outline")
+              .renderingMode(.template)
+              .resizable()
+              .scaledToFit()
+              .frame(width: 26, height: 26)
+              .foregroundColor(
+                currentTool == .lasso ? .matchalight_dark : (colorScheme == .dark ? .gray : .black))
           }
-        }) {
-          Image("lasso_outline")
-            .renderingMode(.template)
-            .resizable()
-            .scaledToFit()
-            .frame(width: 26, height: 26)
-            .foregroundColor(currentTool == .lasso ? .matchalight_dark : (colorScheme == .dark ? .gray : .black))
-        }
-        .disabled(currentTool == .photo)
-        Button(action: {
-          if currentTool != .photo {
+          Button(action: {
             previousToolBeforePhoto = currentTool
             selectTool(.photo)
+          }) {
+            Image("photo_outline")
+              .renderingMode(.template)
+              .resizable()
+              .scaledToFit()
+              .frame(width: 26, height: 26)
+              .foregroundColor(
+                currentTool == .photo ? .matchalight_dark : (colorScheme == .dark ? .gray : .black))
           }
-          showImagePicker = true
-        }) {
-          Image("photo_outline")
-            .renderingMode(.template)
-            .resizable()
-            .scaledToFit()
-            .frame(width: 26, height: 26)
-            .foregroundColor(currentTool == .photo ? .matchalight_dark : (colorScheme == .dark ? .gray : .black))
-        }
-        Button(action: {
-          // Text functionality
-        }) {
-          Image("textbox_outline")
-            .renderingMode(.template)
-            .resizable()
-            .scaledToFit()
-            .frame(width: 26, height: 26)
-            .foregroundColor(colorScheme == .dark ? .gray : .black)
-        }
+          Button(action: {
+            selectTool(.textbox)
+          }) {
+            Image("textbox_outline")
+              .renderingMode(.template)
+              .resizable()
+              .scaledToFit()
+              .frame(width: 26, height: 26)
+              .foregroundColor(
+                currentTool == .textbox
+                  ? .matchalight_dark : (colorScheme == .dark ? .gray : .black))
+          }
         }
 
         Divider()
           .frame(height: 24)
           .padding(.horizontal, 8)
-        
+
+        // Shape recognition toggle (only show for pen and marker)
+        if let activeTool = currentTool, activeTool == .pen || activeTool == .marker {
+          Button(action: {
+            shapeRecognitionManager.isEnabled.toggle()
+          }) {
+            Image(systemName: shapeRecognitionManager.isEnabled ? "wand.and.stars" : "wand.and.stars.inverse")
+              .font(.system(size: 16))
+              .foregroundColor(shapeRecognitionManager.isEnabled ? .matchalight_dark : .gray)
+          }
+          .opacity(shapeRecognitionManager.isEnabled ? 1.0 : 0.6)
+        }
+
         // Options panel for the current tool
         if let activeTool = currentTool {
           toolOptionsPanel(for: activeTool)
         }
       }
-      
+
       // Flexible spacer to balance the left side
       Spacer()
-      
+
       // Right side buttons grouped together
       HStack(spacing: 12) {
         // Undo/Redo buttons
@@ -367,14 +413,16 @@ struct WrittenNoteToolbar: View {
           Button(action: { performUndo() }) {
             Image(systemName: "arrow.uturn.backward")
               .font(.system(size: 16, weight: .medium))
-              .foregroundColor(canUndo ? (colorScheme == .dark ? .matchadark_dark : .matchadark_light) : .gray)
+              .foregroundColor(
+                canUndo ? (colorScheme == .dark ? .matchadark_dark : .matchadark_light) : .gray)
           }
           .disabled(!canUndo)
-          
+
           Button(action: { performRedo() }) {
             Image(systemName: "arrow.uturn.forward")
               .font(.system(size: 16, weight: .medium))
-              .foregroundColor(canRedo ? (colorScheme == .dark ? .matchadark_dark : .matchadark_light) : .gray)
+              .foregroundColor(
+                canRedo ? (colorScheme == .dark ? .matchadark_dark : .matchadark_light) : .gray)
           }
           .disabled(!canRedo)
         }
@@ -392,7 +440,7 @@ struct WrittenNoteToolbar: View {
         }
       }
     }
-    .padding(.horizontal, 12) // Reduced from 20 to prevent overflow
+    .padding(.horizontal, 12)  // Reduced from 20 to prevent overflow
     .padding(.vertical, 8)
     .frame(height: 40)
     .buttonStyle(PlainButtonStyle())
@@ -417,18 +465,15 @@ struct WrittenNoteToolbar: View {
       expandedMarkerPresetIndex = nil
       expandedEraserPresetIndex = nil
       updateCanvasTool()
-      if currentTool == .photo {
-        showImagePicker = true
-      }
     }
-    .onChange(of: showImagePicker) {
-      if showImagePicker == false && currentTool == .photo {
-        // Restore previous tool when photo picker is dismissed
-        currentTool = previousToolBeforePhoto ?? .pen
-        previousToolBeforePhoto = nil
-      }
+    .onChange(of: showImagePicker) { oldValue, newValue in
+      // Keep the photo tool selected when picker opens/closes
+      // User can manually select another tool if they want
     }
-    .zIndex((expandedPenPresetIndex != nil || expandedMarkerPresetIndex != nil || expandedEraserPresetIndex != nil) ? 1000 : 0)
+    .zIndex(
+      (expandedPenPresetIndex != nil || expandedMarkerPresetIndex != nil
+        || expandedEraserPresetIndex != nil) ? 1000 : 0
+    )
     .sheet(isPresented: $showPageOverview) {
       PageOverviewView(
         note: note,
@@ -439,12 +484,16 @@ struct WrittenNoteToolbar: View {
       .environmentObject(storageManager)
     }
     .sheet(isPresented: $showImagePicker) {
-      ImagePickerView(isPresented: $showImagePicker) { selectedImage in
+      ImagePickerView(
+        isPresented: $showImagePicker,
+        sourceType: imagePickerSourceType
+      ) { selectedImage in
         addImageToCurrentPage(selectedImage)
       }
+      .id(pickerID)  // Force recreation with new ID
     }
   }
-  
+
   @ViewBuilder
   private func toolOptionsPanel(for tool: PenTool) -> some View {
     switch tool {
@@ -461,12 +510,17 @@ struct WrittenNoteToolbar: View {
                     withAnimation { expandedPenPresetIndex = nil }
                     updateCanvasTool()
                   } else {
-                    withAnimation { expandedPenPresetIndex = (expandedPenPresetIndex == i ? nil : i) }
+                    withAnimation {
+                      expandedPenPresetIndex = (expandedPenPresetIndex == i ? nil : i)
+                    }
                   }
                 } label: {
                   ZStack {
                     Circle()
-                      .fill(toolState.selectedPenPresetIndex == i ? Color.matchalight_dark : Color.gray.opacity(0.5))
+                      .fill(
+                        toolState.selectedPenPresetIndex == i
+                          ? Color.matchalight_dark : Color.gray.opacity(0.5)
+                      )
                       .frame(
                         width: dotDiameter(for: toolState.penWidthPresets[i], maxRange: 30),
                         height: dotDiameter(for: toolState.penWidthPresets[i], maxRange: 30)
@@ -477,12 +531,35 @@ struct WrittenNoteToolbar: View {
                   }
                 }
                 .buttonStyle(PlainButtonStyle())
+                .popover(
+                  isPresented: Binding<Bool>(
+                    get: { expandedPenPresetIndex == i },
+                    set: { newValue in expandedPenPresetIndex = newValue ? i : nil }
+                  )
+                ) {
+                  VStack(spacing: 12) {
+                    HStack(spacing: 6) {
+                      Image(systemName: "scribble.variable")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                      let binding = Binding<CGFloat>(
+                        get: { toolState.penWidthPresets[i] },
+                        set: { newValue in
+                          toolState.penWidthPresets[i] = newValue
+                          if toolState.selectedPenPresetIndex == i { updateCanvasTool() }
+                        }
+                      )
+                      Slider(value: binding, in: 0.5...30, step: 0.5)
+                        .frame(width: 200)
+                    }
+                  }
+                  .padding(.vertical, 12)
+                  .padding(.horizontal, 12)
+                }
               }
             }
           }
 
-
-        
           // Colors (with delete and add) - Scrollable with max width
           ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
@@ -492,7 +569,9 @@ struct WrittenNoteToolbar: View {
                   .frame(width: 18, height: 18)
                   .overlay(
                     Circle()
-                      .stroke(toolState.penColor == color ? Color.matchalight_dark : Color.clear, lineWidth: 1.5)
+                      .stroke(
+                        toolState.penColor == color ? Color.matchalight_dark : Color.clear,
+                        lineWidth: 1.5)
                   )
                   .contentShape(Circle())
                   .onTapGesture {
@@ -507,7 +586,7 @@ struct WrittenNoteToolbar: View {
                     }
                   }
               }
-              
+
               // Add new color
               Button {
                 showPenColorPicker = true
@@ -519,8 +598,10 @@ struct WrittenNoteToolbar: View {
                 VStack(spacing: 12) {
                   ColorPicker("Pick a color", selection: $newPenColor, supportsOpacity: true)
                     .padding(.horizontal)
+                  Divider()
                   HStack {
                     Button("Cancel") { showPenColorPicker = false }
+                      .foregroundColor(.red)
                     Spacer()
                     Button("Add") {
                       addPenColor(newPenColor)
@@ -542,33 +623,6 @@ struct WrittenNoteToolbar: View {
       .padding(.vertical, 4)
       .background(Color.matchalight_dark.opacity(0.1))
       .cornerRadius(8)
-      .overlay(alignment: .topTrailing) {
-        if let expanded = expandedPenPresetIndex {
-          let binding = Binding<CGFloat>(
-            get: { toolState.penWidthPresets[expanded] },
-            set: { newValue in
-              toolState.penWidthPresets[expanded] = newValue
-              if toolState.selectedPenPresetIndex == expanded { updateCanvasTool() }
-            }
-          )
-          VStack(spacing: 8) {
-            HStack(spacing: 6) {
-              Image(systemName: "scribble.variable")
-                .font(.caption)
-                .foregroundColor(.gray)
-              Slider(value: binding, in: 0.5...30, step: 0.5)
-                .frame(width: 200)
-            }
-          }
-          .padding(10)
-          .background(.ultraThinMaterial)
-          .cornerRadius(10)
-          .shadow(radius: 8)
-          .offset(y: 30)
-          .zIndex(2000)
-          .allowsHitTesting(true)
-        }
-      }
 
     case .marker:
       VStack(alignment: .leading, spacing: 6) {
@@ -583,26 +637,57 @@ struct WrittenNoteToolbar: View {
                     withAnimation { expandedMarkerPresetIndex = nil }
                     updateCanvasTool()
                   } else {
-                    withAnimation { expandedMarkerPresetIndex = (expandedMarkerPresetIndex == i ? nil : i) }
+                    withAnimation {
+                      expandedMarkerPresetIndex = (expandedMarkerPresetIndex == i ? nil : i)
+                    }
                   }
                 } label: {
                   ZStack {
                     Circle()
-                      .fill(toolState.selectedMarkerPresetIndex == i ? Color.matchalight_dark : Color.gray.opacity(0.5))
+                      .fill(
+                        toolState.selectedMarkerPresetIndex == i
+                          ? Color.matchalight_dark : Color.gray.opacity(0.5)
+                      )
                       .frame(
                         width: dotDiameter(for: toolState.markerWidthPresets[i], maxRange: 40),
                         height: dotDiameter(for: toolState.markerWidthPresets[i], maxRange: 40)
                       )
-                    Image(systemName: expandedMarkerPresetIndex == i ? "chevron.up" : "chevron.down")
-                      .font(.system(size: 8, weight: .bold))
-                      .foregroundColor(.white.opacity(0.9))
+                    Image(
+                      systemName: expandedMarkerPresetIndex == i ? "chevron.up" : "chevron.down"
+                    )
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(.white.opacity(0.9))
                   }
                 }
                 .buttonStyle(PlainButtonStyle())
+                .popover(
+                  isPresented: Binding<Bool>(
+                    get: { expandedMarkerPresetIndex == i },
+                    set: { newValue in expandedMarkerPresetIndex = newValue ? i : nil }
+                  )
+                ) {
+                  VStack(spacing: 12) {
+                    HStack(spacing: 6) {
+                      Image(systemName: "scribble")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                      let binding = Binding<CGFloat>(
+                        get: { toolState.markerWidthPresets[i] },
+                        set: { newValue in
+                          toolState.markerWidthPresets[i] = newValue
+                          if toolState.selectedMarkerPresetIndex == i { updateCanvasTool() }
+                        }
+                      )
+                      Slider(value: binding, in: 0.5...40, step: 0.5)
+                        .frame(width: 200)
+                    }
+                  }
+                  .padding(.vertical, 12)
+                  .padding(.horizontal, 12)
+                }
               }
             }
           }
-
 
           // Colors (with delete and add) - Scrollable with max width
           ScrollView(.horizontal, showsIndicators: false) {
@@ -613,7 +698,9 @@ struct WrittenNoteToolbar: View {
                   .frame(width: 18, height: 18)
                   .overlay(
                     Circle()
-                      .stroke(toolState.markerColor == color ? Color.matchalight_dark : Color.clear, lineWidth: 1.5)
+                      .stroke(
+                        toolState.markerColor == color ? Color.matchalight_dark : Color.clear,
+                        lineWidth: 1.5)
                   )
                   .contentShape(Circle())
                   .onTapGesture {
@@ -640,8 +727,10 @@ struct WrittenNoteToolbar: View {
                 VStack(spacing: 12) {
                   ColorPicker("Pick a color", selection: $newMarkerColor, supportsOpacity: true)
                     .padding(.horizontal)
+                  Divider()
                   HStack {
                     Button("Cancel") { showMarkerColorPicker = false }
+                      .foregroundColor(.red)
                     Spacer()
                     Button("Add") {
                       addMarkerColor(newMarkerColor)
@@ -663,33 +752,6 @@ struct WrittenNoteToolbar: View {
       .padding(.vertical, 4)
       .background(Color.matchalight_dark.opacity(0.1))
       .cornerRadius(8)
-      .overlay(alignment: .topTrailing) {
-        if let expanded = expandedMarkerPresetIndex {
-          let binding = Binding<CGFloat>(
-            get: { toolState.markerWidthPresets[expanded] },
-            set: { newValue in
-              toolState.markerWidthPresets[expanded] = newValue
-              if toolState.selectedMarkerPresetIndex == expanded { updateCanvasTool() }
-            }
-          )
-          VStack(spacing: 8) {
-            HStack(spacing: 6) {
-              Image(systemName: "scribble")
-                .font(.caption)
-                .foregroundColor(.gray)
-              Slider(value: binding, in: 0.5...40, step: 0.5)
-                .frame(width: 200)
-            }
-          }
-          .padding(10)
-          .background(.ultraThinMaterial)
-          .cornerRadius(10)
-          .shadow(radius: 8)
-          .offset(y: 30)
-          .zIndex(2000)
-          .allowsHitTesting(true)
-        }
-      }
 
     case .eraser:
       HStack(spacing: 12) {
@@ -721,22 +783,55 @@ struct WrittenNoteToolbar: View {
                     withAnimation { expandedEraserPresetIndex = nil }
                     // No direct eraser width API to update tool here
                   } else {
-                    withAnimation { expandedEraserPresetIndex = (expandedEraserPresetIndex == i ? nil : i) }
+                    withAnimation {
+                      expandedEraserPresetIndex = (expandedEraserPresetIndex == i ? nil : i)
+                    }
                   }
                 } label: {
                   ZStack {
                     Circle()
-                      .fill(toolState.selectedEraserAreaPresetIndex == i ? Color.matchalight_dark : Color.gray.opacity(0.5))
+                      .fill(
+                        toolState.selectedEraserAreaPresetIndex == i
+                          ? Color.matchalight_dark : Color.gray.opacity(0.5)
+                      )
                       .frame(
                         width: dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: 40),
                         height: dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: 40)
                       )
-                    Image(systemName: expandedEraserPresetIndex == i ? "chevron.up" : "chevron.down")
-                      .font(.system(size: 8, weight: .bold))
-                      .foregroundColor(.white.opacity(0.9))
+                    Image(
+                      systemName: expandedEraserPresetIndex == i ? "chevron.up" : "chevron.down"
+                    )
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(.white.opacity(0.9))
                   }
                 }
                 .buttonStyle(PlainButtonStyle())
+                .popover(
+                  isPresented: Binding<Bool>(
+                    get: { expandedEraserPresetIndex == i },
+                    set: { newValue in expandedEraserPresetIndex = newValue ? i : nil }
+                  )
+                ) {
+                  VStack(spacing: 12) {
+                    HStack(spacing: 6) {
+                      Image("eraser_outline")
+                        .renderingMode(.original)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 12, height: 12)
+                      let binding = Binding<CGFloat>(
+                        get: { toolState.eraserAreaWidthPresets[i] },
+                        set: { newValue in
+                          toolState.eraserAreaWidthPresets[i] = newValue
+                        }
+                      )
+                      Slider(value: binding, in: 4...60, step: 1)
+                        .frame(width: 200)
+                    }
+                  }
+                  .padding(.vertical, 12)
+                  .padding(.horizontal, 12)
+                }
               }
             }
           }
@@ -778,17 +873,88 @@ struct WrittenNoteToolbar: View {
 
     case .lasso:
       EmptyView()
-    
+
     case .photo:
-      EmptyView()
+      HStack(spacing: 10) {
+        // Camera icon
+        Button(action: {
+          imagePickerSourceType = .camera
+          pickerID = UUID()
+          showImagePicker = true
+        }) {
+          Image(systemName: "camera")
+            .font(.system(size: 18))
+            .foregroundColor(colorScheme == .dark ? .matchadark_dark : .matchadark_light)
+        }
+
+        // Gallery icon
+        Button(action: {
+          imagePickerSourceType = .photoLibrary
+          pickerID = UUID()
+          showImagePicker = true
+        }) {
+          Image(systemName: "photo.on.rectangle")
+            .font(.system(size: 18))
+            .foregroundColor(colorScheme == .dark ? .matchadark_dark : .matchadark_light)
+        }
+
+        // Recent images - inline horizontal layout
+        HStack(spacing: 6) {
+          ForEach(0..<4, id: \.self) { index in
+            Button(action: {
+              imagePickerSourceType = .photoLibrary
+              pickerID = UUID()
+              showImagePicker = true
+            }) {
+              RoundedRectangle(cornerRadius: 3)
+                .stroke(Color.gray.opacity(0.4), lineWidth: 1)
+                .frame(width: 20, height: 20)
+                .overlay(
+                  Image(systemName: "photo")
+                    .foregroundColor(.gray.opacity(0.6))
+                    .font(.system(size: 8))
+                )
+            }
+          }
+        }
+      }
+
+    case .textbox:
+      VStack(alignment: .leading, spacing: 6) {
+        HStack(spacing: 10) {
+          // Add textbox button
+          Button(action: {
+            addTextBoxToCurrentPage()
+          }) {
+            HStack(spacing: 4) {
+              Image(systemName: "plus")
+                .font(.system(size: 14))
+              Text("Add Text")
+                .font(.caption)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color.matchalight_dark)
+            .foregroundColor(.white)
+            .cornerRadius(6)
+          }
+
+          // Always show formatting controls when textbox tool is active
+          TextBoxFormattingControls(textBoxManager: textBoxManager)
+        }
+      }
+      .padding(.horizontal, 8)
+      .padding(.vertical, 4)
+      .background(Color.matchalight_dark.opacity(0.1))
+      .cornerRadius(8)
     }
   }
-  
+
   private func selectTool(_ tool: PenTool) {
     currentTool = tool
     updateCanvasTool()
   }
-  
+
   private func updateCanvasTool() {
     guard currentPage < canvasViews.count, let tool = currentTool else { return }
     let canvas = canvasViews[currentPage]
@@ -804,15 +970,19 @@ struct WrittenNoteToolbar: View {
       let width = toolState.markerWidthPresets[safe: toolState.selectedMarkerPresetIndex] ?? 6.0
       canvas.tool = tool.toolInstance(color: toolState.markerColor, width: width)
     case .eraser:
-      let width = toolState.eraserType == .area ? toolState.eraserAreaWidthPresets[safe: toolState.selectedEraserAreaPresetIndex] ?? 16.0 : 1.0
+      let width =
+        toolState.eraserType == .area
+        ? toolState.eraserAreaWidthPresets[safe: toolState.selectedEraserAreaPresetIndex] ?? 16.0
+        : 1.0
       canvas.tool = tool.toolInstance(width: width, eraserType: toolState.eraserType)
     case .lasso:
       canvas.tool = tool.toolInstance()
     case .photo:
       canvas.tool = tool.toolInstance()
+    case .textbox:
+      canvas.tool = tool.toolInstance()
     }
   }
-
 
   private func deletePenColor(at index: Int) {
     guard toolState.penPalette.indices.contains(index) else { return }
@@ -851,10 +1021,10 @@ struct WrittenNoteToolbar: View {
     let minDiam: CGFloat = 12
     let maxDiam: CGFloat = 26
     let clamped = max(0.001, min(width, maxRange))
-    let fraction = sqrt(clamped / maxRange) // emphasize separation at lower widths
+    let fraction = sqrt(clamped / maxRange)  // emphasize separation at lower widths
     return minDiam + fraction * (maxDiam - minDiam)
   }
-  
+
   // MARK: - Undo/Redo Methods (now using per-note system)
 
   private func performUndo() {
@@ -885,13 +1055,13 @@ struct WrittenNoteToolbar: View {
     canUndo = canvas.undoManager?.canUndo ?? false
     canRedo = canvas.undoManager?.canRedo ?? false
   }
-  
+
   private func startUndoRedoTimer() {
     undoRedoUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
       updateUndoRedoState()
     }
   }
-  
+
   private func stopUndoRedoTimer() {
     undoRedoUpdateTimer?.invalidate()
     undoRedoUpdateTimer = nil
@@ -905,38 +1075,56 @@ struct WrittenNoteToolbar: View {
       updatedNote.bookmarkedPages.insert(currentPage)
     }
     updatedNote.dateModified = Date()
-    
+
     let savedNote = storageManager.saveNote(updatedNote)
     tabManager.updateNote(savedNote)
   }
-  
+
   private var isCurrentPageBookmarked: Bool {
     return note.bookmarkedPages.contains(currentPage)
   }
-  
+
   // MARK: - Image Handling Methods
-  
+
   private func addImageToCurrentPage(_ image: UIImage) {
     // Calculate center position for the image on the current page
     let paperSize = CGSize(
       width: PaperUtilities.getPaperWidth(for: note.paperSize),
       height: PaperUtilities.getPaperHeight(for: note.paperSize)
     )
-    
+
     let centerPosition = CGPoint(
-      x: paperSize.width / 2 - 150, // Offset by half of initial width
-      y: paperSize.height / 2 - 150 // Offset by half of initial height
+      x: paperSize.width / 2 - 150,  // Offset by half of initial width
+      y: paperSize.height / 2 - 150  // Offset by half of initial height
     )
-    
+
     // Add image to the current page
     imageManager.addImageToPage(image, at: centerPosition, pageIndex: currentPage)
   }
-  
+
+  // MARK: - TextBox Handling Methods
+
+  private func addTextBoxToCurrentPage() {
+    // Calculate center position for the textbox on the current page
+    let paperSize = CGSize(
+      width: PaperUtilities.getPaperWidth(for: note.paperSize),
+      height: PaperUtilities.getPaperHeight(for: note.paperSize)
+    )
+
+    let centerPosition = CGPoint(
+      x: paperSize.width / 2 - 100,  // Offset by half of textbox width
+      y: paperSize.height / 2 - 30  // Offset by half of textbox height
+    )
+
+    // Add textbox to the current page
+    textBoxManager.addTextBox(to: currentPage, at: centerPosition)
+  }
+
 }
 
 // Safe index extension
-private extension Array {
-  subscript(safe index: Int) -> Element? {
+extension Array {
+  fileprivate subscript(safe index: Int) -> Element? {
     guard indices.contains(index) else { return nil }
     return self[index]
   }
@@ -953,6 +1141,7 @@ struct TextNoteToolbar: View {
   @Binding var currentPage: Int
   @Binding var currentTool: PenTool?
   @ObservedObject var imageManager: CanvasImageManager
+  @ObservedObject var textBoxManager: TextBoxManager
 
   var body: some View {
     HStack {
@@ -969,34 +1158,34 @@ struct TextNoteToolbar: View {
         Image(systemName: "square.grid.2x2")
           .foregroundColor(colorScheme == .dark ? .gray : .black)
       }
-      
+
       // Flexible spacer to center the main content
       Spacer()
-      
+
       // Centered text formatting tools
       HStack(spacing: 12) {
-        Button(action: {}) { 
+        Button(action: {}) {
           Image(systemName: "bold")
             .foregroundColor(colorScheme == .dark ? .gray : .black)
         }
-        Button(action: {}) { 
+        Button(action: {}) {
           Image(systemName: "italic")
             .foregroundColor(colorScheme == .dark ? .gray : .black)
         }
-        Button(action: {}) { 
+        Button(action: {}) {
           Image(systemName: "underline")
             .foregroundColor(colorScheme == .dark ? .gray : .black)
         }
-        Button(action: {}) { 
+        Button(action: {}) {
           Image(systemName: "list.bullet")
             .foregroundColor(colorScheme == .dark ? .gray : .black)
         }
       }
-      
+
       // Flexible spacer to balance the left side
       Spacer()
 
-      // Right side buttons grouped together  
+      // Right side buttons grouped together
       HStack(spacing: 12) {
         // Undo/Redo buttons (disabled for text mode)
         HStack(spacing: 6) {
@@ -1006,7 +1195,7 @@ struct TextNoteToolbar: View {
               .foregroundColor(.gray)
           }
           .disabled(true)
-          
+
           Button(action: {}) {
             Image(systemName: "arrow.uturn.forward")
               .font(.system(size: 16, weight: .medium))
@@ -1029,7 +1218,7 @@ struct TextNoteToolbar: View {
       }
 
     }
-    .padding(.horizontal, 12) // Reduced from 20 for consistency
+    .padding(.horizontal, 12)  // Reduced from 20 for consistency
     .padding(.vertical, 8)
     .frame(height: 40)
     .buttonStyle(PlainButtonStyle())

@@ -212,13 +212,37 @@ struct CanvasImageOverlay: View {
 // MARK: - Image Picker Integration
 struct ImagePickerView: UIViewControllerRepresentable {
     @Binding var isPresented: Bool
+    let sourceType: UIImagePickerController.SourceType
     let onImageSelected: (UIImage) -> Void
-    
+
+    init(isPresented: Binding<Bool>, sourceType: UIImagePickerController.SourceType = .photoLibrary, onImageSelected: @escaping (UIImage) -> Void) {
+        self._isPresented = isPresented
+        self.sourceType = sourceType
+        self.onImageSelected = onImageSelected
+    }
+
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
         picker.delegate = context.coordinator
-        picker.sourceType = .photoLibrary
         picker.allowsEditing = true
+        picker.modalPresentationStyle = .formSheet
+
+        // Check if the source type is available
+        if sourceType == .camera {
+            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                picker.sourceType = .camera
+                picker.cameraCaptureMode = .photo
+                // Set media types to ensure only photos are captured
+                picker.mediaTypes = ["public.image"]
+            } else {
+                // Fallback to photo library if camera not available
+                picker.sourceType = .photoLibrary
+                print("Camera not available, falling back to photo library")
+            }
+        } else {
+            picker.sourceType = .photoLibrary
+        }
+
         return picker
     }
     
@@ -236,16 +260,23 @@ struct ImagePickerView: UIViewControllerRepresentable {
         }
         
         func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+            defer {
+                DispatchQueue.main.async {
+                    self.parent.isPresented = false
+                }
+            }
+
             if let editedImage = info[.editedImage] as? UIImage {
                 parent.onImageSelected(editedImage)
             } else if let originalImage = info[.originalImage] as? UIImage {
                 parent.onImageSelected(originalImage)
             }
-            parent.isPresented = false
         }
-        
+
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            parent.isPresented = false
+            DispatchQueue.main.async {
+                self.parent.isPresented = false
+            }
         }
     }
 }

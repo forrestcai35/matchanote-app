@@ -12,6 +12,8 @@ struct WrittenNoteView: View {
   @Binding var currentPage: Int
   @Binding var currentTool: PenTool?
   @ObservedObject var imageManager: CanvasImageManager
+  @ObservedObject var textBoxManager: TextBoxManager
+  @ObservedObject var shapeRecognitionManager: ShapeRecognitionManager
   
   // Callback to expose add page functionality
   var onAddPageCallback: ((@escaping (PagePlacement) -> Void) -> Void)?
@@ -91,6 +93,10 @@ struct WrittenNoteView: View {
       if newValue {
         saveCurrentDrawingDataDebounced()
       }
+    }
+    .onReceive(textBoxManager.objectWillChange) { _ in
+      // Save when textboxes change
+      isEdited = true
     }
     .onAppear {
       // Expose the add page functionality to the parent
@@ -187,6 +193,9 @@ struct WrittenNoteView: View {
 
     // Load only canvas images into the image manager
     imageManager.loadImagesData(canvasImageData)
+
+    // Load textbox data
+    textBoxManager.loadTextBoxesData(note.textBoxDataByPage)
   }
   
   // Clean up canvas views properly
@@ -282,10 +291,17 @@ struct WrittenNoteView: View {
       hasChanges = true
     }
 
+    // Handle textbox data
+    let textBoxData = textBoxManager.getAllTextBoxesData()
+    if textBoxData != noteToSave.textBoxDataByPage {
+      hasChanges = true
+    }
+
     // Only save if there are actual changes
     if hasChanges {
       updatedNote.drawingDataByPage = newDrawingData
       updatedNote.imageDataByPage = finalImageData // Use merged data containing both background and canvas images
+      updatedNote.textBoxDataByPage = textBoxData
       updatedNote.dateModified = Date()
       let savedNote = storageManager.saveNote(updatedNote)
       tabManager.updateNote(savedNote)
@@ -421,7 +437,8 @@ struct WrittenNoteView: View {
               canvasView: canvasViews[pageIndex],
               currentTool: $currentTool,
               canvasViews: $canvasViews,
-              currentPage: $currentPage
+              currentPage: $currentPage,
+              shapeRecognitionManager: shapeRecognitionManager
             )
               .frame(
                 width: getPaperWidth(for: note.paperSize),
@@ -444,6 +461,24 @@ struct WrittenNoteView: View {
               width: getPaperWidth(for: note.paperSize),
               height: getPaperHeight(for: note.paperSize)
             )
+
+            // TextBox overlay for this page (on top of everything)
+            // Only show when textbox tool is active or there are textboxes to display
+            if currentTool == .textbox || !textBoxManager.textBoxes(for: pageIndex).isEmpty {
+              TextBoxOverlay(
+                textBoxManager: textBoxManager,
+                pageIndex: pageIndex,
+                canvasSize: CGSize(
+                  width: getPaperWidth(for: note.paperSize),
+                  height: getPaperHeight(for: note.paperSize)
+                )
+              )
+              .frame(
+                width: getPaperWidth(for: note.paperSize),
+                height: getPaperHeight(for: note.paperSize)
+              )
+              .allowsHitTesting(currentTool == .textbox || textBoxManager.isEditingText)
+            }
           } else {
             Text("Error: Canvas not available for page \(pageIndex + 1)")
               .foregroundColor(.red)
@@ -747,8 +782,11 @@ struct WrittenNoteView: View {
 
     // Update image manager with new data structure
     imageManager.loadImagesData(newImageData)
+
+    // Handle textbox data migration for page insertion
+    textBoxManager.handlePageInsertion(at: insertIndex)
   }
-  
+
   // Delete a page and restructure data mappings
   func deletePage(at pageIndex: Int) {
     guard pageIndex >= 0 && pageIndex < pageCount && pageCount > 1 else {
@@ -838,6 +876,9 @@ struct WrittenNoteView: View {
 
     // Update image manager with new data structure
     imageManager.loadImagesData(newImageData)
+
+    // Handle textbox data migration for page deletion
+    textBoxManager.handlePageDeletion(at: deletedIndex)
   }
 
   // Update canvas tool when tool selection changes
@@ -868,36 +909,43 @@ struct PencilKitCanvasView: UIViewRepresentable {
   @Binding var currentTool: PenTool?
   @Binding var canvasViews: [PKCanvasView]
   @Binding var currentPage: Int
+  @ObservedObject var shapeRecognitionManager: ShapeRecognitionManager
 
   func makeUIView(context: Context) -> PKCanvasView {
     canvasView.backgroundColor = .clear
     canvasView.isScrollEnabled = false
     canvasView.overrideUserInterfaceStyle = .light
-    
+
+    // Set up drawing change delegate for shape recognition
+    canvasView.delegate = context.coordinator
+
     // Add pencil interaction for double tap
     if UIPencilInteraction.preferredTapAction == .switchEraser {
       let pencilInteraction = UIPencilInteraction()
       pencilInteraction.delegate = context.coordinator
       canvasView.addInteraction(pencilInteraction)
     }
-    
+
     return canvasView
   }
 
   func updateUIView(_ uiView: PKCanvasView, context: Context) {
     // No custom policy updates needed
+    context.coordinator.parent = self
   }
   
   func makeCoordinator() -> Coordinator {
     Coordinator(self)
   }
   
-  class Coordinator: NSObject, UIPencilInteractionDelegate {
+  class Coordinator: NSObject, UIPencilInteractionDelegate, PKCanvasViewDelegate {
     var parent: PencilKitCanvasView
     private var previousTool: PenTool = .pen
-    
+
     init(_ parent: PencilKitCanvasView) {
       self.parent = parent
+      super.init()
+      parent.shapeRecognitionManager.configure(with: parent.canvasView)
     }
     
     func pencilInteractionDidTap(_ interaction: UIPencilInteraction) {
@@ -925,6 +973,27 @@ struct PencilKitCanvasView: UIViewRepresentable {
           parent.canvasViews[parent.currentPage].tool = PenTool.eraser.toolInstance()
         }
       }
+    }
+
+    // MARK: - PKCanvasViewDelegate
+
+    func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
+      // Only apply shape recognition for pen and marker tools
+      guard let currentTool = parent.currentTool,
+            currentTool == .pen || currentTool == .marker else {
+        return
+      }
+
+      let drawing = canvasView.drawing
+
+      // Get the last stroke if available
+      if let lastStroke = drawing.strokes.last {
+        parent.shapeRecognitionManager.processStrokeForRecognition(lastStroke, in: drawing)
+      }
+    }
+
+    deinit {
+      parent.shapeRecognitionManager.cleanup()
     }
   }
 }

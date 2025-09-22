@@ -15,8 +15,9 @@ class AIAssistantState: ObservableObject {
   @Published var errorMessage: String? = nil
   @Published var tempMediaItems: [MediaItem] = []
   @Published var availableModels = [
-    "Matcha Assistant",
+    "Matcha Assistant"
   ]
+  @Published var subscriptionManager = SubscriptionManager()
 }
 
 struct ChatMessage: Identifiable {
@@ -123,7 +124,6 @@ struct AIAssistantView: View {
   private var chatHistorySection: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 12) {
-    
 
         ForEach(state.messages) { message in
           if message.isUser {
@@ -180,6 +180,22 @@ struct AIAssistantView: View {
           }
           .padding(.horizontal, 6)
           .cornerRadius(8)
+        }
+
+        // Request status indicator
+        if let profile = state.subscriptionManager.userProfile {
+          HStack(spacing: 4) {
+            let requestType = state.subscriptionManager.getRequestType(for: state.selectedModel)
+            let remainingRequests = requestType == .premium ? Int64(profile.premiumRequests) : profile.normalRequests
+            let requestTypeText = requestType == .premium ? "Premium" : "Free"
+
+            Text("\(remainingRequests) \(requestTypeText)")
+              .font(.caption)
+              .foregroundColor(remainingRequests > 0 ? .green : .red)
+              .padding(.horizontal, 6)
+              .background(Color.gray.opacity(0.1))
+              .cornerRadius(4)
+          }
         }
 
         // Add media menu
@@ -268,6 +284,7 @@ struct AIAssistantView: View {
           }
 
           GrowingTextEditor(text: $state.userInput, placeholderText: "Ask Matcha Assistant...")
+            .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .padding(.trailing, 40)
             .overlay(
@@ -280,6 +297,12 @@ struct AIAssistantView: View {
             .onSubmit {
               if (!state.userInput.isEmpty || !state.tempMediaItems.isEmpty) && !state.isLoading {
                 sendMessage()
+              }
+            }
+            .onTapGesture {
+              // Clear text when tapping on the input area
+              if !state.userInput.isEmpty {
+                state.userInput = ""
               }
             }
             .onDrop(of: ["public.image", "public.file-url"], isTargeted: $isInputTargeted) {
@@ -369,6 +392,13 @@ struct AIAssistantView: View {
   private func sendMessage() {
     guard !state.userInput.isEmpty || !state.tempMediaItems.isEmpty else { return }
 
+    // Check if user can make this request type
+    let requestType = state.subscriptionManager.getRequestType(for: state.selectedModel)
+    guard state.subscriptionManager.canMakeRequest(type: requestType) else {
+      state.errorMessage = "Insufficient \(requestType == .premium ? "premium" : "free") requests remaining"
+      return
+    }
+
     // Add user message to chat
     let userMessage = ChatMessage(
       content: state.userInput,
@@ -379,6 +409,7 @@ struct AIAssistantView: View {
 
     // Store the input and clear the field
     let input = state.userInput
+    let selectedModel = state.selectedModel
     state.userInput = ""
     state.tempMediaItems = []
 
@@ -389,17 +420,27 @@ struct AIAssistantView: View {
     // Call API
     Task {
       do {
+        // Consume request first
+        let success = await state.subscriptionManager.consumeRequest(type: requestType, model: selectedModel)
+        guard success else {
+          await MainActor.run {
+            state.errorMessage = "Failed to consume request"
+            state.isLoading = false
+          }
+          return
+        }
+
         // Note: Media handling for API call would need to be implemented
         // Currently this just sends the text content
         let response = try await OpenRouterAPI.sendMessage(
-          userMessage: input, model_string: state.selectedModel)
+          userMessage: input, model_string: selectedModel)
 
         await MainActor.run {
           state.messages.append(
             ChatMessage(
               content: response,
               isUser: false,
-              model: state.selectedModel
+              model: selectedModel
             ))
           state.isLoading = false
         }
@@ -417,16 +458,18 @@ struct AssistantMessageView: View {
   var message: ChatMessage
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 4) {
-
+    VStack(alignment: .leading, spacing: 8) {
+      // Plain, full-width assistant text (no chat bubble)
       Text(message.content)
-        .padding(10)
-        .background(Color.green.opacity(0.1))
-        .cornerRadius(10)
+        .font(.body)
+        .multilineTextAlignment(.leading)
+        .lineSpacing(4)
+        .textSelection(.enabled)
+        .frame(maxWidth: .infinity, alignment: .leading)
 
-      HStack {
+      // Lightweight action row
+      HStack(spacing: 8) {
         Button(action: {
-          // Copy to clipboard functionality
           #if canImport(UIKit)
             UIPasteboard.general.string = message.content
           #elseif canImport(AppKit)
@@ -434,14 +477,13 @@ struct AssistantMessageView: View {
             NSPasteboard.general.setString(message.content, forType: .string)
           #endif
         }) {
-          Image(systemName: "doc.on.doc")
+          Label("Copy", systemImage: "doc.on.doc")
             .font(.caption)
             .foregroundColor(.gray)
+            .labelStyle(.iconOnly)
         }
         .buttonStyle(.plain)
-
       }
-      .padding(.top, 4)
     }
   }
 }
@@ -460,7 +502,7 @@ struct UserMessageView: View {
       // Message section with chat bubble
       VStack(alignment: .trailing) {
         Text(message.content)
-          .padding(10)
+          .font(.callout)
 
         // Display media if available
         if let mediaItems = message.mediaItems {
@@ -495,7 +537,7 @@ struct UserMessageView: View {
           }
         }
       }
-      .padding(10)
+      .padding(16)
       .background(Color.gray.opacity(0.1))
       .foregroundColor(.primary)
       .cornerRadius(10)

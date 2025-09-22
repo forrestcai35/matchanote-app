@@ -838,13 +838,6 @@ struct HomeView: View {
 
     private func folderContextMenu(_ folder: Folder) -> some View {
         Group {
-            Button(action: {
-                // Rename folder functionality would go here
-            }) {
-                Label("Rename", systemImage: "pencil")
-            }
-            Divider()
-
             Button(
                 role: .destructive,
                 action: {
@@ -859,11 +852,6 @@ struct HomeView: View {
     // Context menu for notes
     private func noteContextMenu(_ note: Note) -> some View {
         Group {
-            Button(action: {
-                //Rename functionality
-            }) {
-                Label("Rename", systemImage: "pencil")
-            }
             Button(action: {
                 // Move note functionality
                 // This would open a move to folder dialog

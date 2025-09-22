@@ -224,7 +224,9 @@ struct NoteView: View {
   @State private var canvasManager = CanvasManager()
   @State private var currentPage: Int = 0
   @State private var currentTool: PenTool? = .pen
-  
+  @StateObject private var textBoxManager = TextBoxManager()
+  @StateObject private var shapeRecognitionManager = ShapeRecognitionManager()
+
   // Expose add page functionality
   @State private var addPageCallback: ((PagePlacement) -> Void)?
   @State private var deletePageCallback: ((Int) -> Void)?
@@ -293,7 +295,9 @@ struct NoteView: View {
                 canvasViews: $canvasManager.canvasViews,
                 currentPage: $currentPage,
                 currentTool: $currentTool,
-                imageManager: canvasManager.imageManager)
+                imageManager: canvasManager.imageManager,
+                textBoxManager: textBoxManager,
+                shapeRecognitionManager: shapeRecognitionManager)
             case .text:
               TextNoteToolbar(
                 isAssistantVisible: $isAssistantVisible,
@@ -301,7 +305,8 @@ struct NoteView: View {
                 canvasViews: $canvasManager.canvasViews,
                 currentPage: $currentPage,
                 currentTool: $currentTool,
-                imageManager: canvasManager.imageManager)
+                imageManager: canvasManager.imageManager,
+                textBoxManager: textBoxManager)
 
             }
             Divider()
@@ -435,6 +440,8 @@ struct NoteView: View {
                 currentPage: $currentPage,
                 currentTool: $currentTool,
                 imageManager: canvasManager.imageManager,
+                textBoxManager: textBoxManager,
+                shapeRecognitionManager: shapeRecognitionManager,
                 onAddPageCallback: { callback in
                   addPageCallback = callback
                 },
@@ -471,6 +478,8 @@ struct NoteView: View {
               currentPage: $currentPage,
               currentTool: $currentTool,
               imageManager: canvasManager.imageManager,
+              textBoxManager: textBoxManager,
+              shapeRecognitionManager: shapeRecognitionManager,
               onAddPageCallback: { callback in
                 addPageCallback = callback
               },
@@ -745,28 +754,22 @@ extension NoteView {
   }
   
   private func processImportedFile(url: URL) {
-    print("DEBUG: Processing imported file: \(url.lastPathComponent)")
-
     do {
       // Determine file type and handle accordingly
       let fileExtension = url.pathExtension.lowercased()
-      print("DEBUG: File extension: \(fileExtension)")
 
       switch fileExtension {
       case "pdf":
-        print("DEBUG: Processing as PDF")
         try handlePDFImport(url: url)
       case "jpg", "jpeg", "png", "heic", "heif":
-        print("DEBUG: Processing as image")
         try handleImageImport(url: url)
       case "txt", "md":
-        print("DEBUG: Processing as text")
         try handleTextImport(url: url)
       default:
-        print("DEBUG: Unsupported file type: \(fileExtension)")
+        print("Unsupported file type: \(fileExtension)")
       }
     } catch {
-      print("DEBUG: Error processing imported file: \(error)")
+      print("Error processing imported file: \(error)")
     }
   }
   
@@ -902,23 +905,32 @@ extension NoteView {
     // CRITICAL FIX: In-note uploads should create canvas overlay images, not background images
     // This is different from home page uploads which create background images
 
-    guard let uiImage = UIImage(data: imageData) else {
-      return
+    // CRITICAL FIX: Use the same logic as home page uploads for consistency and reliability
+    // Store uploaded images as background images in note.imageDataByPage
+
+    var updatedNote = activeTab.note
+
+    // Add image data to current page as background image (same as home page uploads)
+    let pageKey = String(currentPage)
+    if updatedNote.imageDataByPage[pageKey] == nil {
+      updatedNote.imageDataByPage[pageKey] = []
     }
+    updatedNote.imageDataByPage[pageKey]?.append(imageData)
+    updatedNote.dateModified = Date()
 
-    // Create a CanvasImage object for overlay display
-    let canvasImage = CanvasImage(
-      imageData: imageData,
-      position: CGPoint(x: 50, y: 50), // Default position, user can move it
-      size: uiImage.size,
-      pageIndex: currentPage // Set the page index
-    )
+    print("DEBUG: Added image to page \(pageKey), now has \(updatedNote.imageDataByPage[pageKey]?.count ?? 0) images")
 
-    // Add to canvas image manager (for overlay display)
-    canvasManager.imageManager.addImage(canvasImage)
+    // Update storage and tab manager
+    let savedNote = storageManager.saveNote(updatedNote)
+    tabManager.updateNote(savedNote)
 
-    // The image will be persisted automatically when saveDrawingDataForNote is called
-    // No need to manually save here as canvas images are handled by the drawing save system
+    print("DEBUG: Successfully saved note and updated tab manager")
+
+    // Force a UI refresh to show the new background image
+    DispatchQueue.main.async {
+      // The backgroundImagesView will automatically show the new image
+      // since it reads directly from note.imageDataByPage
+    }
   }
   
   
@@ -931,15 +943,13 @@ class DocumentPickerCoordinator: NSObject, UIDocumentPickerDelegate {
 
   func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
     guard let url = urls.first else {
-      print("DEBUG: No URLs picked from document picker")
       return
     }
-    print("DEBUG: Document picker selected file: \(url.lastPathComponent)")
     onFilePicked?(url)
   }
 
   func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
-    print("DEBUG: Document picker was cancelled")
+    // File picker was cancelled
   }
 }
 

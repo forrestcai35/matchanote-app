@@ -11,7 +11,7 @@ struct NewWrittenNoteView: View {
   var onSave: (Note) -> Void
 
   var body: some View {
-    NavigationView {
+    NavigationStack {
       Form {
         Section(header: Text("Note Information")) {
           TextField("Title", text: $title)
@@ -33,7 +33,7 @@ struct NewWrittenNoteView: View {
 
         Section {
           Button("Create Note") {
-     
+
             let newNote = Note(
               title: title,
               color: noteColor,
@@ -53,11 +53,16 @@ struct NewWrittenNoteView: View {
       }
       .navigationTitle("New Written Note")
       .navigationBarTitleDisplayMode(.inline)
-      .navigationBarItems(
-        trailing: Button("Cancel") {
-          dismiss()
-        })
+      .toolbar {
+        ToolbarItem(placement: .navigationBarTrailing) {
+          Button("Cancel") {
+            dismiss()
+          }
+        }
+      }
     }
+    .presentationDetents([.medium])
+    .presentationDragIndicator(.visible)
   }
 }
 
@@ -72,7 +77,7 @@ struct NewFolderView: View {
   var onSave: (Folder) -> Void
 
   var body: some View {
-    NavigationView {
+    NavigationStack {
       Form {
         Section(header: Text("Folder Information")) {
           TextField("Name", text: $name)
@@ -94,10 +99,15 @@ struct NewFolderView: View {
       }
       .navigationTitle("New Folder")
       .navigationBarTitleDisplayMode(.inline)
-      .navigationBarItems(
-        trailing: Button("Cancel") {
-          dismiss()
-        })
+      .toolbar {
+        ToolbarItem(placement: .navigationBarTrailing) {
+          Button("Cancel") {
+            dismiss()
+          }
+        }
+      }
     }
+    .presentationDetents([.medium])
+    .presentationDragIndicator(.visible)
   }
 }
