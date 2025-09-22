@@ -75,6 +75,15 @@ struct AIAssistantView: View {
       }
     }
     .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
+    .onAppear {
+      // Load user profile and available models
+      Task {
+        await state.subscriptionManager.fetchUserProfile()
+        await MainActor.run {
+          state.availableModels = state.subscriptionManager.getAvailableModels()
+        }
+      }
+    }
     #if canImport(UIKit)
       .sheet(isPresented: $showingCamera) {
         CameraView { image in
@@ -186,7 +195,8 @@ struct AIAssistantView: View {
         if let profile = state.subscriptionManager.userProfile {
           HStack(spacing: 4) {
             let requestType = state.subscriptionManager.getRequestType(for: state.selectedModel)
-            let remainingRequests = requestType == .premium ? Int64(profile.premiumRequests) : profile.normalRequests
+            let remainingRequests =
+              requestType == .premium ? Int64(profile.premiumRequests) : profile.normalRequests
             let requestTypeText = requestType == .premium ? "Premium" : "Free"
 
             Text("\(remainingRequests) \(requestTypeText)")
@@ -395,7 +405,8 @@ struct AIAssistantView: View {
     // Check if user can make this request type
     let requestType = state.subscriptionManager.getRequestType(for: state.selectedModel)
     guard state.subscriptionManager.canMakeRequest(type: requestType) else {
-      state.errorMessage = "Insufficient \(requestType == .premium ? "premium" : "free") requests remaining"
+      state.errorMessage =
+        "Insufficient \(requestType == .premium ? "premium" : "free") requests remaining"
       return
     }
 
@@ -421,7 +432,8 @@ struct AIAssistantView: View {
     Task {
       do {
         // Consume request first
-        let success = await state.subscriptionManager.consumeRequest(type: requestType, model: selectedModel)
+        let success = await state.subscriptionManager.consumeRequest(
+          type: requestType, model: selectedModel)
         guard success else {
           await MainActor.run {
             state.errorMessage = "Failed to consume request"
