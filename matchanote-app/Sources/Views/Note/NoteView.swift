@@ -225,7 +225,7 @@ struct NoteView: View {
   @State private var currentPage: Int = 0
   @State private var currentTool: PenTool? = .pen
   @StateObject private var textBoxManager = TextBoxManager()
-  @StateObject private var shapeRecognitionManager = ShapeRecognitionManager()
+  // Shape recognition removed
 
   // Expose add page functionality
   @State private var addPageCallback: ((PagePlacement) -> Void)?
@@ -296,8 +296,7 @@ struct NoteView: View {
                 currentPage: $currentPage,
                 currentTool: $currentTool,
                 imageManager: canvasManager.imageManager,
-                textBoxManager: textBoxManager,
-                shapeRecognitionManager: shapeRecognitionManager)
+                textBoxManager: textBoxManager)
             case .text:
               TextNoteToolbar(
                 isAssistantVisible: $isAssistantVisible,
@@ -441,7 +440,6 @@ struct NoteView: View {
                 currentTool: $currentTool,
                 imageManager: canvasManager.imageManager,
                 textBoxManager: textBoxManager,
-                shapeRecognitionManager: shapeRecognitionManager,
                 onAddPageCallback: { callback in
                   addPageCallback = callback
                 },
@@ -479,7 +477,6 @@ struct NoteView: View {
               currentTool: $currentTool,
               imageManager: canvasManager.imageManager,
               textBoxManager: textBoxManager,
-              shapeRecognitionManager: shapeRecognitionManager,
               onAddPageCallback: { callback in
                 addPageCallback = callback
               },
@@ -620,11 +617,11 @@ struct NoteView: View {
         .overlay(alignment: assistantOrientation == .right ? .leading : .trailing) {
           ZStack(alignment: assistantOrientation == .right ? .leading : .trailing) {
             // Subtle edge shadow to separate from note area (under the handle)
-            let edgeWidth: CGFloat = 5
+            let edgeWidth: CGFloat = 3
             let startPoint: UnitPoint = assistantOrientation == .right ? .trailing : .leading
             let endPoint: UnitPoint = assistantOrientation == .right ? .leading : .trailing
             let noteBg = colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light
-            let shadowColor = colorScheme == .dark ? Color.white.opacity(0.18) : Color.black.opacity(0.12)
+              let shadowColor = colorScheme == .dark ? Color.matchabackground_light.opacity(0.18) : Color.matchabackground_dark.opacity(0.12)
 
             Rectangle()
               .fill(noteBg)

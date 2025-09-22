@@ -23,12 +23,20 @@ struct SubscriptionStatusView: View {
                     .multilineTextAlignment(.center)
             }
 
-            Button("Refresh") {
-                Task {
-                    await subscriptionManager.fetchUserProfile()
+            HStack(spacing: 12) {
+                Button("Refresh") {
+                    Task {
+                        await subscriptionManager.forceRefreshUserProfile()
+                    }
+                }
+                .buttonStyle(.bordered)
+
+                if subscriptionManager.isProfileDataStale() {
+                    Text("⚠️ Data may be outdated")
+                        .font(.caption)
+                        .foregroundColor(.orange)
                 }
             }
-            .buttonStyle(.bordered)
         }
         .padding()
         .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)

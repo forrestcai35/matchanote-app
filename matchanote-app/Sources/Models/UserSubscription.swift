@@ -1,6 +1,9 @@
 import Foundation
 import Supabase
 
+// Import the global supabase instance
+private let globalSupabase = supabase
+
 // MARK: - Subscription Types
 enum SubscriptionTier: String, CaseIterable {
     case free = "FREE"
@@ -150,7 +153,11 @@ class SubscriptionManager: ObservableObject {
     private let supabase: SupabaseClient
 
     init(supabaseClient: SupabaseClient? = nil) {
-        self.supabase = supabaseClient ?? SupabaseInstance.shared.supabase
+        if let client = supabaseClient {
+            self.supabase = client
+        } else {
+            self.supabase = globalSupabase
+        }
     }
 
     func fetchUserProfile() async {
@@ -163,14 +170,22 @@ class SubscriptionManager: ObservableObject {
             let session = try await supabase.auth.session
             let user = session.user
 
+            print("DEBUG: Fetching user profile for user ID: \(user.id)")
+
+            // Fetch with explicit column names to ensure proper mapping
             let response: UserProfile =
                 try await supabase
                 .from("user_profiles")
-                .select()
+                .select("id, created_at, user_id, notes, folders, updated_at, premium_requests, normal_requests, subscription_tier, subscription_start_date, stripe_customer_id, stripe_subscription_id")
                 .eq("user_id", value: user.id)
                 .single()
                 .execute()
                 .value
+
+            print("DEBUG: Fetched user profile: \(response)")
+            print("DEBUG: Normal requests: \(response.normalRequests)")
+            print("DEBUG: Premium requests: \(response.premiumRequests)")
+            print("DEBUG: Subscription tier: \(response.subscriptionTier)")
 
             await MainActor.run {
                 userProfile = response
@@ -179,7 +194,33 @@ class SubscriptionManager: ObservableObject {
             await MainActor.run {
                 errorMessage = "Failed to fetch user profile: \(error.localizedDescription)"
             }
-            print("Error fetching user profile: \(error)")
+            print("DEBUG: Error fetching user profile: \(error)")
+
+            // Try to fetch without single() to see if there are multiple records
+            do {
+                let session = try await supabase.auth.session
+                let user = session.user
+
+                let allRecords: [UserProfile] = try await supabase
+                    .from("user_profiles")
+                    .select("*")
+                    .eq("user_id", value: user.id)
+                    .execute()
+                    .value
+
+                print("DEBUG: Found \(allRecords.count) user profile records")
+                for (index, record) in allRecords.enumerated() {
+                    print("DEBUG: Record \(index): normal_requests=\(record.normalRequests), premium_requests=\(record.premiumRequests)")
+                }
+
+                if let firstRecord = allRecords.first {
+                    await MainActor.run {
+                        userProfile = firstRecord
+                    }
+                }
+            } catch {
+                print("DEBUG: Secondary fetch also failed: \(error)")
+            }
         }
 
         await MainActor.run {
@@ -188,25 +229,45 @@ class SubscriptionManager: ObservableObject {
     }
 
     func canMakeRequest(type: RequestType) -> Bool {
-        guard let profile = userProfile else { return false }
+        guard let profile = userProfile else {
+            print("DEBUG: canMakeRequest - No user profile available")
+            return false
+        }
 
+        let canMake: Bool
         switch type {
         case .premium:
-            return profile.premiumRequests > 0
+            canMake = profile.premiumRequests > 0
+            print("DEBUG: canMakeRequest - Premium request check: \(profile.premiumRequests) > 0 = \(canMake)")
         case .normal:
-            return profile.normalRequests > 0
+            canMake = profile.normalRequests > 0
+            print("DEBUG: canMakeRequest - Normal request check: \(profile.normalRequests) > 0 = \(canMake)")
         }
+
+        return canMake
     }
 
     func consumeRequest(type: RequestType, model: String) async -> Bool {
-        guard let profile = userProfile else { return false }
+        guard let profile = userProfile else {
+            print("DEBUG: consumeRequest - No user profile available")
+            return false
+        }
+
+        print("DEBUG: consumeRequest - Starting consumption for \(type) request")
+        print("DEBUG: consumeRequest - Current normal requests: \(profile.normalRequests)")
+        print("DEBUG: consumeRequest - Current premium requests: \(profile.premiumRequests)")
 
         do {
             let updatedProfile: UserProfile
 
             switch type {
             case .premium:
-                guard profile.premiumRequests > 0 else { return false }
+                guard profile.premiumRequests > 0 else {
+                    print("DEBUG: consumeRequest - No premium requests available (\(profile.premiumRequests))")
+                    return false
+                }
+
+                print("DEBUG: consumeRequest - Updating premium requests from \(profile.premiumRequests) to \(profile.premiumRequests - 1)")
 
                 updatedProfile =
                     try await supabase
@@ -215,13 +276,18 @@ class SubscriptionManager: ObservableObject {
                         "premium_requests": profile.premiumRequests - 1
                     ])
                     .eq("user_id", value: profile.userId)
-                    .select()
+                    .select("*")
                     .single()
                     .execute()
                     .value
 
             case .normal:
-                guard profile.normalRequests > 0 else { return false }
+                guard profile.normalRequests > 0 else {
+                    print("DEBUG: consumeRequest - No normal requests available (\(profile.normalRequests))")
+                    return false
+                }
+
+                print("DEBUG: consumeRequest - Updating normal requests from \(profile.normalRequests) to \(profile.normalRequests - 1)")
 
                 updatedProfile =
                     try await supabase
@@ -230,11 +296,13 @@ class SubscriptionManager: ObservableObject {
                         "normal_requests": profile.normalRequests - 1
                     ])
                     .eq("user_id", value: profile.userId)
-                    .select()
+                    .select("*")
                     .single()
                     .execute()
                     .value
             }
+
+            print("DEBUG: consumeRequest - Updated profile: normal=\(updatedProfile.normalRequests), premium=\(updatedProfile.premiumRequests)")
 
             await MainActor.run {
                 userProfile = updatedProfile
@@ -245,7 +313,7 @@ class SubscriptionManager: ObservableObject {
             await MainActor.run {
                 errorMessage = "Failed to consume request: \(error.localizedDescription)"
             }
-            print("Error consuming request: \(error)")
+            print("DEBUG: consumeRequest - Error consuming request: \(error)")
             return false
         }
     }
@@ -260,6 +328,23 @@ class SubscriptionManager: ObservableObject {
 
     func getRequestType(for model: String) -> RequestType {
         return PremiumModels.isPremiumModel(model) ? .premium : .normal
+    }
+
+    // Force refresh user profile from Supabase
+    func forceRefreshUserProfile() async {
+        await fetchUserProfile()
+    }
+
+    // Check if the user profile data is potentially stale
+    func isProfileDataStale() -> Bool {
+        guard let profile = userProfile,
+              let updatedAt = profile.updatedAt else {
+            return true // No profile or no update timestamp
+        }
+
+        // Consider data stale if it's older than 5 minutes
+        let fiveMinutesAgo = Date().addingTimeInterval(-300)
+        return updatedAt < fiveMinutesAgo
     }
 }
 

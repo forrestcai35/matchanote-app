@@ -2,6 +2,16 @@ import Foundation
 import Supabase
 import SwiftUI
 
+// MARK: - Supabase User Storage Record
+struct UserStorageRecord: Codable {
+  let id: UUID
+  let user_id: UUID
+  let data_type: String
+  let data_id: String
+  let data: String
+  let created_at: Date
+  let updated_at: Date
+}
 
 struct StorageNote: Codable {
   var id: UUID
@@ -207,13 +217,15 @@ class StorageManager: ObservableObject {
     // Ensure unique title before saving
     var noteToSave = note
     noteToSave.title = generateUniqueTitle(for: noteToSave.title, excludingNoteId: noteToSave.id)
-    
-    // If user is non-premium or user storage is full, save to local storage
+
+    // Save to local storage first (for offline support)
     saveNoteLocally(noteToSave)
 
-    // In the future: save to Supabase if user is premium
-    // saveNoteToSupabase(noteToSave)
-    
+    // Save to Supabase if user is authenticated
+    Task {
+      await saveNoteToSupabase(noteToSave)
+    }
+
     return noteToSave
   }
   
@@ -271,19 +283,23 @@ class StorageManager: ObservableObject {
   }
 
   func saveFolder(_ folder: Folder) {
-    // If user is non-premium or user storage is full, save to local storage
+    // Save to local storage first (for offline support)
     saveFolderLocally(folder)
 
-    // In the future: save to Supabase if user is premium
-    // saveFolderToSupabase(folder)
+    // Save to Supabase if user is authenticated
+    Task {
+      await saveFolderToSupabase(folder)
+    }
   }
 
   private func loadData() {
-    // Load from local storage
+    // Load from local storage first
     loadLocalData()
 
-    // In the future: sync with Supabase
-    // syncWithSupabase()
+    // Try to sync with Supabase if user is authenticated
+    Task {
+      await syncWithSupabase()
+    }
   }
 
   private func loadLocalData() {
@@ -415,20 +431,140 @@ class StorageManager: ObservableObject {
   }
 
   // MARK: - Supabase Methods
-  private func syncWithSupabase() {
-    // Fetch data from Supabase and merge with local data
+  private func syncWithSupabase() async {
+    do {
+      // Check if user is authenticated
+      let session = try await supabase.auth.session
+      let userId = session.user.id
+
+      // Fetch user storage data
+      await fetchUserStorageFromSupabase(userId: userId)
+
+    } catch {
+      print("User not authenticated or error syncing with Supabase: \(error)")
+      // Continue with local storage only
+    }
+  }
+
+  private func fetchUserStorageFromSupabase(userId: UUID) async {
+    do {
+      // Fetch user storage data from the user_storage table
+      let response: [UserStorageRecord] = try await supabase
+        .from("user_storage")
+        .select("*")
+        .eq("user_id", value: userId)
+        .execute()
+        .value
+
+      await MainActor.run {
+        // Process the fetched data and merge with local storage
+        processSupabaseData(response)
+      }
+
+    } catch {
+      print("Error fetching from user_storage table: \(error)")
+    }
+  }
+
+  private func processSupabaseData(_ records: [UserStorageRecord]) {
+    // Merge Supabase data with local data
     // Handle conflicts based on modification dates
-    // This will be implemented later
+    for record in records {
+      if record.data_type == "note" {
+        if let noteData = record.data.data(using: .utf8),
+           let storageNote = try? JSONDecoder().decode(StorageNote.self, from: noteData) {
+          let note = storageNote.toNote()
+
+          // Check if we should update local data
+          if let localNoteIndex = notes.firstIndex(where: { $0.id == note.id }) {
+            if note.dateModified > notes[localNoteIndex].dateModified {
+              notes[localNoteIndex] = note
+            }
+          } else {
+            notes.append(note)
+          }
+        }
+      } else if record.data_type == "folder" {
+        if let folderData = record.data.data(using: .utf8),
+           let storageFolder = try? JSONDecoder().decode(StorageFolder.self, from: folderData) {
+          let folder = storageFolder.toFolder()
+
+          // Check if we should update local data
+          if let localFolderIndex = folders.firstIndex(where: { $0.id == folder.id }) {
+            if folder.dateModified > folders[localFolderIndex].dateModified {
+              folders[localFolderIndex] = folder
+            }
+          } else {
+            folders.append(folder)
+          }
+        }
+      }
+    }
+
+    // Resolve folder hierarchy after merging
+    resolveFolderHierarchy()
   }
 
-  private func saveNoteToSupabase(_ note: Note) {
-    // Save note to Supabase tables
-    // This will be implemented later
+  private func saveNoteToSupabase(_ note: Note) async {
+    do {
+      let session = try await supabase.auth.session
+      let userId = session.user.id
+
+      let storageNote = StorageNote(from: note)
+      let encoder = JSONEncoder()
+      let jsonData = try encoder.encode(storageNote)
+      let jsonString = String(data: jsonData, encoding: .utf8) ?? "{}"
+
+      let userStorageRecord = UserStorageRecord(
+        id: UUID(),
+        user_id: userId,
+        data_type: "note",
+        data_id: note.id.uuidString,
+        data: jsonString,
+        created_at: Date(),
+        updated_at: Date()
+      )
+
+      // Use upsert to handle both insert and update cases
+      try await supabase
+        .from("user_storage")
+        .upsert(userStorageRecord)
+        .execute()
+
+    } catch {
+      print("Error saving note to Supabase: \(error)")
+    }
   }
 
-  private func saveFolderToSupabase(_ folder: Folder) {
-    // Save folder to Supabase tables
-    // This will be implemented later
+  private func saveFolderToSupabase(_ folder: Folder) async {
+    do {
+      let session = try await supabase.auth.session
+      let userId = session.user.id
+
+      let storageFolder = StorageFolder(from: folder)
+      let encoder = JSONEncoder()
+      let jsonData = try encoder.encode(storageFolder)
+      let jsonString = String(data: jsonData, encoding: .utf8) ?? "{}"
+
+      let userStorageRecord = UserStorageRecord(
+        id: UUID(),
+        user_id: userId,
+        data_type: "folder",
+        data_id: folder.id.uuidString,
+        data: jsonString,
+        created_at: Date(),
+        updated_at: Date()
+      )
+
+      // Use upsert to handle both insert and update cases
+      try await supabase
+        .from("user_storage")
+        .upsert(userStorageRecord)
+        .execute()
+
+    } catch {
+      print("Error saving folder to Supabase: \(error)")
+    }
   }
 
   // MARK: - Public Methods

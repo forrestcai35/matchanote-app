@@ -365,35 +365,35 @@ struct HomeView: View {
                     colorScheme == .dark
                         ? Color.matchabrown_dark : Color.matchabrown_light)
             Spacer()
-            sortMenu
+//            sortMenu
             viewToggleButton
         }
         .padding(.horizontal)
         .padding(.bottom, 10)
     }
 
-    private var sortMenu: some View {
-        Menu {
-            Button("Date", action: { sortOption = "Date" })
-                .fontWeight(.medium)
-            Button("Name", action: { sortOption = "Name" })
-                .fontWeight(.medium)
-            Button("Type", action: { sortOption = "Type" })
-                .fontWeight(.medium)
-
-        } label: {
-            Label {
-                Text(sortOption)
-                    .fontWeight(.medium)
-            } icon: {
-                Image(systemName: "arrow.up.arrow.down")
-            }
-            .foregroundColor(
-                colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
-            )
-            .fontWeight(.medium)
-        }
-    }
+//    private var sortMenu: some View {
+//        Menu {
+//            Button("Date", action: { sortOption = "Date" })
+//                .fontWeight(.medium)
+//            Button("Name", action: { sortOption = "Name" })
+//                .fontWeight(.medium)
+//            Button("Type", action: { sortOption = "Type" })
+//                .fontWeight(.medium)
+//
+//        } label: {
+//            Label {
+//                Text(sortOption)
+//                    .fontWeight(.medium)
+//            } icon: {
+//                Image(systemName: "arrow.up.arrow.down")
+//            }
+//            .foregroundColor(
+//                colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+//            )
+//            .fontWeight(.medium)
+//        }
+//    }
     private var viewToggleButton: some View {
         Button(action: { isGridView.toggle() }) {
             Label(
@@ -1179,7 +1179,7 @@ struct HomeView: View {
                     colorScheme == .dark
                         ? Color.matchabrown_dark : Color.matchabrown_light)
             Spacer()
-            sortMenu
+//            sortMenu
             viewToggleButton
         }
         .padding(.horizontal)
@@ -1216,7 +1216,7 @@ struct HomeView: View {
                     colorScheme == .dark
                         ? Color.matchabrown_dark : Color.matchabrown_light)
             Spacer()
-            sortMenu
+//            sortMenu
             viewToggleButton
         }
         .padding(.horizontal)

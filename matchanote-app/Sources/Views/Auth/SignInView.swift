@@ -9,212 +9,304 @@ struct SignInView: View {
   @State private var errorMessage: String? = nil
   @State private var email = ""
   @State private var password = ""
-  @State private var showEmailPopup = false
-  @State private var popupEmail = ""
-  @State private var popupAction: ((String) -> Void)? = nil
+  @State private var showEmailSignIn = false
+  @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
     NavigationStack {
       GeometryReader { geometry in
-        let isLandscape = geometry.size.width > geometry.size.height
-        let spacing: CGFloat = isLandscape ? 15 : 30
+        ZStack {
+          // Background gradient
+          LinearGradient(
+            gradient: Gradient(colors: [
+              colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light,
+              colorScheme == .dark ? Color.matchabackground_dark.opacity(0.8) : Color.matchabackground_light.opacity(0.8)
+            ]),
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+          )
+          .ignoresSafeArea()
 
-        ScrollView {
-          VStack(spacing: spacing) {
+          VStack(spacing: 0) {
+            Spacer(minLength: geometry.size.height * 0.1)
 
-            Image("Logo")
-              .resizable()
-              .scaledToFit()
-              .frame(width: isLandscape ? 80 : 100, height: isLandscape ? 80 : 100)
-              .padding(.bottom, isLandscape ? 5 : 10)
+            // Logo and title section
+            VStack(spacing: 24) {
+              Image("Logo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 120, height: 120)
+                .shadow(color: colorScheme == .dark ? .white.opacity(0.1) : .black.opacity(0.1), radius: 8)
 
-              .padding(50)
+              VStack(spacing: 8) {
+                Text("Welcome Back")
+                  .font(.system(size: 32, weight: .bold, design: .rounded))
+                  .foregroundColor(colorScheme == .dark ? .matchadark_dark : .matchadark_light)
 
-            Text("Welcome Back")
-              .font(.title)
-              .fontWeight(.bold)
-
-            Text("Sign in to continue")
-              .font(.subheadline)
-              .foregroundColor(.secondary)
-              .padding(.bottom, isLandscape ? 10 : 20)
-
-            // Email field
-            VStack(alignment: .leading) {
-              Text("Email")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                
-              TextField("", text: $email)
-                    .textContentType(.emailAddress)
-                    .autocapitalization(.none)
-                    .autocorrectionDisabled()
-                .padding()
-                .background(Color.secondary.opacity(0.1))
-                .cornerRadius(8)
+                Text("Choose your preferred sign-in method")
+                  .font(.system(size: 16, weight: .medium))
+                  .foregroundColor(.secondary)
+                  .multilineTextAlignment(.center)
+              }
             }
-            .frame(width: min(geometry.size.width * 0.8, 450))
 
-            // Password field
-            VStack(alignment: .leading) {
-              Text("Password")
-                .font(.caption)
-                .foregroundColor(.secondary)
-              SecureField("", text: $password)
-                .padding()
-                
-                .background(Color.secondary.opacity(0.1))
-                .cornerRadius(8)
+            Spacer(minLength: geometry.size.height * 0.08)
 
-              Button("Forgot Password?") {
-                Task {
-                  showEmailPopupWith { email in
-                    Task {
-                      await resetPasswordWithEmail(email)
+            // Auth options section
+            VStack(spacing: 16) {
+              if showEmailSignIn {
+                // Email/Password Form
+                VStack(spacing: 16) {
+                  VStack(alignment: .leading, spacing: 8) {
+                    Text("Email")
+                      .font(.system(size: 14, weight: .medium))
+                      .foregroundColor(.secondary)
+
+                    TextField("Enter your email", text: $email)
+                      .textContentType(.emailAddress)
+                      .autocapitalization(.none)
+                      .autocorrectionDisabled()
+                      .font(.system(size: 16))
+                      .padding(.horizontal, 16)
+                      .padding(.vertical, 16)
+                      .background(
+                        colorScheme == .dark
+                        ? Color.white.opacity(0.1)
+                        : Color.black.opacity(0.05)
+                      )
+                      .cornerRadius(12)
+                      .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                          .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                      )
+                  }
+
+                  VStack(alignment: .leading, spacing: 8) {
+                    Text("Password")
+                      .font(.system(size: 14, weight: .medium))
+                      .foregroundColor(.secondary)
+
+                    SecureField("Enter your password", text: $password)
+                      .textContentType(.password)
+                      .font(.system(size: 16))
+                      .padding(.horizontal, 16)
+                      .padding(.vertical, 16)
+                      .background(
+                        colorScheme == .dark
+                        ? Color.white.opacity(0.1)
+                        : Color.black.opacity(0.05)
+                      )
+                      .cornerRadius(12)
+                      .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                          .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                      )
+                  }
+
+                  // Sign In Button
+                  Button(action: {
+                    if !isLoading {
+                      Task {
+                        await signInWithEmail()
+                      }
                     }
+                  }) {
+                    HStack(spacing: 12) {
+                      if isLoading {
+                        ProgressView()
+                          .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                          .scaleEffect(0.8)
+                      }
+
+                      Text("Sign In")
+                        .font(.system(size: 16, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(
+                      email.isEmpty || password.isEmpty
+                      ? Color.gray
+                      : (colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light)
+                    )
+                    .cornerRadius(12)
+                    .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+                  }
+                  .disabled(isLoading || email.isEmpty || password.isEmpty)
+
+                  // Back to OAuth button
+                  Button(action: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                      showEmailSignIn = false
+                      email = ""
+                      password = ""
+                      errorMessage = nil
+                    }
+                  }) {
+                    Text("Use OAuth instead")
+                      .font(.system(size: 14, weight: .medium))
+                      .foregroundColor(.secondary)
                   }
                 }
-              }
-              .font(.caption)
-              .foregroundColor(.green)
-              .frame(maxWidth: .infinity, alignment: .trailing)
-              .padding(.top, 4)
-            }
-            .frame(width: min(geometry.size.width * 0.8, 450))
+                .frame(maxWidth: min(geometry.size.width * 0.8, 400))
+                .transition(.opacity)
 
-            // Sign In button
-            Button(action: {
-              Task {
-                await signInWithEmail()
-              }
-            }) {
-              if isLoading {
-                ProgressView()
-                  .progressViewStyle(CircularProgressViewStyle(tint: .white))
               } else {
-                Text("Sign In")
-                  .fontWeight(.semibold)
+                // OAuth buttons
+                VStack(spacing: 16) {
+                  // Apple Sign In
+                  Button(action: {
+                    if !isLoading {
+                      Task {
+                        await oauthWithApple()
+                      }
+                    }
+                  }) {
+                    HStack(spacing: 12) {
+                      if isLoading {
+                        ProgressView()
+                          .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                          .scaleEffect(0.8)
+                      } else {
+                        Image(systemName: "apple.logo")
+                          .font(.system(size: 20, weight: .medium))
+                      }
+
+                      Text("Continue with Apple")
+                        .font(.system(size: 16, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: min(geometry.size.width * 0.8, 400))
+                    .frame(height: 56)
+                    .background(Color.black)
+                    .cornerRadius(12)
+                    .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+                  }
+                  .disabled(isLoading)
+
+                  // Google Sign In
+                  Button(action: {
+                    if !isLoading {
+                      Task {
+                        await oauthWithGoogle()
+                      }
+                    }
+                  }) {
+                    HStack(spacing: 12) {
+                      Image(systemName: "g.circle.fill")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundColor(.black)
+
+                      Text("Continue with Google")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.black)
+                    }
+                    .frame(maxWidth: min(geometry.size.width * 0.8, 400))
+                    .frame(height: 56)
+                    .background(Color.white)
+                    .cornerRadius(12)
+                    .overlay(
+                      RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+                  }
+                  .disabled(isLoading)
+
+                  // OR divider
+                  HStack {
+                    Rectangle()
+                      .fill(Color.secondary.opacity(0.3))
+                      .frame(height: 1)
+
+                    Text("OR")
+                      .font(.system(size: 14, weight: .medium))
+                      .foregroundColor(.secondary)
+                      .padding(.horizontal, 16)
+
+                    Rectangle()
+                      .fill(Color.secondary.opacity(0.3))
+                      .frame(height: 1)
+                  }
+                  .padding(.vertical, 8)
+
+                  // Email Sign In Button
+                  Button(action: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                      showEmailSignIn = true
+                    }
+                  }) {
+                    HStack(spacing: 12) {
+                      Image(systemName: "envelope")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.secondary)
+
+                      Text("Sign in with Email")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: min(geometry.size.width * 0.8, 400))
+                    .frame(height: 56)
+                    .background(Color.clear)
+                    .cornerRadius(12)
+                    .overlay(
+                      RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                    )
+                  }
+                  .disabled(isLoading)
+                }
+                .transition(.opacity)
               }
             }
-            .frame(width: min(geometry.size.width * 0.6, 450))
-            .padding()
-            .background(Color.green)
-            .foregroundColor(.white)
-            .cornerRadius(10)
-            .disabled(isLoading || email.isEmpty || password.isEmpty)
 
             // Error message
             if let errorMessage = errorMessage {
               Text(errorMessage)
+                .font(.system(size: 14, weight: .medium))
                 .foregroundColor(.red)
-                .font(.caption)
-                .padding(.top, 5)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+                .padding(.top, 16)
             }
 
-            HStack {
-              Rectangle().fill(Color.secondary.opacity(0.3)).frame(height: 1)
-              Text("OR").foregroundColor(.secondary).font(.caption)
-              Rectangle().fill(Color.secondary.opacity(0.3)).frame(height: 1)
-            }
-            .frame(width: min(geometry.size.width * 0.8, 450))
+            Spacer(minLength: geometry.size.height * 0.08)
 
-            HStack(spacing: isLandscape ? 15 : 20) {
-
-              Button(action: {
-                Task {
-                  await oauthWithGoogle()
-                }
-              }) {
-                Image(systemName: "g.circle.fill")
-                  .font(.title2)
-                  .frame(width: isLandscape ? 50 : 60, height: isLandscape ? 50 : 60)
-                  .background(Color.white)
-                  .foregroundColor(.black)
-                  .clipShape(Circle())
-                  .overlay(
-                    Circle()
-                      .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                  )
-              }
-              .disabled(isLoading)
-
-              Button(action: {
-                Task {
-                  showEmailPopupWith { email in
-                    Task {
-                      await signInWithOTPEmail(email)
-                    }
-                  }
-                }
-              }) {
-                Image(systemName: "envelope")
-                  .font(.title3)
-                  .frame(width: isLandscape ? 50 : 60, height: isLandscape ? 50 : 60)
-                  .background(Color.white)
-                  .foregroundColor(.black)
-                  .clipShape(Circle())
-                  .overlay(
-                    Circle()
-                      .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                  )
-              }
-              .disabled(isLoading)
-            }
-
-            HStack {
-              Text("Don't have an account?")
+            // Sign up prompt
+            HStack(spacing: 4) {
+              Text("New to Matcha?")
+                .font(.system(size: 15, weight: .medium))
                 .foregroundColor(.secondary)
 
-              Button("Sign Up") {
+              Button("Create Account") {
                 authManager.showOnboardingView()
               }
-              .foregroundColor(.green)
-              .fontWeight(.semibold)
+              .font(.system(size: 15, weight: .semibold))
+              .foregroundColor(colorScheme == .dark ? .matchalight_dark : .matchalight_light)
             }
-            .font(.subheadline)
-            .padding(.top, isLandscape ? 5 : 10)
 
-            Spacer()
+            Spacer(minLength: 32)
           }
-          .padding()
-          .frame(minHeight: geometry.size.height)
-          .frame(width: geometry.size.width)
-
+          .padding(.horizontal, 24)
         }
       }
       .navigationBarBackButtonHidden(true)
-      .overlay {
-        if showEmailPopup {
-          EmailPopupView(
-            email: $popupEmail,
-            isShowing: $showEmailPopup,
-            onSubmit: {
-              if let action = popupAction {
-                action(popupEmail)
-              }
-              showEmailPopup = false
-            }
-          )
-        }
-      }
     }
-  }
-
-  private func showEmailPopupWith(completion: @escaping (String) -> Void) {
-    popupEmail = email  // Pre-populate with current email if any
-    popupAction = completion
-    showEmailPopup = true
   }
 
   // MARK: - Authentication Methods
 
   private func signInWithEmail() async {
-    isLoading = true
-    errorMessage = nil
+    await MainActor.run {
+      isLoading = true
+      errorMessage = nil
+    }
 
-    if email.isEmpty || password.isEmpty {
-      errorMessage = "Please enter an email and password"
-      isLoading = false
+    guard !email.isEmpty && !password.isEmpty else {
+      await MainActor.run {
+        isLoading = false
+        errorMessage = "Please enter both email and password."
+      }
       return
     }
 
@@ -223,61 +315,23 @@ struct SignInView: View {
         email: email,
         password: password
       )
-      self.isLoading = false
-      self.authManager.setLoggedIn()
+      await MainActor.run {
+        isLoading = false
+        authManager.setLoggedIn()
+      }
     } catch {
-      handleAuthError(error)
-    }
-  }
-
-  private func resetPasswordWithEmail(_ email: String) async {
-    isLoading = true
-    errorMessage = nil
-
-    if email.isEmpty {
-      errorMessage = "Please enter your email address"
-      isLoading = false
-      return
-    }
-
-    do {
-      try await supabase.auth.signInWithOTP(
-        email: email,
-        redirectTo: URL(string: "https://matchanote.app/app/reset-password"),
-        shouldCreateUser: false
-      )
-      isLoading = false
-      errorMessage = "Password reset instructions sent to your email"
-    } catch {
-      self.isLoading = false
-    }
-  }
-
-  private func signInWithOTPEmail(_ email: String) async {
-    isLoading = true
-    errorMessage = nil
-
-    if email.isEmpty {
-      errorMessage = "Please enter your email address"
-      isLoading = false
-      return
-    }
-
-    do {
-      try await supabase.auth.signInWithOTP(
-        email: email,
-        redirectTo: URL(string: "app.matchanote://auth-callback")!
-      )
-      self.isLoading = false
-      self.authManager.setLoggedIn()
-    } catch {
-      self.isLoading = false
+      await MainActor.run {
+        isLoading = false
+        errorMessage = "Invalid email or password. Please try again."
+      }
     }
   }
 
   private func oauthWithGoogle() async {
-    isLoading = true
-    errorMessage = nil
+    await MainActor.run {
+      isLoading = true
+      errorMessage = nil
+    }
 
     do {
       let _ = try await supabase.auth.signInWithOAuth(
@@ -286,68 +340,40 @@ struct SignInView: View {
       ) { (session: ASWebAuthenticationSession) in
         // Session handling
       }
-      self.isLoading = false
-      self.authManager.setLoggedIn()
+      await MainActor.run {
+        isLoading = false
+        authManager.setLoggedIn()
+      }
     } catch {
-      self.isLoading = false
+      await MainActor.run {
+        isLoading = false
+        errorMessage = "Sign in with Google failed. Please try again."
+      }
     }
   }
 
-  // Handle authentication errors
-  private func handleAuthError(_ error: Error) {
-    isLoading = false
-    errorMessage = "Authentication failed: \(error.localizedDescription)"
+  private func oauthWithApple() async {
+    await MainActor.run {
+      isLoading = true
+      errorMessage = nil
+    }
 
-  }
-}
-
-struct EmailPopupView: View {
-  @Binding var email: String
-  @Binding var isShowing: Bool
-  var onSubmit: () -> Void
-
-  var body: some View {
-    ZStack {
-      Color.black.opacity(0.4)
-        .edgesIgnoringSafeArea(.all)
-        .onTapGesture {
-          isShowing = false
-        }
-
-      VStack(spacing: 20) {
-        Text("Enter Your Email")
-          .font(.headline)
-          .padding(.top)
-
-        TextField("", text: $email)
-          .padding()
-          .background(Color.secondary.opacity(0.1))
-          .cornerRadius(8)
-          .padding(.horizontal)
-          .textContentType(.emailAddress)
-            .autocapitalization(.none)
-            .autocorrectionDisabled()
-        HStack {
-          Button("Cancel") {
-            isShowing = false
-          }
-          .foregroundColor(.red)
-
-          Spacer()
-
-          Button("Submit") {
-            onSubmit()
-          }
-          .foregroundColor(.green)
-          .disabled(email.isEmpty)
-        }
-        .padding(.horizontal)
-        .padding(.bottom)
+    do {
+      let _ = try await supabase.auth.signInWithOAuth(
+        provider: .apple,
+        redirectTo: URL(string: "app.matchanote://auth-callback")!
+      ) { (session: ASWebAuthenticationSession) in
+        // Session handling
       }
-      .background(Color(UIColor.systemBackground))
-      .cornerRadius(12)
-      .padding(.horizontal, 40)
-      .frame(maxWidth: 400)
+      await MainActor.run {
+        isLoading = false
+        authManager.setLoggedIn()
+      }
+    } catch {
+      await MainActor.run {
+        isLoading = false
+        errorMessage = "Sign in with Apple failed. Please try again."
+      }
     }
   }
 }

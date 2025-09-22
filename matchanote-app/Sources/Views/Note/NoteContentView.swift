@@ -13,7 +13,7 @@ struct WrittenNoteView: View {
   @Binding var currentTool: PenTool?
   @ObservedObject var imageManager: CanvasImageManager
   @ObservedObject var textBoxManager: TextBoxManager
-  @ObservedObject var shapeRecognitionManager: ShapeRecognitionManager
+  // Shape recognition removed
   
   // Callback to expose add page functionality
   var onAddPageCallback: ((@escaping (PagePlacement) -> Void) -> Void)?
@@ -61,6 +61,7 @@ struct WrittenNoteView: View {
     .background(
       (colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
     )
+    .ignoresSafeArea(.container, edges: .bottom)
     .onAppear {
       // Only load if this is a different note
       if currentNoteId != note.id {
@@ -163,6 +164,10 @@ struct WrittenNoteView: View {
 
     // Reset current page to 0 when loading new note
     currentPage = 0
+
+    // Reset unified zoom scale and content offset to center the canvas for new note
+    unifiedZoomScale = 1.0
+    unifiedContentOffset = .zero
 
 
     // Load image data
@@ -437,8 +442,7 @@ struct WrittenNoteView: View {
               canvasView: canvasViews[pageIndex],
               currentTool: $currentTool,
               canvasViews: $canvasViews,
-              currentPage: $currentPage,
-              shapeRecognitionManager: shapeRecognitionManager
+              currentPage: $currentPage
             )
               .frame(
                 width: getPaperWidth(for: note.paperSize),
@@ -909,7 +913,7 @@ struct PencilKitCanvasView: UIViewRepresentable {
   @Binding var currentTool: PenTool?
   @Binding var canvasViews: [PKCanvasView]
   @Binding var currentPage: Int
-  @ObservedObject var shapeRecognitionManager: ShapeRecognitionManager
+  // Shape recognition removed
 
   func makeUIView(context: Context) -> PKCanvasView {
     canvasView.backgroundColor = .clear
@@ -945,7 +949,7 @@ struct PencilKitCanvasView: UIViewRepresentable {
     init(_ parent: PencilKitCanvasView) {
       self.parent = parent
       super.init()
-      parent.shapeRecognitionManager.configure(with: parent.canvasView)
+      // Shape recognition configuration removed
     }
     
     func pencilInteractionDidTap(_ interaction: UIPencilInteraction) {
@@ -978,22 +982,11 @@ struct PencilKitCanvasView: UIViewRepresentable {
     // MARK: - PKCanvasViewDelegate
 
     func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
-      // Only apply shape recognition for pen and marker tools
-      guard let currentTool = parent.currentTool,
-            currentTool == .pen || currentTool == .marker else {
-        return
-      }
-
-      let drawing = canvasView.drawing
-
-      // Get the last stroke if available
-      if let lastStroke = drawing.strokes.last {
-        parent.shapeRecognitionManager.processStrokeForRecognition(lastStroke, in: drawing)
-      }
+      // Shape recognition processing removed
     }
 
     deinit {
-      parent.shapeRecognitionManager.cleanup()
+      // Shape recognition cleanup removed
     }
   }
 }
@@ -1202,6 +1195,9 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     DispatchQueue.main.async {
       if contentOffset != .zero {
         scrollView.contentOffset = contentOffset
+      } else {
+        // Force centering when content offset is zero by calling zoom delegate
+        context.coordinator.scrollViewDidZoom(scrollView)
       }
     }
 

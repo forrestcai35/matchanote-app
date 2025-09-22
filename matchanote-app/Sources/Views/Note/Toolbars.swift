@@ -237,8 +237,7 @@ struct WrittenNoteToolbar: View {
   // Page overview state
   @State private var showPageOverview: Bool = false
 
-  // Shape recognition manager (passed from parent)
-  @ObservedObject var shapeRecognitionManager: ShapeRecognitionManager
+  // Shape recognition removed
 
   var body: some View {
     HStack {
@@ -385,17 +384,7 @@ struct WrittenNoteToolbar: View {
           .frame(height: 24)
           .padding(.horizontal, 8)
 
-        // Shape recognition toggle (only show for pen and marker)
-        if let activeTool = currentTool, activeTool == .pen || activeTool == .marker {
-          Button(action: {
-            shapeRecognitionManager.isEnabled.toggle()
-          }) {
-            Image(systemName: shapeRecognitionManager.isEnabled ? "wand.and.stars" : "wand.and.stars.inverse")
-              .font(.system(size: 16))
-              .foregroundColor(shapeRecognitionManager.isEnabled ? .matchalight_dark : .gray)
-          }
-          .opacity(shapeRecognitionManager.isEnabled ? 1.0 : 0.6)
-        }
+        // Shape recognition toggle removed
 
         // Options panel for the current tool
         if let activeTool = currentTool {

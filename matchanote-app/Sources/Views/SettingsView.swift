@@ -11,14 +11,12 @@ struct SettingsPopover: View {
 
       Divider()
 
-      // Subscription status section
-      CompactSubscriptionStatusView()
-        .padding(.vertical, 4)
-
-      Divider()
+      // Subscription status removed
 
       Button(action: {
-        // Account settings action
+        if let url = URL(string: "https://matchanote.app/app/settings") {
+          UIApplication.shared.open(url)
+        }
       }) {
         Label("Account", systemImage: "person.circle")
       }

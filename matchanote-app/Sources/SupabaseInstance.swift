@@ -11,9 +11,21 @@ let supabase = {
     fatalError("Missing Supabase credentials")
   }
 
+  // Configure JSON decoder for proper date and key handling
+  let decoder = JSONDecoder()
+  decoder.keyDecodingStrategy = .convertFromSnakeCase
+  decoder.dateDecodingStrategy = .iso8601
+
+  let encoder = JSONEncoder()
+  encoder.keyEncodingStrategy = .convertToSnakeCase
+  encoder.dateEncodingStrategy = .iso8601
+
   return SupabaseClient(
     supabaseURL: URL(string: supabaseUrl)!,
-    supabaseKey: supabaseKey
+    supabaseKey: supabaseKey,
+    options: .init(
+      db: .init(encoder: encoder, decoder: decoder)
+    )
   )
 }()
 
