@@ -10,6 +10,7 @@ struct StorageNote: Codable {
   var colorString: String
   var dateCreated: Date
   var dateModified: Date
+  var lastOpenedAt: Date?
   var isFavorite: Bool
   var content: String
   var noteType: String
@@ -21,7 +22,7 @@ struct StorageNote: Codable {
   var bookmarkedPages: Set<Int>
 
   private enum CodingKeys: String, CodingKey {
-    case id, title, subject, colorString, dateCreated, dateModified
+    case id, title, subject, colorString, dateCreated, dateModified, lastOpenedAt
     case isFavorite, content, noteType, paperColor, paperStyle, paperSize
     case drawingDataByPage, imageDataByPage, bookmarkedPages
   }
@@ -35,6 +36,7 @@ struct StorageNote: Codable {
     colorString = try container.decode(String.self, forKey: .colorString)
     dateCreated = try container.decode(Date.self, forKey: .dateCreated)
     dateModified = try container.decode(Date.self, forKey: .dateModified)
+    lastOpenedAt = try container.decodeIfPresent(Date.self, forKey: .lastOpenedAt)
     isFavorite = try container.decode(Bool.self, forKey: .isFavorite)
     content = try container.decode(String.self, forKey: .content)
     noteType = try container.decode(String.self, forKey: .noteType)
@@ -57,6 +59,7 @@ struct StorageNote: Codable {
     self.colorString = colorToString(note.color)
     self.dateCreated = note.dateCreated
     self.dateModified = note.dateModified
+    self.lastOpenedAt = note.lastOpenedAt
     self.isFavorite = note.isFavorite
     self.content = note.content
     self.noteType = note.noteType.rawValue
@@ -75,6 +78,7 @@ struct StorageNote: Codable {
       color: stringToColor(colorString),
       dateCreated: dateCreated,
       dateModified: dateModified,
+      lastOpenedAt: lastOpenedAt,
       isFavorite: isFavorite,
       content: content,
       noteType: NoteType(rawValue: noteType) ?? .written,

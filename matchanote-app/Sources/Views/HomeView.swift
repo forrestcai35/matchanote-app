@@ -37,6 +37,7 @@ struct HomeView: View {
     }
     let sidebarItems = [
         SidebarItem(id: "documents", title: "Documents", icon: "folder"),
+        SidebarItem(id: "recents", title: "Recents", icon: "clock.arrow.circlepath"),
         SidebarItem(id: "favorites", title: "Favorites", icon: "star"),
 
     ]
@@ -95,7 +96,7 @@ struct HomeView: View {
                         .frame(height: 24)
 
                     Text("Matcha")
-                        .font(.title)
+                        .font(.system(.title, design: .serif))
                         .fontWeight(.bold)
                         .foregroundColor(
                             colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
@@ -103,9 +104,14 @@ struct HomeView: View {
                 searchBar
                 sidebarList
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(
-                            colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light
-                )
+                (colorScheme == .dark
+                    ? Color.matchabackground_dark
+                    : Color.matchabackground_light)
+                    .brightness(colorScheme == .dark ? -0.05 : 0.05)
+                    .ignoresSafeArea()
+            )
     
         } detail: {
             contentView
@@ -180,7 +186,31 @@ struct HomeView: View {
         if selectedItem == "documents" {
             documentsView
                 .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
+                    ToolbarItemGroup(placement: .navigationBarTrailing) {
+                        headerNewButton
+                        Button(action: {
+                            showSettings.toggle()
+                        }) {
+                            Image(systemName: "gear")
+                                .fontWeight(.medium)
+                                .foregroundStyle(
+                                    colorScheme == .dark
+                                        ? Color.matchabrown_dark : Color.matchabrown_light)
+                        }
+                        .popover(isPresented: $showSettings, arrowEdge: .top) {
+                            SettingsPopover()
+                        }
+                    }
+                }
+                .background(
+                    colorScheme == .dark
+                        ? Color.matchabackground_dark : Color.matchabackground_light)
+
+        } else if selectedItem == "recents" {
+            recentsView
+                .toolbar {
+                    ToolbarItemGroup(placement: .navigationBarTrailing) {
+                        headerNewButton
                         Button(action: {
                             showSettings.toggle()
                         }) {
@@ -202,7 +232,8 @@ struct HomeView: View {
         } else if selectedItem == "favorites" {
             favoritesView
                 .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
+                    ToolbarItemGroup(placement: .navigationBarTrailing) {
+                        headerNewButton
                         Button(action: {
                             showSettings.toggle()
                         }) {
@@ -328,7 +359,7 @@ struct HomeView: View {
     private var documentHeader: some View {
         HStack {
             Text(currentFolderID == nil ? "Documents" : folderPath.last?.name ?? "Documents")
-                .font(.largeTitle)
+                .font(.system(.largeTitle, design: .serif))
                 .bold()
                 .foregroundStyle(
                     colorScheme == .dark
@@ -393,8 +424,6 @@ struct HomeView: View {
             columns: [GridItem(.adaptive(minimum: 160), spacing: 12)],
             spacing: 12
         ) {
-            createItemButton(inGrid: true)
-
             // Break grid content into separate views
             foldersGridContent
             notesGridContent
@@ -552,8 +581,12 @@ struct HomeView: View {
     // Helper function to create a note grid item
     private func noteGridItem(for note: Note) -> some View {
         Button(action: {
-            TabManager.shared.openTab(note: note)
-            selectedNote = note
+            var opened = note
+            opened.lastOpenedAt = Date()
+            let saved = storageManager.saveNote(opened)
+            TabManager.shared.updateNote(saved)
+            TabManager.shared.openTab(note: saved)
+            selectedNote = saved
         }) {
             GridItemView(note: note)
         }
@@ -570,7 +603,6 @@ struct HomeView: View {
 
     private var listView: some View {
         VStack(spacing: 12) {
-            createItemButton(inGrid: false)
             listContent
         }
         .padding(.vertical)
@@ -631,8 +663,12 @@ struct HomeView: View {
     // Helper function to create a note list item
     private func noteListItem(for note: Note) -> some View {
         Button(action: {
-            TabManager.shared.openTab(note: note)
-            selectedNote = note
+            var opened = note
+            opened.lastOpenedAt = Date()
+            let saved = storageManager.saveNote(opened)
+            TabManager.shared.updateNote(saved)
+            TabManager.shared.openTab(note: saved)
+            selectedNote = saved
         }) {
             ListItemView(note: note)
         }
@@ -968,15 +1004,101 @@ struct HomeView: View {
     }
 
     private func createNoteFromImportedFile(_ url: URL) {
+        let fileExtension = url.pathExtension.lowercased()
+        let fileName = url.deletingPathExtension().lastPathComponent
+        
+        // Check if it's a PDF or image file
+        if fileExtension == "pdf" {
+            createNoteFromPDF(url: url, fileName: fileName)
+        } else if ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "heic"].contains(fileExtension) {
+            createNoteFromImage(url: url, fileName: fileName)
+        } else {
+            // Fallback to text note for other file types
+            createTextNoteFromFile(url: url, fileName: fileName)
+        }
+    }
+    
+    private func createNoteFromPDF(url: URL, fileName: String) {
+        guard let pdf = CGPDFDocument(url as CFURL) else {
+            print("Error: Could not load PDF from \(url)")
+            return
+        }
+        
+        let pageCount = pdf.numberOfPages
+        var imageDataByPage: [String: [Data]] = [:]
+        
+        // Extract each page as an image
+        for pageIndex in 1...pageCount {
+            guard let page = pdf.page(at: pageIndex) else { continue }
+            
+            let pageRect = page.getBoxRect(.mediaBox)
+            let renderer = UIGraphicsImageRenderer(size: pageRect.size)
+
+            let image = renderer.image { context in
+                UIColor.white.set()
+                context.fill(pageRect)
+
+                context.cgContext.translateBy(x: 0, y: pageRect.size.height)
+                context.cgContext.scaleBy(x: 1.0, y: -1.0)
+                context.cgContext.drawPDFPage(page)
+            }
+            
+            if let imageData = image.jpegData(compressionQuality: 0.8) {
+                imageDataByPage[String(pageIndex - 1)] = [imageData]
+            }
+        }
+        
         let newNote = Note(
-            title: url.lastPathComponent,
+            title: fileName,
             color: .matchalight_light,
             dateCreated: Date(),
             dateModified: Date(),
-            content: "Imported from \(url.lastPathComponent)",
-            noteType: .text
+            noteType: .written,
+            paperColor: .white,
+            paperStyle: .blank,
+            imageDataByPage: imageDataByPage
+        )
+        
+        saveAndOpenNote(newNote)
+    }
+    
+    private func createNoteFromImage(url: URL, fileName: String) {
+        guard let imageData = try? Data(contentsOf: url) else {
+            print("Error: Could not load image data from \(url)")
+            return
+        }
+
+        // Create a note with the image as background on the first page
+        let imageDataByPage: [String: [Data]] = ["0": [imageData]]
+
+        let newNote = Note(
+            title: fileName,
+            color: .matchalight_light,
+            dateCreated: Date(),
+            dateModified: Date(),
+            noteType: .written,
+            paperColor: .white,
+            paperStyle: .blank,
+            imageDataByPage: imageDataByPage
         )
 
+        saveAndOpenNote(newNote)
+    }
+    
+    private func createTextNoteFromFile(url: URL, fileName: String) {
+        let newNote = Note(
+            title: fileName,
+            color: .matchalight_light,
+            dateCreated: Date(),
+            dateModified: Date(),
+            content: "Imported from \(fileName)",
+            noteType: .text
+        )
+        
+        saveAndOpenNote(newNote)
+    }
+    
+    private func saveAndOpenNote(_ newNote: Note) {
         // Add to current folder if we're in one
         if let currentFolderID = currentFolderID,
             let folderIndex = storageManager.folders.firstIndex(where: { $0.id == currentFolderID })
@@ -1062,7 +1184,7 @@ struct HomeView: View {
     private var favoritesHeader: some View {
         HStack {
             Text("Favorites")
-                .font(.largeTitle)
+                .font(.system(.largeTitle, design: .serif))
                 .bold()
                 .foregroundStyle(
                     colorScheme == .dark
@@ -1083,6 +1205,84 @@ struct HomeView: View {
                 favoritesListView
             }
         }
+    }
+
+    // MARK: - Recents view
+    private var recentsView: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            recentsHeader
+            recentsContent
+        }
+        .fullScreenCover(item: $selectedNote) { note in
+            NoteView(note: note)
+        }
+    }
+
+    private var recentsHeader: some View {
+        HStack {
+            Text("Recents")
+                .font(.system(.largeTitle, design: .serif))
+                .bold()
+                .foregroundStyle(
+                    colorScheme == .dark
+                        ? Color.matchabrown_dark : Color.matchabrown_light)
+            Spacer()
+            sortMenu
+            viewToggleButton
+        }
+        .padding(.horizontal)
+        .padding(.bottom, 10)
+    }
+
+    private var recentsContent: some View {
+        ScrollView {
+            if isGridView {
+                recentsGridView
+            } else {
+                recentsListView
+            }
+        }
+    }
+
+    private var recentNotes: [Note] {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date().addingTimeInterval(-86400)
+        let recents = storageManager.notes.filter { note in
+            if let lastOpened = note.lastOpenedAt {
+                return lastOpened >= cutoff
+            }
+            return false
+        }
+        if sortOption == "Name" {
+            return recents.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        } else if sortOption == "Type" {
+            return recents.sorted { $0.noteType.rawValue < $1.noteType.rawValue }
+        } else {
+            return recents.sorted { ($0.lastOpenedAt ?? Date.distantPast) > ($1.lastOpenedAt ?? Date.distantPast) }
+        }
+    }
+
+    private var recentsGridView: some View {
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: 160), spacing: 12)],
+            spacing: 12
+        ) {
+            ForEach(recentNotes) { note in
+                noteGridItem(for: note)
+            }
+        }
+        .padding(.horizontal)
+        .padding(.top, 8)
+        .id(refreshID)
+    }
+
+    private var recentsListView: some View {
+        LazyVStack(spacing: 8) {
+            ForEach(recentNotes) { note in
+                noteListItem(for: note)
+            }
+        }
+        .padding(.vertical)
+        .id(refreshID)
     }
 
     private var favoritesGridView: some View {
@@ -1111,5 +1311,111 @@ struct HomeView: View {
         }
         .padding(.vertical)
         .id(refreshID)
+    }
+}
+
+// MARK: - Header "+ New" Button
+extension HomeView {
+    private var headerNewButton: some View {
+        Menu {
+            // Note creation options
+            Button {
+                showNewWrittenNoteView = true
+            } label: {
+                Label("Note", systemImage: "pencil")
+            }
+
+            // Folder creation option
+            Button {
+                showNewFolderView = true
+            } label: {
+                Label("Folder", systemImage: "folder")
+            }
+
+            // Button {
+            //     let newNote = Note(
+            //         title: "New Text Note",
+            //         color: .white,
+            //         dateCreated: Date(),
+            //         dateModified: Date(),
+            //         noteType: .text
+            //     )
+            //     // Add to current folder if we're in one
+            //     if let currentFolderID = currentFolderID,
+            //         let folderIndex = storageManager.folders.firstIndex(where: {
+            //             $0.id == currentFolderID
+            //         })
+            //     {
+            //         var updatedFolder = storageManager.folders[folderIndex]
+            //         updatedFolder.addNote(noteID: newNote.id)
+            //         storageManager.saveFolder(updatedFolder)
+            //     }
+            //     let savedNote = storageManager.saveNote(newNote)
+            //     TabManager.shared.openTab(note: savedNote)
+            // } label: {
+            //     Label("Text", systemImage: "text.alignleft")
+            // }
+
+            // Upload
+            Button {
+                showingFileImporter = true
+            } label: {
+                Label("Upload", systemImage: "arrow.up.doc")
+            }
+
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "plus")
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+                Text("New")
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+            }
+            .padding(.vertical, 6)
+            .padding(.horizontal, 16)
+            .background(
+                (colorScheme == .dark ? Color.matchadark_dark : Color.matchalight_light)
+            )
+            .foregroundColor(colorScheme == .dark ? Color.black : Color.matchabrown_light)
+            .clipShape(Capsule())
+        }
+        .buttonStyle(PlainButtonStyle())
+        .sheet(isPresented: $showNewWrittenNoteView) {
+            NewWrittenNoteView(onSave: { newNote in
+                // Add to current folder if we're in one
+                if let currentFolderID = currentFolderID,
+                    let folderIndex = storageManager.folders.firstIndex(where: {
+                        $0.id == currentFolderID
+                    })
+                {
+                    var updatedFolder = storageManager.folders[folderIndex]
+                    updatedFolder.addNote(noteID: newNote.id)
+                    storageManager.saveFolder(updatedFolder)
+                }
+                let savedNote = storageManager.saveNote(newNote)
+                TabManager.shared.openTab(note: savedNote)
+            })
+        }
+        .sheet(isPresented: $showNewFolderView) {
+            NewFolderView(
+                parentFolderID: currentFolderID,
+                onSave: { newFolder in
+                    storageManager.saveFolder(newFolder)
+                }
+            )
+        }
+        .fileImporter(
+            isPresented: $showingFileImporter,
+            allowedContentTypes: [.item],
+            allowsMultipleSelection: true
+        ) { result in
+            do {
+                let urls = try result.get()
+                handleImportedFiles(urls)
+            } catch {
+                print("Error importing file: \(error)")
+            }
+        }
     }
 }

@@ -1,4 +1,5 @@
 import SwiftUI
+
 // Tab model to represent an open note tab
 struct NoteTab: Identifiable {
   var id = UUID()
@@ -14,14 +15,20 @@ class TabManager: ObservableObject {
   private init() {}
 
   @Published var tabs: [NoteTab] = []
+  
+  // Callback to trigger when all tabs are closed
+  var onAllTabsClosed: (() -> Void)?
+  
+  // Debounce timer for saving operations
+  private var saveTimer: Timer?
 
   func openTab(note: Note) {
     // Check if tab with this note already exists
     if let existingIndex = tabs.firstIndex(where: { $0.note.id == note.id }) {
+      // Update the note data in the existing tab to ensure it's current
+      tabs[existingIndex].note = note
       // Set this tab as active
-      for i in 0..<tabs.count {
-        tabs[i].isActive = (i == existingIndex)
-      }
+      setActiveTab(at: existingIndex)
     } else {
       // Make all existing tabs inactive
       for i in 0..<tabs.count {
@@ -31,6 +38,13 @@ class TabManager: ObservableObject {
       // Add new tab as active
       let newTab = NoteTab(note: note, isActive: true)
       tabs.append(newTab)
+    }
+  }
+  
+  // Helper method to set active tab
+  private func setActiveTab(at index: Int) {
+    for i in 0..<tabs.count {
+      tabs[i].isActive = (i == index)
     }
   }
 
@@ -52,6 +66,11 @@ class TabManager: ObservableObject {
           tabs[0].isActive = true
         }
       }
+      
+      // If no tabs remain, trigger the callback to dismiss
+      if tabs.isEmpty {
+        onAllTabsClosed?()
+      }
     }
   }
 
@@ -66,6 +85,24 @@ class TabManager: ObservableObject {
         tabs[i].note = updatedNote
       }
     }
+  }
+  
+  // Debounced update method to prevent rapid successive updates
+  func updateNoteDebounced(_ updatedNote: Note, delay: TimeInterval = 0.5) {
+    // Cancel previous timer
+    saveTimer?.invalidate()
+    
+    // Create new timer
+    saveTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+      DispatchQueue.main.async {
+        self?.updateNote(updatedNote)
+      }
+    }
+  }
+  
+  // Clean up timer when deinitializing
+  deinit {
+    saveTimer?.invalidate()
   }
   
   func closeTabsForDeletedNote(noteId: UUID) {

@@ -12,6 +12,10 @@ struct WrittenNoteView: View {
   @Binding var currentPage: Int
   @Binding var currentTool: PenTool?
   @ObservedObject var imageManager: CanvasImageManager
+  
+  // Callback to expose add page functionality
+  var onAddPageCallback: ((@escaping (PagePlacement) -> Void) -> Void)?
+  var onDeletePageCallback: ((@escaping (Int) -> Void) -> Void)?
   @State private var pageCount = 1
   @State private var toolPicker = PKToolPicker()
   @Environment(\.colorScheme) private var colorScheme
@@ -26,6 +30,9 @@ struct WrittenNoteView: View {
   
   // Stable page identifiers to prevent view recreation
   @State private var pageIdentifiers: [UUID] = [UUID()]
+  
+  // Debounce timer for saving operations
+  @State private var saveTimer: Timer?
 
   var body: some View {
     VStack(spacing: 0) {
@@ -51,7 +58,6 @@ struct WrittenNoteView: View {
     }
     .background(
       (colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
-        .ignoresSafeArea(.all, edges: .bottom)
     )
     .onAppear {
       // Only load if this is a different note
@@ -64,7 +70,10 @@ struct WrittenNoteView: View {
     .onChange(of: note.id) { _, newNoteId in
       // Note changed, load new drawing data
       if currentNoteId != newNoteId {
-        saveCurrentDrawingData() // Save current note before switching
+        // Save current note data before switching
+        if let currentId = currentNoteId {
+          saveDrawingDataForNote(noteId: currentId)
+        }
         currentNoteId = newNoteId
         loadDrawingData()
       }
@@ -80,7 +89,18 @@ struct WrittenNoteView: View {
     }
     .onChange(of: isEdited) { _, newValue in
       if newValue {
-        saveCurrentDrawingData()
+        saveCurrentDrawingDataDebounced()
+      }
+    }
+    .onAppear {
+      // Expose the add page functionality to the parent
+      onAddPageCallback? { placement in
+        addPageAtPosition(placement)
+      }
+
+      // Expose the delete page functionality to the parent
+      onDeletePageCallback? { pageIndex in
+        deletePage(at: pageIndex)
       }
     }
     .onDisappear {
@@ -91,16 +111,18 @@ struct WrittenNoteView: View {
   
   // Load drawing data when view appears
   private func loadDrawingData() {
-    // Clear existing canvas views to start fresh
-    canvasViews.removeAll()
-    
-    // Determine the number of pages based on stored drawings
-    let maxPage = note.drawingDataByPage.keys.compactMap { Int($0) }.max() ?? 0
+    // Clean up existing canvas views properly
+    cleanupCanvasViews()
+
+    // Determine the number of pages based on stored drawings and images
+    let maxDrawingPage = note.drawingDataByPage.keys.compactMap { Int($0) }.max() ?? 0
+    let maxImagePage = note.imageDataByPage.keys.compactMap { Int($0) }.max() ?? 0
+    let maxPage = max(maxDrawingPage, maxImagePage)
     let requiredPageCount = max(1, maxPage + 1)
-    
+
     // Initialize page identifiers for required pages
     pageIdentifiers = Array(0..<requiredPageCount).map { _ in UUID() }
-    
+
     // Create canvas views for all required pages
     for pageIndex in 0..<requiredPageCount {
       let canvas = PKCanvasView()
@@ -108,31 +130,69 @@ struct WrittenNoteView: View {
       canvas.tool = PKInkingTool(.pen, color: .black, width: 1.0)
       canvas.isScrollEnabled = false
       canvas.backgroundColor = .clear
-      
+
+      // Clear undo manager for fresh start on each note
+      canvas.undoManager?.removeAllActions()
+
       // Load drawing data if it exists for this page
       if let drawingData = note.drawingDataByPage[String(pageIndex)] {
         do {
           let drawing = try PKDrawing(data: drawingData)
           canvas.drawing = drawing
+
+          // Initialize undo history with the loaded drawing
+          // This ensures we have a starting point for undo operations
+          // Note: We need to access the parent's canvas manager for this
+          // For now, this will be handled by the parent view
         } catch {
           print("Error loading drawing for page \(pageIndex): \(error)")
         }
       }
-      
+
       canvasViews.append(canvas)
     }
-    
+
     // Update page count
     pageCount = requiredPageCount
-    
+
+    // Reset current page to 0 when loading new note
+    currentPage = 0
+
+
     // Load image data
     imageManager.loadImagesData(note.imageDataByPage)
   }
   
+  // Clean up canvas views properly
+  private func cleanupCanvasViews() {
+    // Remove tool picker observers from existing canvas views
+    for canvas in canvasViews {
+      toolPicker.removeObserver(canvas)
+      canvas.resignFirstResponder()
+      // Clear undo manager to prevent cross-note persistence and improve performance
+      canvas.undoManager?.removeAllActions()
+    }
+    
+    // Clear the canvas views array
+    canvasViews.removeAll()
+  }
+  
   // Save drawing data for the current note
   private func saveCurrentDrawingData() {
+    if let currentId = currentNoteId {
+      saveDrawingDataForNote(noteId: currentId)
+    }
+  }
+  
+  // Save drawing data for a specific note ID
+  private func saveDrawingDataForNote(noteId: UUID) {
+    // Find the note in storage to ensure we have the latest version
+    guard let noteToSave = storageManager.notes.first(where: { $0.id == noteId }) else {
+      print("Warning: Could not find note with ID \(noteId) to save")
+      return
+    }
     
-    var updatedNote = note
+    var updatedNote = noteToSave
     var hasChanges = false
     
     // Create new drawing data dictionary
@@ -153,12 +213,12 @@ struct WrittenNoteView: View {
     }
     
     // Quick check: if the number of pages with data changed
-    if newDrawingData.keys.count != note.drawingDataByPage.keys.count {
+    if newDrawingData.keys.count != noteToSave.drawingDataByPage.keys.count {
       hasChanges = true
     } else {
       // Check if any drawing data actually changed
       for (key, newData) in newDrawingData {
-        if let existingData = note.drawingDataByPage[key] {
+        if let existingData = noteToSave.drawingDataByPage[key] {
           // Compare data sizes first for quick comparison
           if newData.count != existingData.count || newData != existingData {
             hasChanges = true
@@ -173,7 +233,7 @@ struct WrittenNoteView: View {
     
     // Also save image data
     let newImageData = imageManager.getAllImagesData()
-    if newImageData != note.imageDataByPage {
+    if newImageData != noteToSave.imageDataByPage {
       hasChanges = true
     }
     
@@ -185,9 +245,24 @@ struct WrittenNoteView: View {
       let savedNote = storageManager.saveNote(updatedNote)
       tabManager.updateNote(savedNote)
       
-      // Reset edited flag
+      // Reset edited flag only if this is the current note
+      if noteId == note.id {
+        DispatchQueue.main.async {
+          isEdited = false
+        }
+      }
+    }
+  }
+  
+  // Debounced save method to prevent rapid successive saves
+  private func saveCurrentDrawingDataDebounced(delay: TimeInterval = 0.5) {
+    // Cancel previous timer
+    saveTimer?.invalidate()
+    
+    // Create new timer
+    saveTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { _ in
       DispatchQueue.main.async {
-        isEdited = false
+        self.saveCurrentDrawingData()
       }
     }
   }
@@ -260,6 +335,10 @@ struct WrittenNoteView: View {
       newCanvas.overrideUserInterfaceStyle = .light
       newCanvas.isScrollEnabled = false
       newCanvas.backgroundColor = .clear
+      
+      // Clear undo manager for fresh start
+      newCanvas.undoManager?.removeAllActions()
+      
       toolPicker.addObserver(newCanvas)
       canvasViews.append(newCanvas)
       
@@ -281,16 +360,17 @@ struct WrittenNoteView: View {
         resetOnDoubleTap: true,
         currentScale: $unifiedZoomScale,
         contentOffset: $unifiedContentOffset,
-        isPanEnabled: Binding<Bool>(
-          get: { !imageManager.hasSelectedImage },
-          set: { _ in }
-        )
+        isPanEnabled: .constant(true)
       ) {
 
         // Content is now fixed without scrolling
 
         ZStack {
           paperBackground()
+
+          // Background images for this page (behind the canvas)
+          backgroundImagesView(pageIndex: pageIndex)
+
           if pageIndex < canvasViews.count {
             PencilKitCanvasView(
               canvasView: canvasViews[pageIndex],
@@ -302,12 +382,11 @@ struct WrittenNoteView: View {
                 width: getPaperWidth(for: note.paperSize),
                 height: getPaperHeight(for: note.paperSize)
               )
-              .ignoresSafeArea(.all, edges: .bottom)
               .onChange(of: canvasViews[pageIndex].drawing) { _, _ in
                 isEdited = true
               }
             
-            // Image overlay for this page
+            // Image overlay for this page (on top of canvas for user-added images)
             CanvasImageOverlay(
               imageManager: imageManager,
               pageIndex: pageIndex,
@@ -320,7 +399,6 @@ struct WrittenNoteView: View {
               width: getPaperWidth(for: note.paperSize),
               height: getPaperHeight(for: note.paperSize)
             )
-            .ignoresSafeArea(.all, edges: .bottom)
           } else {
             Text("Error: Canvas not available for page \(pageIndex + 1)")
               .foregroundColor(.red)
@@ -330,9 +408,27 @@ struct WrittenNoteView: View {
               )
           }
         }
-        .ignoresSafeArea(.all, edges: .bottom)
       }
       .coordinateSpace(name: "scroll")
+    }
+  }
+
+  @ViewBuilder
+  private func backgroundImagesView(pageIndex: Int) -> some View {
+    // Display images from note.imageDataByPage as backgrounds
+    if let imageDataArray = note.imageDataByPage[String(pageIndex)],
+       let imageData = imageDataArray.first,
+       let uiImage = UIImage(data: imageData) {
+      Image(uiImage: uiImage)
+        .resizable()
+        .aspectRatio(contentMode: .fit)
+        .frame(
+          width: getPaperWidth(for: note.paperSize),
+          height: getPaperHeight(for: note.paperSize)
+        )
+        .clipped()
+    } else {
+      EmptyView()
     }
   }
 
@@ -486,6 +582,218 @@ struct WrittenNoteView: View {
   private func getPaperHeight(for size: PaperSize) -> CGFloat {
     return PaperUtilities.getPaperHeight(for: size)
   }
+  
+  // MARK: - Page Management Functions
+
+  func addPageAtPosition(_ position: PagePlacement) {
+    // Preserve current zoom scale and scroll position during page addition
+    let currentZoom = unifiedZoomScale
+    let currentOffset = unifiedContentOffset
+
+    var insertIndex: Int
+    switch position {
+    case .before:
+      insertIndex = currentPage
+    case .after:
+      insertIndex = currentPage + 1
+    case .end:
+      insertIndex = pageCount
+    }
+
+    // Save current drawing data before restructuring
+    saveCurrentDrawingData()
+
+    // Insert new page identifier at the correct position
+    pageIdentifiers.insert(UUID(), at: insertIndex)
+    pageCount += 1
+
+    // Restructure canvas array and drawing data to accommodate the new page
+    restructureCanvasesForPageInsertion(at: insertIndex)
+
+    // Navigate to the new page if it's before or after current
+    if position == .before || position == .after {
+      currentPage = insertIndex
+    }
+
+    // Update active canvas after page change
+    updateActiveCanvas()
+
+    // Restore zoom scale and scroll position to prevent view jumping
+    DispatchQueue.main.async {
+      unifiedZoomScale = currentZoom
+      unifiedContentOffset = currentOffset
+    }
+  }
+
+  // Restructure canvas array and data mappings when inserting a page
+  private func restructureCanvasesForPageInsertion(at insertIndex: Int) {
+    // Create a new canvas for the inserted page
+    let newCanvas = PKCanvasView()
+    newCanvas.overrideUserInterfaceStyle = .light
+    newCanvas.isScrollEnabled = false
+    newCanvas.backgroundColor = .clear
+    newCanvas.undoManager?.removeAllActions()
+    toolPicker.addObserver(newCanvas)
+
+    // Insert the new canvas at the correct position
+    canvasViews.insert(newCanvas, at: insertIndex)
+
+    // Update drawing data mappings - shift all data after insert index
+    if let currentId = currentNoteId {
+      updateDrawingDataMappingsAfterInsertion(at: insertIndex, for: currentId)
+    }
+  }
+
+  // Update drawing data key mappings when a page is inserted
+  private func updateDrawingDataMappingsAfterInsertion(at insertIndex: Int, for noteId: UUID) {
+    guard let noteToUpdate = storageManager.notes.first(where: { $0.id == noteId }) else {
+      return
+    }
+
+    var updatedNote = noteToUpdate
+    var newDrawingData: [String: Data] = [:]
+    var newImageData: [String: [Data]] = [:]
+    var newBookmarkedPages: Set<Int> = []
+
+    // Process all existing page data
+    let maxExistingPage = max(
+      updatedNote.drawingDataByPage.keys.compactMap { Int($0) }.max() ?? -1,
+      updatedNote.imageDataByPage.keys.compactMap { Int($0) }.max() ?? -1
+    )
+
+    // Shift data for pages at or after the insert index
+    for oldPageIndex in 0...max(maxExistingPage, pageCount - 2) {
+      let oldKey = String(oldPageIndex)
+      let newPageIndex = oldPageIndex >= insertIndex ? oldPageIndex + 1 : oldPageIndex
+      let newKey = String(newPageIndex)
+
+      // Migrate drawing data
+      if let drawingData = updatedNote.drawingDataByPage[oldKey] {
+        newDrawingData[newKey] = drawingData
+      }
+
+      // Migrate image data
+      if let imageDataArray = updatedNote.imageDataByPage[oldKey] {
+        newImageData[newKey] = imageDataArray
+      }
+
+      // Update bookmarked pages
+      if updatedNote.bookmarkedPages.contains(oldPageIndex) {
+        newBookmarkedPages.insert(newPageIndex)
+      }
+    }
+
+    // Insert empty data for the new page
+    let newPageKey = String(insertIndex)
+    if newDrawingData[newPageKey] == nil {
+      let emptyDrawing = PKDrawing()
+      newDrawingData[newPageKey] = emptyDrawing.dataRepresentation()
+    }
+
+    // Update note with new data structure
+    updatedNote.drawingDataByPage = newDrawingData
+    updatedNote.imageDataByPage = newImageData
+    updatedNote.bookmarkedPages = newBookmarkedPages
+    updatedNote.dateModified = Date()
+
+    // Save the updated note
+    let savedNote = storageManager.saveNote(updatedNote)
+    tabManager.updateNote(savedNote)
+
+    // Update image manager with new data structure
+    imageManager.loadImagesData(newImageData)
+  }
+  
+  // Delete a page and restructure data mappings
+  func deletePage(at pageIndex: Int) {
+    guard pageIndex >= 0 && pageIndex < pageCount && pageCount > 1 else {
+      return // Can't delete if only one page or invalid index
+    }
+
+    // Save current drawing data before restructuring
+    saveCurrentDrawingData()
+
+    // Remove the page identifier and canvas
+    pageIdentifiers.remove(at: pageIndex)
+    if pageIndex < canvasViews.count {
+      let removedCanvas = canvasViews.remove(at: pageIndex)
+      toolPicker.removeObserver(removedCanvas)
+    }
+    pageCount -= 1
+
+    // Update current page if necessary
+    if currentPage >= pageCount {
+      currentPage = pageCount - 1
+    } else if currentPage >= pageIndex {
+      // If we're on or after the deleted page, adjust the current page
+      currentPage = max(0, currentPage - (currentPage > pageIndex ? 1 : 0))
+    }
+
+    // Restructure data mappings
+    if let currentId = currentNoteId {
+      updateDrawingDataMappingsAfterDeletion(at: pageIndex, for: currentId)
+    }
+
+    // Update active canvas
+    updateActiveCanvas()
+  }
+
+  // Update drawing data key mappings when a page is deleted
+  private func updateDrawingDataMappingsAfterDeletion(at deletedIndex: Int, for noteId: UUID) {
+    guard let noteToUpdate = storageManager.notes.first(where: { $0.id == noteId }) else {
+      return
+    }
+
+    var updatedNote = noteToUpdate
+    var newDrawingData: [String: Data] = [:]
+    var newImageData: [String: [Data]] = [:]
+    var newBookmarkedPages: Set<Int> = []
+
+    // Process all existing page data, excluding the deleted page
+    let maxExistingPage = max(
+      updatedNote.drawingDataByPage.keys.compactMap { Int($0) }.max() ?? -1,
+      updatedNote.imageDataByPage.keys.compactMap { Int($0) }.max() ?? -1
+    )
+
+    for oldPageIndex in 0...maxExistingPage {
+      // Skip the deleted page
+      if oldPageIndex == deletedIndex {
+        continue
+      }
+
+      let oldKey = String(oldPageIndex)
+      let newPageIndex = oldPageIndex > deletedIndex ? oldPageIndex - 1 : oldPageIndex
+      let newKey = String(newPageIndex)
+
+      // Migrate drawing data
+      if let drawingData = updatedNote.drawingDataByPage[oldKey] {
+        newDrawingData[newKey] = drawingData
+      }
+
+      // Migrate image data
+      if let imageDataArray = updatedNote.imageDataByPage[oldKey] {
+        newImageData[newKey] = imageDataArray
+      }
+
+      // Update bookmarked pages
+      if updatedNote.bookmarkedPages.contains(oldPageIndex) {
+        newBookmarkedPages.insert(newPageIndex)
+      }
+    }
+
+    // Update note with new data structure
+    updatedNote.drawingDataByPage = newDrawingData
+    updatedNote.imageDataByPage = newImageData
+    updatedNote.bookmarkedPages = newBookmarkedPages
+    updatedNote.dateModified = Date()
+
+    // Save the updated note
+    let savedNote = storageManager.saveNote(updatedNote)
+    tabManager.updateNote(savedNote)
+
+    // Update image manager with new data structure
+    imageManager.loadImagesData(newImageData)
+  }
 
   // Update canvas tool when tool selection changes
   private func updateCanvasTool() {
@@ -581,8 +889,14 @@ struct TextNoteView: View {
   var note: Note
   @State private var textContent: String
   @Binding var isEdited: Bool
+  @State private var currentNoteId: UUID?
   private let infiniteScrollHeight: CGFloat = 10000
   @Environment(\.colorScheme) private var colorScheme
+  @EnvironmentObject private var storageManager: StorageManager
+  @ObservedObject private var tabManager = TabManager.shared
+  
+  // Debounce timer for saving operations
+  @State private var saveTimer: Timer?
   
   // Use computed property instead of @State for theme
   private var currentTheme: Theme {
@@ -618,9 +932,79 @@ struct TextNoteView: View {
       .shadow(color: Color.black.opacity(0.3), radius: 5, x: 0, y: 2)
       .background(
         (colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
-          .ignoresSafeArea(.all, edges: .bottom)
       )
       .frame(width: geometry.size.width, height: geometry.size.height)
+    }
+    .onAppear {
+      // Load content when view appears
+      if currentNoteId != note.id {
+        currentNoteId = note.id
+        textContent = note.content
+      }
+    }
+    .onChange(of: note.id) { _, newNoteId in
+      // Save current note before switching
+      if let currentId = currentNoteId, currentId != newNoteId {
+        saveTextContentForNote(noteId: currentId)
+      }
+      // Load new note content
+      currentNoteId = newNoteId
+      textContent = note.content
+      isEdited = false
+    }
+    .onChange(of: isEdited) { _, newValue in
+      if newValue {
+        saveCurrentTextContentDebounced()
+      }
+    }
+    .onDisappear {
+      // Save content when view disappears
+      saveCurrentTextContent()
+    }
+  }
+  
+  // Save text content for the current note
+  private func saveCurrentTextContent() {
+    if let currentId = currentNoteId {
+      saveTextContentForNote(noteId: currentId)
+    }
+  }
+  
+  // Save text content for a specific note ID
+  private func saveTextContentForNote(noteId: UUID) {
+    // Find the note in storage to ensure we have the latest version
+    guard let noteToSave = storageManager.notes.first(where: { $0.id == noteId }) else {
+      print("Warning: Could not find note with ID \(noteId) to save")
+      return
+    }
+    
+    // Only save if content has actually changed
+    if textContent != noteToSave.content {
+      var updatedNote = noteToSave
+      updatedNote.content = textContent
+      updatedNote.dateModified = Date()
+      let savedNote = storageManager.saveNote(updatedNote)
+      tabManager.updateNote(savedNote)
+      
+      // Reset edited flag only if this is the current note
+      if noteId == note.id {
+        DispatchQueue.main.async {
+          isEdited = false
+        }
+      }
+    }
+  }
+  
+  // Debounced save method to prevent rapid successive saves
+  private func saveCurrentTextContentDebounced(delay: TimeInterval = 0.5) {
+    // Cancel previous timer
+    saveTimer?.invalidate()
+    
+    // Create new timer
+    saveTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { _ in
+      DispatchQueue.main.async {
+        self.saveCurrentTextContent()
+      }
     }
   }
 
@@ -731,12 +1115,13 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
       uiView.setZoomScale(clampedScale, animated: false)
     }
 
-    // Update content offset if not currently interacting and there's a significant difference
-    if !context.coordinator.isUserInteracting {
+    // Only update content offset for significant changes and when not interacting
+    if !context.coordinator.isUserInteracting && contentOffset != .zero {
       let currentOffset = uiView.contentOffset
       let targetOffset = contentOffset
       let offsetDistance = sqrt(pow(currentOffset.x - targetOffset.x, 2) + pow(currentOffset.y - targetOffset.y, 2))
-      if offsetDistance > 5.0 {
+      // Use a larger threshold to reduce unwanted offset adjustments
+      if offsetDistance > 20.0 {
         uiView.contentOffset = targetOffset
       }
     }
@@ -789,26 +1174,33 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     }
 
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
-      // Provide minimal margins when content is larger to reduce persistent bottom margins
-      let marginSize: CGFloat = 20 // Reduced from 50 to minimize persistent margins
+      // Center content when it's smaller than the viewport, otherwise allow free scrolling
+      let contentWidth = scrollView.contentSize.width
+      let contentHeight = scrollView.contentSize.height
+      let boundsWidth = scrollView.bounds.width
+      let boundsHeight = scrollView.bounds.height
       
-      if scrollView.contentSize.width <= scrollView.bounds.width && scrollView.contentSize.height <= scrollView.bounds.height {
-        // Content is smaller than viewport - center it perfectly
-        let offsetX = max((scrollView.bounds.width - scrollView.contentSize.width) * 0.5, 0)
-        let offsetY = max((scrollView.bounds.height - scrollView.contentSize.height) * 0.5, 0)
-        scrollView.contentInset = UIEdgeInsets(top: offsetY, left: offsetX, bottom: offsetY, right: offsetX)
-      } else {
-        // Content is larger than viewport - provide minimal equal margins
-        // Only apply bottom margin if content actually extends beyond viewport
-        let bottomMargin = scrollView.contentSize.height > scrollView.bounds.height ? marginSize : 0
-        scrollView.contentInset = UIEdgeInsets(top: marginSize, left: marginSize, bottom: bottomMargin, right: marginSize)
+      var insets = UIEdgeInsets.zero
+      
+      // Only center if content is significantly smaller than viewport
+      if contentWidth < boundsWidth * 0.95 {
+        let horizontalInset = max((boundsWidth - contentWidth) * 0.5, 0)
+        insets.left = horizontalInset
+        insets.right = horizontalInset
       }
       
+      if contentHeight < boundsHeight * 0.95 {
+        let verticalInset = max((boundsHeight - contentHeight) * 0.5, 0)
+        insets.top = verticalInset
+        insets.bottom = verticalInset
+      }
+      
+      scrollView.contentInset = insets
+      
       // Only update binding during user interaction if the change is significant
-      // to avoid too frequent updates that can cause shakiness
       if isUserInteracting {
         let newScale = scrollView.zoomScale
-        if abs(parent.currentScale - newScale) > 0.05 {
+        if abs(parent.currentScale - newScale) > 0.02 {
           parent.currentScale = newScale
         }
       }
@@ -820,7 +1212,8 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
         let currentOffset = scrollView.contentOffset
         let parentOffset = parent.contentOffset
         let offsetDistance = sqrt(pow(currentOffset.x - parentOffset.x, 2) + pow(currentOffset.y - parentOffset.y, 2))
-        if offsetDistance > 10.0 {
+        // Increase threshold to reduce update frequency and improve performance
+        if offsetDistance > 25.0 {
           parent.contentOffset = currentOffset
         }
       }
@@ -830,14 +1223,23 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
       guard let scrollView = gestureRecognizer.view as? UIScrollView else { return }
 
       if scrollView.zoomScale > scrollView.minimumZoomScale {
+        // Zoom out to minimum scale
         scrollView.setZoomScale(scrollView.minimumZoomScale, animated: true)
       } else {
-        let point = gestureRecognizer.location(in: scrollView)
+        // Zoom in to a reasonable scale (halfway between min and max)
+        let targetScale = min(scrollView.maximumZoomScale, scrollView.minimumZoomScale * 2.0)
+        let point = gestureRecognizer.location(in: scrollView.subviews.first ?? scrollView)
+        
+        // Calculate zoom rect centered on tap point
+        let zoomSize = CGSize(
+          width: scrollView.bounds.width / targetScale,
+          height: scrollView.bounds.height / targetScale
+        )
         let zoomRect = CGRect(
-          x: point.x - 50,
-          y: point.y - 50,
-          width: 100,
-          height: 100
+          x: point.x - zoomSize.width / 2,
+          y: point.y - zoomSize.height / 2,
+          width: zoomSize.width,
+          height: zoomSize.height
         )
         scrollView.zoom(to: zoomRect, animated: true)
       }

@@ -855,27 +855,31 @@ struct WrittenNoteToolbar: View {
     return minDiam + fraction * (maxDiam - minDiam)
   }
   
-  // MARK: - Undo/Redo Methods
-  
+  // MARK: - Undo/Redo Methods (now using per-note system)
+
   private func performUndo() {
+    // Note: We need access to the CanvasManager to use the per-note undo system
+    // For now, fall back to PencilKit's undo system until we refactor the architecture
     guard currentPage < canvasViews.count else { return }
     let canvas = canvasViews[currentPage]
     canvas.undoManager?.undo()
     updateUndoRedoState()
   }
-  
+
   private func performRedo() {
+    // Note: We need access to the CanvasManager to use the per-note undo system
+    // For now, fall back to PencilKit's undo system until we refactor the architecture
     guard currentPage < canvasViews.count else { return }
     let canvas = canvasViews[currentPage]
     canvas.undoManager?.redo()
     updateUndoRedoState()
   }
-  
+
   private func updateUndoRedoState() {
-    guard currentPage < canvasViews.count else { 
+    guard currentPage < canvasViews.count else {
       canUndo = false
       canRedo = false
-      return 
+      return
     }
     let canvas = canvasViews[currentPage]
     canUndo = canvas.undoManager?.canUndo ?? false

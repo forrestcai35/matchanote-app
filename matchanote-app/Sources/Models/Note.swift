@@ -32,6 +32,7 @@ public struct Note: Identifiable {
   public var color: Color
   public var dateCreated: Date
   public var dateModified: Date
+  public var lastOpenedAt: Date? = nil
   public var isFavorite: Bool = false
   public var content: String = ""
   public var noteType: NoteType = .written
@@ -47,7 +48,7 @@ public struct Note: Identifiable {
 
   public init(
     title: String, subject: String = "", color: Color = .white, dateCreated: Date,
-    dateModified: Date, isFavorite: Bool = false,
+    dateModified: Date, lastOpenedAt: Date? = nil, isFavorite: Bool = false,
     content: String = "", noteType: NoteType,
     paperColor: PaperColor = .white,
     paperStyle: PaperStyle = .blank, paperSize: PaperSize = .a4,
@@ -60,6 +61,7 @@ public struct Note: Identifiable {
     self.color = color
     self.dateCreated = dateCreated
     self.dateModified = dateModified
+    self.lastOpenedAt = lastOpenedAt
     self.isFavorite = isFavorite
     self.content = content
     self.noteType = noteType

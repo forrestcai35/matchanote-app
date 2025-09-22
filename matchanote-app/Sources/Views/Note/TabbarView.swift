@@ -1,16 +1,23 @@
 import SwiftUI
 
+enum PagePlacement {
+  case before, after, end
+}
 
 // Tab Bar View
 struct TabBarView: View {
   @ObservedObject private var tabManager = TabManager.shared
-    @Environment(\.colorScheme) private var colorScheme
+  @Environment(\.colorScheme) private var colorScheme
+  
   var dismiss: DismissAction
   var clearPageAction: (() -> Void)?
+  var deletePageAction: (() -> Void)?
   var exportCurrentPageAction: (() -> Void)?
   var exportAllPagesAction: (() -> Void)?
   var printCurrentPageAction: (() -> Void)?
   var printAllPagesAction: (() -> Void)?
+  var onAddPage: ((PagePlacement) -> Void)?
+  var onUpload: ((PagePlacement) -> Void)?
 
   var body: some View {
     HStack(spacing: 8) {
@@ -36,10 +43,44 @@ struct TabBarView: View {
       
       // Static Action Buttons (outside ScrollView)
       HStack(spacing: 4) {
-        // Add button
-        Button(action: {
-          // Add functionality
-        }) {
+        // Universal Add/Upload Menu
+        Menu {
+          // Before Current options
+          Menu {
+            Button(action: { onAddPage?(.before) }) {
+              Label("Add Page", systemImage: "doc.badge.plus")
+            }
+            Button(action: { onUpload?(.before) }) {
+              Label("Upload", systemImage: "square.and.arrow.up")
+            }
+          } label: {
+            Label("Before Current", systemImage: "arrow.up")
+          }
+          
+          // After Current options
+          Menu {
+            Button(action: { onAddPage?(.after) }) {
+              Label("Add Page", systemImage: "doc.badge.plus")
+            }
+            Button(action: { onUpload?(.after) }) {
+              Label("Upload", systemImage: "square.and.arrow.up")
+            }
+          } label: {
+            Label("After Current", systemImage: "arrow.down")
+          }
+          
+          // At End options
+          Menu {
+            Button(action: { onAddPage?(.end) }) {
+              Label("Add Page", systemImage: "doc.badge.plus")
+            }
+            Button(action: { onUpload?(.end) }) {
+              Label("Upload", systemImage: "square.and.arrow.up")
+            }
+          } label: {
+            Label("At End", systemImage: "plus.rectangle.portrait")
+          }
+        } label: {
           Image(systemName: "plus.circle")
             .foregroundColor(.gray)
             .padding(4)
@@ -74,24 +115,22 @@ struct TabBarView: View {
             Label("Rotate Page", systemImage: "rotate.right")
           }
           
-          Button(action: {
-            // TODO: Implement change template functionality
-          }) {
-            Label("Change Template", systemImage: "doc.text")
-          }
+    
           
           Button(action: {
             clearPageAction?()
           }) {
             Label("Clear Page", systemImage: "trash")
+            .foregroundColor(.red)
+            
           }
           
           Divider()
           
           Button(action: {
-            // TODO: Implement move page to trash functionality
+            deletePageAction?()
           }) {
-            Label("Move Page to Trash", systemImage: "trash.fill")
+            Label("Delete Page", systemImage: "trash.fill")
           }
           .foregroundColor(.red)
         } label: {
@@ -183,25 +222,3 @@ struct TabItemView: View {
   }
 }
 
-// Empty state view when no tabs are open
-struct EmptyStateView: View {
-    @Environment(\.colorScheme) private var colorScheme
-    
-  var body: some View {
-    VStack(spacing: 20) {
-
-
-      Text("No Note Selected")
-        .font(.title2)
-        .foregroundColor(.gray)
-
-      Text("Create a new note or select an existing one to get started")
-        .font(.body)
-        .foregroundColor(.gray)
-        .multilineTextAlignment(.center)
-        .padding(.horizontal, 40)
-    }
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
-  }
-}
