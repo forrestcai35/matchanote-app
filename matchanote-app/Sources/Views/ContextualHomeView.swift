@@ -1,4 +1,5 @@
 import SwiftUI
+import PencilKit
 
 public struct ListItemView: View {
     @Environment(\.colorScheme) private var colorScheme
@@ -162,43 +163,154 @@ public struct GridItemView: View {
         return colorScheme == .dark ? Color.white.opacity(0.4) : Color.black.opacity(0.2)
     }
 
+    // Check if note has uploaded content to preview
+    private var hasUploadedContent: Bool {
+        return !note.imageDataByPage.isEmpty
+    }
+
+    // Preview view for uploaded content
+    @ViewBuilder
+    private var uploadedContentPreview: some View {
+        if let firstPageImages = note.imageDataByPage["0"],
+           let firstImageData = firstPageImages.first,
+           let uiImage = UIImage(data: firstImageData) {
+            // Show actual image preview without overlay icon
+            Image(uiImage: uiImage)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+        } else {
+            // Fallback for non-image content or empty content
+            RoundedRectangle(cornerRadius: note.noteType == .written ? 10 : 0)
+                .fill(note.color)
+                .overlay(
+                    VStack {
+                        Image(systemName: "doc.fill")
+                            .font(.system(size: 30))
+                            .foregroundColor(.white.opacity(0.8))
+                        Text("Imported")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                )
+        }
+    }
+
+    // Preview view for written notes (show drawing/content preview)
+    @ViewBuilder
+    private var writtenNotePreview: some View {
+        ZStack {
+            // Paper background
+            RoundedRectangle(cornerRadius: 10)
+                .fill(PaperUtilities.getPaperBackgroundColor(for: note.paperColor))
+
+            // Show drawing preview if available
+            if let drawingData = note.drawingDataByPage["0"],
+               let pkDrawing = try? PKDrawing(data: drawingData) {
+                // Create a preview image from the drawing
+                let previewBounds = CGRect(x: 0, y: 0, width: 160, height: 200)
+                let previewImage = pkDrawing.image(from: previewBounds, scale: 1.0)
+
+                Image(uiImage: previewImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                // Empty note - show paper with subtle pencil icon
+                VStack {
+                    Spacer()
+                    Image(systemName: "pencil.tip")
+                        .font(.system(size: 30))
+                        .foregroundColor(Color.gray.opacity(0.3))
+                    Text("Empty")
+                        .font(.caption)
+                        .foregroundColor(Color.gray.opacity(0.6))
+                    Spacer()
+                }
+            }
+        }
+    }
+
+    // Preview view for text notes
+    @ViewBuilder
+    private var textNotePreview: some View {
+        ZStack {
+            // Background
+            RoundedRectangle(cornerRadius: 0)
+                .fill(note.color)
+
+            // Show text preview if available
+            if !note.content.isEmpty {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(0..<min(8, note.content.components(separatedBy: .newlines).count), id: \.self) { lineIndex in
+                        let lines = note.content.components(separatedBy: .newlines)
+                        if lineIndex < lines.count {
+                            HStack {
+                                Text(lines[lineIndex])
+                                    .font(.system(size: 8))
+                                    .lineLimit(1)
+                                    .foregroundColor(
+                                        colorScheme == .dark ? Color.white.opacity(0.8) : Color.black.opacity(0.8)
+                                    )
+                                Spacer()
+                            }
+                        }
+                    }
+                    Spacer()
+                }
+                .padding(8)
+            } else {
+                // Empty text note
+                VStack {
+                    Spacer()
+                    Image(systemName: "text.alignleft")
+                        .font(.system(size: 30))
+                        .foregroundColor(
+                            colorScheme == .dark ? Color.white.opacity(0.3) : Color.black.opacity(0.3)
+                        )
+                    Text("Empty")
+                        .font(.caption)
+                        .foregroundColor(
+                            colorScheme == .dark ? Color.white.opacity(0.6) : Color.black.opacity(0.6)
+                        )
+                    Spacer()
+                }
+            }
+        }
+    }
+
     public var body: some View {
         VStack(spacing: 2) {
             // Note card
             ZStack {
-                if note.noteType == .written {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(note.color)
+                // Background
+                RoundedRectangle(cornerRadius: note.noteType == .written ? 10 : 0)
+                    .fill(note.color)
+                    .frame(width: 160, height: 200)
+                    .shadow(
+                        color: itemShadow(in: colorScheme),
+                        radius: note.noteType == .written ? 5 : 6,
+                        x: 0,
+                        y: 2
+                    )
+
+                // Content preview
+                if hasUploadedContent {
+                    // Show uploaded content preview
+                    uploadedContentPreview
                         .frame(width: 160, height: 200)
-                        .shadow(
-                            color: itemShadow(in: colorScheme),
-                            radius: 5,
-                            x: 0,
-                            y: 2
-                        )
-
-                    Image(systemName: "pencil.tip")
-                        .font(.system(size: 40))
-                        .foregroundColor(Color.white.opacity(0.3))
-                        .offset(x: 0, y: -30)
-
-                } else if note.noteType == .text {
-
-                    RoundedRectangle(cornerRadius: 0)
-                        .fill(note.color)
-                        .frame(width: 160, height: 200)
-                        .shadow(
-                            color: itemShadow(in: colorScheme),
-                            radius: 6,
-                            x: 0,
-                            y: 2
-                        )
-                    Image(systemName: "text.alignleft")
-                        .font(.system(size: 40))
-                        .foregroundColor(
-                            colorScheme == .dark ? Color.white.opacity(0.8) : Color.black.opacity(0.8)
-                        )
-                        .offset(x: 0, y: -30)
+                        .clipped()
+                        .clipShape(RoundedRectangle(cornerRadius: note.noteType == .written ? 10 : 0))
+                } else {
+                    // Show content previews for notes without uploaded content
+                    if note.noteType == .written {
+                        writtenNotePreview
+                            .frame(width: 160, height: 200)
+                            .clipped()
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    } else if note.noteType == .text {
+                        textNotePreview
+                            .frame(width: 160, height: 200)
+                            .clipped()
+                    }
                 }
 
                 Image(systemName: note.isFavorite ? "star.fill" : "star")

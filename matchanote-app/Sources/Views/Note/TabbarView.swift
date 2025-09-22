@@ -1,7 +1,15 @@
 import SwiftUI
 
-enum PagePlacement {
+enum PagePlacement: String, CaseIterable, Hashable {
   case before, after, end
+
+  var title: String {
+    switch self {
+    case .before: return "Before"
+    case .after: return "After"
+    case .end: return "Last Page"
+    }
+  }
 }
 
 // Tab Bar View
@@ -18,6 +26,9 @@ struct TabBarView: View {
   var printAllPagesAction: (() -> Void)?
   var onAddPage: ((PagePlacement) -> Void)?
   var onUpload: ((PagePlacement) -> Void)?
+
+  // Placement selection for add/upload actions
+  @State private var selectedPlacement: PagePlacement = .after
 
   var body: some View {
     HStack(spacing: 8) {
@@ -42,43 +53,26 @@ struct TabBarView: View {
       }
       
       // Static Action Buttons (outside ScrollView)
-      HStack(spacing: 4) {
-        // Universal Add/Upload Menu
+      HStack(spacing: 8) {
+        // Add / Upload dropdown with inline placement selector
         Menu {
-          // Before Current options
-          Menu {
-            Button(action: { onAddPage?(.before) }) {
-              Label("Add Page", systemImage: "doc.badge.plus")
+          // Inline placement selector with same segmented style as before
+          Picker("", selection: $selectedPlacement) {
+            ForEach(PagePlacement.allCases, id: \.self) { placement in
+              Text(placement.title).tag(placement)
             }
-            Button(action: { onUpload?(.before) }) {
-              Label("Upload", systemImage: "square.and.arrow.up")
-            }
-          } label: {
-            Label("Before Current", systemImage: "arrow.up")
           }
-          
-          // After Current options
-          Menu {
-            Button(action: { onAddPage?(.after) }) {
-              Label("Add Page", systemImage: "doc.badge.plus")
-            }
-            Button(action: { onUpload?(.after) }) {
-              Label("Upload", systemImage: "square.and.arrow.up")
-            }
-          } label: {
-            Label("After Current", systemImage: "arrow.down")
+          .labelsHidden()
+          .pickerStyle(.segmented)
+          .frame(width: 300)
+          .padding(.horizontal, 6)
+          .padding(.vertical, 2)
+          Divider()
+          Button(action: { onAddPage?(selectedPlacement) }) {
+            Label("Add Page", systemImage: "doc.badge.plus")
           }
-          
-          // At End options
-          Menu {
-            Button(action: { onAddPage?(.end) }) {
-              Label("Add Page", systemImage: "doc.badge.plus")
-            }
-            Button(action: { onUpload?(.end) }) {
-              Label("Upload", systemImage: "square.and.arrow.up")
-            }
-          } label: {
-            Label("At End", systemImage: "plus.rectangle.portrait")
+          Button(action: { onUpload?(selectedPlacement) }) {
+            Label("Upload", systemImage: "square.and.arrow.up")
           }
         } label: {
           Image(systemName: "plus.circle")
@@ -114,25 +108,20 @@ struct TabBarView: View {
           }) {
             Label("Rotate Page", systemImage: "rotate.right")
           }
-          
-    
-          
-          Button(action: {
+
+          Button(role: .destructive, action: {
             clearPageAction?()
           }) {
             Label("Clear Page", systemImage: "trash")
-            .foregroundColor(.red)
-            
           }
-          
+
           Divider()
-          
-          Button(action: {
+
+          Button(role: .destructive, action: {
             deletePageAction?()
           }) {
             Label("Delete Page", systemImage: "trash.fill")
           }
-          .foregroundColor(.red)
         } label: {
           Image(systemName: "ellipsis")
             .foregroundColor(.gray)

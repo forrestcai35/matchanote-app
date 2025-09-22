@@ -160,7 +160,33 @@ struct WrittenNoteView: View {
 
 
     // Load image data
-    imageManager.loadImagesData(note.imageDataByPage)
+    // CRITICAL FIX: Separate background images from canvas images during loading
+    // Background images (raw Data) should NOT be loaded into canvas image manager
+    // Canvas images (encoded CanvasImage objects) should be loaded into image manager
+
+    var canvasImageData: [String: [Data]] = [:]
+
+    for (pageKey, imageDataArray) in note.imageDataByPage {
+      var canvasImages: [Data] = []
+
+      for imageData in imageDataArray {
+        // Try to decode as CanvasImage first
+        if let _ = try? JSONDecoder().decode(CanvasImage.self, from: imageData) {
+          // This is an encoded CanvasImage object
+          canvasImages.append(imageData)
+        }
+        // Raw image data (background images from uploads) are ignored here
+        // They will be displayed by backgroundImagesView() directly from note.imageDataByPage
+      }
+
+      // Only load canvas images into the image manager
+      if !canvasImages.isEmpty {
+        canvasImageData[pageKey] = canvasImages
+      }
+    }
+
+    // Load only canvas images into the image manager
+    imageManager.loadImagesData(canvasImageData)
   }
   
   // Clean up canvas views properly
@@ -231,16 +257,35 @@ struct WrittenNoteView: View {
       }
     }
     
-    // Also save image data
-    let newImageData = imageManager.getAllImagesData()
-    if newImageData != noteToSave.imageDataByPage {
+    // CRITICAL FIX: Properly handle both image types without overwriting
+    // 1. Background images (from home page uploads): stored as raw Data in note.imageDataByPage
+    // 2. Canvas overlay images (from in-note uploads): stored as encoded CanvasImage objects
+
+    let canvasImageData = imageManager.getAllImagesData() // Encoded CanvasImage objects
+    let backgroundImages = noteToSave.imageDataByPage    // Raw image Data from uploads
+
+    // Create a merged image data structure that preserves both types
+    var finalImageData = backgroundImages // Start with background images
+
+    // Add canvas images (encoded CanvasImage objects) to the data structure
+    // These will be stored alongside background images but with different data formats
+    for (pageKey, canvasImages) in canvasImageData {
+      if finalImageData[pageKey] == nil {
+        finalImageData[pageKey] = []
+      }
+      // Append encoded canvas images to existing background images for this page
+      finalImageData[pageKey]?.append(contentsOf: canvasImages)
+    }
+
+    // Check if the final image data has changed
+    if finalImageData != noteToSave.imageDataByPage {
       hasChanges = true
     }
-    
+
     // Only save if there are actual changes
     if hasChanges {
       updatedNote.drawingDataByPage = newDrawingData
-      updatedNote.imageDataByPage = newImageData
+      updatedNote.imageDataByPage = finalImageData // Use merged data containing both background and canvas images
       updatedNote.dateModified = Date()
       let savedNote = storageManager.saveNote(updatedNote)
       tabManager.updateNote(savedNote)
@@ -545,12 +590,16 @@ struct WrittenNoteView: View {
         // Preserve current zoom scale and scroll position during page addition
         let currentZoom = unifiedZoomScale
         let currentOffset = unifiedContentOffset
-        
-        // Add new page and identifier
+
+        // CRITICAL FIX: Create canvas FIRST, before updating page identifiers
+        // This prevents the race condition where TabView tries to access a non-existent canvas
+        let newPageIndex = pageCount
+        ensureCanvasExists(for: newPageIndex)
+
+        // NOW it's safe to update page identifiers and count - canvas is guaranteed to exist
         pageCount += 1
         pageIdentifiers.append(UUID())
-        ensureCanvasExists(for: pageCount - 1)
-        
+
         // Restore zoom scale and scroll position to prevent view jumping
         DispatchQueue.main.async {
           unifiedZoomScale = currentZoom
@@ -603,12 +652,26 @@ struct WrittenNoteView: View {
     // Save current drawing data before restructuring
     saveCurrentDrawingData()
 
-    // Insert new page identifier at the correct position
+    // CRITICAL FIX: Create and insert the new canvas FIRST, before updating page identifiers
+    // This prevents the race condition where TabView tries to access a non-existent canvas
+    let newCanvas = PKCanvasView()
+    newCanvas.overrideUserInterfaceStyle = .light
+    newCanvas.isScrollEnabled = false
+    newCanvas.backgroundColor = .clear
+    newCanvas.undoManager?.removeAllActions()
+    toolPicker.addObserver(newCanvas)
+
+    // Insert the new canvas at the correct position BEFORE updating page identifiers
+    canvasViews.insert(newCanvas, at: insertIndex)
+
+    // Update drawing data mappings - shift all data after insert index
+    if let currentId = currentNoteId {
+      updateDrawingDataMappingsAfterInsertion(at: insertIndex, for: currentId)
+    }
+
+    // NOW it's safe to update page identifiers and count - canvas is guaranteed to exist
     pageIdentifiers.insert(UUID(), at: insertIndex)
     pageCount += 1
-
-    // Restructure canvas array and drawing data to accommodate the new page
-    restructureCanvasesForPageInsertion(at: insertIndex)
 
     // Navigate to the new page if it's before or after current
     if position == .before || position == .after {
@@ -625,24 +688,6 @@ struct WrittenNoteView: View {
     }
   }
 
-  // Restructure canvas array and data mappings when inserting a page
-  private func restructureCanvasesForPageInsertion(at insertIndex: Int) {
-    // Create a new canvas for the inserted page
-    let newCanvas = PKCanvasView()
-    newCanvas.overrideUserInterfaceStyle = .light
-    newCanvas.isScrollEnabled = false
-    newCanvas.backgroundColor = .clear
-    newCanvas.undoManager?.removeAllActions()
-    toolPicker.addObserver(newCanvas)
-
-    // Insert the new canvas at the correct position
-    canvasViews.insert(newCanvas, at: insertIndex)
-
-    // Update drawing data mappings - shift all data after insert index
-    if let currentId = currentNoteId {
-      updateDrawingDataMappingsAfterInsertion(at: insertIndex, for: currentId)
-    }
-  }
 
   // Update drawing data key mappings when a page is inserted
   private func updateDrawingDataMappingsAfterInsertion(at insertIndex: Int, for noteId: UUID) {

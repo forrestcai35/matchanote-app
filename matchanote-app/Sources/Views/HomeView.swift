@@ -1109,6 +1109,7 @@ struct HomeView: View {
         }
 
         let savedNote = storageManager.saveNote(newNote)
+
         // Optionally open the imported note
         TabManager.shared.openTab(note: savedNote)
     }

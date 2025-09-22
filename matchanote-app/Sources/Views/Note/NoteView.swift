@@ -721,7 +721,7 @@ extension NoteView {
   private func handleUpload(placement: PagePlacement) {
     // First add a page at the specified placement
     addPageCallback?(placement)
-    
+
     // Small delay to ensure page is created before presenting picker
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
       self.presentFilePicker()
@@ -745,23 +745,28 @@ extension NoteView {
   }
   
   private func processImportedFile(url: URL) {
+    print("DEBUG: Processing imported file: \(url.lastPathComponent)")
 
     do {
       // Determine file type and handle accordingly
       let fileExtension = url.pathExtension.lowercased()
-      
+      print("DEBUG: File extension: \(fileExtension)")
+
       switch fileExtension {
       case "pdf":
+        print("DEBUG: Processing as PDF")
         try handlePDFImport(url: url)
       case "jpg", "jpeg", "png", "heic", "heif":
+        print("DEBUG: Processing as image")
         try handleImageImport(url: url)
       case "txt", "md":
+        print("DEBUG: Processing as text")
         try handleTextImport(url: url)
       default:
-        print("Unsupported file type: \(fileExtension)")
+        print("DEBUG: Unsupported file type: \(fileExtension)")
       }
     } catch {
-      print("Error processing imported file: \(error)")
+      print("DEBUG: Error processing imported file: \(error)")
     }
   }
   
@@ -890,20 +895,30 @@ extension NoteView {
   
   
   private func addImageToCurrentPage(imageData: Data) {
-    guard let activeTab = tabManager.getActiveTab() else { return }
-    var updatedNote = activeTab.note
-
-    // Add image data to current page
-    let pageKey = String(currentPage)
-    if updatedNote.imageDataByPage[pageKey] == nil {
-      updatedNote.imageDataByPage[pageKey] = []
+    guard let activeTab = tabManager.getActiveTab() else {
+      return
     }
-    updatedNote.imageDataByPage[pageKey]?.append(imageData)
-    updatedNote.dateModified = Date()
 
-    // Update storage and tab manager
-    let savedNote = storageManager.saveNote(updatedNote)
-    tabManager.updateNote(savedNote)
+    // CRITICAL FIX: In-note uploads should create canvas overlay images, not background images
+    // This is different from home page uploads which create background images
+
+    guard let uiImage = UIImage(data: imageData) else {
+      return
+    }
+
+    // Create a CanvasImage object for overlay display
+    let canvasImage = CanvasImage(
+      imageData: imageData,
+      position: CGPoint(x: 50, y: 50), // Default position, user can move it
+      size: uiImage.size,
+      pageIndex: currentPage // Set the page index
+    )
+
+    // Add to canvas image manager (for overlay display)
+    canvasManager.imageManager.addImage(canvasImage)
+
+    // The image will be persisted automatically when saveDrawingDataForNote is called
+    // No need to manually save here as canvas images are handled by the drawing save system
   }
   
   
@@ -915,12 +930,16 @@ class DocumentPickerCoordinator: NSObject, UIDocumentPickerDelegate {
   var onFilePicked: ((URL) -> Void)?
 
   func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-    guard let url = urls.first else { return }
+    guard let url = urls.first else {
+      print("DEBUG: No URLs picked from document picker")
+      return
+    }
+    print("DEBUG: Document picker selected file: \(url.lastPathComponent)")
     onFilePicked?(url)
   }
 
   func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
-    print("Document picker was cancelled")
+    print("DEBUG: Document picker was cancelled")
   }
 }
 
