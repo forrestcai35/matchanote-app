@@ -11,9 +11,6 @@ import UIKit
 import UniformTypeIdentifiers
 import PDFKit
 
-enum AssistantOrientation {
-  case right, left
-}
 
 
 // Per-note undo history storage
@@ -33,11 +30,18 @@ class CanvasManager: ObservableObject {
   private var currentNoteId: UUID?
 
   init() {
-    // Initialize with a single canvas
-    let initialCanvas = PKCanvasView()
-    initialCanvas.overrideUserInterfaceStyle = .light
-    initialCanvas.tool = PKInkingTool(.pen, color: .black, width: 1.0)
-    canvasViews = [initialCanvas]
+    // PERFORMANCE FIX: Defer canvas creation until actually needed
+    canvasViews = []
+  }
+  
+  // PERFORMANCE FIX: Lazy canvas creation
+  func ensureCanvasExists(for pageIndex: Int) {
+    while canvasViews.count <= pageIndex {
+      let canvas = PKCanvasView()
+      canvas.overrideUserInterfaceStyle = .light
+      canvas.tool = PKInkingTool(.pen, color: .black, width: 1.0)
+      canvasViews.append(canvas)
+    }
   }
 
   // Set current note and load its undo history
@@ -58,15 +62,13 @@ class CanvasManager: ObservableObject {
     loadUndoStateForNote(noteId)
   }
 
-  // Save undo state for a specific note
+  // PERFORMANCE FIX: Only save undo state for canvases that actually exist
   private func saveUndoStateForNote(_ noteId: UUID) {
     guard var history = undoHistories[noteId] else { return }
+    guard !canvasViews.isEmpty else { return }
 
     // Save current drawing states for each page
     for (pageIndex, canvas) in canvasViews.enumerated() {
-      // Convert undo manager state to drawing history
-      // Note: PKCanvasView's undo manager doesn't expose history directly,
-      // so we'll implement our own tracking
       let currentDrawing = canvas.drawing
 
       // Initialize page history if needed
@@ -97,10 +99,13 @@ class CanvasManager: ObservableObject {
   func performUndo(for pageIndex: Int) -> Bool {
     guard let noteId = currentNoteId,
           var history = undoHistories[noteId],
-          pageIndex < canvasViews.count,
           let undoStack = history.pageUndoStates[pageIndex],
           undoStack.count > 1 else { return false }
 
+    // PERFORMANCE FIX: Ensure canvas exists before accessing
+    ensureCanvasExists(for: pageIndex)
+    guard pageIndex < canvasViews.count else { return false }
+    
     let canvas = canvasViews[pageIndex]
     let currentDrawing = canvas.drawing
 
@@ -133,10 +138,13 @@ class CanvasManager: ObservableObject {
   func performRedo(for pageIndex: Int) -> Bool {
     guard let noteId = currentNoteId,
           var history = undoHistories[noteId],
-          pageIndex < canvasViews.count,
           let redoStack = history.pageRedoStates[pageIndex],
           !redoStack.isEmpty else { return false }
 
+    // PERFORMANCE FIX: Ensure canvas exists before accessing
+    ensureCanvasExists(for: pageIndex)
+    guard pageIndex < canvasViews.count else { return false }
+    
     let canvas = canvasViews[pageIndex]
     let currentDrawing = canvas.drawing
 
@@ -210,7 +218,7 @@ struct NoteView: View {
   @State public var isAssistantVisible = false
   @State private var assistantWidth: CGFloat = 300
   @State private var assistantHeight: CGFloat = 300
-  @State private var assistantOrientation: AssistantOrientation = .right
+  @State private var assistantOrientation: AssistantOrientation = PreferencesManager.shared.assistantDefaultOrientation
   @State private var isDraggingAssistant = false
   @State private var draggedPosition: AssistantOrientation? = nil
   @State private var dragLocation: CGPoint = .zero
@@ -349,24 +357,45 @@ struct NoteView: View {
         }
       }
       .onAppear {
+        // PERFORMANCE FIX: Defer all heavy operations to prevent initial CPU spike
         openNoteInTab()
-        // Update last opened timestamp
-        var updated = note
-        updated.lastOpenedAt = Date()
-        let saved = storageManager.saveNote(updated)
-        tabManager.updateNote(saved)
-        cleanupOrphanedTabs()
 
-        // Set current note in canvas manager for per-note undo/redo
-        canvasManager.setCurrentNote(note.id)
+        // PERFORMANCE FIX: Move timestamp update to background and defer it
+        Task(priority: .utility) {
+          var updated = note
+          updated.lastOpenedAt = Date()
+
+          await MainActor.run {
+            let saved = storageManager.saveNote(updated)
+            tabManager.updateNote(saved)
+          }
+        }
+
+        // PERFORMANCE FIX: Defer cleanup operations
+        Task(priority: .background) {
+          await MainActor.run {
+            cleanupOrphanedTabs()
+          }
+        }
+
+        // PERFORMANCE FIX: Set up canvas manager lazily
+        Task(priority: .userInitiated) {
+          await MainActor.run {
+            canvasManager.setCurrentNote(note.id)
+          }
+        }
 
         // Set up callback to dismiss when all tabs are closed
         tabManager.onAllTabsClosed = {
           dismiss()
         }
 
-        // Set up app lifecycle observers (but no longer clear undo managers)
-        setupAppLifecycleObservers()
+        // PERFORMANCE FIX: Defer observer setup
+        Task(priority: .background) {
+          await MainActor.run {
+            setupAppLifecycleObservers()
+          }
+        }
       }
       .onDisappear {
         // Clean up the callback

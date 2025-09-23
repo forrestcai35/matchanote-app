@@ -164,10 +164,9 @@ public struct ListFolderItemView: View {
                                 Spacer()
 
                                 Button("Save") {
-                                    var updatedFolder = folder
-                                    updatedFolder.name = newName
-                                    updatedFolder.dateModified = Date()
-                                    storageManager.saveFolder(updatedFolder)
+                                    if storageManager.updateFolderName(folderId: folder.id, newName: newName) != nil {
+                                        // Folder updated successfully
+                                    }
                                     showRenamePopover = false
                                 }
                                 .disabled(newName.isEmpty)
@@ -259,10 +258,9 @@ public struct GridFolderItemView: View {
                             Spacer()
 
                             Button("Save") {
-                                var updatedFolder = folder
-                                updatedFolder.name = newName
-                                updatedFolder.dateModified = Date()
-                                storageManager.saveFolder(updatedFolder)
+                                if storageManager.updateFolderName(folderId: folder.id, newName: newName) != nil {
+                                    // Folder updated successfully
+                                }
                                 showRenamePopover = false
                             }
                             .disabled(newName.isEmpty)

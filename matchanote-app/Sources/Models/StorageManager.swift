@@ -278,14 +278,78 @@ class StorageManager: ObservableObject {
     return "\(baseTitle) (\(highestNumber))"
   }
 
-  func saveFolder(_ folder: Folder) {
+  func saveFolder(_ folder: Folder) -> Folder {
+    // Ensure unique name before saving
+    var folderToSave = folder
+    folderToSave.name = generateUniqueFolderName(for: folderToSave.name, parentID: folderToSave.parentID, excludingFolderId: folderToSave.id)
+    
     // Save to local storage first (for offline support)
-    saveFolderLocally(folder)
+    saveFolderLocally(folderToSave)
 
     // Save to Supabase if user is authenticated
     Task {
-      await saveFolderToSupabase(folder)
+      await saveFolderToSupabase(folderToSave)
     }
+    
+    return folderToSave
+  }
+
+  // Update a folder's name while ensuring uniqueness
+  func updateFolderName(folderId: UUID, newName: String) -> Folder? {
+    guard let folderIndex = folders.firstIndex(where: { $0.id == folderId }) else {
+      return nil
+    }
+
+    var folderToUpdate = folders[folderIndex]
+    let uniqueName = generateUniqueFolderName(for: newName, parentID: folderToUpdate.parentID, excludingFolderId: folderId)
+    folderToUpdate.name = uniqueName
+    folderToUpdate.dateModified = Date()
+
+    // Save the updated folder
+    let savedFolder = saveFolder(folderToUpdate)
+    return savedFolder
+  }
+
+  // Generate a unique folder name by appending numbers if duplicates exist within the same parent
+  func generateUniqueFolderName(for proposedName: String, parentID: UUID? = nil, excludingFolderId: UUID? = nil) -> String {
+    let baseName = proposedName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+    // Get all existing folder names within the same parent, excluding the current folder if updating
+    let existingNames =
+      folders
+      .filter { $0.parentID == parentID && $0.id != excludingFolderId }
+      .map { $0.name }
+
+    // If the name is unique, return it as is
+    if !existingNames.contains(baseName) {
+      return baseName
+    }
+
+    // Find the highest number suffix for this base name
+    var highestNumber = 1
+    let namePattern =
+      "^" + NSRegularExpression.escapedPattern(for: baseName) + "( \\((\\d+)\\))?$"
+
+    for existingName in existingNames {
+      if let regex = try? NSRegularExpression(pattern: namePattern, options: []),
+        let match = regex.firstMatch(
+          in: existingName, options: [], range: NSRange(location: 0, length: existingName.count))
+      {
+
+        // If there's a number in parentheses, extract it
+        if match.numberOfRanges > 2,
+          let numberRange = Range(match.range(at: 2), in: existingName),
+          let number = Int(existingName[numberRange])
+        {
+          highestNumber = max(highestNumber, number + 1)
+        } else if existingName == baseName {
+          // Exact match without number, so next should be (2)
+          highestNumber = max(highestNumber, 2)
+        }
+      }
+    }
+
+    return "\(baseName) (\(highestNumber))"
   }
 
   private func loadData() {
@@ -378,28 +442,33 @@ class StorageManager: ObservableObject {
   }
 
   private func saveNoteLocally(_ note: Note) {
+    // PERFORMANCE FIX: Update UI state immediately, defer heavy JSON ops
     if let existingIndex = notes.firstIndex(where: { $0.id == note.id }) {
       notes[existingIndex] = note
     } else {
       notes.append(note)
     }
 
-    let storageNotes = notes.map { StorageNote(from: $0) }
-
-    // Save to JSON file
+    // Move JSON encoding to background thread
+    let notesToSave = notes.map { StorageNote(from: $0) }
     let notesURL = localStorageURL.appendingPathComponent(notesFileName)
-
-    do {
-      let encoder = JSONEncoder()
-      encoder.outputFormatting = .prettyPrinted
-      let data = try encoder.encode(storageNotes)
-      try data.write(to: notesURL)
-    } catch {
-      print("Error saving note: \(error)")
+    
+    Task.detached(priority: .utility) {
+      do {
+        let encoder = JSONEncoder()
+        // Remove pretty printing for better performance
+        let data = try encoder.encode(notesToSave)
+        try data.write(to: notesURL)
+      } catch {
+        await MainActor.run {
+          print("Error saving note: \(error)")
+        }
+      }
     }
   }
 
   private func saveFolderLocally(_ folder: Folder) {
+    // PERFORMANCE FIX: Update UI state immediately, defer heavy JSON ops
     // First update the folders array with the new/updated folder
     if let existingIndex = folders.firstIndex(where: { $0.id == folder.id }) {
       folders[existingIndex] = folder
@@ -410,19 +479,21 @@ class StorageManager: ObservableObject {
     // Resolve folder hierarchy before saving
     resolveFolderHierarchy()
 
-    // Convert to storage models
-    let storageFolders = folders.map { StorageFolder(from: $0) }
-
-    // Save to JSON file
+    // Move JSON encoding to background thread
+    let foldersToSave = folders.map { StorageFolder(from: $0) }
     let foldersURL = localStorageURL.appendingPathComponent(foldersFileName)
-
-    do {
-      let encoder = JSONEncoder()
-      encoder.outputFormatting = .prettyPrinted
-      let data = try encoder.encode(storageFolders)
-      try data.write(to: foldersURL)
-    } catch {
-      print("Error saving folder: \(error)")
+    
+    Task.detached(priority: .utility) {
+      do {
+        let encoder = JSONEncoder()
+        // Remove pretty printing for better performance
+        let data = try encoder.encode(foldersToSave)
+        try data.write(to: foldersURL)
+      } catch {
+        await MainActor.run {
+          print("Error saving folder: \(error)")
+        }
+      }
     }
   }
 
@@ -481,9 +552,8 @@ class StorageManager: ObservableObject {
     // Process notes from user profile
     if let notesData = profile.notes {
       do {
-        // JSONB data from Supabase comes as a dictionary, convert to JSON data
-        let jsonData = try JSONSerialization.data(withJSONObject: notesData)
-        let storageNotes = try JSONDecoder().decode([StorageNote].self, from: jsonData)
+        // JSONB data is now already in Data format
+        let storageNotes = try JSONDecoder().decode([StorageNote].self, from: notesData)
 
         // Merge notes with local data based on modification dates
         for storageNote in storageNotes {
@@ -505,9 +575,8 @@ class StorageManager: ObservableObject {
     // Process folders from user profile
     if let foldersData = profile.folders {
       do {
-        // JSONB data from Supabase comes as a dictionary, convert to JSON data
-        let jsonData = try JSONSerialization.data(withJSONObject: foldersData)
-        let storageFolders = try JSONDecoder().decode([StorageFolder].self, from: jsonData)
+        // JSONB data is now already in Data format
+        let storageFolders = try JSONDecoder().decode([StorageFolder].self, from: foldersData)
 
         // First pass: create folders without child folders
         var tempFolders: [UUID: Folder] = [:]

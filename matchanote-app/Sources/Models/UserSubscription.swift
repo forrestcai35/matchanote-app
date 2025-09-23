@@ -33,9 +33,13 @@ struct UserProfile: Codable, Identifiable {
     
     // Use userId as the identifier since user_storage table doesn't have an id column
     var id: UUID { userId }
-    var notes: [String: Any]?
-    var folders: [String: Any]?
+    var notesJson: Data?
+    var foldersJson: Data?
     let updatedAt: Date?
+    
+    // Computed properties for backward compatibility
+    var notes: Data? { return notesJson }
+    var folders: Data? { return foldersJson }
     var premiumRequests: Int16
     var normalRequests: Int64
     var subscriptionTier: SubscriptionTier
@@ -46,8 +50,8 @@ struct UserProfile: Codable, Identifiable {
     enum CodingKeys: String, CodingKey {
         case createdAt = "created_at"
         case userId = "user_id"
-        case notes
-        case folders
+        case notesJson = "notes"
+        case foldersJson = "folders"
         case updatedAt = "updated_at"
         case premiumRequests = "premium_requests"
         case normalRequests = "normal_requests"
@@ -63,9 +67,21 @@ struct UserProfile: Codable, Identifiable {
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         userId = try container.decode(UUID.self, forKey: .userId)
 
-        // Handle JSONB fields - skip for now as they require custom decoding
-        notes = nil
-        folders = nil
+        // Handle JSONB fields - decode as raw JSON data from Supabase
+        // Try to decode as string first (if stored as JSON string)
+        if let notesString = try? container.decodeIfPresent(String.self, forKey: .notesJson) {
+            notesJson = notesString.data(using: .utf8)
+        } else {
+            // Try to decode as raw data
+            notesJson = try? container.decodeIfPresent(Data.self, forKey: .notesJson)
+        }
+        
+        if let foldersString = try? container.decodeIfPresent(String.self, forKey: .foldersJson) {
+            foldersJson = foldersString.data(using: .utf8)
+        } else {
+            // Try to decode as raw data
+            foldersJson = try? container.decodeIfPresent(Data.self, forKey: .foldersJson)
+        }
 
         updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
         premiumRequests = try container.decode(Int16.self, forKey: .premiumRequests)
@@ -86,9 +102,13 @@ struct UserProfile: Codable, Identifiable {
 
         try container.encode(createdAt, forKey: .createdAt)
         try container.encode(userId, forKey: .userId)
-        // Skip notes and folders encoding for now as they require custom JSON handling
-        // try container.encodeIfPresent(notes, forKey: .notes)
-        // try container.encodeIfPresent(folders, forKey: .folders)
+        // Encode JSONB fields as JSON strings
+        if let notesData = notesJson, let notesString = String(data: notesData, encoding: .utf8) {
+            try container.encode(notesString, forKey: .notesJson)
+        }
+        if let foldersData = foldersJson, let foldersString = String(data: foldersData, encoding: .utf8) {
+            try container.encode(foldersString, forKey: .foldersJson)
+        }
         try container.encodeIfPresent(updatedAt, forKey: .updatedAt)
         try container.encode(premiumRequests, forKey: .premiumRequests)
         try container.encode(normalRequests, forKey: .normalRequests)

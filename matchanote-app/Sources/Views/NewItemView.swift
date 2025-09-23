@@ -321,7 +321,6 @@ struct NewFolderView: View {
   @Environment(\.colorScheme) private var colorScheme
 
   @State private var name: String = "New Folder"
-  @State private var folderColor: Color = .blue
 
   var parentFolderID: UUID?
   var onSave: (Folder) -> Void
@@ -365,22 +364,6 @@ struct NewFolderView: View {
               .textFieldStyle(ModernTextFieldStyle())
           }
           
-          // Folder color selection
-          VStack(alignment: .leading, spacing: 16) {
-            Text("Folder Color")
-              .font(.headline)
-              .foregroundColor(.primary)
-            
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {
-              ForEach(folderColors, id: \.self) { color in
-                FolderColorCard(
-                  color: color,
-                  isSelected: folderColor == color,
-                  onTap: { folderColor = color }
-                )
-              }
-            }
-          }
           
           // Create button
           Button(action: createFolder) {
@@ -417,17 +400,10 @@ struct NewFolderView: View {
         }
       }
     }
-    .presentationDetents([.medium])
+    .presentationDetents([.large])
     .presentationDragIndicator(.visible)
   }
   
-  private var folderColors: [Color] {
-    [
-      .blue, .green, .orange, .red,
-      .purple, .pink, .yellow, .indigo,
-      .teal, .mint, .cyan, .brown
-    ]
-  }
   
   private func createFolder() {
     let newFolder = Folder(
@@ -440,33 +416,3 @@ struct NewFolderView: View {
   }
 }
 
-struct FolderColorCard: View {
-  let color: Color
-  let isSelected: Bool
-  let onTap: () -> Void
-  
-  var body: some View {
-    Button(action: onTap) {
-      ZStack {
-        Circle()
-          .fill(color)
-          .frame(width: 50, height: 50)
-          .overlay(
-            Circle()
-              .stroke(Color(.systemGray4), lineWidth: 1)
-          )
-        
-        if isSelected {
-          Circle()
-            .stroke(Color.white, lineWidth: 3)
-            .frame(width: 50, height: 50)
-          
-          Image(systemName: "checkmark")
-            .font(.system(size: 16, weight: .bold))
-            .foregroundColor(.white)
-        }
-      }
-    }
-    .buttonStyle(PlainButtonStyle())
-  }
-}

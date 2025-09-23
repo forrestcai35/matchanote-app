@@ -3,6 +3,8 @@ import SwiftUI
 // Settings popover view
 struct SettingsPopover: View {
   @Environment(\.colorScheme) private var colorScheme
+  @State private var showingPreferences = false
+  
   var body: some View {
     VStack(alignment: .leading, spacing: 15) {
       Text("Settings")
@@ -23,7 +25,7 @@ struct SettingsPopover: View {
       .foregroundColor(colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
 
       Button(action: {
-        // Theme action
+        showingPreferences = true
       }) {
         Label("Preferences", systemImage: "paintpalette")
       }
@@ -48,5 +50,8 @@ struct SettingsPopover: View {
     }
     .padding()
     .frame(width: 200)
+    .sheet(isPresented: $showingPreferences) {
+      PreferencesView()
+    }
   }
 }

@@ -711,7 +711,7 @@ struct HomeView: View {
             }) {
                 var updatedFolder = sourceFolder
                 updatedFolder.parentID = nil
-                storageManager.saveFolder(updatedFolder)
+                _ = storageManager.saveFolder(updatedFolder)
                 return true
             }
         case .note:
@@ -723,7 +723,7 @@ struct HomeView: View {
                 var updatedFolder = folder
                 updatedFolder.noteIDs.removeAll(where: { $0 == draggedItemType.id })
                 updatedFolder.dateModified = Date()
-                storageManager.saveFolder(updatedFolder)
+                _ = storageManager.saveFolder(updatedFolder)
                 print("Removed note \(draggedItemType.id) from folder \(updatedFolder.id)")
             }
             return true
@@ -758,15 +758,14 @@ struct HomeView: View {
                     updatedSourceFolder.parentID = targetFolder.id
                     updatedTargetFolder.dateModified = Date()
 
-                    storageManager.saveFolder(updatedSourceFolder)
-                    storageManager.saveFolder(updatedTargetFolder)
+          
                 }
             } else {
                 // Move to root
                 if let sourceFolder = storageManager.folders.first(where: { $0.id == id }) {
                     var updatedFolder = sourceFolder
                     updatedFolder.parentID = nil
-                    storageManager.saveFolder(updatedFolder)
+                    _ = storageManager.saveFolder(updatedFolder)
                 }
             }
 
@@ -779,7 +778,7 @@ struct HomeView: View {
                 var updatedFolder = folder
                 updatedFolder.noteIDs.removeAll(where: { $0 == id })
                 updatedFolder.dateModified = Date()
-                storageManager.saveFolder(updatedFolder)
+                _ = storageManager.saveFolder(updatedFolder)
             }
 
             // Add to target folder if provided
@@ -787,7 +786,7 @@ struct HomeView: View {
                 var updatedFolder = targetFolder
                 updatedFolder.noteIDs.append(id)
                 updatedFolder.dateModified = Date()
-                storageManager.saveFolder(updatedFolder)
+                _ = storageManager.saveFolder(updatedFolder)
             }
         }
 
@@ -919,7 +918,7 @@ struct HomeView: View {
                 {
                     var updatedFolder = storageManager.folders[folderIndex]
                     updatedFolder.addNote(noteID: newNote.id)
-                    storageManager.saveFolder(updatedFolder)
+                    _ = storageManager.saveFolder(updatedFolder)
                 }
                 let savedNote = storageManager.saveNote(newNote)
                 TabManager.shared.openTab(note: savedNote)
@@ -952,7 +951,7 @@ struct HomeView: View {
                 {
                     var updatedFolder = storageManager.folders[folderIndex]
                     updatedFolder.addNote(noteID: newNote.id)
-                    storageManager.saveFolder(updatedFolder)
+                    _ = storageManager.saveFolder(updatedFolder)
                 }
                 let savedNote = storageManager.saveNote(newNote)
                 TabManager.shared.openTab(note: savedNote)
@@ -962,7 +961,7 @@ struct HomeView: View {
             NewFolderView(
                 parentFolderID: currentFolderID,
                 onSave: { newFolder in
-                    storageManager.saveFolder(newFolder)
+                    _ = storageManager.saveFolder(newFolder)
                 }
             )
         }
@@ -1095,7 +1094,7 @@ struct HomeView: View {
         {
             var updatedFolder = storageManager.folders[folderIndex]
             updatedFolder.addNote(noteID: newNote.id)
-            storageManager.saveFolder(updatedFolder)
+            _ = storageManager.saveFolder(updatedFolder)
         }
 
         let savedNote = storageManager.saveNote(newNote)
@@ -1380,7 +1379,7 @@ extension HomeView {
             //     {
             //         var updatedFolder = storageManager.folders[folderIndex]
             //         updatedFolder.addNote(noteID: newNote.id)
-            //         storageManager.saveFolder(updatedFolder)
+            //         _ = storageManager.saveFolder(updatedFolder)
             //     }
             //     let savedNote = storageManager.saveNote(newNote)
             //     TabManager.shared.openTab(note: savedNote)
@@ -1440,7 +1439,7 @@ extension HomeView {
                 {
                     var updatedFolder = storageManager.folders[folderIndex]
                     updatedFolder.addNote(noteID: newNote.id)
-                    storageManager.saveFolder(updatedFolder)
+                    _ = storageManager.saveFolder(updatedFolder)
                 }
                 let savedNote = storageManager.saveNote(newNote)
                 TabManager.shared.openTab(note: savedNote)
@@ -1450,7 +1449,7 @@ extension HomeView {
             NewFolderView(
                 parentFolderID: currentFolderID,
                 onSave: { newFolder in
-                    storageManager.saveFolder(newFolder)
+                    _ = storageManager.saveFolder(newFolder)
                 }
             )
         }
