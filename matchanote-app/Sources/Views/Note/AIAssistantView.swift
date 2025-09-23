@@ -74,7 +74,12 @@ struct AIAssistantView: View {
         inputSection
       }
     }
-    .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
+    .background(
+      (colorScheme == .dark
+        ? Color.matchabackground_dark
+        : Color.matchabackground_light)
+        .brightness(colorScheme == .dark ? -0.05 : 0.05)
+    )
     .onAppear {
       // Load user profile and available models
       Task {
@@ -164,7 +169,12 @@ struct AIAssistantView: View {
       }
       .padding()
     }
-    .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
+    .background(
+      (colorScheme == .dark
+        ? Color.matchabackground_dark
+        : Color.matchabackground_light)
+        .brightness(colorScheme == .dark ? -0.05 : 0.05)
+    )
   }
 
   private var inputSection: some View {
@@ -353,7 +363,12 @@ struct AIAssistantView: View {
       .padding(.horizontal)
       .padding(.bottom, inputOuterPadding)
     }
-    .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
+    .background(
+      (colorScheme == .dark
+        ? Color.matchabackground_dark
+        : Color.matchabackground_light)
+        .brightness(colorScheme == .dark ? -0.05 : 0.05)
+    )
   }
 
   #if canImport(UIKit)

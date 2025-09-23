@@ -125,7 +125,7 @@ struct HomeView: View {
                     }
                 }
                 .padding(.horizontal)
-                .padding(.top, 10)
+                .padding(.top, 15)
 
                 searchBar
                 sidebarList
@@ -147,7 +147,7 @@ struct HomeView: View {
             .onAppear {
                 screenSize = geometry.size
             }
-            .onChange(of: geometry.size) { newSize in
+            .onChange(of: geometry.size) { _, newSize in
                 screenSize = newSize
             }
         }
@@ -172,7 +172,7 @@ struct HomeView: View {
                 )
         )
         .padding(.horizontal)
-        .padding(.top, 10)
+        .padding(.top, 15)
     }
 
     private var sidebarList: some View {
@@ -187,31 +187,30 @@ struct HomeView: View {
                         .foregroundStyle(
                             colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                     Spacer()
-                }
-                .fontWeight(.medium)
-                .padding(.vertical, 8)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    selectedItem = item.id
-                    if item.id == "documents" {
-                        currentFolderID = nil
-                        folderPath = []
-                    }
-                }
-                .listRowBackground(
-                    (selectedItem == item.id
-                        ? (colorScheme == .dark
-                            ? Color.matchalight_dark.opacity(0.2)
-                            : Color.matchalight_light.opacity(0.2)) : Color.clear)
-                        .cornerRadius(8)
-                        .padding(.horizontal, 0)
-                        .padding(.vertical, 8)
-                )
             }
-
+            .fontWeight(.medium)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                selectedItem = item.id
+                if item.id == "documents" {
+                    currentFolderID = nil
+                    folderPath = []
+                }
+            }
+            .listRowBackground(
+                (selectedItem == item.id
+                    ? (colorScheme == .dark
+                        ? Color.matchalight_dark.opacity(0.2)
+                        : Color.matchalight_light.opacity(0.2)) : Color.clear)
+                    .cornerRadius(8)
+                    .padding(.horizontal, 0)
+                    .padding(.vertical, 8)
+            )
+            .listRowSeparator(.hidden)
+            }
         }
         .scrollDisabled(true)
-        .padding(.top, 10)
         .listStyle(SidebarListStyle())
         .scrollContentBackground(.hidden)
     }
@@ -1106,58 +1105,114 @@ struct HomeView: View {
     }
 
     private var listNewButton: some View {
-        HStack {
-            Image(systemName: "plus.circle.fill")
-                .font(.title2)
-
-            Text("New...")
-                .font(.subheadline)
-                .fontWeight(.medium)
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.matchalight_light.opacity(0.2), Color.matchalight_light.opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 40, height: 40)
+                
+                Image(systemName: "plus")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.matchalight_light)
+            }
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text("New Item")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                
+                Text("Create note or folder")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
             Spacer()
+            
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
-        .padding(10)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(
-                    style: StrokeStyle(lineWidth: 2, dash: [5])
-                )
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.gray.opacity(0.03))
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.systemBackground))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color(.systemGray5), lineWidth: 1)
                 )
         )
-        .foregroundColor(colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
         .padding(.horizontal)
         .contentShape(Rectangle())
     }
 
     private var gridNewButton: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: 16) {
             ZStack {
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(
-                        style: StrokeStyle(lineWidth: 2, dash: [5])
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.matchalight_light.opacity(0.1),
+                                Color.matchalight_light.opacity(0.05)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        Color.matchalight_light.opacity(0.3),
+                                        Color.matchalight_light.opacity(0.1)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 2
+                            )
                     )
                     .frame(width: 160, height: 200)
-                Image(systemName: "plus")
-                    .font(.largeTitle)
+                
+                VStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.matchalight_light.opacity(0.2), Color.matchalight_light.opacity(0.1)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 60, height: 60)
+                        
+                        Image(systemName: "plus")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundColor(.matchalight_light)
+                    }
+                    
+                    VStack(spacing: 4) {
+                        Text("New Item")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                        
+                        Text("Create note or folder")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                }
             }
-            .foregroundColor(colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
-
-            Text("New...")
-                .padding(.top, 5)
-                .foregroundColor(
-                    colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light
-                )
-                .frame(width: 160)
-                .fontWeight(.medium)
-                .multilineTextAlignment(.center)
-                .font(.subheadline)
-
-            Text(" ")
-                .padding(.bottom, 5)
-                .font(.caption)
-                .frame(width: 160)
         }
         .frame(width: 160)
     }
@@ -1341,21 +1396,38 @@ extension HomeView {
             }
 
         } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "plus")
-                    .font(.subheadline)
-                    .fontWeight(.bold)
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.matchalight_light.opacity(0.2), Color.matchalight_light.opacity(0.1)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 28, height: 28)
+                    
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.matchalight_light)
+                }
+                
                 Text("New")
                     .font(.subheadline)
-                    .fontWeight(.bold)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
             }
-            .padding(.vertical, 6)
+            .padding(.vertical, 8)
             .padding(.horizontal, 16)
             .background(
-                (colorScheme == .dark ? Color.matchadark_dark : Color.matchalight_light)
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Color(.systemBackground))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(Color(.systemGray5), lineWidth: 1)
+                    )
             )
-            .foregroundColor(colorScheme == .dark ? Color.black : Color.matchabrown_light)
-            .clipShape(Capsule())
         }
         .buttonStyle(PlainButtonStyle())
         .sheet(isPresented: $showNewWrittenNoteView) {

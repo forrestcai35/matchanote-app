@@ -12,57 +12,307 @@ struct NewWrittenNoteView: View {
 
   var body: some View {
     NavigationStack {
-      Form {
-        Section(header: Text("Note Information")) {
-          TextField("Title", text: $title)
-        }
-
-        Section(header: Text("Paper Style")) {
-
-          Picker("Paper Style", selection: $paperStyle) {
-            ForEach(PaperStyle.allCases, id: \.self) { style in
-              Text(style.rawValue.capitalized)
+      ScrollView {
+        VStack(spacing: 24) {
+          // Header with icon
+          VStack(spacing: 12) {
+            ZStack {
+              Circle()
+                .fill(
+                  LinearGradient(
+                    colors: [Color.matchalight_light.opacity(0.2), Color.matchalight_light.opacity(0.1)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                  )
+                )
+                .frame(width: 80, height: 80)
+              
+              Image(systemName: "pencil.and.outline")
+                .font(.system(size: 32, weight: .medium))
+                .foregroundColor(.matchalight_light)
+            }
+            
+            Text("Create New Note")
+              .font(.title2)
+              .fontWeight(.semibold)
+              .foregroundColor(.primary)
+          }
+          .padding(.top, 20)
+          
+          // Title input
+          VStack(alignment: .leading, spacing: 8) {
+            Text("Note Title")
+              .font(.headline)
+              .foregroundColor(.primary)
+            
+            TextField("Enter note title", text: $title)
+              .textFieldStyle(ModernTextFieldStyle())
+          }
+          
+          // Paper style selection
+          VStack(alignment: .leading, spacing: 16) {
+            Text("Paper Style")
+              .font(.headline)
+              .foregroundColor(.primary)
+            
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
+              ForEach(PaperStyle.allCases, id: \.self) { style in
+                PaperStyleCard(
+                  style: style,
+                  isSelected: paperStyle == style,
+                  onTap: { paperStyle = style }
+                )
+              }
             }
           }
-        }
-        Picker("Paper Color", selection: $paperColor) {
-          ForEach(PaperColor.allCases, id: \.self) { color in
-            Text(color.rawValue.capitalized)
+          
+          // Paper color selection
+          VStack(alignment: .leading, spacing: 16) {
+            Text("Paper Color")
+              .font(.headline)
+              .foregroundColor(.primary)
+            
+            HStack(spacing: 16) {
+              ForEach(PaperColor.allCases, id: \.self) { color in
+                PaperColorCard(
+                  color: color,
+                  isSelected: paperColor == color,
+                  onTap: { paperColor = color }
+                )
+              }
+            }
           }
-        }
-
-        Section {
-          Button("Create Note") {
-
-            let newNote = Note(
-              title: title,
-              color: noteColor,
-              dateCreated: Date(),
-              dateModified: Date(),
-              content: "",
-              noteType: .written,
-              paperColor: paperColor,
-              paperStyle: paperStyle
+          
+          // Create button
+          Button(action: createNote) {
+            HStack {
+              Image(systemName: "plus.circle.fill")
+              Text("Create Note")
+                .fontWeight(.semibold)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(
+              LinearGradient(
+                colors: [Color.matchalight_light, Color.matchalight_light.opacity(0.8)],
+                startPoint: .leading,
+                endPoint: .trailing
+              )
             )
-            onSave(newNote)
-            dismiss()
+            .foregroundColor(.white)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
           }
-          .frame(maxWidth: .infinity)
-          .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+          .padding(.top, 8)
+          
+          Spacer(minLength: 20)
         }
+        .padding(.horizontal, 24)
       }
-      .navigationTitle("New Written Note")
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
-        ToolbarItem(placement: .navigationBarTrailing) {
+        ToolbarItem(placement: .navigationBarLeading) {
           Button("Cancel") {
             dismiss()
           }
+          .foregroundColor(.secondary)
         }
       }
     }
-    .presentationDetents([.medium])
+    .presentationDetents([.large])
     .presentationDragIndicator(.visible)
+  }
+  
+  private func createNote() {
+    let newNote = Note(
+      title: title,
+      color: noteColor,
+      dateCreated: Date(),
+      dateModified: Date(),
+      content: "",
+      noteType: .written,
+      paperColor: paperColor,
+      paperStyle: paperStyle
+    )
+    onSave(newNote)
+    dismiss()
+  }
+}
+
+// MARK: - Supporting Views
+
+struct ModernTextFieldStyle: TextFieldStyle {
+  func _body(configuration: TextField<Self._Label>) -> some View {
+    configuration
+      .padding(.horizontal, 16)
+      .padding(.vertical, 12)
+      .background(
+        RoundedRectangle(cornerRadius: 12)
+          .fill(Color(.systemGray6))
+          .overlay(
+            RoundedRectangle(cornerRadius: 12)
+              .stroke(Color(.systemGray4), lineWidth: 1)
+          )
+      )
+  }
+}
+
+struct PaperStyleCard: View {
+  let style: PaperStyle
+  let isSelected: Bool
+  let onTap: () -> Void
+  
+  var body: some View {
+    Button(action: onTap) {
+      VStack(spacing: 8) {
+        ZStack {
+          RoundedRectangle(cornerRadius: 8)
+            .fill(paperColorForStyle(style))
+            .frame(height: 60)
+            .overlay(
+              paperPatternForStyle(style)
+            )
+          
+          if isSelected {
+            RoundedRectangle(cornerRadius: 8)
+              .stroke(Color.matchalight_light, lineWidth: 2)
+              .frame(height: 60)
+          }
+        }
+        
+        Text(style.rawValue.capitalized)
+          .font(.caption)
+          .fontWeight(.medium)
+          .foregroundColor(.primary)
+      }
+    }
+    .buttonStyle(PlainButtonStyle())
+  }
+  
+  private func paperColorForStyle(_ style: PaperStyle) -> Color {
+    switch style {
+    case .blank, .grid, .dotted, .lined:
+      return .white
+    }
+  }
+  
+  @ViewBuilder
+  private func paperPatternForStyle(_ style: PaperStyle) -> some View {
+    switch style {
+    case .blank:
+      EmptyView()
+    case .grid:
+      GridPattern()
+    case .dotted:
+      DottedPattern()
+    case .lined:
+      LinedPattern()
+    }
+  }
+}
+
+struct PaperColorCard: View {
+  let color: PaperColor
+  let isSelected: Bool
+  let onTap: () -> Void
+  
+  var body: some View {
+    Button(action: onTap) {
+      ZStack {
+        Circle()
+          .fill(colorForPaperColor(color))
+          .frame(width: 50, height: 50)
+          .overlay(
+            Circle()
+              .stroke(Color(.systemGray4), lineWidth: 1)
+          )
+        
+        if isSelected {
+          Circle()
+            .stroke(Color.matchalight_light, lineWidth: 3)
+            .frame(width: 50, height: 50)
+          
+          Image(systemName: "checkmark")
+            .font(.system(size: 16, weight: .bold))
+            .foregroundColor(.white)
+        }
+      }
+    }
+    .buttonStyle(PlainButtonStyle())
+  }
+  
+  private func colorForPaperColor(_ paperColor: PaperColor) -> Color {
+    switch paperColor {
+    case .white:
+      return .white
+    case .offwhite:
+      return Color(.systemGray6)
+    case .dark:
+      return Color(.systemGray2)
+    }
+  }
+}
+
+// MARK: - Pattern Views
+
+struct GridPattern: View {
+  var body: some View {
+    GeometryReader { geometry in
+      Path { path in
+        let spacing: CGFloat = 8
+        let width = geometry.size.width
+        let height = geometry.size.height
+        
+        // Vertical lines
+        for x in stride(from: 0, through: width, by: spacing) {
+          path.move(to: CGPoint(x: x, y: 0))
+          path.addLine(to: CGPoint(x: x, y: height))
+        }
+        
+        // Horizontal lines
+        for y in stride(from: 0, through: height, by: spacing) {
+          path.move(to: CGPoint(x: 0, y: y))
+          path.addLine(to: CGPoint(x: width, y: y))
+        }
+      }
+      .stroke(Color(.systemGray5), lineWidth: 0.5)
+    }
+  }
+}
+
+struct DottedPattern: View {
+  var body: some View {
+    GeometryReader { geometry in
+      Path { path in
+        let spacing: CGFloat = 8
+        let width = geometry.size.width
+        let height = geometry.size.height
+        
+        for x in stride(from: spacing, through: width - spacing, by: spacing) {
+          for y in stride(from: spacing, through: height - spacing, by: spacing) {
+            path.addEllipse(in: CGRect(x: x - 1, y: y - 1, width: 2, height: 2))
+          }
+        }
+      }
+      .fill(Color(.systemGray5))
+    }
+  }
+}
+
+struct LinedPattern: View {
+  var body: some View {
+    GeometryReader { geometry in
+      Path { path in
+        let spacing: CGFloat = 12
+        let width = geometry.size.width
+        let height = geometry.size.height
+        
+        for y in stride(from: spacing, through: height - spacing, by: spacing) {
+          path.move(to: CGPoint(x: 0, y: y))
+          path.addLine(to: CGPoint(x: width, y: y))
+        }
+      }
+      .stroke(Color(.systemGray5), lineWidth: 0.5)
+    }
   }
 }
 
@@ -78,36 +328,145 @@ struct NewFolderView: View {
 
   var body: some View {
     NavigationStack {
-      Form {
-        Section(header: Text("Folder Information")) {
-          TextField("Name", text: $name)
-        }
-
-        Section {
-          Button("Create Folder") {
-            let newFolder = Folder(
-              name: name,
-              parentID: parentFolderID,
-              dateCreated: Date()
-            )
-            onSave(newFolder)
-            dismiss()
+      ScrollView {
+        VStack(spacing: 24) {
+          // Header with icon
+          VStack(spacing: 12) {
+            ZStack {
+              Circle()
+                .fill(
+                  LinearGradient(
+                    colors: [Color.matchalight_light.opacity(0.2), Color.matchalight_light.opacity(0.1)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                  )
+                )
+                .frame(width: 80, height: 80)
+              
+              Image(systemName: "folder.badge.plus")
+                .font(.system(size: 32, weight: .medium))
+                .foregroundColor(.matchalight_light)
+            }
+            
+            Text("Create New Folder")
+              .font(.title2)
+              .fontWeight(.semibold)
+              .foregroundColor(.primary)
           }
-          .frame(maxWidth: .infinity)
-          .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+          .padding(.top, 20)
+          
+          // Folder name input
+          VStack(alignment: .leading, spacing: 8) {
+            Text("Folder Name")
+              .font(.headline)
+              .foregroundColor(.primary)
+            
+            TextField("Enter folder name", text: $name)
+              .textFieldStyle(ModernTextFieldStyle())
+          }
+          
+          // Folder color selection
+          VStack(alignment: .leading, spacing: 16) {
+            Text("Folder Color")
+              .font(.headline)
+              .foregroundColor(.primary)
+            
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {
+              ForEach(folderColors, id: \.self) { color in
+                FolderColorCard(
+                  color: color,
+                  isSelected: folderColor == color,
+                  onTap: { folderColor = color }
+                )
+              }
+            }
+          }
+          
+          // Create button
+          Button(action: createFolder) {
+            HStack {
+              Image(systemName: "folder.badge.plus")
+              Text("Create Folder")
+                .fontWeight(.semibold)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(
+              LinearGradient(
+                colors: [Color.matchalight_light, Color.matchalight_light.opacity(0.8)],
+                startPoint: .leading,
+                endPoint: .trailing
+              )
+            )
+            .foregroundColor(.white)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+          }
+          .padding(.top, 8)
+          
+          Spacer(minLength: 20)
         }
+        .padding(.horizontal, 24)
       }
-      .navigationTitle("New Folder")
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
-        ToolbarItem(placement: .navigationBarTrailing) {
+        ToolbarItem(placement: .navigationBarLeading) {
           Button("Cancel") {
             dismiss()
           }
+          .foregroundColor(.secondary)
         }
       }
     }
     .presentationDetents([.medium])
     .presentationDragIndicator(.visible)
+  }
+  
+  private var folderColors: [Color] {
+    [
+      .blue, .green, .orange, .red,
+      .purple, .pink, .yellow, .indigo,
+      .teal, .mint, .cyan, .brown
+    ]
+  }
+  
+  private func createFolder() {
+    let newFolder = Folder(
+      name: name,
+      parentID: parentFolderID,
+      dateCreated: Date()
+    )
+    onSave(newFolder)
+    dismiss()
+  }
+}
+
+struct FolderColorCard: View {
+  let color: Color
+  let isSelected: Bool
+  let onTap: () -> Void
+  
+  var body: some View {
+    Button(action: onTap) {
+      ZStack {
+        Circle()
+          .fill(color)
+          .frame(width: 50, height: 50)
+          .overlay(
+            Circle()
+              .stroke(Color(.systemGray4), lineWidth: 1)
+          )
+        
+        if isSelected {
+          Circle()
+            .stroke(Color.white, lineWidth: 3)
+            .frame(width: 50, height: 50)
+          
+          Image(systemName: "checkmark")
+            .font(.system(size: 16, weight: .bold))
+            .foregroundColor(.white)
+        }
+      }
+    }
+    .buttonStyle(PlainButtonStyle())
   }
 }

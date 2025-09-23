@@ -28,9 +28,11 @@ enum SubscriptionTier: String, CaseIterable {
 
 // MARK: - User Profile Model
 struct UserProfile: Codable, Identifiable {
-    let id: UUID?
     let createdAt: Date
     let userId: UUID
+    
+    // Use userId as the identifier since user_storage table doesn't have an id column
+    var id: UUID { userId }
     var notes: [String: Any]?
     var folders: [String: Any]?
     let updatedAt: Date?
@@ -42,7 +44,6 @@ struct UserProfile: Codable, Identifiable {
     let stripeSubscriptionId: String?
 
     enum CodingKeys: String, CodingKey {
-        case id
         case createdAt = "created_at"
         case userId = "user_id"
         case notes
@@ -59,7 +60,6 @@ struct UserProfile: Codable, Identifiable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
-        id = try container.decodeIfPresent(UUID.self, forKey: .id)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         userId = try container.decode(UUID.self, forKey: .userId)
 
@@ -84,7 +84,6 @@ struct UserProfile: Codable, Identifiable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
-        try container.encodeIfPresent(id, forKey: .id)
         try container.encode(createdAt, forKey: .createdAt)
         try container.encode(userId, forKey: .userId)
         // Skip notes and folders encoding for now as they require custom JSON handling
@@ -175,9 +174,9 @@ class SubscriptionManager: ObservableObject {
             // Fetch with explicit column names to ensure proper mapping
             let response: UserProfile =
                 try await supabase
-                .from("user_profiles")
+                .from("user_storage")
                 .select(
-                    "id, created_at, user_id, notes, folders, updated_at, premium_requests, normal_requests, subscription_tier, subscription_start_date, stripe_customer_id, stripe_subscription_id"
+                    "created_at, user_id, notes, folders, updated_at, premium_requests, normal_requests, subscription_tier, subscription_start_date, stripe_customer_id, stripe_subscription_id"
                 )
                 .eq("user_id", value: user.id)
                 .single()
@@ -205,7 +204,7 @@ class SubscriptionManager: ObservableObject {
 
                 let allRecords: [UserProfile] =
                     try await supabase
-                    .from("user_profiles")
+                    .from("user_storage")
                     .select("*")
                     .eq("user_id", value: user.id)
                     .execute()
@@ -284,7 +283,7 @@ class SubscriptionManager: ObservableObject {
 
                 updatedProfile =
                     try await supabase
-                    .from("user_profiles")
+                    .from("user_storage")
                     .update([
                         "premium_requests": profile.premiumRequests - 1
                     ])
@@ -308,7 +307,7 @@ class SubscriptionManager: ObservableObject {
 
                 updatedProfile =
                     try await supabase
-                    .from("user_profiles")
+                    .from("user_storage")
                     .update([
                         "normal_requests": profile.normalRequests - 1
                     ])

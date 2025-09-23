@@ -3,7 +3,7 @@ import Supabase
 import SwiftUI
 
 // MARK: - Supabase Integration
-// Note: We now use the user_profiles table with notes and folders JSON columns
+// Note: We now use the user_storage table with notes and folders JSON columns
 
 struct StorageNote: Codable {
   var id: UUID
@@ -444,11 +444,24 @@ class StorageManager: ObservableObject {
 
   private func fetchUserStorageFromSupabase(userId: UUID) async {
     do {
-      // Fetch user profile data from the user_profiles table
+      print("DEBUG: Fetching user storage for user ID: \(userId)")
+      
+      // First, let's try to fetch all data to see what's available
+      let rawResponse = try await supabase
+        .from("user_storage")
+        .select("*")
+        .eq("user_id", value: userId)
+        .execute()
+      
+      print("DEBUG: Raw response from user_storage: \(rawResponse)")
+      
+      // Now fetch user storage data from the user_storage table
       let response: UserProfile =
         try await supabase
-        .from("user_profiles")
-        .select("notes, folders")
+        .from("user_storage")
+        .select(
+          "created_at, user_id, notes, folders, updated_at, premium_requests, normal_requests, subscription_tier, subscription_start_date, stripe_customer_id, stripe_subscription_id"
+        )
         .eq("user_id", value: userId)
         .single()
         .execute()
@@ -460,7 +473,7 @@ class StorageManager: ObservableObject {
       }
 
     } catch {
-      print("Error fetching from user_profiles table: \(error)")
+      print("Error fetching from user_storage table: \(error)")
     }
   }
 
@@ -468,14 +481,8 @@ class StorageManager: ObservableObject {
     // Process notes from user profile
     if let notesData = profile.notes {
       do {
-        // Handle both dictionary and string formats
-        let jsonData: Data
-        if let notesString = notesData as? String {
-          jsonData = notesString.data(using: .utf8) ?? Data()
-        } else {
-          jsonData = try JSONSerialization.data(withJSONObject: notesData)
-        }
-
+        // JSONB data from Supabase comes as a dictionary, convert to JSON data
+        let jsonData = try JSONSerialization.data(withJSONObject: notesData)
         let storageNotes = try JSONDecoder().decode([StorageNote].self, from: jsonData)
 
         // Merge notes with local data based on modification dates
@@ -498,14 +505,8 @@ class StorageManager: ObservableObject {
     // Process folders from user profile
     if let foldersData = profile.folders {
       do {
-        // Handle both dictionary and string formats
-        let jsonData: Data
-        if let foldersString = foldersData as? String {
-          jsonData = foldersString.data(using: .utf8) ?? Data()
-        } else {
-          jsonData = try JSONSerialization.data(withJSONObject: foldersData)
-        }
-
+        // JSONB data from Supabase comes as a dictionary, convert to JSON data
+        let jsonData = try JSONSerialization.data(withJSONObject: foldersData)
         let storageFolders = try JSONDecoder().decode([StorageFolder].self, from: jsonData)
 
         // First pass: create folders without child folders
@@ -555,9 +556,9 @@ class StorageManager: ObservableObject {
       // Convert to JSON string for Supabase
       let notesJsonString = String(data: notesData, encoding: .utf8) ?? "[]"
 
-      // Update the user profile with the new notes data
+      // Update the user storage with the new notes data
       try await supabase
-        .from("user_profiles")
+        .from("user_storage")
         .update(["notes": notesJsonString])
         .eq("user_id", value: userId)
         .execute()
@@ -580,9 +581,9 @@ class StorageManager: ObservableObject {
       // Convert to JSON string for Supabase
       let foldersJsonString = String(data: foldersData, encoding: .utf8) ?? "[]"
 
-      // Update the user profile with the new folders data
+      // Update the user storage with the new folders data
       try await supabase
-        .from("user_profiles")
+        .from("user_storage")
         .update(["folders": foldersJsonString])
         .eq("user_id", value: userId)
         .execute()

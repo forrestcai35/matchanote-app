@@ -61,7 +61,8 @@ struct WrittenNoteView: View {
     .background(
       (colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
     )
-    .ignoresSafeArea(.container, edges: .bottom)
+    .ignoresSafeArea(.all, edges: .bottom)
+
     .onAppear {
       // Only load if this is a different note
       if currentNoteId != note.id {
@@ -418,7 +419,7 @@ struct WrittenNoteView: View {
   // Extracted Page Content View Builder
   @ViewBuilder
   private func pageContent(pageIndex: Int, isInfinite: Bool) -> some View {
-    // Wrap Canvas in a GeometryReader to get parent size for centering
+    // Wrap Canvas in a GeometryReader to get parent size for centering and safe area insets
     GeometryReader { geometry in
       ZoomableScrollView(
         minScale: 0.8,
@@ -494,6 +495,7 @@ struct WrittenNoteView: View {
         }
       }
       .coordinateSpace(name: "scroll")
+      .edgesIgnoringSafeArea(.bottom)
     }
   }
 

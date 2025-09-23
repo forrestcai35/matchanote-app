@@ -444,11 +444,11 @@ struct WrittenNoteToolbar: View {
     .onDisappear {
       stopUndoRedoTimer()
     }
-    .onChange(of: currentPage) {
+    .onChange(of: currentPage) { _, _ in
       updateCanvasTool()
       updateUndoRedoState()
     }
-    .onChange(of: currentTool) {
+    .onChange(of: currentTool) { _, _ in
       // Collapse dropdowns when switching tools and re-apply tool
       expandedPenPresetIndex = nil
       expandedMarkerPresetIndex = nil
