@@ -604,10 +604,16 @@ struct NoteView: View {
     // Horizontal layout (left/right)
     HStack(spacing: 0) {
 
-      AIAssistantView()
+   AIAssistantView()
         .environmentObject(assistantState)
         .frame(width: assistantWidth)
         .contentShape(Rectangle())
+        .onAppear {
+          if let activeTab = tabManager.getActiveTab() {
+            // Set current note for AI assistant
+            assistantState.currentNote = activeTab.note
+          }
+        }
         // Drag to flip orientation
         .gesture(
           DragGesture(minimumDistance: 20, coordinateSpace: .global)
@@ -944,13 +950,11 @@ extension NoteView {
     updatedNote.imageDataByPage[pageKey]?.append(imageData)
     updatedNote.dateModified = Date()
 
-    print("DEBUG: Added image to page \(pageKey), now has \(updatedNote.imageDataByPage[pageKey]?.count ?? 0) images")
 
     // Update storage and tab manager
     let savedNote = storageManager.saveNote(updatedNote)
     tabManager.updateNote(savedNote)
 
-    print("DEBUG: Successfully saved note and updated tab manager")
 
     // Force a UI refresh to show the new background image
     DispatchQueue.main.async {

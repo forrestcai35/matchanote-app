@@ -510,35 +510,24 @@ class StorageManager: ObservableObject {
       await fetchUserStorageFromSupabase(userId: userId)
 
     } catch {
-      print("User not authenticated or error syncing with Supabase: \(error)")
       // Continue with local storage only
     }
   }
 
   private func fetchUserStorageFromSupabase(userId: UUID) async {
     do {
-      print("DEBUG: Fetching user storage for user ID: \(userId)")
       
-      // First, let's try to fetch all data to see what's available
-      let rawResponse = try await supabase
-        .from("user_storage")
-        .select("*")
-        .eq("user_id", value: userId)
-        .execute()
-      
-      print("DEBUG: Raw response from user_storage: \(rawResponse)")
-      print("DEBUG: Raw response data: \(String(data: rawResponse.data, encoding: .utf8) ?? "Could not convert to string")")
+
       
       // Now fetch user storage data from the user_storage table
+      // Use string UUID to avoid primary key filtering issues
       let response: UserProfile
       do {
-        // Try single() first
+        // Try single() first with string UUID
         response = try await supabase
           .from("user_storage")
-          .select(
-            "created_at, user_id, notes, folders, updated_at, premium_requests, normal_requests, subscription_tier, subscription_start_date, stripe_customer_id, stripe_subscription_id"
-          )
-          .eq("user_id", value: userId)
+          .select("*")
+          .eq("user_id", value: userId.uuidString)
           .single()
           .execute()
           .value
@@ -546,10 +535,8 @@ class StorageManager: ObservableObject {
         // If single() fails, try decoding as array and take first element
         let responses: [UserProfile] = try await supabase
           .from("user_storage")
-          .select(
-            "created_at, user_id, notes, folders, updated_at, premium_requests, normal_requests, subscription_tier, subscription_start_date, stripe_customer_id, stripe_subscription_id"
-          )
-          .eq("user_id", value: userId)
+          .select("*")
+          .eq("user_id", value: userId.uuidString)
           .execute()
           .value
         

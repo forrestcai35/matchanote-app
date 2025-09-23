@@ -32,7 +32,6 @@ struct OpenRouterAPI {
   }
 
   static func sendMessage(userMessage: String, model_string: String) async throws -> String {
-    var model :String = ""
     guard let apiKey = apiKey else {
       throw LlmError.missingAPIKey
     }
@@ -48,12 +47,8 @@ struct OpenRouterAPI {
     request.addValue("application/json", forHTTPHeaderField: "Content-Type")
     request.addValue("Matcha Note App", forHTTPHeaderField: "HTTP-Referer")
     
-    if model_string == "Matcha Assistant" {
-       model = "x-ai/grok-4-fast:free"
-    }
-      else {
-         model = model_string
-    }
+    // Get the actual model ID from the centralized configuration
+    let model = ModelConfiguration.getModelId(for: model_string) ?? model_string
       
     let requestBody: [String: Any] = [
       "model": model,

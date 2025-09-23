@@ -34,6 +34,12 @@ struct HomeView: View {
     @State private var showMoveSheet = false
     @State private var notePendingMove: Note? = nil
     @State private var selectedDestinationFolderID: UUID? = nil
+    
+    // Selection state
+    @State private var isSelectionMode = false
+    @State private var selectedNotes: Set<UUID> = []
+    @State private var selectedFolders: Set<UUID> = []
+    @State private var showBulkMoveSheet = false
 
     private enum DragItemType {
         case folder
@@ -202,8 +208,13 @@ struct HomeView: View {
 
                 // Header controls
                 HStack(spacing: 12) {
+                    if isSelectionMode && (selectedNotes.count > 0 || selectedFolders.count > 0) {
+                        bulkActionButtons
+                    }
                     viewToggleButton
-                    headerNewButton
+                    if !isSelectionMode {
+                        headerNewButton
+                    }
                 }
             }
             .padding(.horizontal)
@@ -264,6 +275,22 @@ struct HomeView: View {
                     }
                     notePendingMove = nil
                     showMoveSheet = false
+                }
+            )
+        }
+        .sheet(isPresented: $showBulkMoveSheet) {
+            BulkMoveSheet(
+                folders: storageManager.folders,
+                currentFolderID: currentFolderID,
+                selectedDestinationFolderID: $selectedDestinationFolderID,
+                selectedNotes: selectedNotes,
+                selectedFolders: selectedFolders,
+                onCancel: {
+                    showBulkMoveSheet = false
+                },
+                onConfirm: {
+                    moveSelectedItems(to: selectedDestinationFolderID)
+                    showBulkMoveSheet = false
                 }
             )
         }
@@ -384,21 +411,111 @@ struct HomeView: View {
     //        }
     //    }
     private var viewToggleButton: some View {
-        Button(action: { isGridView.toggle() }) {
-            Label(
-                isGridView ? "Grid View" : "List View",
-                systemImage: isGridView ? "square.grid.2x2" : "list.bullet"
-            )
-            .fontWeight(.medium)
-            .foregroundColor(
-                colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
-            )
-            .labelStyle(.iconOnly)
-            .padding(8)
-            .cornerRadius(8)
+        HStack(spacing: 8) {
+            // Grid/List toggle
+            Button(action: { isGridView.toggle() }) {
+                Label(
+                    isGridView ? "Grid View" : "List View",
+                    systemImage: isGridView ? "square.grid.2x2" : "list.bullet"
+                )
+                .fontWeight(.medium)
+                .foregroundColor(
+                    colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+                )
+                .labelStyle(.iconOnly)
+                .padding(8)
+                .cornerRadius(8)
+            }
+            .help(isGridView ? "Switch to List View" : "Switch to Grid View")
+            
+            // Selection mode toggle
+            Button(action: { 
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isSelectionMode.toggle()
+                    if !isSelectionMode {
+                        // Clear selections when exiting selection mode
+                        selectedNotes.removeAll()
+                        selectedFolders.removeAll()
+                    }
+                }
+            }) {
+                Image(systemName: isSelectionMode ? "checkmark.circle.fill" : "checkmark.circle")
+                    .fontWeight(.medium)
+                    .foregroundColor(
+                        isSelectionMode 
+                            ? (colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light)
+                            : (colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+                    )
+                    .padding(8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(
+                                isSelectionMode 
+                                    ? (colorScheme == .dark ? Color.matchalight_dark.opacity(0.2) : Color.matchalight_light.opacity(0.2))
+                                    : Color.clear
+                            )
+                    )
+            }
+            .help(isSelectionMode ? "Exit Selection Mode" : "Enter Selection Mode")
         }
-        .help(isGridView ? "Switch to List View" : "Switch to Grid View")
     }
+    
+    // MARK: - Bulk Action Buttons
+    private var bulkActionButtons: some View {
+        HStack(spacing: 8) {
+            // Selection count
+            Text("\(selectedNotes.count + selectedFolders.count) selected")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.gray.opacity(0.1))
+                )
+            
+            // Move button
+            Button(action: {
+                showBulkMoveSheet = true
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "folder")
+                    Text("Move")
+                }
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(.primary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.blue.opacity(0.1))
+                )
+            }
+            .buttonStyle(PlainButtonStyle())
+            
+            // Delete button
+            Button(action: {
+                deleteSelectedItems()
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "trash")
+                    Text("Delete")
+                }
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(.red)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.red.opacity(0.1))
+                )
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+    }
+    
     private var documentContent: some View {
         ScrollView {
             if filteredNotes.isEmpty && filteredFolders.isEmpty {
@@ -412,15 +529,16 @@ struct HomeView: View {
     }
     private var gridView: some View {
         LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 160), spacing: 12)],
-            spacing: 12
+            columns: [GridItem(.adaptive(minimum: 160), spacing: 20)],
+            spacing: 20
         ) {
             // Break grid content into separate views
             foldersGridContent
             notesGridContent
         }
-        .padding(.horizontal)
-        .padding(.top, 8)
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+        .padding(.bottom, 16)
         .id(refreshID)
         // Simplify root drop target
         .onDrop(of: ["public.text"], isTargeted: nil) { _, _ in
@@ -535,11 +653,17 @@ struct HomeView: View {
 
     // Helper function to create a folder grid item
     private func folderGridItem(for folder: Folder) -> some View {
-        applyCommonItemModifiers(
-            view: GridFolderItemView(folder: folder),
+        let isSelected = selectedFolders.contains(folder.id)
+        
+        return applyCommonItemModifiers(
+            view: GridFolderItemView(folder: folder, isSelected: isSelected, isSelectionMode: isSelectionMode),
             for: folder,
             onTap: {
-                navigateToFolder(folder)
+                if isSelectionMode {
+                    toggleFolderSelection(folder.id)
+                } else {
+                    navigateToFolder(folder)
+                }
             },
             contextMenu: {
                 folderContextMenu(folder)
@@ -558,15 +682,21 @@ struct HomeView: View {
 
     // Helper function to create a note grid item
     private func noteGridItem(for note: Note) -> some View {
-        Button(action: {
-            var opened = note
-            opened.lastOpenedAt = Date()
-            let saved = storageManager.saveNote(opened)
-            TabManager.shared.updateNote(saved)
-            TabManager.shared.openTab(note: saved)
-            selectedNote = saved
+        let isSelected = selectedNotes.contains(note.id)
+        
+        return Button(action: {
+            if isSelectionMode {
+                toggleNoteSelection(note.id)
+            } else {
+                var opened = note
+                opened.lastOpenedAt = Date()
+                let saved = storageManager.saveNote(opened)
+                TabManager.shared.updateNote(saved)
+                TabManager.shared.openTab(note: saved)
+                selectedNote = saved
+            }
         }) {
-            GridItemView(note: note)
+            GridItemView(note: note, isSelected: isSelected, isSelectionMode: isSelectionMode)
         }
         .buttonStyle(PlainButtonStyle())
         .contextMenu {
@@ -583,7 +713,8 @@ struct HomeView: View {
         VStack(spacing: 12) {
             listContent
         }
-        .padding(.vertical)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
         .id(refreshID)
         .onDrop(of: ["public.text"], isTargeted: nil) { _, _ in
             guard currentFolderID == nil else { return false }
@@ -617,11 +748,17 @@ struct HomeView: View {
 
     // Helper function to create a folder list item
     private func folderListItem(for folder: Folder) -> some View {
-        applyCommonItemModifiers(
-            view: ListFolderItemView(folder: folder),
+        let isSelected = selectedFolders.contains(folder.id)
+        
+        return applyCommonItemModifiers(
+            view: ListFolderItemView(folder: folder, isSelected: isSelected, isSelectionMode: isSelectionMode),
             for: folder,
             onTap: {
-                navigateToFolder(folder)
+                if isSelectionMode {
+                    toggleFolderSelection(folder.id)
+                } else {
+                    navigateToFolder(folder)
+                }
             },
             contextMenu: {
                 folderContextMenu(folder)
@@ -640,15 +777,21 @@ struct HomeView: View {
 
     // Helper function to create a note list item
     private func noteListItem(for note: Note) -> some View {
-        Button(action: {
-            var opened = note
-            opened.lastOpenedAt = Date()
-            let saved = storageManager.saveNote(opened)
-            TabManager.shared.updateNote(saved)
-            TabManager.shared.openTab(note: saved)
-            selectedNote = saved
+        let isSelected = selectedNotes.contains(note.id)
+        
+        return Button(action: {
+            if isSelectionMode {
+                toggleNoteSelection(note.id)
+            } else {
+                var opened = note
+                opened.lastOpenedAt = Date()
+                let saved = storageManager.saveNote(opened)
+                TabManager.shared.updateNote(saved)
+                TabManager.shared.openTab(note: saved)
+                selectedNote = saved
+            }
         }) {
-            ListItemView(note: note)
+            ListItemView(note: note, isSelected: isSelected, isSelectionMode: isSelectionMode)
         }
         .buttonStyle(PlainButtonStyle())
         .contextMenu {
@@ -860,6 +1003,73 @@ struct HomeView: View {
         }
     }
 
+    // MARK: - Selection Helpers
+    private func toggleNoteSelection(_ noteID: UUID) {
+        if selectedNotes.contains(noteID) {
+            selectedNotes.remove(noteID)
+        } else {
+            selectedNotes.insert(noteID)
+        }
+    }
+    
+    private func toggleFolderSelection(_ folderID: UUID) {
+        if selectedFolders.contains(folderID) {
+            selectedFolders.remove(folderID)
+        } else {
+            selectedFolders.insert(folderID)
+        }
+    }
+    
+    // MARK: - Bulk Operations
+    private func deleteSelectedItems() {
+        // Delete selected notes
+        for noteID in selectedNotes {
+            storageManager.deleteNote(withID: noteID)
+        }
+        
+        // Delete selected folders
+        for folderID in selectedFolders {
+            storageManager.deleteFolder(withID: folderID)
+        }
+        
+        // Clear selections
+        selectedNotes.removeAll()
+        selectedFolders.removeAll()
+        
+        // Refresh UI
+        DispatchQueue.main.async {
+            self.refreshID = UUID()
+        }
+    }
+    
+    private func moveSelectedItems(to destinationFolderID: UUID?) {
+        // Move selected notes
+        for noteID in selectedNotes {
+            if let note = storageManager.notes.first(where: { $0.id == noteID }) {
+                moveNote(note, to: destinationFolderID)
+            }
+        }
+        
+        // Move selected folders
+        for folderID in selectedFolders {
+            if let folderIndex = storageManager.folders.firstIndex(where: { $0.id == folderID }) {
+                storageManager.folders[folderIndex].parentID = destinationFolderID
+            }
+        }
+        
+        // Save folder changes
+        storageManager.saveFoldersState()
+        
+        // Clear selections
+        selectedNotes.removeAll()
+        selectedFolders.removeAll()
+        
+        // Refresh UI
+        DispatchQueue.main.async {
+            self.refreshID = UUID()
+        }
+    }
+    
     private func moveNote(_ note: Note, to destinationFolderID: UUID?) {
         print("Moving note '\(note.title)' to folder: \(destinationFolderID?.uuidString ?? "Home")")
         
@@ -1300,53 +1510,147 @@ struct HomeView: View {
 
     private var recentsGridView: some View {
         LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 160), spacing: 12)],
-            spacing: 12
+            columns: [GridItem(.adaptive(minimum: 160), spacing: 20)],
+            spacing: 20
         ) {
             ForEach(recentNotes) { note in
-                noteGridItem(for: note)
+                let isSelected = selectedNotes.contains(note.id)
+                Button(action: {
+                    if isSelectionMode {
+                        toggleNoteSelection(note.id)
+                    } else {
+                        var opened = note
+                        opened.lastOpenedAt = Date()
+                        let saved = storageManager.saveNote(opened)
+                        TabManager.shared.updateNote(saved)
+                        TabManager.shared.openTab(note: saved)
+                        selectedNote = saved
+                    }
+                }) {
+                    GridItemView(note: note, isSelected: isSelected, isSelectionMode: isSelectionMode)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .contextMenu {
+                    noteContextMenu(note)
+                }
+                .onDrag {
+                    startDragging(note: note)
+                } preview: {
+                    dragPreview(for: note)
+                }
             }
         }
-        .padding(.horizontal)
-        .padding(.top, 8)
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+        .padding(.bottom, 16)
         .id(refreshID)
     }
 
     private var recentsListView: some View {
         LazyVStack(spacing: 8) {
             ForEach(recentNotes) { note in
-                noteListItem(for: note)
+                let isSelected = selectedNotes.contains(note.id)
+                Button(action: {
+                    if isSelectionMode {
+                        toggleNoteSelection(note.id)
+                    } else {
+                        var opened = note
+                        opened.lastOpenedAt = Date()
+                        let saved = storageManager.saveNote(opened)
+                        TabManager.shared.updateNote(saved)
+                        TabManager.shared.openTab(note: saved)
+                        selectedNote = saved
+                    }
+                }) {
+                    ListItemView(note: note, isSelected: isSelected, isSelectionMode: isSelectionMode)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .contextMenu {
+                    noteContextMenu(note)
+                }
+                .onDrag {
+                    startDragging(note: note)
+                } preview: {
+                    dragPreview(for: note)
+                }
             }
         }
-        .padding(.vertical)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
         .id(refreshID)
     }
 
     private var favoritesGridView: some View {
         LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 160), spacing: 12)],
-            spacing: 12
+            columns: [GridItem(.adaptive(minimum: 160), spacing: 20)],
+            spacing: 20
         ) {
-
             //  favorite notes
             ForEach(filteredFavoriteNotes) { note in
-                noteGridItem(for: note)
+                let isSelected = selectedNotes.contains(note.id)
+                Button(action: {
+                    if isSelectionMode {
+                        toggleNoteSelection(note.id)
+                    } else {
+                        var opened = note
+                        opened.lastOpenedAt = Date()
+                        let saved = storageManager.saveNote(opened)
+                        TabManager.shared.updateNote(saved)
+                        TabManager.shared.openTab(note: saved)
+                        selectedNote = saved
+                    }
+                }) {
+                    GridItemView(note: note, isSelected: isSelected, isSelectionMode: isSelectionMode)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .contextMenu {
+                    noteContextMenu(note)
+                }
+                .onDrag {
+                    startDragging(note: note)
+                } preview: {
+                    dragPreview(for: note)
+                }
             }
         }
-        .padding(.horizontal)
-        .padding(.top, 8)
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+        .padding(.bottom, 16)
         .id(refreshID)
     }
 
     private var favoritesListView: some View {
         LazyVStack(spacing: 8) {
-
             //  show favorite notes
             ForEach(filteredFavoriteNotes) { note in
-                noteListItem(for: note)
+                let isSelected = selectedNotes.contains(note.id)
+                Button(action: {
+                    if isSelectionMode {
+                        toggleNoteSelection(note.id)
+                    } else {
+                        var opened = note
+                        opened.lastOpenedAt = Date()
+                        let saved = storageManager.saveNote(opened)
+                        TabManager.shared.updateNote(saved)
+                        TabManager.shared.openTab(note: saved)
+                        selectedNote = saved
+                    }
+                }) {
+                    ListItemView(note: note, isSelected: isSelected, isSelectionMode: isSelectionMode)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .contextMenu {
+                    noteContextMenu(note)
+                }
+                .onDrag {
+                    startDragging(note: note)
+                } preview: {
+                    dragPreview(for: note)
+                }
             }
         }
-        .padding(.vertical)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
         .id(refreshID)
     }
 
@@ -1493,6 +1797,110 @@ struct MoveNoteSheet: View {
                     .fontWeight(.semibold)
                 Spacer()
             }
+
+            // Destination list
+            List {
+                // Home (no folder)
+                HStack {
+                    Image(systemName: "house")
+                    Text("Home")
+                    Spacer()
+                    if selectedDestinationFolderID == nil { 
+                        Image(systemName: "checkmark")
+                            .foregroundColor(.blue)
+                    }
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    selectedDestinationFolderID = nil
+                }
+
+                // Top-level folders only (no parent)
+                ForEach(folders.filter { $0.parentID == nil }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }) { folder in
+                    HStack {
+                        Image(systemName: "folder")
+                        Text(folder.name)
+                        Spacer()
+                        if selectedDestinationFolderID == folder.id { 
+                            Image(systemName: "checkmark")
+                                .foregroundColor(.blue)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        selectedDestinationFolderID = folder.id
+                    }
+                }
+            }
+            .listStyle(.plain)
+
+            HStack {
+                Button("Cancel") { 
+                    onCancel() 
+                }
+                .buttonStyle(.bordered)
+                
+                Spacer()
+                
+                Button("Move") { 
+                    onConfirm() 
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding()
+        .frame(minWidth: 400, minHeight: 500)
+        .background(
+            colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light
+        )
+    }
+}
+
+// MARK: - Bulk Move Sheet
+struct BulkMoveSheet: View {
+    let folders: [Folder]
+    let currentFolderID: UUID?
+    @Binding var selectedDestinationFolderID: UUID?
+    let selectedNotes: Set<UUID>
+    let selectedFolders: Set<UUID>
+    var onCancel: () -> Void
+    var onConfirm: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Move Selected Items")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                Spacer()
+            }
+
+            // Selection summary
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Moving \(selectedNotes.count + selectedFolders.count) items:")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                
+                if selectedNotes.count > 0 {
+                    Text("• \(selectedNotes.count) note\(selectedNotes.count == 1 ? "" : "s")")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                if selectedFolders.count > 0 {
+                    Text("• \(selectedFolders.count) folder\(selectedFolders.count == 1 ? "" : "s")")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.gray.opacity(0.1))
+            )
 
             // Destination list
             List {

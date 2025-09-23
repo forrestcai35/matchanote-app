@@ -4,25 +4,28 @@ import Supabase
 // Import the global supabase instance
 private let globalSupabase = supabase
 
-// MARK: - Subscription Types
-enum SubscriptionTier: String, CaseIterable {
-    case free = "FREE"
-    case student = "STUDENT"
-    case pro = "PRO"
+// MARK: - Simple User Profile for Testing
+struct SimpleUserProfile: Codable {
+    let createdAt: Date?
+    let userId: UUID
+    let premiumRequests: Int16
+    let normalRequests: Int64
+    let subscriptionTier: String
+    let subscriptionStartDate: Date?
+    let stripeCustomerId: String?
+    let stripeSubscriptionId: String?
+    let updatedAt: Date?
 
-    var displayName: String {
-        switch self {
-        case .free: return "Free"
-        case .student: return "Student"
-        case .pro: return "Pro"
-        }
-    }
-
-    var hasPremiumAccess: Bool {
-        switch self {
-        case .free: return false
-        case .student, .pro: return true
-        }
+    enum CodingKeys: String, CodingKey {
+        case createdAt = "created_at"
+        case userId = "user_id"
+        case premiumRequests = "premium_requests"
+        case normalRequests = "normal_requests"
+        case subscriptionTier = "subscription_tier"
+        case subscriptionStartDate = "subscription_start_date"
+        case stripeCustomerId = "stripe_customer_id"
+        case stripeSubscriptionId = "stripe_subscription_id"
+        case updatedAt = "updated_at"
     }
 }
 
@@ -73,14 +76,7 @@ struct UserProfile: Codable, Identifiable {
                   let uuidFromString = UUID(uuidString: stringValue) {
             userId = uuidFromString
         } else if container.contains(.userId) {
-            // Key exists but couldn't decode - log the raw value
-            if let rawValue = try? container.decode(String.self, forKey: .userId) {
-                print("DEBUG: user_id raw value as string: \(rawValue)")
-            } else if let rawValue = try? container.decode(Int.self, forKey: .userId) {
-                print("DEBUG: user_id raw value as int: \(rawValue)")
-            } else {
-                print("DEBUG: user_id exists but couldn't decode as string or int")
-            }
+            // Key exists but couldn't decode
             throw DecodingError.typeMismatch(UUID.self, DecodingError.Context(
                 codingPath: decoder.codingPath,
                 debugDescription: "Could not decode user_id as UUID or string"
@@ -144,47 +140,18 @@ struct UserProfile: Codable, Identifiable {
     }
 }
 
-// MARK: - Request Tracking Models
-enum RequestType {
-    case premium
-    case normal
-}
 
-struct RequestUsage {
-    let type: RequestType
-    let count: Int
-    let timestamp: Date
-    let model: String
-}
-
-// MARK: - Premium Models Configuration
+// MARK: - Premium Models Configuration (Deprecated - Use ModelConfiguration instead)
 struct PremiumModels {
-    static let premiumModelsList: [String] = [
-        "claude-3-5-sonnet-20241022",
-        "claude-3-5-haiku-20241022",
-        "gpt-4o",
-        "gpt-4o-mini",
-        "o1-preview",
-        "o1-mini",
-        "gemini-1.5-pro",
-        "gemini-1.5-flash",
-    ]
-
-    static let freeModels: [String] = [
-        "Matcha Assistant"  // This maps to "x-ai/grok-4-fast:free"
-    ]
+    static let premiumModelsList: [String] = ModelConfiguration.getPremiumModelNames()
+    static let freeModels: [String] = ModelConfiguration.getFreeModelNames()
 
     static func isPremiumModel(_ model: String) -> Bool {
-        return premiumModelsList.contains(model)
+        return ModelConfiguration.isPremiumModel(model)
     }
 
     static func getAvailableModels(for tier: SubscriptionTier) -> [String] {
-        switch tier {
-        case .free:
-            return freeModels
-        case .student, .pro:
-            return freeModels + premiumModelsList
-        }
+        return ModelConfiguration.getAvailableModelNames(for: tier)
     }
 }
 
@@ -214,61 +181,27 @@ class SubscriptionManager: ObservableObject {
             let session = try await supabase.auth.session
             let user = session.user
 
-            print("DEBUG: Fetching user profile for user ID: \(user.id)")
 
-            // Fetch with explicit column names to ensure proper mapping
-            let response: UserProfile =
+
+            // Now try with the full UserProfile struct using string UUID
+            let fullProfiles: [UserProfile] =
                 try await supabase
                 .from("user_storage")
-                .select(
-                    "created_at, user_id, notes, folders, updated_at, premium_requests, normal_requests, subscription_tier, subscription_start_date, stripe_customer_id, stripe_subscription_id"
-                )
-                .eq("user_id", value: user.id)
-                .single()
+                .select("*")
+                .eq("user_id", value: user.id.uuidString)
                 .execute()
                 .value
 
-            print("DEBUG: Fetched user profile: \(response)")
-            print("DEBUG: Normal requests: \(response.normalRequests)")
-            print("DEBUG: Premium requests: \(response.premiumRequests)")
-            print("DEBUG: Subscription tier: \(response.subscriptionTier)")
-
-            await MainActor.run {
-                userProfile = response
+            if let firstProfile = fullProfiles.first {
+                
+                await MainActor.run {
+                    userProfile = firstProfile
+                }
             }
+
         } catch {
             await MainActor.run {
                 errorMessage = "Failed to fetch user profile: \(error.localizedDescription)"
-            }
-            print("DEBUG: Error fetching user profile: \(error)")
-
-            // Try to fetch without single() to see if there are multiple records
-            do {
-                let session = try await supabase.auth.session
-                let user = session.user
-
-                let allRecords: [UserProfile] =
-                    try await supabase
-                    .from("user_storage")
-                    .select("*")
-                    .eq("user_id", value: user.id)
-                    .execute()
-                    .value
-
-                print("DEBUG: Found \(allRecords.count) user profile records")
-                for (index, record) in allRecords.enumerated() {
-                    print(
-                        "DEBUG: Record \(index): normal_requests=\(record.normalRequests), premium_requests=\(record.premiumRequests)"
-                    )
-                }
-
-                if let firstRecord = allRecords.first {
-                    await MainActor.run {
-                        userProfile = firstRecord
-                    }
-                }
-            } catch {
-                print("DEBUG: Secondary fetch also failed: \(error)")
             }
         }
 
@@ -279,7 +212,6 @@ class SubscriptionManager: ObservableObject {
 
     func canMakeRequest(type: RequestType) -> Bool {
         guard let profile = userProfile else {
-            print("DEBUG: canMakeRequest - No user profile available")
             return false
         }
 
@@ -287,14 +219,8 @@ class SubscriptionManager: ObservableObject {
         switch type {
         case .premium:
             canMake = profile.premiumRequests > 0
-            print(
-                "DEBUG: canMakeRequest - Premium request check: \(profile.premiumRequests) > 0 = \(canMake)"
-            )
         case .normal:
             canMake = profile.normalRequests > 0
-            print(
-                "DEBUG: canMakeRequest - Normal request check: \(profile.normalRequests) > 0 = \(canMake)"
-            )
         }
 
         return canMake
@@ -302,13 +228,9 @@ class SubscriptionManager: ObservableObject {
 
     func consumeRequest(type: RequestType, model: String) async -> Bool {
         guard let profile = userProfile else {
-            print("DEBUG: consumeRequest - No user profile available")
             return false
         }
 
-        print("DEBUG: consumeRequest - Starting consumption for \(type) request")
-        print("DEBUG: consumeRequest - Current normal requests: \(profile.normalRequests)")
-        print("DEBUG: consumeRequest - Current premium requests: \(profile.premiumRequests)")
 
         do {
             let updatedProfile: UserProfile
@@ -316,15 +238,9 @@ class SubscriptionManager: ObservableObject {
             switch type {
             case .premium:
                 guard profile.premiumRequests > 0 else {
-                    print(
-                        "DEBUG: consumeRequest - No premium requests available (\(profile.premiumRequests))"
-                    )
                     return false
                 }
 
-                print(
-                    "DEBUG: consumeRequest - Updating premium requests from \(profile.premiumRequests) to \(profile.premiumRequests - 1)"
-                )
 
                 updatedProfile =
                     try await supabase
@@ -332,7 +248,7 @@ class SubscriptionManager: ObservableObject {
                     .update([
                         "premium_requests": profile.premiumRequests - 1
                     ])
-                    .eq("user_id", value: profile.userId)
+                    .eq("user_id", value: profile.userId.uuidString)
                     .select("*")
                     .single()
                     .execute()
@@ -340,15 +256,9 @@ class SubscriptionManager: ObservableObject {
 
             case .normal:
                 guard profile.normalRequests > 0 else {
-                    print(
-                        "DEBUG: consumeRequest - No normal requests available (\(profile.normalRequests))"
-                    )
                     return false
                 }
 
-                print(
-                    "DEBUG: consumeRequest - Updating normal requests from \(profile.normalRequests) to \(profile.normalRequests - 1)"
-                )
 
                 updatedProfile =
                     try await supabase
@@ -356,16 +266,13 @@ class SubscriptionManager: ObservableObject {
                     .update([
                         "normal_requests": profile.normalRequests - 1
                     ])
-                    .eq("user_id", value: profile.userId)
+                    .eq("user_id", value: profile.userId.uuidString)
                     .select("*")
                     .single()
                     .execute()
                     .value
             }
 
-            print(
-                "DEBUG: consumeRequest - Updated profile: normal=\(updatedProfile.normalRequests), premium=\(updatedProfile.premiumRequests)"
-            )
 
             await MainActor.run {
                 userProfile = updatedProfile
@@ -376,21 +283,20 @@ class SubscriptionManager: ObservableObject {
             await MainActor.run {
                 errorMessage = "Failed to consume request: \(error.localizedDescription)"
             }
-            print("DEBUG: consumeRequest - Error consuming request: \(error)")
             return false
         }
     }
 
     func getAvailableModels() -> [String] {
         guard let profile = userProfile else {
-            return PremiumModels.freeModels
+            return ModelConfiguration.getFreeModelNames()
         }
 
-        return PremiumModels.getAvailableModels(for: profile.subscriptionTier)
+        return ModelConfiguration.getAvailableModelNames(for: profile.subscriptionTier)
     }
 
     func getRequestType(for model: String) -> RequestType {
-        return PremiumModels.isPremiumModel(model) ? .premium : .normal
+        return ModelConfiguration.isPremiumModel(model) ? .premium : .normal
     }
 
     // Force refresh user profile from Supabase

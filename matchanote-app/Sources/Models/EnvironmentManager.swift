@@ -17,13 +17,11 @@ class EnvironmentManager {
       return
     }
 
-    print("✅ Found .env file at: \(fileURL.path)")
 
     do {
       let contents = try String(contentsOf: fileURL, encoding: .utf8)
       let lines = contents.components(separatedBy: .newlines)
 
-      print("📄 .env file has \(lines.count) lines")
 
       for line in lines {
         let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -55,7 +53,6 @@ class EnvironmentManager {
         }
       }
 
-      print("✅ Loaded \(variables.count) environment variables")
     } catch {
       print("⚠️ Error loading .env file: \(error)")
     }

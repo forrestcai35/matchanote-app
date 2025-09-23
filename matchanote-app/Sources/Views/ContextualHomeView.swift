@@ -5,8 +5,16 @@ public struct ListItemView: View {
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var storageManager: StorageManager
     let note: Note
+    let isSelected: Bool
+    let isSelectionMode: Bool
     @State private var showRenamePopover = false
     @State private var newTitle = ""
+    
+    init(note: Note, isSelected: Bool = false, isSelectionMode: Bool = false) {
+        self.note = note
+        self.isSelected = isSelected
+        self.isSelectionMode = isSelectionMode
+    }
 
     // Check if note has uploaded content to preview
     private var hasUploadedContent: Bool {
@@ -115,6 +123,13 @@ public struct ListItemView: View {
     public var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
+                // Selection indicator
+                if isSelectionMode {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(isSelected ? .blue : .gray)
+                        .font(.title3)
+                }
+                
                 // Note preview with shadow
                 notePreview
                     .shadow(
@@ -189,6 +204,11 @@ public struct ListItemView: View {
             .frame(maxWidth: .infinity)
             .frame(height: 56)
             .padding(.horizontal)
+            .background(
+                isSelected && isSelectionMode 
+                    ? Color.blue.opacity(0.1) 
+                    : Color.clear
+            )
             .contentShape(Rectangle())
 
             // Divider
@@ -213,8 +233,16 @@ public struct ListFolderItemView: View {
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var storageManager: StorageManager
     let folder: Folder
+    let isSelected: Bool
+    let isSelectionMode: Bool
     @State private var showRenamePopover = false
     @State private var newName = ""
+    
+    init(folder: Folder, isSelected: Bool = false, isSelectionMode: Bool = false) {
+        self.folder = folder
+        self.isSelected = isSelected
+        self.isSelectionMode = isSelectionMode
+    }
 
     // Small folder preview using the same folder image as grid view - vertical rectangle
     @ViewBuilder
@@ -229,6 +257,13 @@ public struct ListFolderItemView: View {
     public var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
+                // Selection indicator
+                if isSelectionMode {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(isSelected ? .blue : .gray)
+                        .font(.title3)
+                }
+                
                 // Folder preview with shadow
                 folderPreview
                     .shadow(
@@ -296,6 +331,11 @@ public struct ListFolderItemView: View {
             .frame(maxWidth: .infinity)
             .frame(height: 56)
             .padding(.horizontal)
+            .background(
+                isSelected && isSelectionMode 
+                    ? Color.blue.opacity(0.1) 
+                    : Color.clear
+            )
             .contentShape(Rectangle())
 
             // Divider
@@ -308,10 +348,18 @@ public struct ListFolderItemView: View {
 // Add a helper view for folder grid items
 public struct GridFolderItemView: View {
     let folder: Folder
+    let isSelected: Bool
+    let isSelectionMode: Bool
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var storageManager: StorageManager
     @State private var showRenamePopover = false
     @State private var newName = ""
+    
+    init(folder: Folder, isSelected: Bool = false, isSelectionMode: Bool = false) {
+        self.folder = folder
+        self.isSelected = isSelected
+        self.isSelectionMode = isSelectionMode
+    }
 
     private func itemShadow(in colorScheme: ColorScheme) -> Color {
         return colorScheme == .dark ? Color.white.opacity(0.4) : Color.black.opacity(0.2)
@@ -327,7 +375,25 @@ public struct GridFolderItemView: View {
                     .scaledToFill()
                     .frame(width: 175, height: 140)
                     .clipped()
-
+                
+                // Selection indicator
+                if isSelectionMode {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                .foregroundColor(isSelected ? .blue : .white)
+                                .font(.title2)
+                                .background(
+                                    Circle()
+                                        .fill(Color.black.opacity(0.3))
+                                        .frame(width: 28, height: 28)
+                                )
+                        }
+                        Spacer()
+                    }
+                    .padding(8)
+                }
             }
             // Folder title with rename dropdown
             HStack(spacing: 4) {
@@ -390,6 +456,12 @@ public struct GridFolderItemView: View {
         }
         .padding(.top, 60)
         .frame(width: 160)
+        .background(
+            isSelected && isSelectionMode 
+                ? Color.blue.opacity(0.1) 
+                : Color.clear
+        )
+        .cornerRadius(12)
         .contentShape(Rectangle())
     }
 }
@@ -397,10 +469,18 @@ public struct GridFolderItemView: View {
 // Add a helper view for grid items
 public struct GridItemView: View {
     let note: Note
+    let isSelected: Bool
+    let isSelectionMode: Bool
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var storageManager: StorageManager
     @State private var showRenamePopover = false
     @State private var newTitle = ""
+    
+    init(note: Note, isSelected: Bool = false, isSelectionMode: Bool = false) {
+        self.note = note
+        self.isSelected = isSelected
+        self.isSelectionMode = isSelectionMode
+    }
 
     private func itemShadow(in colorScheme: ColorScheme) -> Color {
         return colorScheme == .dark ? Color.white.opacity(0.4) : Color.black.opacity(0.2)
@@ -562,6 +642,20 @@ public struct GridItemView: View {
                     .padding(8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
 
+                // Selection indicator
+                if isSelectionMode {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(isSelected ? .blue : .white)
+                        .font(.title2)
+                        .background(
+                            Circle()
+                                .fill(Color.black.opacity(0.3))
+                                .frame(width: 28, height: 28)
+                        )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .padding(8)
+                }
+
                 Image(systemName: noteTypeIcon(note.noteType))
                     .foregroundColor(.white)
                     .padding(6)
@@ -632,6 +726,12 @@ public struct GridItemView: View {
                 .multilineTextAlignment(.center)
         }
         .frame(width: 160)
+        .background(
+            isSelected && isSelectionMode 
+                ? Color.blue.opacity(0.1) 
+                : Color.clear
+        )
+        .cornerRadius(12)
         .contentShape(Rectangle())
 
     }

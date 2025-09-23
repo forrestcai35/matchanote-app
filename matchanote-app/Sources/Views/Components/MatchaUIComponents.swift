@@ -365,7 +365,7 @@ struct MatchaSidebarItem: View {
                 Spacer()
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 14)
+            .padding(.vertical, 8)
             .background(
                 RoundedRectangle(cornerRadius: MatchaUI.Style.itemCornerRadius)
                     .fill(
