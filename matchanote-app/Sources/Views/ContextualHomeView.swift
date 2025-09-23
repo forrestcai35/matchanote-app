@@ -8,94 +8,193 @@ public struct ListItemView: View {
     @State private var showRenamePopover = false
     @State private var newTitle = ""
 
-    public var body: some View {
-        HStack {
-            // Color indicator
-            RoundedRectangle(cornerRadius: 4)
-                .fill(note.color)
-                .frame(width: 6)
-                .frame(maxHeight: .infinity)
+    // Check if note has uploaded content to preview
+    private var hasUploadedContent: Bool {
+        return !note.imageDataByPage.isEmpty
+    }
 
-            // Note info
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 4) {
-                    // Type icon next to title
-                    Image(systemName: noteTypeIcon(note.noteType))
-                        .foregroundColor(
-                            colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+    // Small preview view for list items - using grid view aspect ratio
+    @ViewBuilder
+    private var notePreview: some View {
+        ZStack {
+            // Content preview with vertical rectangle aspect ratio (same as grid)
+            if hasUploadedContent {
+                // Show uploaded content preview
+                if let firstPageImages = note.imageDataByPage["0"],
+                   let firstImageData = firstPageImages.first,
+                   let uiImage = UIImage(data: firstImageData) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 32, height: 40)
+                        .clipped()
+                        .clipShape(RoundedRectangle(cornerRadius: note.noteType == .written ? 6 : 2))
+                } else {
+                    RoundedRectangle(cornerRadius: note.noteType == .written ? 6 : 2)
+                        .fill(note.color)
+                        .frame(width: 32, height: 40)
+                        .overlay(
+                            Image(systemName: "doc.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(.white.opacity(0.8))
                         )
-                        .font(.caption)
+                }
+            } else {
+                // Show content preview for notes without uploaded content
+                if note.noteType == .written {
+                    // Check if there's actual drawing content
+                    if let drawingData = note.drawingDataByPage["0"],
+                       let pkDrawing = try? PKDrawing(data: drawingData),
+                       !pkDrawing.strokes.isEmpty {
+                        // Show drawing preview
+                        let paperSize = PaperUtilities.paperSize(for: note.paperSize)
+                        let previewBounds = CGRect(origin: .zero, size: paperSize)
+                        let previewImage = pkDrawing.image(from: previewBounds, scale: 0.3)
 
-                    Text(note.title)
-                        .fontWeight(.medium)
-                        .lineLimit(1)
-
-                    // Rename dropdown button
-                    Button(action: {
-                        newTitle = note.title
-                        showRenamePopover = true
-                    }) {
-                        Image(systemName: "chevron.down")
-                            .foregroundColor(.gray)
-                            .font(.system(size: 10))
+                        Image(uiImage: previewImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 32, height: 40)
+                            .clipped()
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                    } else {
+                        // Empty written note - show paper background with pencil icon
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(PaperUtilities.getPaperBackgroundColor(for: note.paperColor))
+                            .frame(width: 32, height: 40)
+                            .overlay(
+                                Image(systemName: "pencil.tip")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(Color.gray.opacity(0.5))
+                            )
                     }
-                    .buttonStyle(PlainButtonStyle())
-                    .popover(isPresented: $showRenamePopover) {
-                        VStack(spacing: 12) {
-                            Text("Rename Note")
-                                .font(.headline)
-
-                            TextField("Note name", text: $newTitle)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
-                                .frame(width: 200)
-
-                            HStack {
-                                Button("Cancel") {
-                                    showRenamePopover = false
+                } else {
+                    // Text note preview
+                    if !note.content.isEmpty {
+                        VStack(alignment: .leading, spacing: 1) {
+                            ForEach(0..<min(5, note.content.components(separatedBy: .newlines).count), id: \.self) { lineIndex in
+                                let lines = note.content.components(separatedBy: .newlines)
+                                if lineIndex < lines.count && !lines[lineIndex].isEmpty {
+                                    HStack {
+                                        Text(lines[lineIndex])
+                                            .font(.system(size: 6))
+                                            .lineLimit(1)
+                                            .foregroundColor(
+                                                colorScheme == .dark ? Color.white.opacity(0.8) : Color.black.opacity(0.8)
+                                            )
+                                        Spacer()
+                                    }
                                 }
-                                .foregroundColor(.red)
-
-                                Spacer()
-
-                                Button("Save") {
-                                    var updatedNote = note
-                                    updatedNote.title = newTitle
-                                    updatedNote.dateModified = Date()
-                                    let savedNote = storageManager.saveNote(updatedNote)
-                                    TabManager.shared.updateNote(savedNote)
-                                    showRenamePopover = false
-                                }
-                                .disabled(newTitle.isEmpty)
                             }
+                            Spacer()
                         }
-                        .padding()
-                        .frame(minWidth: 250)
+                        .padding(3)
+                        .frame(width: 32, height: 40)
+                        .background(
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(note.color)
+                        )
+                    } else {
+                        // Empty text note
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(note.color)
+                            .frame(width: 32, height: 40)
+                            .overlay(
+                                Image(systemName: "text.alignleft")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(
+                                        colorScheme == .dark ? Color.white.opacity(0.5) : Color.black.opacity(0.5)
+                                    )
+                            )
                     }
                 }
-
-                Text(note.dateModified, style: .date)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
             }
-            .padding(.vertical, 6)
-            .padding(.horizontal, 4)
-
-            Spacer()
-
-            // Star indicator
-            Image(systemName: note.isFavorite ? "star.fill" : "star")
-                .foregroundColor(note.isFavorite ? .yellow : .gray)
-                .font(.caption)
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: 56)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.secondary.opacity(0.05))
+    }
 
-        )
-        .padding(.horizontal)
-        .contentShape(Rectangle())
+    public var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                // Note preview with shadow
+                notePreview
+                    .shadow(
+                        color: colorScheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.15),
+                        radius: 2,
+                        x: 0,
+                        y: 1
+                    )
+
+                // Note info
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 4) {
+                        Text(note.title)
+                            .fontWeight(.medium)
+                            .lineLimit(1)
+
+                        // Rename dropdown button
+                        Button(action: {
+                            newTitle = note.title
+                            showRenamePopover = true
+                        }) {
+                            Image(systemName: "chevron.down")
+                                .foregroundColor(.gray)
+                                .font(.system(size: 10))
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .popover(isPresented: $showRenamePopover) {
+                            VStack(spacing: 12) {
+                                Text("Rename Note")
+                                    .font(.headline)
+
+                                TextField("Note name", text: $newTitle)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                                    .frame(width: 200)
+
+                                HStack {
+                                    Button("Cancel") {
+                                        showRenamePopover = false
+                                    }
+                                    .foregroundColor(.red)
+
+                                    Spacer()
+
+                                    Button("Save") {
+                                        var updatedNote = note
+                                        updatedNote.title = newTitle
+                                        updatedNote.dateModified = Date()
+                                        let savedNote = storageManager.saveNote(updatedNote)
+                                        TabManager.shared.updateNote(savedNote)
+                                        showRenamePopover = false
+                                    }
+                                    .disabled(newTitle.isEmpty)
+                                }
+                            }
+                            .padding()
+                            .frame(minWidth: 250)
+                        }
+                    }
+
+                    Text(note.dateModified, style: .date)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                // Star indicator
+                Image(systemName: note.isFavorite ? "star.fill" : "star")
+                    .foregroundColor(note.isFavorite ? .yellow : .gray)
+                    .font(.caption)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 56)
+            .padding(.horizontal)
+            .contentShape(Rectangle())
+
+            // Divider
+            Divider()
+                .padding(.horizontal)
+        }
     }
 
     // Use the DocumentsView noteTypeIcon function
@@ -117,84 +216,92 @@ public struct ListFolderItemView: View {
     @State private var showRenamePopover = false
     @State private var newName = ""
 
+    // Small folder preview using the same folder image as grid view - vertical rectangle
+    @ViewBuilder
+    private var folderPreview: some View {
+        Image("folder")
+            .resizable()
+            .scaledToFit()
+            .frame(width: 32, height: 40)
+            .clipped()
+    }
+
     public var body: some View {
-        HStack {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                // Folder preview with shadow
+                folderPreview
+                    .shadow(
+                        color: colorScheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.15),
+                        radius: 2,
+                        x: 0,
+                        y: 1
+                    )
 
-            RoundedRectangle(cornerRadius: 4)
-                .fill(folder.color)
-                .frame(width: 6)
-                .frame(maxHeight: .infinity)
+                // Folder info
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 4) {
+                        Text(folder.name)
+                            .fontWeight(.medium)
+                            .lineLimit(1)
 
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 4) {
-                    Image(systemName: "folder")
-                        .foregroundColor(
-                            colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
-                        )
-                        .font(.caption)
-                    Text(folder.name)
-                        .fontWeight(.medium)
-                        .lineLimit(1)
-
-                    // Rename dropdown button
-                    Button(action: {
-                        newName = folder.name
-                        showRenamePopover = true
-                    }) {
-                        Image(systemName: "chevron.down")
-                            .foregroundColor(.gray)
-                            .font(.system(size: 10))
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .popover(isPresented: $showRenamePopover) {
-                        VStack(spacing: 12) {
-                            Text("Rename Folder")
-                                .font(.headline)
-
-                            TextField("Folder name", text: $newName)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
-                                .frame(width: 200)
-
-                            HStack {
-                                Button("Cancel") {
-                                    showRenamePopover = false
-                                }
-                                .foregroundColor(.red)
-
-                                Spacer()
-
-                                Button("Save") {
-                                    if storageManager.updateFolderName(folderId: folder.id, newName: newName) != nil {
-                                        // Folder updated successfully
-                                    }
-                                    showRenamePopover = false
-                                }
-                                .disabled(newName.isEmpty)
-                            }
+                        // Rename dropdown button
+                        Button(action: {
+                            newName = folder.name
+                            showRenamePopover = true
+                        }) {
+                            Image(systemName: "chevron.down")
+                                .foregroundColor(.gray)
+                                .font(.system(size: 10))
                         }
-                        .padding()
-                        .frame(minWidth: 250)
+                        .buttonStyle(PlainButtonStyle())
+                        .popover(isPresented: $showRenamePopover) {
+                            VStack(spacing: 12) {
+                                Text("Rename Folder")
+                                    .font(.headline)
+
+                                TextField("Folder name", text: $newName)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                                    .frame(width: 200)
+
+                                HStack {
+                                    Button("Cancel") {
+                                        showRenamePopover = false
+                                    }
+                                    .foregroundColor(.red)
+
+                                    Spacer()
+
+                                    Button("Save") {
+                                        if storageManager.updateFolderName(folderId: folder.id, newName: newName) != nil {
+                                            // Folder updated successfully
+                                        }
+                                        showRenamePopover = false
+                                    }
+                                    .disabled(newName.isEmpty)
+                                }
+                            }
+                            .padding()
+                            .frame(minWidth: 250)
+                        }
                     }
+
+                    Text(folder.dateModified, style: .date)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
 
-                Text(folder.dateModified, style: .date)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                Spacer()
             }
-            .padding(.vertical, 6)
-            .padding(.horizontal, 4)
+            .frame(maxWidth: .infinity)
+            .frame(height: 56)
+            .padding(.horizontal)
+            .contentShape(Rectangle())
 
-            Spacer()
-
+            // Divider
+            Divider()
+                .padding(.horizontal)
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: 56)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.secondary.opacity(0.05))
-        )
-        .padding(.horizontal)
-        .contentShape(Rectangle())
     }
 }
 

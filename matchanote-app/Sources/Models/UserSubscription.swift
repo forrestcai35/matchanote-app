@@ -28,7 +28,7 @@ enum SubscriptionTier: String, CaseIterable {
 
 // MARK: - User Profile Model
 struct UserProfile: Codable, Identifiable {
-    let createdAt: Date
+    let createdAt: Date?
     let userId: UUID
     
     // Use userId as the identifier since user_storage table doesn't have an id column
@@ -64,8 +64,33 @@ struct UserProfile: Codable, Identifiable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
-        createdAt = try container.decode(Date.self, forKey: .createdAt)
-        userId = try container.decode(UUID.self, forKey: .userId)
+        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt)
+        
+        // Handle UUID decoding - try as UUID first, then as string, then check if key exists
+        if let uuidValue = try? container.decode(UUID.self, forKey: .userId) {
+            userId = uuidValue
+        } else if let stringValue = try? container.decode(String.self, forKey: .userId),
+                  let uuidFromString = UUID(uuidString: stringValue) {
+            userId = uuidFromString
+        } else if container.contains(.userId) {
+            // Key exists but couldn't decode - log the raw value
+            if let rawValue = try? container.decode(String.self, forKey: .userId) {
+                print("DEBUG: user_id raw value as string: \(rawValue)")
+            } else if let rawValue = try? container.decode(Int.self, forKey: .userId) {
+                print("DEBUG: user_id raw value as int: \(rawValue)")
+            } else {
+                print("DEBUG: user_id exists but couldn't decode as string or int")
+            }
+            throw DecodingError.typeMismatch(UUID.self, DecodingError.Context(
+                codingPath: decoder.codingPath,
+                debugDescription: "Could not decode user_id as UUID or string"
+            ))
+        } else {
+            throw DecodingError.keyNotFound(CodingKeys.userId, DecodingError.Context(
+                codingPath: decoder.codingPath,
+                debugDescription: "user_id key not found in response"
+            ))
+        }
 
         // Handle JSONB fields - decode as raw JSON data from Supabase
         // Try to decode as string first (if stored as JSON string)
@@ -84,10 +109,10 @@ struct UserProfile: Codable, Identifiable {
         }
 
         updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
-        premiumRequests = try container.decode(Int16.self, forKey: .premiumRequests)
-        normalRequests = try container.decode(Int64.self, forKey: .normalRequests)
+        premiumRequests = try container.decodeIfPresent(Int16.self, forKey: .premiumRequests) ?? 0
+        normalRequests = try container.decodeIfPresent(Int64.self, forKey: .normalRequests) ?? 0
 
-        let tierString = try container.decode(String.self, forKey: .subscriptionTier)
+        let tierString = try container.decodeIfPresent(String.self, forKey: .subscriptionTier) ?? SubscriptionTier.free.rawValue
         subscriptionTier = SubscriptionTier(rawValue: tierString) ?? .free
 
         subscriptionStartDate = try container.decodeIfPresent(
@@ -100,7 +125,7 @@ struct UserProfile: Codable, Identifiable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
-        try container.encode(createdAt, forKey: .createdAt)
+        try container.encodeIfPresent(createdAt, forKey: .createdAt)
         try container.encode(userId, forKey: .userId)
         // Encode JSONB fields as JSON strings
         if let notesData = notesJson, let notesString = String(data: notesData, encoding: .utf8) {

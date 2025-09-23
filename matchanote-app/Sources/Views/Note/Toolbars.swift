@@ -130,7 +130,7 @@ class ToolState: ObservableObject {
     }
   }
   // UI-only width presets for Area eraser (PencilKit does not expose eraser radius programmatically)
-  @Published var eraserAreaWidthPresets: [CGFloat] = [8.0, 16.0, 28.0] {
+  @Published var eraserAreaWidthPresets: [CGFloat] = [8.0, 30, 60] {
     didSet { saveEraserAreaPresets() }
   }
   @Published var selectedEraserAreaPresetIndex: Int = 1 {
@@ -139,6 +139,9 @@ class ToolState: ObservableObject {
         selectedEraserAreaPresetIndex, forKey: DefaultsKeys.selectedEraserAreaPresetIndex)
     }
   }
+
+  // UI-only: Dot sizes for the three area eraser width selectors (customizable per preset)
+  @Published var eraserAreaDotSizes: [CGFloat] = [26, 40, 72]
 
   // Undo/Redo state
   @Published var canUndo: Bool = false
@@ -748,7 +751,7 @@ struct WrittenNoteToolbar: View {
       .cornerRadius(8)
 
     case .eraser:
-      HStack(spacing: 12) {
+      HStack(spacing: 16) {
         // Eraser type select
         HStack(spacing: 6) {
           ForEach(EraserType.allCases, id: \.self) { type in
@@ -768,37 +771,32 @@ struct WrittenNoteToolbar: View {
 
         // Area eraser width presets (UI only) - dropdown removed
         if toolState.eraserType == .area {
-          VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 14) {
-              ForEach(0..<toolState.eraserAreaWidthPresets.count, id: \.self) { i in
-                Button {
-                  toolState.selectedEraserAreaPresetIndex = i
-                  // No direct eraser width API to update tool here
-                } label: {
-                  ZStack {
-                    Circle()
-                      .fill(
-                        toolState.selectedEraserAreaPresetIndex == i
-                          ? Color.matchalight_dark : Color.gray.opacity(0.5)
-                      )
-                      .frame(
-                        width: dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: 80),
-                        height: dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: 80)
-                      )
-                  }
-                  .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(PlainButtonStyle())
+          HStack(spacing: 8) {
+            ForEach(0..<toolState.eraserAreaWidthPresets.count, id: \.self) { i in
+              Button {
+                toolState.selectedEraserAreaPresetIndex = i
+              } label: {
+                Circle()
+                  .fill(
+                    toolState.selectedEraserAreaPresetIndex == i
+                      ? Color.matchalight_dark : Color.gray.opacity(0.5)
+                  )
+                  .frame(
+                    width: toolState.eraserAreaDotSizes[safe: i]
+                      ?? dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: 80),
+                    height: toolState.eraserAreaDotSizes[safe: i]
+                      ?? dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: 80)
+                  )
               }
+              .buttonStyle(PlainButtonStyle())
             }
-            .frame(maxWidth: 300)
-            .clipped()
           }
         }
       }
       .padding(.horizontal, 8)
+      .clipped()
       .padding(.vertical, 4)
-      // Removed inner background container; eraser controls now live directly in the toolbar
+
 
     case .lasso:
       EmptyView()

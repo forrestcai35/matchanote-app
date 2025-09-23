@@ -13,7 +13,7 @@ struct NewWrittenNoteView: View {
   var body: some View {
     NavigationStack {
       ScrollView {
-        VStack(spacing: 24) {
+        VStack(spacing: 16) {
           // Header with icon
           VStack(spacing: 12) {
             ZStack {
@@ -25,10 +25,10 @@ struct NewWrittenNoteView: View {
                     endPoint: .bottomTrailing
                   )
                 )
-                .frame(width: 80, height: 80)
+                .frame(width: 64, height: 64)
               
               Image(systemName: "pencil.and.outline")
-                .font(.system(size: 32, weight: .medium))
+                .font(.system(size: 28, weight: .medium))
                 .foregroundColor(.matchalight_light)
             }
             
@@ -37,7 +37,7 @@ struct NewWrittenNoteView: View {
               .fontWeight(.semibold)
               .foregroundColor(.primary)
           }
-          .padding(.top, 20)
+          .padding(.top, 12)
           
           // Title input
           VStack(alignment: .leading, spacing: 8) {
@@ -50,12 +50,12 @@ struct NewWrittenNoteView: View {
           }
           
           // Paper style selection
-          VStack(alignment: .leading, spacing: 16) {
+          VStack(alignment: .leading, spacing: 12) {
             Text("Paper Style")
               .font(.headline)
               .foregroundColor(.primary)
             
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
               ForEach(PaperStyle.allCases, id: \.self) { style in
                 PaperStyleCard(
                   style: style,
@@ -67,12 +67,12 @@ struct NewWrittenNoteView: View {
           }
           
           // Paper color selection
-          VStack(alignment: .leading, spacing: 16) {
+          VStack(alignment: .center, spacing: 12) {
             Text("Paper Color")
               .font(.headline)
               .foregroundColor(.primary)
             
-            HStack(spacing: 16) {
+            HStack(spacing: 12) {
               ForEach(PaperColor.allCases, id: \.self) { color in
                 PaperColorCard(
                   color: color,
@@ -91,23 +91,24 @@ struct NewWrittenNoteView: View {
                 .fontWeight(.semibold)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
+            .padding(.vertical, 12)
             .background(
               LinearGradient(
-                colors: [Color.matchalight_light, Color.matchalight_light.opacity(0.8)],
+                colors: [Color.matchalight_dark, Color.matchalight_light],
                 startPoint: .leading,
                 endPoint: .trailing
               )
             )
             .foregroundColor(.white)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
           }
           .padding(.top, 8)
           
-          Spacer(minLength: 20)
+          Spacer(minLength: 10)
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 20)
       }
+      .scrollDisabled(true)
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .navigationBarLeading) {
@@ -143,8 +144,8 @@ struct NewWrittenNoteView: View {
 struct ModernTextFieldStyle: TextFieldStyle {
   func _body(configuration: TextField<Self._Label>) -> some View {
     configuration
-      .padding(.horizontal, 16)
-      .padding(.vertical, 12)
+      .padding(.horizontal, 12)
+      .padding(.vertical, 10)
       .background(
         RoundedRectangle(cornerRadius: 12)
           .fill(Color(.systemGray6))
@@ -167,7 +168,7 @@ struct PaperStyleCard: View {
         ZStack {
           RoundedRectangle(cornerRadius: 8)
             .fill(paperColorForStyle(style))
-            .frame(height: 60)
+            .frame(height: 48)
             .overlay(
               paperPatternForStyle(style)
             )
@@ -175,7 +176,7 @@ struct PaperStyleCard: View {
           if isSelected {
             RoundedRectangle(cornerRadius: 8)
               .stroke(Color.matchalight_light, lineWidth: 2)
-              .frame(height: 60)
+              .frame(height: 48)
           }
         }
         
@@ -220,7 +221,7 @@ struct PaperColorCard: View {
       ZStack {
         Circle()
           .fill(colorForPaperColor(color))
-          .frame(width: 50, height: 50)
+          .frame(width: 40, height: 40)
           .overlay(
             Circle()
               .stroke(Color(.systemGray4), lineWidth: 1)
@@ -228,11 +229,11 @@ struct PaperColorCard: View {
         
         if isSelected {
           Circle()
-            .stroke(Color.matchalight_light, lineWidth: 3)
-            .frame(width: 50, height: 50)
+            .stroke(Color.matchalight_light, lineWidth: 2)
+            .frame(width: 40, height: 40)
           
           Image(systemName: "checkmark")
-            .font(.system(size: 16, weight: .bold))
+            .font(.system(size: 14, weight: .bold))
             .foregroundColor(.white)
         }
       }
@@ -245,7 +246,7 @@ struct PaperColorCard: View {
     case .white:
       return .white
     case .offwhite:
-      return Color(.systemGray6)
+      return Color.paper_offwhite
     case .dark:
       return Color(.systemGray2)
     }
@@ -390,6 +391,7 @@ struct NewFolderView: View {
         }
         .padding(.horizontal, 24)
       }
+      .scrollDisabled(true)
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .navigationBarLeading) {

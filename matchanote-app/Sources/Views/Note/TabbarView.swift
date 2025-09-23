@@ -42,6 +42,9 @@ struct TabBarView: View {
       }) {
         Image(systemName: "house")
           .foregroundColor(.gray)
+          .font(.system(size: 18))
+          .frame(width: 32, height: 32)
+          .contentShape(Rectangle())
       }
       .buttonStyle(PlainButtonStyle())
 
@@ -57,12 +60,14 @@ struct TabBarView: View {
       }
 
       // Static Action Buttons (outside ScrollView)
-      HStack(spacing: 8) {
+      HStack(spacing: 4) {
         // Add / Upload popover
         Button(action: { showAddPopover.toggle() }) {
           Image(systemName: "plus.circle")
             .foregroundColor(.gray)
-            .padding(4)
+            .font(.system(size: 20))
+            .frame(width: 32, height: 32)
+            .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
         .popover(isPresented: $showAddPopover) {
@@ -103,7 +108,9 @@ struct TabBarView: View {
         Button(action: { showSharePopover.toggle() }) {
           Image(systemName: "square.and.arrow.up")
             .foregroundColor(.gray)
-            .padding(4)
+            .font(.system(size: 18))
+            .frame(width: 32, height: 32)
+            .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
         .popover(isPresented: $showSharePopover) {
@@ -143,7 +150,9 @@ struct TabBarView: View {
         Button(action: { showMorePopover.toggle() }) {
           Image(systemName: "ellipsis")
             .foregroundColor(.gray)
-            .padding(4)
+            .font(.system(size: 18))
+            .frame(width: 32, height: 32)
+            .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
         .popover(isPresented: $showMorePopover) {
@@ -179,7 +188,7 @@ struct TabBarView: View {
     .padding(.top, 6)
     .padding(.horizontal, 12)
     .frame(height: 40)
-    .frame(maxWidth: .infinity)
+    .frame(maxWidth: .infinity, alignment: .center)
     .background(colorScheme == .dark ? Color.black : Color.gray.opacity(0.15))
   }
 

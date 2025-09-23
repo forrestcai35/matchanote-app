@@ -94,6 +94,7 @@ struct MatchaSectionHeader: View {
                 .foregroundColor(
                     colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
         }
+        .padding(.horizontal, MatchaUI.Style.cardPadding)
         .opacity(animateOnAppear ? 1.0 : 0.0)
         .offset(y: animateOnAppear ? 0 : 20)
         .animation(MatchaUI.Animation.springWithDelay(delay), value: animateOnAppear)

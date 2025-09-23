@@ -106,8 +106,9 @@ struct PageThumbnailView: View {
             .resizable()
             .aspectRatio(paperAspectRatio, contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 6))
-        } else if pageIndex < canvasViews.count && !canvasViews[pageIndex].drawing.strokes.isEmpty {
-          // Fallback while loading
+        } else if (pageIndex < canvasViews.count && !canvasViews[pageIndex].drawing.strokes.isEmpty) ||
+                  note.imageDataByPage[String(pageIndex)] != nil {
+          // Fallback while loading (either drawing strokes or background images)
           Rectangle()
             .fill(Color.gray.opacity(0.1))
             .aspectRatio(paperAspectRatio, contentMode: .fit)
@@ -117,8 +118,10 @@ struct PageThumbnailView: View {
             )
         }
         
-        // Paper pattern overlay (subtle)
-        if previewImage == nil || (pageIndex < canvasViews.count && canvasViews[pageIndex].drawing.strokes.isEmpty) {
+        // Paper pattern overlay (subtle) - only show if no preview image and no background images
+        if previewImage == nil &&
+           note.imageDataByPage[String(pageIndex)] == nil &&
+           (pageIndex >= canvasViews.count || canvasViews[pageIndex].drawing.strokes.isEmpty) {
           paperPatternOverlay()
             .opacity(0.3)
             .aspectRatio(paperAspectRatio, contentMode: .fit)
@@ -270,11 +273,15 @@ struct PageThumbnailView: View {
       previewImage = nil
       return
     }
-    
+
     let canvas = canvasViews[pageIndex]
-    
-    // Only generate preview if there are strokes
-    guard !canvas.drawing.strokes.isEmpty else {
+
+    // Check for background images from uploads
+    let hasBackgroundImages = note.imageDataByPage[String(pageIndex)] != nil
+    let hasDrawing = !canvas.drawing.strokes.isEmpty
+
+    // Only generate preview if there are strokes OR background images
+    guard hasDrawing || hasBackgroundImages else {
       previewImage = nil
       return
     }
@@ -285,47 +292,58 @@ struct PageThumbnailView: View {
         width: getPaperWidth(for: note.paperSize),
         height: getPaperHeight(for: note.paperSize)
       )
-      
+
       // Use higher scale for crisp thumbnails - scale based on screen density
       let screenScale = UIScreen.main.scale
       let thumbnailScale: CGFloat = 0.5 // Increased from 0.2 for better quality
       let effectiveScale = thumbnailScale * screenScale
-      
+
       let thumbnailSize = CGSize(
         width: paperSize.width * thumbnailScale,
         height: paperSize.height * thumbnailScale
       )
-      
+
       // Always use the full paper size as bounds to show entire page
       let fullPageBounds = CGRect(origin: .zero, size: paperSize)
-      
-      let image = canvas.drawing.image(from: fullPageBounds, scale: effectiveScale)
-      
+
       // Create a composite image with paper background
       UIGraphicsBeginImageContextWithOptions(thumbnailSize, false, screenScale)
-      
+
       defer {
         UIGraphicsEndImageContext()
       }
-      
+
       guard let context = UIGraphicsGetCurrentContext() else {
         previewImage = nil
         return
       }
-      
+
       // Enable high quality rendering
       context.setAllowsAntialiasing(true)
       context.setShouldAntialias(true)
       context.interpolationQuality = .high
-      
+
       // Draw paper background
       let paperColor = getPaperBackgroundColor(for: note.paperColor)
       UIColor(paperColor).setFill()
       context.fill(CGRect(origin: .zero, size: thumbnailSize))
-      
-      // Draw the entire page drawing at thumbnail size
-      image.draw(in: CGRect(origin: .zero, size: thumbnailSize))
-      
+
+      // Draw background images from uploads first
+      if let imageDataArray = note.imageDataByPage[String(pageIndex)] {
+        for imageData in imageDataArray {
+          if let backgroundImage = UIImage(data: imageData) {
+            // Scale and draw the background image to fit the thumbnail
+            backgroundImage.draw(in: CGRect(origin: .zero, size: thumbnailSize), blendMode: .normal, alpha: 1.0)
+          }
+        }
+      }
+
+      // Draw the canvas drawing on top if it exists
+      if hasDrawing {
+        let drawingImage = canvas.drawing.image(from: fullPageBounds, scale: effectiveScale)
+        drawingImage.draw(in: CGRect(origin: .zero, size: thumbnailSize))
+      }
+
       previewImage = UIGraphicsGetImageFromCurrentImageContext()
     }
   }

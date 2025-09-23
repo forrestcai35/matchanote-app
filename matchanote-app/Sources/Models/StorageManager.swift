@@ -76,7 +76,7 @@ struct StorageNote: Codable {
   }
 
   func toNote() -> Note {
-    return Note(
+    var note = Note(
       title: title,
       subject: subject,
       color: stringToColor(colorString),
@@ -93,6 +93,8 @@ struct StorageNote: Codable {
       imageDataByPage: imageDataByPage,
       bookmarkedPages: bookmarkedPages
     )
+    note.id = id
+    return note
   }
 }
 
@@ -525,18 +527,37 @@ class StorageManager: ObservableObject {
         .execute()
       
       print("DEBUG: Raw response from user_storage: \(rawResponse)")
+      print("DEBUG: Raw response data: \(String(data: rawResponse.data, encoding: .utf8) ?? "Could not convert to string")")
       
       // Now fetch user storage data from the user_storage table
-      let response: UserProfile =
-        try await supabase
-        .from("user_storage")
-        .select(
-          "created_at, user_id, notes, folders, updated_at, premium_requests, normal_requests, subscription_tier, subscription_start_date, stripe_customer_id, stripe_subscription_id"
-        )
-        .eq("user_id", value: userId)
-        .single()
-        .execute()
-        .value
+      let response: UserProfile
+      do {
+        // Try single() first
+        response = try await supabase
+          .from("user_storage")
+          .select(
+            "created_at, user_id, notes, folders, updated_at, premium_requests, normal_requests, subscription_tier, subscription_start_date, stripe_customer_id, stripe_subscription_id"
+          )
+          .eq("user_id", value: userId)
+          .single()
+          .execute()
+          .value
+      } catch {
+        // If single() fails, try decoding as array and take first element
+        let responses: [UserProfile] = try await supabase
+          .from("user_storage")
+          .select(
+            "created_at, user_id, notes, folders, updated_at, premium_requests, normal_requests, subscription_tier, subscription_start_date, stripe_customer_id, stripe_subscription_id"
+          )
+          .eq("user_id", value: userId)
+          .execute()
+          .value
+        
+        guard let firstResponse = responses.first else {
+          throw NSError(domain: "StorageManager", code: 404, userInfo: [NSLocalizedDescriptionKey: "No user storage data found"])
+        }
+        response = firstResponse
+      }
 
       await MainActor.run {
         // Process the fetched data and merge with local storage
@@ -665,54 +686,162 @@ class StorageManager: ObservableObject {
   // MARK: - Public Methods
 
   func deleteNote(withID id: UUID) {
+    guard let note = notes.first(where: { $0.id == id }) else {
+      print("Note not found for deletion")
+      return
+    }
+
+    // Move to trash instead of permanent deletion
+    TrashManager.shared.moveNoteToTrash(note)
+
     // Remove from local array
     notes.removeAll(where: { $0.id == id })
+
+    // Remove from all folders
+    for i in 0..<folders.count {
+      folders[i].noteIDs.removeAll { $0 == id }
+      if folders[i].noteIDs != folders[i].noteIDs {
+        folders[i].dateModified = Date()
+      }
+    }
 
     // Close any open tabs for this note
     TabManager.shared.closeTabsForDeletedNote(noteId: id)
 
-    // Convert to storage models
-    let storageNotes = notes.map { StorageNote(from: $0) }
-
-    // Update the JSON file
-    let notesURL = localStorageURL.appendingPathComponent(notesFileName)
-
-    do {
-      let encoder = JSONEncoder()
-      encoder.outputFormatting = .prettyPrinted
-      let data = try encoder.encode(storageNotes)
-      try data.write(to: notesURL)
-    } catch {
-      print("Error deleting note: \(error)")
-    }
-
-    // If synced with Supabase, delete it there too (future implementation)
-    // deleteNoteFromSupabase(id)
+    // Update storage files
+    updateStorageFiles()
   }
 
   func deleteFolder(withID id: UUID) {
+    guard let folder = folders.first(where: { $0.id == id }) else {
+      print("Folder not found for deletion")
+      return
+    }
+
+    // Move to trash instead of permanent deletion
+    TrashManager.shared.moveFolderToTrash(folder)
+
     // Remove from local array
     folders.removeAll(where: { $0.id == id })
+
+    // Remove references to this folder from parent folders
+    for i in 0..<folders.count {
+      folders[i].childFolders.removeAll { $0.id == id }
+    }
 
     // Resolve folder hierarchy after deletion
     resolveFolderHierarchy()
 
-    // Convert to storage models
-    let storageFolders = folders.map { StorageFolder(from: $0) }
+    // Update storage files
+    updateStorageFiles()
+  }
 
-    // Update the JSON file
+  func restoreNoteFromTrash(_ note: Note) {
+    // Add back to notes array
+    if !notes.contains(where: { $0.id == note.id }) {
+      notes.append(note)
+      updateStorageFiles()
+    }
+  }
+
+  func restoreFolderFromTrash(_ folder: Folder) {
+    // Add back to folders array
+    if !folders.contains(where: { $0.id == folder.id }) {
+      folders.append(folder)
+      resolveFolderHierarchy()
+      updateStorageFiles()
+    }
+  }
+
+  private func updateStorageFiles() {
+    // Update both notes and folders files
+    let notesStorageModels = notes.map { StorageNote(from: $0) }
+    let foldersStorageModels = folders.map { StorageFolder(from: $0) }
+
+    let notesURL = localStorageURL.appendingPathComponent(notesFileName)
     let foldersURL = localStorageURL.appendingPathComponent(foldersFileName)
 
-    do {
-      let encoder = JSONEncoder()
-      encoder.outputFormatting = .prettyPrinted
-      let data = try encoder.encode(storageFolders)
-      try data.write(to: foldersURL)
-    } catch {
-      print("Error deleting folder: \(error)")
+    Task.detached(priority: .utility) {
+      do {
+        let encoder = JSONEncoder()
+
+        // Update notes file
+        let notesData = try encoder.encode(notesStorageModels)
+        try notesData.write(to: notesURL)
+
+        // Update folders file
+        let foldersData = try encoder.encode(foldersStorageModels)
+        try foldersData.write(to: foldersURL)
+      } catch {
+        await MainActor.run {
+          print("Error updating storage files: \(error)")
+        }
+      }
     }
 
-    // If synced with Supabase, delete it there too (future implementation)
-    // deleteFolderFromSupabase(id)
+    // Also sync with Supabase if authenticated
+    Task {
+      await syncDeletedItemWithSupabase()
+    }
+  }
+
+  // Save all folders without individual processing - useful for bulk updates
+  func saveFoldersState() {
+    // Resolve hierarchy before saving
+    resolveFolderHierarchy()
+
+    // Save to local storage
+    let foldersToSave = folders.map { StorageFolder(from: $0) }
+    let foldersURL = localStorageURL.appendingPathComponent(foldersFileName)
+
+    Task.detached(priority: .utility) {
+      do {
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(foldersToSave)
+        try data.write(to: foldersURL)
+      } catch {
+        await MainActor.run {
+          print("Error saving folders state: \(error)")
+        }
+      }
+    }
+
+    // Sync with Supabase if authenticated
+    Task {
+      await syncDeletedItemWithSupabase()
+    }
+  }
+
+  private func syncDeletedItemWithSupabase() async {
+    // Update Supabase with current notes and folders
+    do {
+      let session = try await supabase.auth.session
+      let userId = session.user.id
+
+      // Convert all notes and folders to storage format
+      let storageNotes = notes.map { StorageNote(from: $0) }
+      let storageFolders = folders.map { StorageFolder(from: $0) }
+
+      let encoder = JSONEncoder()
+      let notesData = try encoder.encode(storageNotes)
+      let foldersData = try encoder.encode(storageFolders)
+
+      // Convert to JSON string for Supabase
+      let notesJsonString = String(data: notesData, encoding: .utf8) ?? "[]"
+      let foldersJsonString = String(data: foldersData, encoding: .utf8) ?? "[]"
+
+      // Update the user storage with the new data
+      try await supabase
+        .from("user_storage")
+        .update([
+          "notes": notesJsonString,
+          "folders": foldersJsonString
+        ])
+        .eq("user_id", value: userId)
+        .execute()
+
+    } catch {
+      print("Error syncing with Supabase after deletion: \(error)")
+    }
   }
 }

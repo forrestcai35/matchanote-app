@@ -4,6 +4,7 @@ import SwiftUI
 struct SettingsPopover: View {
   @Environment(\.colorScheme) private var colorScheme
   @State private var showingPreferences = false
+  @State private var showingTrash = false
 
   var body: some View {
     VStack(alignment: .leading, spacing: 15) {
@@ -36,7 +37,7 @@ struct SettingsPopover: View {
       .buttonStyle(PlainButtonStyle())
 
       Button(action: {
-        // Trashcan
+        showingTrash = true
       }) {
         Label("Trash", systemImage: "trash")
           .frame(maxWidth: .infinity, alignment: .leading)
@@ -59,6 +60,9 @@ struct SettingsPopover: View {
     .frame(width: 200)
     .sheet(isPresented: $showingPreferences) {
       PreferencesView()
+    }
+    .sheet(isPresented: $showingTrash) {
+      TrashView()
     }
   }
 }

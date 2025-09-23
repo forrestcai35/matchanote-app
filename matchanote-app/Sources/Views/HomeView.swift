@@ -31,6 +31,9 @@ struct HomeView: View {
     @State private var showNewWrittenNoteView = false
     @State private var showNewFolderView = false
     @State private var showingFileImporter = false
+    @State private var showMoveSheet = false
+    @State private var notePendingMove: Note? = nil
+    @State private var selectedDestinationFolderID: UUID? = nil
 
     private enum DragItemType {
         case folder
@@ -40,7 +43,6 @@ struct HomeView: View {
         SidebarItem(id: "documents", title: "Documents", icon: "folder"),
         SidebarItem(id: "recents", title: "Recents", icon: "clock.arrow.circlepath"),
         SidebarItem(id: "favorites", title: "Favorites", icon: "star"),
-
     ]
     
     // Dynamic sidebar width based on orientation
@@ -177,8 +179,6 @@ struct HomeView: View {
                 )
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 2)
             }
         }
         .scrollDisabled(true)
@@ -248,6 +248,24 @@ struct HomeView: View {
         }
         .fullScreenCover(item: $selectedNote) { note in
             NoteView(note: note)
+        }
+        .sheet(isPresented: $showMoveSheet) {
+            MoveNoteSheet(
+                folders: storageManager.folders,
+                currentFolderID: currentFolderID,
+                selectedDestinationFolderID: $selectedDestinationFolderID,
+                onCancel: {
+                    notePendingMove = nil
+                    showMoveSheet = false
+                },
+                onConfirm: {
+                    if let note = notePendingMove {
+                        moveNote(note, to: selectedDestinationFolderID)
+                    }
+                    notePendingMove = nil
+                    showMoveSheet = false
+                }
+            )
         }
     }
 
@@ -481,14 +499,11 @@ struct HomeView: View {
 
         if item is Folder {
             return AnyView(
-                ZStack {
-                    Image("folder")
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 175, height: 140)
-                        .clipped()
-
-                }
+                Image("folder")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 160, height: 160)
+                    .background(Color.clear)
             )
         } else if let note = item as? Note {
             return AnyView(
@@ -497,12 +512,6 @@ struct HomeView: View {
                         RoundedRectangle(cornerRadius: 10)
                             .fill(note.color)
                             .frame(width: width, height: height)
-                            .shadow(
-                                color: itemShadow(in: colorScheme),
-                                radius: 5,
-                                x: 0,
-                                y: 2
-                            )
 
                         Image(systemName: "pencil.tip")
                             .font(.system(size: 30))
@@ -511,17 +520,13 @@ struct HomeView: View {
                         RoundedRectangle(cornerRadius: 0)
                             .fill(note.color)
                             .frame(width: width, height: height)
-                            .shadow(
-                                color: itemShadow(in: colorScheme),
-                                radius: 6,
-                                x: 0,
-                                y: 2
-                            )
+
                         Image(systemName: "text.alignleft")
                             .font(.system(size: 30))
                             .foregroundColor(Color.black.opacity(0.6))
                     }
                 }
+                .background(Color.clear)
             )
         } else {
             return AnyView(EmptyView())
@@ -718,47 +723,44 @@ struct HomeView: View {
                 }
 
                 // Move folder to target folder
-                if let sourceFolder = storageManager.folders.first(where: { $0.id == id }),
-                    storageManager.folders.firstIndex(where: {
-                        $0.id == targetFolder.id
-                    }) != nil
-                {
-                    var updatedSourceFolder = sourceFolder
-                    var updatedTargetFolder = targetFolder
+                if let sourceFolderIndex = storageManager.folders.firstIndex(where: { $0.id == id }) {
+                    storageManager.folders[sourceFolderIndex].parentID = targetFolder.id
 
-                    updatedSourceFolder.parentID = targetFolder.id
-                    updatedTargetFolder.dateModified = Date()
+                    // Update target folder's modified date
+                    if let targetFolderIndex = storageManager.folders.firstIndex(where: { $0.id == targetFolder.id }) {
+                        storageManager.folders[targetFolderIndex].dateModified = Date()
+                    }
 
-          
+                    // Save all folder changes at once
+                    storageManager.saveFoldersState()
                 }
             } else {
                 // Move to root
-                if let sourceFolder = storageManager.folders.first(where: { $0.id == id }) {
-                    var updatedFolder = sourceFolder
-                    updatedFolder.parentID = nil
-                    _ = storageManager.saveFolder(updatedFolder)
+                if let sourceFolderIndex = storageManager.folders.firstIndex(where: { $0.id == id }) {
+                    storageManager.folders[sourceFolderIndex].parentID = nil
+                    storageManager.saveFoldersState()
                 }
             }
 
         case .note:
-            // Get all folders that contain this note
-            let foldersContainingNote = storageManager.folders.filter { $0.noteIDs.contains(id) }
-
-            // Remove note from all folders first
-            for folder in foldersContainingNote {
-                var updatedFolder = folder
-                updatedFolder.noteIDs.removeAll(where: { $0 == id })
-                updatedFolder.dateModified = Date()
-                _ = storageManager.saveFolder(updatedFolder)
+            // Remove note from all folders that contain it
+            for i in 0..<storageManager.folders.count {
+                if storageManager.folders[i].noteIDs.contains(id) {
+                    storageManager.folders[i].noteIDs.removeAll { $0 == id }
+                    storageManager.folders[i].dateModified = Date()
+                }
             }
 
             // Add to target folder if provided
             if let targetFolder = targetFolder {
-                var updatedFolder = targetFolder
-                updatedFolder.noteIDs.append(id)
-                updatedFolder.dateModified = Date()
-                _ = storageManager.saveFolder(updatedFolder)
+                if let targetIndex = storageManager.folders.firstIndex(where: { $0.id == targetFolder.id }) {
+                    storageManager.folders[targetIndex].noteIDs.append(id)
+                    storageManager.folders[targetIndex].dateModified = Date()
+                }
             }
+
+            // Save all folder changes at once to ensure persistence
+            storageManager.saveFoldersState()
         }
 
         // Refresh UI
@@ -825,10 +827,11 @@ struct HomeView: View {
     private func noteContextMenu(_ note: Note) -> some View {
         Group {
             Button(action: {
-                // Move note functionality
-                // This would open a move to folder dialog
+                notePendingMove = note
+                selectedDestinationFolderID = currentFolderID
+                showMoveSheet = true
             }) {
-                Label("Move to Folder", systemImage: "folder")
+                Label("Move to...", systemImage: "folder")
             }
 
             Button(action: {
@@ -854,6 +857,39 @@ struct HomeView: View {
             ) {
                 Label("Delete", systemImage: "trash")
             }
+        }
+    }
+
+    private func moveNote(_ note: Note, to destinationFolderID: UUID?) {
+        print("Moving note '\(note.title)' to folder: \(destinationFolderID?.uuidString ?? "Home")")
+        
+        // Remove note from all folders first
+        for i in 0..<storageManager.folders.count {
+            if storageManager.folders[i].noteIDs.contains(note.id) {
+                storageManager.folders[i].noteIDs.removeAll { $0 == note.id }
+                storageManager.folders[i].dateModified = Date()
+                print("Removed note from folder: \(storageManager.folders[i].name)")
+            }
+        }
+
+        // If destination is a folder, add it
+        if let destID = destinationFolderID,
+           let index = storageManager.folders.firstIndex(where: { $0.id == destID }) {
+            storageManager.folders[index].noteIDs.append(note.id)
+            storageManager.folders[index].dateModified = Date()
+            print("Added note to folder: \(storageManager.folders[index].name)")
+        } else if destinationFolderID == nil {
+            print("Moved note to Home (no folder)")
+        } else {
+            print("Warning: Destination folder not found!")
+        }
+
+        // Persist folder state changes
+        storageManager.saveFoldersState()
+
+        // Refresh UI context if needed
+        DispatchQueue.main.async {
+            self.refreshID = UUID()
         }
     }
 
@@ -1436,5 +1472,82 @@ extension HomeView {
                 print("Error importing file: \(error)")
             }
         }
+    }
+}
+
+// MARK: - Move Note Sheet
+struct MoveNoteSheet: View {
+    let folders: [Folder]
+    let currentFolderID: UUID?
+    @Binding var selectedDestinationFolderID: UUID?
+    var onCancel: () -> Void
+    var onConfirm: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Move to")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                Spacer()
+            }
+
+            // Destination list
+            List {
+                // Home (no folder)
+                HStack {
+                    Image(systemName: "house")
+                    Text("Home")
+                    Spacer()
+                    if selectedDestinationFolderID == nil { 
+                        Image(systemName: "checkmark")
+                            .foregroundColor(.blue)
+                    }
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    selectedDestinationFolderID = nil
+                }
+
+                // Top-level folders only (no parent)
+                ForEach(folders.filter { $0.parentID == nil }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }) { folder in
+                    HStack {
+                        Image(systemName: "folder")
+                        Text(folder.name)
+                        Spacer()
+                        if selectedDestinationFolderID == folder.id { 
+                            Image(systemName: "checkmark")
+                                .foregroundColor(.blue)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        selectedDestinationFolderID = folder.id
+                    }
+                }
+            }
+            .listStyle(.plain)
+
+            HStack {
+                Button("Cancel") { 
+                    onCancel() 
+                }
+                .buttonStyle(.bordered)
+                
+                Spacer()
+                
+                Button("Move") { 
+                    onConfirm() 
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding()
+        .frame(minWidth: 400, minHeight: 500)
+        .background(
+            colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light
+        )
     }
 }
