@@ -17,7 +17,12 @@ enum PenTool {
     case .pen:
       return PKInkingTool(.pen, color: UIColor(color), width: width)
     case .marker:
-      return PKInkingTool(.marker, color: UIColor(color), width: width)
+      // Increase opacity for the highlighter by boosting the alpha channel
+      return PKInkingTool(
+        .marker,
+        color: UIColor(color).withAlphaComponent(0.6),
+        width: width
+      )
     case .eraser:
       return eraserType == .object ? PKEraserTool(.vector) : PKEraserTool(.bitmap, width: width)
     case .lasso:
@@ -761,21 +766,14 @@ struct WrittenNoteToolbar: View {
           }
         }
 
-        // Area eraser width presets (UI only)
+        // Area eraser width presets (UI only) - dropdown removed
         if toolState.eraserType == .area {
-          VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
+          VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 14) {
               ForEach(0..<toolState.eraserAreaWidthPresets.count, id: \.self) { i in
                 Button {
-                  if toolState.selectedEraserAreaPresetIndex != i {
-                    toolState.selectedEraserAreaPresetIndex = i
-                    withAnimation { expandedEraserPresetIndex = nil }
-                    // No direct eraser width API to update tool here
-                  } else {
-                    withAnimation {
-                      expandedEraserPresetIndex = (expandedEraserPresetIndex == i ? nil : i)
-                    }
-                  }
+                  toolState.selectedEraserAreaPresetIndex = i
+                  // No direct eraser width API to update tool here
                 } label: {
                   ZStack {
                     Circle()
@@ -784,81 +782,23 @@ struct WrittenNoteToolbar: View {
                           ? Color.matchalight_dark : Color.gray.opacity(0.5)
                       )
                       .frame(
-                        width: dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: 40),
-                        height: dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: 40)
+                        width: dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: 80),
+                        height: dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: 80)
                       )
-                    Image(
-                      systemName: expandedEraserPresetIndex == i ? "chevron.up" : "chevron.down"
-                    )
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundColor(.white.opacity(0.9))
                   }
+                  .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(PlainButtonStyle())
-                .popover(
-                  isPresented: Binding<Bool>(
-                    get: { expandedEraserPresetIndex == i },
-                    set: { newValue in expandedEraserPresetIndex = newValue ? i : nil }
-                  )
-                ) {
-                  VStack(spacing: 12) {
-                    HStack(spacing: 6) {
-                      Image("eraser_outline")
-                        .renderingMode(.original)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 12, height: 12)
-                      let binding = Binding<CGFloat>(
-                        get: { toolState.eraserAreaWidthPresets[i] },
-                        set: { newValue in
-                          toolState.eraserAreaWidthPresets[i] = newValue
-                        }
-                      )
-                      Slider(value: binding, in: 4...60, step: 1)
-                        .frame(width: 200)
-                    }
-                  }
-                  .padding(.vertical, 12)
-                  .padding(.horizontal, 12)
-                }
               }
             }
+            .frame(maxWidth: 300)
+            .clipped()
           }
         }
       }
       .padding(.horizontal, 8)
       .padding(.vertical, 4)
-      .background(Color.matchalight_dark.opacity(0.1))
-      .cornerRadius(8)
-      .overlay(alignment: .topTrailing) {
-        if toolState.eraserType == .area, let expanded = expandedEraserPresetIndex {
-          let binding = Binding<CGFloat>(
-            get: { toolState.eraserAreaWidthPresets[expanded] },
-            set: { newValue in
-              toolState.eraserAreaWidthPresets[expanded] = newValue
-              // No direct eraser width API to update tool here
-            }
-          )
-          VStack(spacing: 8) {
-            HStack(spacing: 6) {
-              Image("eraser_outline")
-                .renderingMode(.original)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 12, height: 12)
-              Slider(value: binding, in: 4...60, step: 1)
-                .frame(width: 200)
-            }
-          }
-          .padding(10)
-          .background(.ultraThinMaterial)
-          .cornerRadius(10)
-          .shadow(radius: 8)
-          .offset(y: 30)
-          .zIndex(2000)
-          .allowsHitTesting(true)
-        }
-      }
+      // Removed inner background container; eraser controls now live directly in the toolbar
 
     case .lasso:
       EmptyView()

@@ -4,16 +4,16 @@ import SwiftUI
 struct SettingsPopover: View {
   @Environment(\.colorScheme) private var colorScheme
   @State private var showingPreferences = false
-  
+
   var body: some View {
     VStack(alignment: .leading, spacing: 15) {
       Text("Settings")
         .font(.headline)
+        .foregroundColor(
+          colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
         .padding(.bottom, 5)
 
       Divider()
-
-      // Subscription status removed
 
       Button(action: {
         if let url = URL(string: "https://matchanote.app/app/settings") {
@@ -21,24 +21,29 @@ struct SettingsPopover: View {
         }
       }) {
         Label("Account", systemImage: "person.circle")
+          .frame(maxWidth: .infinity, alignment: .leading)
       }
       .foregroundColor(colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
+      .buttonStyle(PlainButtonStyle())
 
       Button(action: {
         showingPreferences = true
       }) {
         Label("Preferences", systemImage: "paintpalette")
+          .frame(maxWidth: .infinity, alignment: .leading)
       }
       .foregroundColor(colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
+      .buttonStyle(PlainButtonStyle())
 
-
-      .foregroundColor(colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
       Button(action: {
         // Trashcan
       }) {
         Label("Trash", systemImage: "trash")
+          .frame(maxWidth: .infinity, alignment: .leading)
       }
       .foregroundColor(colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
+      .buttonStyle(PlainButtonStyle())
+
       Divider()
 
       Button(action: {
@@ -46,7 +51,9 @@ struct SettingsPopover: View {
       }) {
         Label("Sign Out", systemImage: "arrow.right.square")
           .foregroundColor(.red)
+          .frame(maxWidth: .infinity, alignment: .leading)
       }
+      .buttonStyle(PlainButtonStyle())
     }
     .padding()
     .frame(width: 200)

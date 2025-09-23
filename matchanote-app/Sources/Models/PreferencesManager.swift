@@ -5,11 +5,34 @@ import SwiftUI
 enum AssistantOrientation: String, CaseIterable {
     case left = "left"
     case right = "right"
-    
+
     var displayName: String {
         switch self {
         case .left: return "Left"
         case .right: return "Right"
+        }
+    }
+}
+
+// MARK: - App Theme enum
+enum AppTheme: String, CaseIterable {
+    case light = "light"
+    case dark = "dark"
+    case system = "system"
+
+    var displayName: String {
+        switch self {
+        case .light: return "Light"
+        case .dark: return "Dark"
+        case .system: return "System"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .light: return "sun.max"
+        case .dark: return "moon"
+        case .system: return "circle.lefthalf.filled"
         }
     }
 }
@@ -22,6 +45,7 @@ class PreferencesManager: ObservableObject {
     // MARK: - Keys
     private enum DefaultsKeys {
         static let assistantDefaultOrientation = "preferences.assistantDefaultOrientation"
+        static let theme = "preferences.theme"
     }
     
     // MARK: - Published Properties
@@ -30,15 +54,26 @@ class PreferencesManager: ObservableObject {
             userDefaults.set(assistantDefaultOrientation.rawValue, forKey: DefaultsKeys.assistantDefaultOrientation)
         }
     }
+
+    @Published var theme: AppTheme {
+        didSet {
+            userDefaults.set(theme.rawValue, forKey: DefaultsKeys.theme)
+        }
+    }
     
     private init() {
         // Load saved orientation or default to left
         let savedOrientation = userDefaults.string(forKey: DefaultsKeys.assistantDefaultOrientation)
         self.assistantDefaultOrientation = AssistantOrientation(rawValue: savedOrientation ?? "left") ?? .left
+
+        // Load saved theme or default to system
+        let savedTheme = userDefaults.string(forKey: DefaultsKeys.theme)
+        self.theme = AppTheme(rawValue: savedTheme ?? "system") ?? .system
     }
     
     // MARK: - Public Methods
     func resetToDefaults() {
         assistantDefaultOrientation = .left
+        theme = .system
     }
 }

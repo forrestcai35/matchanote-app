@@ -156,58 +156,29 @@ struct HomeView: View {
 
     // MARK: - Component Views
     private var searchBar: some View {
-        HStack {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(.gray)
-            TextField("Search", text: $searchText)
-                .textFieldStyle(PlainTextFieldStyle())
-        }
-        .padding(8)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(colorScheme == .dark ? .black : .white).opacity(0.7))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                )
-        )
-        .padding(.horizontal)
-        .padding(.top, 15)
+        MatchaSearchBar(text: $searchText)
+            .padding(.horizontal)
+            .padding(.top, 15)
     }
 
     private var sidebarList: some View {
         List {
             ForEach(sidebarItems) { item in
-                HStack {
-                    Image(systemName: item.icon)
-                        .fontWeight(.medium)
-                        .foregroundStyle(
-                            colorScheme == .dark ? Color.matchadark_dark : Color.matchadark_light)
-                    Text(item.title)
-                        .foregroundStyle(
-                            colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
-                    Spacer()
-            }
-            .fontWeight(.medium)
-            .padding(.vertical, 8)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                selectedItem = item.id
-                if item.id == "documents" {
-                    currentFolderID = nil
-                    folderPath = []
-                }
-            }
-            .listRowBackground(
-                (selectedItem == item.id
-                    ? (colorScheme == .dark
-                        ? Color.matchalight_dark.opacity(0.2)
-                        : Color.matchalight_light.opacity(0.2)) : Color.clear)
-                    .cornerRadius(8)
-                    .padding(.horizontal, 0)
-                    .padding(.vertical, 8)
-            )
-            .listRowSeparator(.hidden)
+                MatchaSidebarItem(
+                    item: item,
+                    isSelected: selectedItem == item.id,
+                    onSelect: {
+                        selectedItem = item.id
+                        if item.id == "documents" {
+                            currentFolderID = nil
+                            folderPath = []
+                        }
+                    }
+                )
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
             }
         }
         .scrollDisabled(true)
