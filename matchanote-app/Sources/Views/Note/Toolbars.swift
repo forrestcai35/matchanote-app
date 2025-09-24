@@ -90,6 +90,9 @@ class ToolState: ObservableObject {
     static let eraserType = "tool.eraserType"
     static let eraserAreaWidthPresets = "tool.eraserAreaWidthPresets"
     static let selectedEraserAreaPresetIndex = "tool.selectedEraserAreaPresetIndex"
+    static let autoStrokeRecognitionEnabled = "tool.autoStrokeRecognitionEnabled"
+    static let autoStrokeRecognitionLongPressThreshold = "tool.autoStrokeRecognitionLongPressThreshold"
+    static let autoStrokeRecognitionSensitivity = "tool.autoStrokeRecognitionSensitivity"
   }
 
   @Published var penColor: Color = .black
@@ -113,7 +116,7 @@ class ToolState: ObservableObject {
     }
   }
 
-  @Published var markerWidthPresets: [CGFloat] = [3.0, 6.0, 12.0] {
+  @Published var markerWidthPresets: [CGFloat] = [8.0, 16.0, 32.0] {
     didSet { saveMarkerPresets() }
   }
   @Published var selectedMarkerPresetIndex: Int = 1 {
@@ -130,7 +133,7 @@ class ToolState: ObservableObject {
     }
   }
   // UI-only width presets for Area eraser (PencilKit does not expose eraser radius programmatically)
-  @Published var eraserAreaWidthPresets: [CGFloat] = [8.0, 30, 60] {
+  @Published var eraserAreaWidthPresets: [CGFloat] = [8.0, 60.0, 120] {
     didSet { saveEraserAreaPresets() }
   }
   @Published var selectedEraserAreaPresetIndex: Int = 1 {
@@ -141,11 +144,28 @@ class ToolState: ObservableObject {
   }
 
   // UI-only: Dot sizes for the three area eraser width selectors (customizable per preset)
-  @Published var eraserAreaDotSizes: [CGFloat] = [26, 40, 72]
+  @Published var eraserAreaDotSizes: [CGFloat] = [26, 50, 90]
 
   // Undo/Redo state
   @Published var canUndo: Bool = false
   @Published var canRedo: Bool = false
+
+  // Auto stroke recognition settings
+  @Published var isAutoStrokeRecognitionEnabled: Bool = true {
+    didSet {
+      UserDefaults.standard.set(isAutoStrokeRecognitionEnabled, forKey: DefaultsKeys.autoStrokeRecognitionEnabled)
+    }
+  }
+  @Published var longPressThreshold: Double = 1.5 {
+    didSet {
+      UserDefaults.standard.set(longPressThreshold, forKey: DefaultsKeys.autoStrokeRecognitionLongPressThreshold)
+    }
+  }
+  @Published var strokeRecognitionSensitivity: Float = 0.7 {
+    didSet {
+      UserDefaults.standard.set(strokeRecognitionSensitivity, forKey: DefaultsKeys.autoStrokeRecognitionSensitivity)
+    }
+  }
 
   init() {
     loadFromDefaults()
@@ -182,6 +202,11 @@ class ToolState: ObservableObject {
     if eraserIndex >= 0 && eraserIndex < eraserAreaWidthPresets.count {
       selectedEraserAreaPresetIndex = eraserIndex
     }
+
+    // Load auto stroke recognition settings
+    isAutoStrokeRecognitionEnabled = defaults.object(forKey: DefaultsKeys.autoStrokeRecognitionEnabled) as? Bool ?? true
+    longPressThreshold = defaults.object(forKey: DefaultsKeys.autoStrokeRecognitionLongPressThreshold) as? Double ?? 1.5
+    strokeRecognitionSensitivity = defaults.object(forKey: DefaultsKeys.autoStrokeRecognitionSensitivity) as? Float ?? 0.7
   }
 
   private func savePenPresets() {
@@ -206,6 +231,8 @@ struct WrittenNoteToolbar: View {
   var note: Note
   @Environment(\.colorScheme) private var colorScheme
   @StateObject private var toolState = ToolState()
+  @StateObject private var autoStrokeManager = AutoStrokeRecognitionManager_v2()
+  @ObservedObject private var preferencesManager = PreferencesManager.shared
   @EnvironmentObject private var storageManager: StorageManager
   @ObservedObject private var tabManager = TabManager.shared
 
@@ -246,6 +273,9 @@ struct WrittenNoteToolbar: View {
   @State private var showPageOverview: Bool = false
 
   // Shape recognition removed
+
+  // Applied cap for PencilKit bitmap eraser radius to match UI expectations
+  private let eraserBitmapMaxWidth: CGFloat = 120.0
 
   var body: some View {
     HStack {
@@ -443,11 +473,18 @@ struct WrittenNoteToolbar: View {
     .buttonStyle(PlainButtonStyle())
     .background(colorScheme == .dark ? Color.gray.opacity(0.3) : Color.white)
     .foregroundColor(colorScheme == .dark ? Color.white.opacity(0.8) : Color.black.opacity(0.8))
+    .clipped()
     .onAppear {
       // Ensure we start with a known tool/color instead of any remembered system default
       if currentTool == nil { currentTool = .pen }
       updateCanvasTool()
       startUndoRedoTimer()
+      // Sync auto stroke recognition settings with tool state
+      syncAutoStrokeSettings()
+      // Attach auto stroke manager to current canvas
+      if currentPage < canvasViews.count {
+        autoStrokeManager.attachToCanvas(canvasViews[currentPage])
+      }
     }
     .onDisappear {
       stopUndoRedoTimer()
@@ -455,6 +492,10 @@ struct WrittenNoteToolbar: View {
     .onChange(of: currentPage) { _, _ in
       updateCanvasTool()
       updateUndoRedoState()
+      // Attach auto stroke manager to new canvas
+      if currentPage < canvasViews.count {
+        autoStrokeManager.attachToCanvas(canvasViews[currentPage])
+      }
     }
     .onChange(of: currentTool) { _, _ in
       // Collapse dropdowns when switching tools and re-apply tool
@@ -466,6 +507,22 @@ struct WrittenNoteToolbar: View {
     .onChange(of: showImagePicker) { oldValue, newValue in
       // Keep the photo tool selected when picker opens/closes
       // User can manually select another tool if they want
+    }
+    .onChange(of: toolState.isAutoStrokeRecognitionEnabled) { _, _ in
+      syncAutoStrokeSettings()
+    }
+    .onChange(of: toolState.longPressThreshold) { _, _ in
+      syncAutoStrokeSettings()
+    }
+    .onChange(of: toolState.strokeRecognitionSensitivity) { _, _ in
+      syncAutoStrokeSettings()
+    }
+    .onChange(of: preferencesManager.autoShapeRecognitionEnabled) { _, _ in
+      syncAutoStrokeSettings()
+    }
+    .onChange(of: currentPage < canvasViews.count ? canvasViews[currentPage].drawing : PKDrawing()) { _, _ in
+      // Notify auto stroke manager when drawing changes
+      autoStrokeManager.onDrawingChanged()
     }
     .zIndex(
       (expandedPenPresetIndex != nil || expandedMarkerPresetIndex != nil
@@ -519,8 +576,8 @@ struct WrittenNoteToolbar: View {
                           ? Color.matchalight_dark : Color.gray.opacity(0.5)
                       )
                       .frame(
-                        width: dotDiameter(for: toolState.penWidthPresets[i], maxRange: 30),
-                        height: dotDiameter(for: toolState.penWidthPresets[i], maxRange: 30)
+                        width: dotDiameter(for: toolState.penWidthPresets[i], maxRange: 60),
+                        height: dotDiameter(for: toolState.penWidthPresets[i], maxRange: 60)
                       )
                     Image(systemName: expandedPenPresetIndex == i ? "chevron.up" : "chevron.down")
                       .font(.system(size: 8, weight: .bold))
@@ -546,7 +603,7 @@ struct WrittenNoteToolbar: View {
                           if toolState.selectedPenPresetIndex == i { updateCanvasTool() }
                         }
                       )
-                      Slider(value: binding, in: 0.5...30, step: 0.5)
+                      Slider(value: binding, in: 0.5...60, step: 0.5)
                         .frame(width: 200)
                     }
                   }
@@ -675,7 +732,7 @@ struct WrittenNoteToolbar: View {
                           if toolState.selectedMarkerPresetIndex == i { updateCanvasTool() }
                         }
                       )
-                      Slider(value: binding, in: 0.5...40, step: 0.5)
+                      Slider(value: binding, in: 0.5...120, step: 0.5)
                         .frame(width: 200)
                     }
                   }
@@ -757,6 +814,7 @@ struct WrittenNoteToolbar: View {
           ForEach(EraserType.allCases, id: \.self) { type in
             Button(action: {
               toolState.eraserType = type
+              withAnimation { expandedEraserPresetIndex = nil }
               updateCanvasTool()
             }) {
               Image(type.icon)
@@ -769,26 +827,70 @@ struct WrittenNoteToolbar: View {
           }
         }
 
-        // Area eraser width presets (UI only) - dropdown removed
+        // Area eraser: three quick presets with dropdown slider (capped)
         if toolState.eraserType == .area {
-          HStack(spacing: 8) {
-            ForEach(0..<toolState.eraserAreaWidthPresets.count, id: \.self) { i in
-              Button {
-                toolState.selectedEraserAreaPresetIndex = i
-              } label: {
-                Circle()
-                  .fill(
-                    toolState.selectedEraserAreaPresetIndex == i
-                      ? Color.matchalight_dark : Color.gray.opacity(0.5)
-                  )
-                  .frame(
-                    width: toolState.eraserAreaDotSizes[safe: i]
-                      ?? dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: 80),
-                    height: toolState.eraserAreaDotSizes[safe: i]
-                      ?? dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: 80)
-                  )
+          HStack(spacing: 12) {
+            // Preset dots (tap again to toggle dropdown)
+            HStack(spacing: 8) {
+              ForEach(0..<toolState.eraserAreaWidthPresets.count, id: \.self) { i in
+                Button {
+                  if toolState.selectedEraserAreaPresetIndex != i {
+                    toolState.selectedEraserAreaPresetIndex = i
+                    withAnimation { expandedEraserPresetIndex = nil }
+                    updateCanvasTool()
+                  } else {
+                    withAnimation {
+                      expandedEraserPresetIndex = (expandedEraserPresetIndex == i ? nil : i)
+                    }
+                  }
+                } label: {
+                  Circle()
+                    .fill(
+                      toolState.selectedEraserAreaPresetIndex == i
+                        ? Color.matchalight_dark : Color.gray.opacity(0.5)
+                    )
+                    .frame(
+                      width: toolState.eraserAreaDotSizes[safe: i]
+                        ?? dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: eraserBitmapMaxWidth),
+                      height: toolState.eraserAreaDotSizes[safe: i]
+                        ?? dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: eraserBitmapMaxWidth)
+                    )
+                    .overlay(
+                      Image(systemName: expandedEraserPresetIndex == i ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.white.opacity(0.9))
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
+                .overlay(alignment: .bottom) {
+                  if expandedEraserPresetIndex == i {
+                    VStack(spacing: 12) {
+                      HStack(spacing: 6) {
+                        Image(systemName: "circle.lefthalf.filled")
+                          .font(.caption)
+                          .foregroundColor(.gray)
+                        let binding = Binding<CGFloat>(
+                          get: { toolState.eraserAreaWidthPresets[i] },
+                          set: { newValue in
+                            let clamped = max(4.0, min(newValue, eraserBitmapMaxWidth))
+                            toolState.eraserAreaWidthPresets[i] = clamped
+                            if toolState.selectedEraserAreaPresetIndex == i { updateCanvasTool() }
+                          }
+                        )
+                        Slider(value: binding, in: 4...120, step: 1)
+                          .frame(width: 200)
+                      }
+                    }
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 12)
+                    .background(Color(.systemBackground))
+                    .cornerRadius(8)
+                    .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
+                    .offset(y: 36)
+                    .onTapGesture { }
+                  }
+                }
               }
-              .buttonStyle(PlainButtonStyle())
             }
           }
         }
@@ -897,11 +999,13 @@ struct WrittenNoteToolbar: View {
       let width = toolState.markerWidthPresets[safe: toolState.selectedMarkerPresetIndex] ?? 6.0
       canvas.tool = tool.toolInstance(color: toolState.markerColor, width: width)
     case .eraser:
-      let width =
+      let requestedWidth =
         toolState.eraserType == .area
         ? toolState.eraserAreaWidthPresets[safe: toolState.selectedEraserAreaPresetIndex] ?? 16.0
         : 1.0
-      canvas.tool = tool.toolInstance(width: width, eraserType: toolState.eraserType)
+      // Clamp to a safe maximum so PencilKit behavior aligns with UI
+      let appliedWidth = min(requestedWidth, eraserBitmapMaxWidth)
+      canvas.tool = tool.toolInstance(width: appliedWidth, eraserType: toolState.eraserType)
     case .lasso:
       canvas.tool = tool.toolInstance()
     case .photo:
@@ -1027,6 +1131,13 @@ struct WrittenNoteToolbar: View {
 
     // Add image to the current page
     imageManager.addImageToPage(image, at: centerPosition, pageIndex: currentPage)
+  }
+
+  // MARK: - Auto Stroke Recognition Methods
+
+  private func syncAutoStrokeSettings() {
+    autoStrokeManager.isEnabled = preferencesManager.autoShapeRecognitionEnabled
+    // Don't override longPressThreshold and sensitivity - let them use stored UserDefaults values
   }
 
   // MARK: - TextBox Handling Methods
@@ -1155,5 +1266,3 @@ struct TextNoteToolbar: View {
 
   }
 }
-
-// ShareSheet was removed; direct presentation is done in NoteView

@@ -310,7 +310,7 @@ struct AIAssistantView: View {
                         .padding(.horizontal)
                     }
 
-                    GrowingTextEditor(text: $state.userInput, placeholderText: "Ask me about your notesxf vcszz...")
+                    GrowingTextEditor(text: $state.userInput, placeholderText: "Ask me about your notes...")
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
                         .padding(.trailing, 40)

@@ -91,7 +91,7 @@ struct PageThumbnailView: View {
         // Paper background
         Rectangle()
           .fill(getPaperBackgroundColor(for: note.paperColor))
-          .aspectRatio(paperAspectRatio, contentMode: .fit)
+          .aspectRatio(paperAspectRatio(for: pageIndex), contentMode: .fit)
           .overlay(
             RoundedRectangle(cornerRadius: 8)
               .stroke(
@@ -104,14 +104,14 @@ struct PageThumbnailView: View {
         if let previewImage = previewImage {
           Image(uiImage: previewImage)
             .resizable()
-            .aspectRatio(paperAspectRatio, contentMode: .fit)
+            .aspectRatio(paperAspectRatio(for: pageIndex), contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 6))
         } else if (pageIndex < canvasViews.count && !canvasViews[pageIndex].drawing.strokes.isEmpty) ||
                   note.imageDataByPage[String(pageIndex)] != nil {
           // Fallback while loading (either drawing strokes or background images)
           Rectangle()
             .fill(Color.gray.opacity(0.1))
-            .aspectRatio(paperAspectRatio, contentMode: .fit)
+            .aspectRatio(paperAspectRatio(for: pageIndex), contentMode: .fit)
             .overlay(
               ProgressView()
                 .scaleEffect(0.8)
@@ -350,6 +350,15 @@ struct PageThumbnailView: View {
   
   private var paperAspectRatio: CGFloat {
     return PaperUtilities.paperAspectRatio(for: note.paperSize)
+  }
+
+  private func paperAspectRatio(for pageIndex: Int) -> CGFloat {
+    if let imageDataArray = note.imageDataByPage[String(pageIndex)],
+       let imageData = imageDataArray.first,
+       let uiImage = UIImage(data: imageData) {
+      return uiImage.size.width / uiImage.size.height
+    }
+    return paperAspectRatio
   }
   
   private func getPaperBackgroundColor(for color: PaperColor) -> Color {

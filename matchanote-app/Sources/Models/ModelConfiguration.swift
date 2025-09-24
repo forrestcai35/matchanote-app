@@ -23,14 +23,10 @@ struct ModelConfiguration {
     
     // MARK: - Premium Models
     static let premiumModels: [Model] = [
-        Model(displayName: "GPT-4o", modelId: "openai/gpt-4o", isPremium: true),
-        Model(displayName: "GPT-4o Mini", modelId: "openai/gpt-4o-mini", isPremium: true),
-        Model(displayName: "GPT-5", modelId: "openai/gpt-5", isPremium: true),
-        Model(displayName: "GPT-5 Mini", modelId: "openai/gpt-5-mini", isPremium: true),
-        Model(displayName: "GPT-5 Flash", modelId: "openai/gpt-5-flash", isPremium: true),
-        Model(displayName: "Claude 4 Sonnet", modelId: "anthropic/claude-3.5-sonnet", isPremium: true),
-        Model(displayName: "o1 Preview", modelId: "openai/o1-preview", isPremium: true),
-        Model(displayName: "o1 Mini", modelId: "openai/o1-mini", isPremium: true)
+        Model(displayName: "gpt-5", modelId: "openai/gpt-5-flash", isPremium: true),
+        Model(displayName: "claude 4 Sonnet", modelId: "anthropic/claude-3.5-sonnet", isPremium: true),
+        Model(displayName: "o4", modelId: "openai/o4-mini", isPremium: true),
+        Model(displayName: "gemini-2.5", modelId: "google/gemini-2.5-flash", isPremium: true),
     ]
     
     // MARK: - All Models

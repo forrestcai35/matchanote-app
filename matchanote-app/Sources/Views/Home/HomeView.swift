@@ -20,7 +20,8 @@ struct HomeView: View {
     @State private var selectedItem = "documents"
     @State private var sortOption = "Date"
     @State private var isGridView = true
-    @State private var showSettings = false
+    @State private var showingPreferences = false
+    @State private var showingTrash = false
     @State private var currentFolderID: UUID? = nil
     @State private var folderPath: [Folder] = []
     @State private var dragItem: (type: DragItemType, id: UUID)? = nil
@@ -128,22 +129,47 @@ struct HomeView: View {
 
                     Spacer()
 
-                    // Settings button in sidebar
-                    Button(action: {
-                        showSettings.toggle()
-                    }) {
+                    // Settings menu in sidebar
+                    Menu {
+                        Button("Account", systemImage: "person.circle") {
+                            if let url = URL(string: "https://matchanote.app/app/settings") {
+                                UIApplication.shared.open(url)
+                            }
+                        }
+
+                        Button("Preferences", systemImage: "paintpalette") {
+                            showingPreferences = true
+                        }
+
+                        Button("Trash", systemImage: "trash") {
+                            showingTrash = true
+                        }
+
+                        Divider()
+
+                        Button(role: .destructive) {
+                            LocalAuthManager.shared.logout()
+                        } label: {
+                            Label("Sign Out", systemImage: "arrow.right.square")
+                        }
+                    } label: {
                         Image(systemName: "gear")
                             .fontWeight(.medium)
                             .foregroundStyle(
                                 colorScheme == .dark
                                     ? Color.matchabrown_dark : Color.matchabrown_light)
                     }
-                    .popover(isPresented: $showSettings, arrowEdge: .top) {
-                        SettingsPopover()
-                    }
                 }
                 .padding(.horizontal)
                 .padding(.top, 15)
+
+                // Settings sheets
+                .sheet(isPresented: $showingPreferences) {
+                    PreferencesView()
+                }
+                .sheet(isPresented: $showingTrash) {
+                    TrashView()
+                }
 
                 searchBar
                 sidebarList
@@ -1194,7 +1220,7 @@ struct HomeView: View {
         }
         .fileImporter(
             isPresented: $showingFileImporter,
-            allowedContentTypes: [.item],
+            allowedContentTypes: [.pdf, .image],
             allowsMultipleSelection: true
         ) { result in
             do {
@@ -1229,8 +1255,8 @@ struct HomeView: View {
         } else if ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "heic"].contains(fileExtension) {
             createNoteFromImage(url: url, fileName: fileName)
         } else {
-            // Fallback to text note for other file types
-            createTextNoteFromFile(url: url, fileName: fileName)
+            // Ignore unsupported file types for uploads
+            print("Unsupported upload file type: \(fileExtension)")
         }
     }
 
@@ -1243,20 +1269,21 @@ struct HomeView: View {
         let pageCount = pdf.numberOfPages
         var imageDataByPage: [String: [Data]] = [:]
 
-        // Extract each page as an image
+        // Extract each page as an image at native page size
         for pageIndex in 1...pageCount {
             guard let page = pdf.page(at: pageIndex) else { continue }
 
             let pageRect = page.getBoxRect(.mediaBox)
             let renderer = UIGraphicsImageRenderer(size: pageRect.size)
-
             let image = renderer.image { context in
                 UIColor.white.set()
-                context.fill(pageRect)
+                context.fill(CGRect(origin: .zero, size: pageRect.size))
 
+                context.cgContext.saveGState()
                 context.cgContext.translateBy(x: 0, y: pageRect.size.height)
                 context.cgContext.scaleBy(x: 1.0, y: -1.0)
                 context.cgContext.drawPDFPage(page)
+                context.cgContext.restoreGState()
             }
 
             if let imageData = image.jpegData(compressionQuality: 0.8) {
@@ -1776,7 +1803,7 @@ extension HomeView {
         }
         .fileImporter(
             isPresented: $showingFileImporter,
-            allowedContentTypes: [.item],
+            allowedContentTypes: [.pdf, .image],
             allowsMultipleSelection: true
         ) { result in
             do {

@@ -693,18 +693,40 @@ extension NoteView {
   }
 
   private func exportPDF(forPages pages: [Int]) -> URL? {
+    // We will create a renderer with a default bound, but adjust per page when beginning each page
     let renderer = UIGraphicsPDFRenderer(bounds: pageBounds)
     let sanitizedTitle = activeNote.title.replacingOccurrences(of: "/", with: "-")
     let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("Note_Export_\(sanitizedTitle)_\(UUID().uuidString).pdf")
     do {
       try renderer.writePDF(to: tempURL) { context in
         for page in pages {
-          context.beginPage()
+          // Determine per-page size using background image when available
+          let pageKey = String(page)
+          var size = PaperUtilities.paperSize(for: activeNote.paperSize)
+          if let imageData = activeNote.imageDataByPage[pageKey]?.first, let uiImage = UIImage(data: imageData) {
+            size = uiImage.size
+          }
+
+          let bounds = CGRect(origin: .zero, size: size)
+          context.beginPage(withBounds: bounds, pageInfo: [:])
+
+          // Fill background
           UIColor(PaperUtilities.getPaperBackgroundColor(for: activeNote.paperColor)).setFill()
-          UIRectFill(pageBounds)
+          UIRectFill(bounds)
+
+          // Draw background image if present
+          if let imageDataArray = activeNote.imageDataByPage[pageKey] {
+            for data in imageDataArray {
+              if let bg = UIImage(data: data) {
+                bg.draw(in: bounds)
+              }
+            }
+          }
+
+          // Draw strokes on top
           if let drawing = drawingForPage(page) {
-            let image = drawing.image(from: pageBounds, scale: 2)
-            image.draw(in: pageBounds)
+            let image = drawing.image(from: bounds, scale: 2)
+            image.draw(in: bounds)
           }
         }
       }
@@ -755,7 +777,7 @@ extension NoteView {
   }
   
   private func presentFilePicker() {
-    let documentPicker = UIDocumentPickerViewController(forOpeningContentTypes: [.pdf, .image, .text], asCopy: true)
+    let documentPicker = UIDocumentPickerViewController(forOpeningContentTypes: [.pdf, .image], asCopy: true)
     documentPicker.delegate = DocumentPickerCoordinator.shared
     documentPicker.allowsMultipleSelection = false
 
@@ -780,8 +802,6 @@ extension NoteView {
         try handlePDFImport(url: url)
       case "jpg", "jpeg", "png", "heic", "heif":
         try handleImageImport(url: url)
-      case "txt", "md":
-        try handleTextImport(url: url)
       default:
         print("Unsupported file type: \(fileExtension)")
       }
@@ -835,27 +855,24 @@ extension NoteView {
   }
 
   private func renderPDFPageToImage(pdfPage: PDFPage) -> UIImage {
-    // Get the bounds of the PDF page
+    // Get the bounds of the PDF page and render to its native size
     let pageRect = pdfPage.bounds(for: .mediaBox)
 
-    // Determine target size while maintaining aspect ratio
-    let paperSize = PaperUtilities.paperSize(for: activeNote.paperSize)
-    let scale = min(paperSize.width / pageRect.width, paperSize.height / pageRect.height)
-    let targetSize = CGSize(width: pageRect.width * scale, height: pageRect.height * scale)
-
-    // Create the image context
-    let renderer = UIGraphicsImageRenderer(size: targetSize)
+    // Create the image context at the PDF page size
+    let renderer = UIGraphicsImageRenderer(size: pageRect.size)
     let image = renderer.image { context in
       // Fill with white background
       UIColor.white.setFill()
-      context.fill(CGRect(origin: .zero, size: targetSize))
+      context.fill(CGRect(origin: .zero, size: pageRect.size))
 
-      // Translate and scale the context to fit the PDF page
-      context.cgContext.translateBy(x: 0, y: targetSize.height)
-      context.cgContext.scaleBy(x: scale, y: -scale)
+      // Map PDF page coordinates to the full image rect, accounting for coordinate flip
+      context.cgContext.saveGState()
+      context.cgContext.translateBy(x: 0, y: pageRect.size.height)
+      context.cgContext.scaleBy(x: 1.0, y: -1.0)
 
-      // Draw the PDF page
+      // Draw the PDF page (PDFKit handles page rotation internally for PDFPage)
       pdfPage.draw(with: .mediaBox, to: context.cgContext)
+      context.cgContext.restoreGState()
     }
 
     return image

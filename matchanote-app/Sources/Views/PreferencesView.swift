@@ -86,15 +86,35 @@ struct PreferencesView: View {
                     .frame(maxWidth: .infinity)
                 }
 
+                // Drawing Section
+                VStack(alignment: .leading, spacing: 12) {
+                    MatchaSectionHeader(
+                        title: "Drawing",
+                        icon: "scribble.variable",
+                        delay: 0.5
+                    )
+
+                    MatchaCard(delay: 0.6) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            MatchaToggle(
+                                title: "Auto Shape Recognition",
+                                subtitle: "Automatically convert rough drawings to perfect shapes",
+                                icon: "circle.square",
+                                isOn: $preferencesManager.autoShapeRecognitionEnabled
+                            )
+                        }
+                    }
+                }
+
                 // Storage Section
                 VStack(alignment: .leading, spacing: 12) {
                     MatchaSectionHeader(
                         title: "Storage",
                         icon: "externaldrive.fill",
-                        delay: 0.5
+                        delay: 0.7
                     )
 
-                    MatchaCard(delay: 0.6) {
+                    MatchaCard(delay: 0.8) {
                         VStack(alignment: .leading, spacing: 12) {
                             MatchaToggle(
                                 title: "Cloud Sync",
