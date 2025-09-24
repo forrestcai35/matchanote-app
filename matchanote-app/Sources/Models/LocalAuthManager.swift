@@ -34,11 +34,6 @@ class LocalAuthManager: ObservableObject {
     userDefaults.set(false, forKey: isLoggedInKey)
   }
 
-  // Reset the first launch state (for testing)
-  func resetFirstLaunch() {
-    userDefaults.set(false, forKey: hasLaunchedBeforeKey)
-    isFirstLaunch = true
-  }
 
   // Switch to sign in view
   func showSignInView() {

@@ -11,72 +11,97 @@ struct PreferencesView: View {
                 // Header
                 MatchaPageHeader("Preferences", subtitle: "Customize your Matcha experience")
 
-                // Appearance Section
-                VStack(alignment: .leading, spacing: 12) {
-                    MatchaSectionHeader(
-                        title: "Appearance",
-                        icon: "paintbrush.fill",
-                        delay: 0.1
-                    )
+                // Appearance and Assistant Sections (Side by Side)
+                HStack(alignment: .top, spacing: 12) {
+                    // Appearance Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        MatchaSectionHeader(
+                            title: "Appearance",
+                            icon: "paintbrush.fill",
+                            delay: 0.1
+                        )
 
-                    MatchaCard(delay: 0.2) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Theme")
-                                    .font(.headline)
-                                    .foregroundColor(.primary)
+                        MatchaCard(delay: 0.2) {
+                            VStack(alignment: .leading, spacing: 12) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Theme")
+                                        .font(.headline)
+                                        .foregroundColor(.primary)
 
-                                Text("Choose how Matcha looks")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
+                                    Text("Choose how Matcha looks")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
 
-                            HStack(spacing: 8) {
-                                ForEach(AppTheme.allCases, id: \.self) { theme in
-                                    MatchaThemeOption(
-                                        theme: theme,
-                                        isSelected: preferencesManager.theme == theme,
-                                        onSelect: {
-                                            preferencesManager.theme = theme
-                                        }
-                                    )
+                                HStack(spacing: 8) {
+                                    ForEach(AppTheme.allCases, id: \.self) { theme in
+                                        MatchaThemeOption(
+                                            theme: theme,
+                                            isSelected: preferencesManager.theme == theme,
+                                            onSelect: {
+                                                preferencesManager.theme = theme
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
-                }
+                    .frame(maxWidth: .infinity)
 
-                // Assistant Section
-                VStack(alignment: .leading, spacing: 12) {
-                    MatchaSectionHeader(
-                        title: "Assistant",
-                        icon: "brain.head.profile",
-                        delay: 0.3
-                    )
+                    // Assistant Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        MatchaSectionHeader(
+                            title: "Assistant",
+                            icon: "brain.head.profile",
+                            delay: 0.3
+                        )
 
-                    MatchaCard(delay: 0.4) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Default Orientation")
-                                    .font(.headline)
-                                    .foregroundColor(.primary)
+                        MatchaCard(delay: 0.4) {
+                            VStack(alignment: .leading, spacing: 12) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Default Orientation")
+                                        .font(.headline)
+                                        .foregroundColor(.primary)
 
-                                Text("Choose which side the assistant appears on")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
+                                    Text("Choose which side the assistant appears on")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
 
-                            HStack(spacing: 8) {
-                                ForEach(AssistantOrientation.allCases, id: \.self) { orientation in
-                                    MatchaOrientationOption(
-                                        orientation: orientation,
-                                        isSelected: preferencesManager.assistantDefaultOrientation == orientation,
-                                        onSelect: {
-                                            preferencesManager.assistantDefaultOrientation = orientation
-                                        }
-                                    )
+                                HStack(spacing: 8) {
+                                    ForEach(AssistantOrientation.allCases, id: \.self) { orientation in
+                                        MatchaCompactOrientationOption(
+                                            orientation: orientation,
+                                            isSelected: preferencesManager.assistantDefaultOrientation == orientation,
+                                            onSelect: {
+                                                preferencesManager.assistantDefaultOrientation = orientation
+                                            }
+                                        )
+                                    }
                                 }
                             }
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+
+                // Storage Section
+                VStack(alignment: .leading, spacing: 12) {
+                    MatchaSectionHeader(
+                        title: "Storage",
+                        icon: "externaldrive.fill",
+                        delay: 0.5
+                    )
+
+                    MatchaCard(delay: 0.6) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            MatchaToggle(
+                                title: "Cloud Sync",
+                                subtitle: "Sync your notes and folders to the cloud (Premium feature)",
+                                icon: "icloud.fill",
+                                isOn: $preferencesManager.supabaseStorageEnabled
+                            )
                         }
                     }
                 }

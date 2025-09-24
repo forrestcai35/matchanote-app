@@ -297,6 +297,93 @@ struct MatchaOrientationOption: View {
     }
 }
 
+// MARK: - Compact Orientation Option Component
+struct MatchaCompactOrientationOption: View {
+    let orientation: AssistantOrientation
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        MatchaOptionButton(isSelected: isSelected, action: onSelect) {
+            HStack(spacing: 8) {
+                // Compact visual representation
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(
+                            isSelected
+                                ? (colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light)
+                                : Color.gray.opacity(0.3),
+                            lineWidth: isSelected ? 2 : 1
+                        )
+                        .fill(
+                            isSelected
+                                ? (colorScheme == .dark
+                                    ? Color.matchalight_dark.opacity(0.1)
+                                    : Color.matchalight_light.opacity(0.1))
+                                : Color.clear
+                        )
+                        .frame(width: 50, height: 30)
+                        .scaleEffect(isSelected ? 1.05 : 1.0)
+                        .animation(MatchaUI.Animation.spring, value: isSelected)
+
+                    HStack(spacing: 2) {
+                        if orientation == .left {
+                            Rectangle()
+                                .fill(
+                                    isSelected
+                                        ? (colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light)
+                                        : Color.gray.opacity(0.5)
+                                )
+                                .frame(width: 12, height: 18)
+                                .scaleEffect(isSelected ? 1.1 : 1.0)
+                                .animation(MatchaUI.Animation.spring, value: isSelected)
+                            Rectangle()
+                                .fill(Color.gray.opacity(0.25))
+                                .frame(width: 30, height: 18)
+                        } else {
+                            Rectangle()
+                                .fill(Color.gray.opacity(0.25))
+                                .frame(width: 30, height: 18)
+                            Rectangle()
+                                .fill(
+                                    isSelected
+                                        ? (colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light)
+                                        : Color.gray.opacity(0.5)
+                                )
+                                .frame(width: 12, height: 18)
+                                .scaleEffect(isSelected ? 1.1 : 1.0)
+                                .animation(MatchaUI.Animation.spring, value: isSelected)
+                        }
+                    }
+                    .cornerRadius(4)
+                }
+
+                // Label - use abbreviated form
+                Text(orientation == .left ? "L" : "R")
+                    .font(.subheadline)
+                    .fontWeight(isSelected ? .semibold : .medium)
+                    .foregroundColor(.primary)
+                    .scaleEffect(isSelected ? 1.05 : 1.0)
+                    .animation(MatchaUI.Animation.spring, value: isSelected)
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .background(
+                RoundedRectangle(cornerRadius: MatchaUI.Style.itemCornerRadius)
+                    .fill(
+                        isSelected
+                            ? (colorScheme == .dark
+                                ? Color.matchalight_dark.opacity(0.08)
+                                : Color.matchalight_light.opacity(0.08))
+                            : Color.clear
+                    )
+            )
+        }
+    }
+}
+
 // MARK: - Animated Page Header
 struct MatchaPageHeader: View {
     let title: String
@@ -436,6 +523,69 @@ struct MatchaMenuButton: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Toggle Component
+struct MatchaToggle: View {
+    let title: String
+    let subtitle: String?
+    let icon: String
+    @Binding var isOn: Bool
+    let onToggle: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    init(title: String, subtitle: String? = nil, icon: String, isOn: Binding<Bool>, onToggle: @escaping () -> Void = {}) {
+        self.title = title
+        self.subtitle = subtitle
+        self.icon = icon
+        self._isOn = isOn
+        self.onToggle = onToggle
+    }
+
+    var body: some View {
+        HStack(spacing: 16) {
+            // Icon
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundColor(
+                    colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+                )
+                .frame(width: 24)
+
+            // Text content
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundColor(.primary)
+
+                if let subtitle = subtitle {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            Spacer()
+
+            // Toggle switch
+            Toggle("", isOn: $isOn)
+                .toggleStyle(SwitchToggleStyle(tint: colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light))
+                .onChange(of: isOn) {
+                    onToggle()
+                }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: MatchaUI.Style.itemCornerRadius)
+                .fill(
+                    colorScheme == .dark
+                        ? Color.black.opacity(0.1)
+                        : Color.white.opacity(0.5)
+                )
+        )
     }
 }
 

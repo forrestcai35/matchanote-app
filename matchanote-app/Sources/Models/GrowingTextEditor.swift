@@ -10,6 +10,7 @@ struct GrowingTextEditor: View {
   @Binding var text: String
   @State private var textEditorHeight: CGFloat = 60
   @State private var heightCalculationTimer: Timer?
+  @State private var lastCalculatedText: String = ""
   let maxHeight: CGFloat = 200
   let placeholderText: String
   
@@ -27,13 +28,16 @@ struct GrowingTextEditor: View {
         .frame(height: min(max(textEditorHeight, 80), maxHeight))
         .scrollContentBackground(.hidden)
         .onChange(of: text) { oldValue, newValue in
-          // Debounce height calculation to improve performance
-          heightCalculationTimer?.invalidate()
-          heightCalculationTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: false) { _ in
-            calculateTextHeight(for: newValue)
+          // Only recalculate if text actually changed and is significantly different
+          if newValue != lastCalculatedText && abs(newValue.count - lastCalculatedText.count) > 2 {
+            heightCalculationTimer?.invalidate()
+            heightCalculationTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { _ in
+              calculateTextHeight(for: newValue)
+              lastCalculatedText = newValue
+            }
           }
         }
-        .background(OptimizedKeyboardBackgroundFix())
+        .background(StaticKeyboardBackgroundFix())
 
       if text.isEmpty {
         Text(placeholderText)
@@ -49,56 +53,33 @@ struct GrowingTextEditor: View {
   }
   
   private func calculateTextHeight(for text: String) {
-    let size = CGSize(width: textWidth, height: .infinity)
-    #if canImport(UIKit)
-    let font = UIFont.systemFont(ofSize: 16)
-    #else
-    let font = NSFont.systemFont(ofSize: 16)
-    #endif
-    let estimatedSize = text.boundingRect(
-      with: size,
-      options: [.usesLineFragmentOrigin, .usesFontLeading],
-      attributes: [.font: font],
-      context: nil
-    )
-    textEditorHeight = min(estimatedSize.height + 30, maxHeight)
+    // Use a more efficient height calculation
+    let lineHeight: CGFloat = 20 // Approximate line height
+    let lineCount = max(1, text.components(separatedBy: .newlines).count)
+    let estimatedHeight = CGFloat(lineCount) * lineHeight + 20 // Add padding
+    
+    // Only update if the change is significant to avoid unnecessary redraws
+    let newHeight = min(max(estimatedHeight, 60), maxHeight)
+    if abs(newHeight - textEditorHeight) > 5 {
+      textEditorHeight = newHeight
+    }
   }
 }
 
 #if canImport(UIKit)
-  struct OptimizedKeyboardBackgroundFix: UIViewRepresentable {
+  struct StaticKeyboardBackgroundFix: UIViewRepresentable {
     func makeUIView(context: Context) -> UIView {
       let view = UIView()
       view.backgroundColor = UIColor.clear
-      
-      // More efficient approach - use a single async call with better error handling
-      DispatchQueue.main.async {
-        self.configureTextView(in: view)
-      }
       return view
     }
 
-    func updateUIView(_ uiView: UIView, context: Context) {}
-    
-    private func configureTextView(in view: UIView) {
-      // More efficient text view finding
-      var currentView: UIView? = view
-      var textView: UITextView?
-      
-      // Walk up the view hierarchy more efficiently
-      while currentView != nil && textView == nil {
-        if let foundTextView = currentView as? UITextView {
-          textView = foundTextView
-          break
-        }
-        currentView = currentView?.superview
-      }
-      
-      textView?.inputAccessoryView = nil
+    func updateUIView(_ uiView: UIView, context: Context) {
+      // No-op to prevent unnecessary updates
     }
   }
 #else
-  struct OptimizedKeyboardBackgroundFix: View {
+  struct StaticKeyboardBackgroundFix: View {
     var body: some View {
       EmptyView()
     }

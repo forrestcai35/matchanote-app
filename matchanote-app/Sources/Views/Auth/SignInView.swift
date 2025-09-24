@@ -1,4 +1,3 @@
-import AuthenticationServices
 import Foundation
 import Supabase
 import SwiftUI
@@ -337,9 +336,7 @@ struct SignInView: View {
       let _ = try await supabase.auth.signInWithOAuth(
         provider: .google,
         redirectTo: URL(string: "app.matchanote://auth-callback")!
-      ) { (session: ASWebAuthenticationSession) in
-        // Session handling
-      }
+      )
       await MainActor.run {
         isLoading = false
         authManager.setLoggedIn()
@@ -362,9 +359,7 @@ struct SignInView: View {
       let _ = try await supabase.auth.signInWithOAuth(
         provider: .apple,
         redirectTo: URL(string: "app.matchanote://auth-callback")!
-      ) { (session: ASWebAuthenticationSession) in
-        // Session handling
-      }
+      ) 
       await MainActor.run {
         isLoading = false
         authManager.setLoggedIn()

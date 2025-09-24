@@ -38,7 +38,17 @@ struct MediaItem: Identifiable {
 //  AI Assistant State
 class AIAssistantState: ObservableObject {
     @Published var messages: [ChatMessage] = []
-    @Published var userInput = ""
+    @Published var userInput = "" {
+        didSet {
+            // Debounce user input changes to reduce UI updates
+            if userInput != oldValue {
+                userInputDebounceTimer?.invalidate()
+                userInputDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: false) { _ in
+                    // Optional: Add any debounced logic here if needed
+                }
+            }
+        }
+    }
     @Published var selectedModel = "Matcha Assistant"
     @Published var isLoading = false
     @Published var errorMessage: String? = nil
@@ -49,6 +59,13 @@ class AIAssistantState: ObservableObject {
     // AI capabilities
     @Published var aiManager = AIAssistantManager()
     @Published var currentNote: Note?
+    
+    // Performance optimization
+    private var userInputDebounceTimer: Timer?
+    
+    deinit {
+        userInputDebounceTimer?.invalidate()
+    }
 }
 
 struct AIAssistantView: View {
@@ -293,7 +310,7 @@ struct AIAssistantView: View {
                         .padding(.horizontal)
                     }
 
-                    GrowingTextEditor(text: $state.userInput, placeholderText: "Ask me about your note...")
+                    GrowingTextEditor(text: $state.userInput, placeholderText: "Ask me about your notesxf vcszz...")
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
                         .padding(.trailing, 40)

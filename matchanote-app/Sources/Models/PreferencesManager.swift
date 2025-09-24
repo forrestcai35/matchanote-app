@@ -46,6 +46,7 @@ class PreferencesManager: ObservableObject {
     private enum DefaultsKeys {
         static let assistantDefaultOrientation = "preferences.assistantDefaultOrientation"
         static let theme = "preferences.theme"
+        static let supabaseStorageEnabled = "preferences.supabaseStorageEnabled"
     }
     
     // MARK: - Published Properties
@@ -61,6 +62,12 @@ class PreferencesManager: ObservableObject {
         }
     }
     
+    @Published var supabaseStorageEnabled: Bool {
+        didSet {
+            userDefaults.set(supabaseStorageEnabled, forKey: DefaultsKeys.supabaseStorageEnabled)
+        }
+    }
+    
     private init() {
         // Load saved orientation or default to left
         let savedOrientation = userDefaults.string(forKey: DefaultsKeys.assistantDefaultOrientation)
@@ -69,11 +76,15 @@ class PreferencesManager: ObservableObject {
         // Load saved theme or default to system
         let savedTheme = userDefaults.string(forKey: DefaultsKeys.theme)
         self.theme = AppTheme(rawValue: savedTheme ?? "system") ?? .system
+        
+        // Load saved Supabase storage preference or default to false (disabled)
+        self.supabaseStorageEnabled = userDefaults.bool(forKey: DefaultsKeys.supabaseStorageEnabled)
     }
     
     // MARK: - Public Methods
     func resetToDefaults() {
         assistantDefaultOrientation = .left
         theme = .system
+        supabaseStorageEnabled = false
     }
 }

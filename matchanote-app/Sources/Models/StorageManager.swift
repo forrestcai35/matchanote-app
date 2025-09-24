@@ -214,9 +214,11 @@ class StorageManager: ObservableObject {
     // Save to local storage first (for offline support)
     saveNoteLocally(noteToSave)
 
-    // Save to Supabase if user is authenticated
-    Task {
-      await saveNoteToSupabase(noteToSave)
+    // Save to Supabase if user is authenticated and Supabase storage is enabled
+    if PreferencesManager.shared.supabaseStorageEnabled {
+      Task {
+        await saveNoteToSupabase(noteToSave)
+      }
     }
 
     return noteToSave
@@ -288,9 +290,11 @@ class StorageManager: ObservableObject {
     // Save to local storage first (for offline support)
     saveFolderLocally(folderToSave)
 
-    // Save to Supabase if user is authenticated
-    Task {
-      await saveFolderToSupabase(folderToSave)
+    // Save to Supabase if user is authenticated and Supabase storage is enabled
+    if PreferencesManager.shared.supabaseStorageEnabled {
+      Task {
+        await saveFolderToSupabase(folderToSave)
+      }
     }
     
     return folderToSave
@@ -501,6 +505,12 @@ class StorageManager: ObservableObject {
 
   // MARK: - Supabase Methods
   private func syncWithSupabase() async {
+    // Check if Supabase storage is enabled in preferences
+    guard PreferencesManager.shared.supabaseStorageEnabled else {
+      print("Supabase storage is disabled in preferences")
+      return
+    }
+    
     do {
       // Check if user is authenticated
       let session = try await supabase.auth.session
@@ -516,17 +526,14 @@ class StorageManager: ObservableObject {
 
   private func fetchUserStorageFromSupabase(userId: UUID) async {
     do {
-      
-
-      
-      // Now fetch user storage data from the user_storage table
-      // Use string UUID to avoid primary key filtering issues
+      // Only fetch notes and folders data, not subscription data
+      // Subscription data should be handled by SubscriptionManager
       let response: UserProfile
       do {
         // Try single() first with string UUID
         response = try await supabase
           .from("user_storage")
-          .select("*")
+          .select("notes, folders, updated_at")
           .eq("user_id", value: userId.uuidString)
           .single()
           .execute()
@@ -535,7 +542,7 @@ class StorageManager: ObservableObject {
         // If single() fails, try decoding as array and take first element
         let responses: [UserProfile] = try await supabase
           .from("user_storage")
-          .select("*")
+          .select("notes, folders, updated_at")
           .eq("user_id", value: userId.uuidString)
           .execute()
           .value
@@ -672,6 +679,26 @@ class StorageManager: ObservableObject {
 
   // MARK: - Public Methods
 
+  /// Get all note IDs in a folder and its subfolders recursively
+  func getAllNotesInFolder(folderID: UUID) -> [UUID] {
+    var allNoteIDs: [UUID] = []
+    
+    // Find the folder
+    guard let folder = folders.first(where: { $0.id == folderID }) else {
+      return allNoteIDs
+    }
+    
+    // Add notes directly in this folder
+    allNoteIDs.append(contentsOf: folder.noteIDs)
+    
+    // Recursively add notes from subfolders
+    for childFolder in folder.childFolders {
+      allNoteIDs.append(contentsOf: getAllNotesInFolder(folderID: childFolder.id))
+    }
+    
+    return allNoteIDs
+  }
+
   func deleteNote(withID id: UUID) {
     guard let note = notes.first(where: { $0.id == id }) else {
       print("Note not found for deletion")
@@ -703,6 +730,14 @@ class StorageManager: ObservableObject {
     guard let folder = folders.first(where: { $0.id == id }) else {
       print("Folder not found for deletion")
       return
+    }
+
+    // Get all notes in this folder and its subfolders before deletion
+    let notesToDelete = getAllNotesInFolder(folderID: id)
+    
+    // Delete all notes in this folder and its subfolders
+    for noteID in notesToDelete {
+      deleteNote(withID: noteID)
     }
 
     // Move to trash instead of permanent deletion
@@ -766,9 +801,11 @@ class StorageManager: ObservableObject {
       }
     }
 
-    // Also sync with Supabase if authenticated
-    Task {
-      await syncDeletedItemWithSupabase()
+    // Also sync with Supabase if authenticated and Supabase storage is enabled
+    if PreferencesManager.shared.supabaseStorageEnabled {
+      Task {
+        await syncDeletedItemWithSupabase()
+      }
     }
   }
 
@@ -793,9 +830,11 @@ class StorageManager: ObservableObject {
       }
     }
 
-    // Sync with Supabase if authenticated
-    Task {
-      await syncDeletedItemWithSupabase()
+    // Sync with Supabase if authenticated and Supabase storage is enabled
+    if PreferencesManager.shared.supabaseStorageEnabled {
+      Task {
+        await syncDeletedItemWithSupabase()
+      }
     }
   }
 

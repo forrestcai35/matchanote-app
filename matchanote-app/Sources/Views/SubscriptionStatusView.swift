@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SubscriptionStatusView: View {
     @StateObject private var subscriptionManager = SubscriptionManager()
+    @ObservedObject private var preferencesManager = PreferencesManager.shared
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -148,6 +149,36 @@ struct SubscriptionStatusView: View {
                         .foregroundColor(.secondary)
                 }
             }
+
+            // Cloud Sync Status
+            Divider()
+
+            HStack {
+                Image(systemName: preferencesManager.supabaseStorageEnabled ? "icloud.fill" : "icloud.slash")
+                    .foregroundColor(preferencesManager.supabaseStorageEnabled ? .green : .orange)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Cloud Sync")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    
+                    Text(preferencesManager.supabaseStorageEnabled ? "Enabled" : "Disabled")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                if !preferencesManager.supabaseStorageEnabled {
+                    Text("Premium Feature")
+                        .font(.caption2)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.orange.opacity(0.2))
+                        .foregroundColor(.orange)
+                        .cornerRadius(4)
+                }
+            }
         }
     }
 
@@ -196,6 +227,7 @@ struct SubscriptionStatusView: View {
 // MARK: - Compact Subscription Status Component
 struct CompactSubscriptionStatusView: View {
     @StateObject private var subscriptionManager = SubscriptionManager()
+    @ObservedObject private var preferencesManager = PreferencesManager.shared
 
     var body: some View {
         HStack {
@@ -225,6 +257,17 @@ struct CompactSubscriptionStatusView: View {
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
+                    }
+
+                    // Cloud Sync Status
+                    HStack {
+                        Image(systemName: preferencesManager.supabaseStorageEnabled ? "icloud.fill" : "icloud.slash")
+                            .font(.caption2)
+                            .foregroundColor(preferencesManager.supabaseStorageEnabled ? .green : .orange)
+                        
+                        Text(preferencesManager.supabaseStorageEnabled ? "Cloud Sync On" : "Cloud Sync Off")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
                     }
                 }
             } else {

@@ -193,21 +193,6 @@ class CanvasManager: ObservableObject {
     undoHistories[noteId] = history
   }
 
-  // Check if undo is available for current page
-  func canUndo(for pageIndex: Int) -> Bool {
-    guard let noteId = currentNoteId,
-          let history = undoHistories[noteId],
-          let undoStack = history.pageUndoStates[pageIndex] else { return false }
-    return undoStack.count > 1
-  }
-
-  // Check if redo is available for current page
-  func canRedo(for pageIndex: Int) -> Bool {
-    guard let noteId = currentNoteId,
-          let history = undoHistories[noteId],
-          let redoStack = history.pageRedoStates[pageIndex] else { return false }
-    return !redoStack.isEmpty
-  }
 
   // REMOVED: No longer clear undo managers - maintain per-note history
 }

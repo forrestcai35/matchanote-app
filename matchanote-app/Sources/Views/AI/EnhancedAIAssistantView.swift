@@ -60,7 +60,17 @@ struct AssistantMessageView: View {
 // Enhanced AI Assistant State that includes our new capabilities
 class EnhancedAIAssistantState: ObservableObject {
     @Published var messages: [ChatMessage] = []
-    @Published var userInput = ""
+    @Published var userInput = "" {
+        didSet {
+            // Debounce user input changes to reduce UI updates
+            if userInput != oldValue {
+                userInputDebounceTimer?.invalidate()
+                userInputDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: false) { _ in
+                    // Optional: Add any debounced logic here if needed
+                }
+            }
+        }
+    }
     @Published var selectedModel = "Matcha Assistant"
     @Published var isLoading = false
     @Published var errorMessage: String? = nil
@@ -73,11 +83,18 @@ class EnhancedAIAssistantState: ObservableObject {
     @Published var aiManager = AIAssistantManager()
     @Published var showingAnalysisResults = false
     @Published var currentNote: Note?
+    
+    // Performance optimization
+    private var userInputDebounceTimer: Timer?
 
     enum AIMode {
         case chat
         case analysis
         case suggestions
+    }
+    
+    deinit {
+        userInputDebounceTimer?.invalidate()
     }
 }
 

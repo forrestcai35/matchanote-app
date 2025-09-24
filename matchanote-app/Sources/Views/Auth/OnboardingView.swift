@@ -5,7 +5,6 @@
 //  Created by Forrest Cai on 4/1/25.
 //
 
-import AuthenticationServices
 import Foundation
 import Supabase
 import SwiftUI
@@ -412,9 +411,7 @@ struct OnboardingView: View {
       let _ = try await supabase.auth.signInWithOAuth(
         provider: .google,
         redirectTo: URL(string: "app.matchanote://auth-callback")!
-      ) { (session: ASWebAuthenticationSession) in
-        // Session handling
-      }
+      )
       await MainActor.run {
         isLoading = false
         authManager.setLoggedIn()
@@ -437,9 +434,7 @@ struct OnboardingView: View {
       let _ = try await supabase.auth.signInWithOAuth(
         provider: .apple,
         redirectTo: URL(string: "app.matchanote://auth-callback")!
-      ) { (session: ASWebAuthenticationSession) in
-        // Session handling
-      }
+      ) 
       await MainActor.run {
         isLoading = false
         authManager.setLoggedIn()
