@@ -55,6 +55,16 @@ struct HomeView: View {
     private var sidebarWidth: CGFloat {
         return screenSize.width > screenSize.height ? 350 : 300
     }
+    
+    // Dynamic grid spacing based on orientation - keep same as landscape
+    private var gridSpacing: CGFloat {
+        return 20 // Same spacing for both orientations
+    }
+    
+    // Dynamic grid item spacing based on orientation - keep same as landscape
+    private var gridItemSpacing: CGFloat {
+        return 20 // Same spacing for both orientations
+    }
     // Filtered notes based on search text and current folder
     var filteredNotes: [Note] {
         let folderNotes = storageManager.notes.filter { note in
@@ -529,8 +539,8 @@ struct HomeView: View {
     }
     private var gridView: some View {
         LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 160), spacing: 20)],
-            spacing: 20
+            columns: [GridItem(.adaptive(minimum: 160), spacing: gridItemSpacing)],
+            spacing: gridSpacing
         ) {
             // Break grid content into separate views
             foldersGridContent

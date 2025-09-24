@@ -376,23 +376,17 @@ public struct GridFolderItemView: View {
                     .frame(width: 175, height: 140)
                     .clipped()
                 
-                // Selection indicator
+                // Selection indicator - centered circle
                 if isSelectionMode {
-                    VStack {
-                        HStack {
-                            Spacer()
-                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                                .foregroundColor(isSelected ? .blue : .white)
-                                .font(.title2)
-                                .background(
-                                    Circle()
-                                        .fill(Color.black.opacity(0.3))
-                                        .frame(width: 28, height: 28)
-                                )
-                        }
-                        Spacer()
-                    }
-                    .padding(8)
+                    Circle()
+                        .fill(isSelected ? Color.blue : Color.clear)
+                        .stroke(isSelected ? Color.blue : Color.gray, lineWidth: 2)
+                        .frame(width: 24, height: 24)
+                        .background(
+                            Circle()
+                                .fill(Color.white)
+                                .frame(width: 24, height: 24)
+                        )
                 }
             }
             // Folder title with rename dropdown
@@ -456,12 +450,6 @@ public struct GridFolderItemView: View {
         }
         .padding(.top, 60)
         .frame(width: 160)
-        .background(
-            isSelected && isSelectionMode 
-                ? Color.blue.opacity(0.1) 
-                : Color.clear
-        )
-        .cornerRadius(12)
         .contentShape(Rectangle())
     }
 }
@@ -642,20 +630,6 @@ public struct GridItemView: View {
                     .padding(8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
 
-                // Selection indicator
-                if isSelectionMode {
-                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .foregroundColor(isSelected ? .blue : .white)
-                        .font(.title2)
-                        .background(
-                            Circle()
-                                .fill(Color.black.opacity(0.3))
-                                .frame(width: 28, height: 28)
-                        )
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        .padding(8)
-                }
-
                 Image(systemName: noteTypeIcon(note.noteType))
                     .foregroundColor(.white)
                     .padding(6)
@@ -663,6 +637,19 @@ public struct GridItemView: View {
                     .clipShape(Circle())
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                     .padding(8)
+                
+                // Selection indicator - centered circle
+                if isSelectionMode {
+                    Circle()
+                        .fill(isSelected ? Color.blue : Color.clear)
+                        .stroke(isSelected ? Color.blue : Color.gray, lineWidth: 2)
+                        .frame(width: 24, height: 24)
+                        .background(
+                            Circle()
+                                .fill(Color.white)
+                                .frame(width: 24, height: 24)
+                        )
+                }
             }
 
             HStack(spacing: 4) {
@@ -726,12 +713,6 @@ public struct GridItemView: View {
                 .multilineTextAlignment(.center)
         }
         .frame(width: 160)
-        .background(
-            isSelected && isSelectionMode 
-                ? Color.blue.opacity(0.1) 
-                : Color.clear
-        )
-        .cornerRadius(12)
         .contentShape(Rectangle())
 
     }
