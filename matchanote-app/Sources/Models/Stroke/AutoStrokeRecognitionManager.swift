@@ -42,6 +42,14 @@ class AutoStrokeRecognitionManager_v2: NSObject, ObservableObject {
         super.init()
         loadUserDefaults()
         self.sensitivity = Float(UserDefaults.standard.object(forKey: "tool.autoStrokeRecognitionSensitivity_v2") as? Double ?? 0.8)
+
+        // Listen for stroke completion notifications
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(strokeCompleted(_:)),
+            name: NSNotification.Name("StrokeCompleted"),
+            object: nil
+        )
     }
 
     private func loadUserDefaults() {
@@ -60,6 +68,18 @@ class AutoStrokeRecognitionManager_v2: NSObject, ObservableObject {
     func detachFromCanvas() {
         resetMonitoring()
         lastProcessedStrokeCount = 0
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func strokeCompleted(_ notification: Notification) {
+        guard let canvas = notification.object as? PKCanvasView,
+              canvas === self.canvasView else { return }
+
+        // Process the stroke immediately when we get the notification
+        onDrawingChanged()
     }
 
     // Called from toolbar when drawing changes
@@ -88,6 +108,9 @@ class AutoStrokeRecognitionManager_v2: NSObject, ObservableObject {
         if isDrawingTool(lastStroke) {
             print("DEBUG: Starting monitoring for drawing tool stroke")
             startMonitoringForLongPress(lastStroke)
+
+            // Also try immediate recognition for instant feedback
+            tryImmediateRecognition(lastStroke)
         } else {
             print("DEBUG: Not a drawing tool, resetting monitoring")
             resetMonitoring()
@@ -124,6 +147,22 @@ class AutoStrokeRecognitionManager_v2: NSObject, ObservableObject {
     private func isDrawingTool(_ stroke: PKStroke) -> Bool {
         let inkType = stroke.ink.inkType
         return inkType == .pen || inkType == .marker
+    }
+
+    private func tryImmediateRecognition(_ stroke: PKStroke) {
+        guard isEnabled else { return }
+        guard isDrawingTool(stroke) else { return }
+
+        print("DEBUG: Attempting immediate recognition")
+        let points = convertStrokeToPoints(stroke)
+        let result = strokeRecognizer.recognize(points: points)
+
+        print("DEBUG: Immediate recognition result - shape: \(result.shapeName), confidence: \(result.confidence), threshold: \(confidenceThreshold)")
+
+        if result.confidence >= confidenceThreshold && result.shapeName != "unknown" {
+            print("DEBUG: Immediate recognition successful, performing replacement")
+            performAutoReplacement(originalStroke: stroke, detectedShape: result.shapeName)
+        }
     }
 
     private func performRecognition(_ stroke: PKStroke) {

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import PencilKit
 
 // Paper properties enums
 public enum PaperColor: String, CaseIterable, Codable {
@@ -133,5 +134,55 @@ struct PaperUtilities {
     let width = getPaperWidth(for: size)
     let height = getPaperHeight(for: size)
     return width / height
+  }
+  
+  // MARK: - Preview Generation
+  static func generatePreviewWithBackground(
+    drawing: PKDrawing,
+    paperSize: CGSize,
+    paperColor: PaperColor,
+    scale: CGFloat,
+    backgroundImages: [Data]? = nil
+  ) -> UIImage {
+    let thumbnailSize = CGSize(
+      width: paperSize.width * scale,
+      height: paperSize.height * scale
+    )
+    
+    let screenScale = UIScreen.main.scale
+    let effectiveScale = scale * screenScale
+    
+    UIGraphicsBeginImageContextWithOptions(thumbnailSize, false, screenScale)
+    defer { UIGraphicsEndImageContext() }
+    
+    guard let context = UIGraphicsGetCurrentContext() else {
+      return UIImage()
+    }
+    
+    // Enable high quality rendering
+    context.setAllowsAntialiasing(true)
+    context.setShouldAntialias(true)
+    context.interpolationQuality = .high
+    
+    // Draw paper background
+    let paperBackgroundColor = getPaperBackgroundColor(for: paperColor)
+    UIColor(paperBackgroundColor).setFill()
+    context.fill(CGRect(origin: .zero, size: thumbnailSize))
+    
+    // Draw background images first if provided
+    if let backgroundImages = backgroundImages {
+      for imageData in backgroundImages {
+        if let backgroundImage = UIImage(data: imageData) {
+          backgroundImage.draw(in: CGRect(origin: .zero, size: thumbnailSize), blendMode: .normal, alpha: 1.0)
+        }
+      }
+    }
+    
+    // Draw the drawing on top
+    let fullPageBounds = CGRect(origin: .zero, size: paperSize)
+    let drawingImage = drawing.image(from: fullPageBounds, scale: effectiveScale)
+    drawingImage.draw(in: CGRect(origin: .zero, size: thumbnailSize))
+    
+    return UIGraphicsGetImageFromCurrentImageContext() ?? UIImage()
   }
 }

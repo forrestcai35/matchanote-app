@@ -976,7 +976,7 @@ struct WrittenNoteView: View {
             // No custom policy updates needed
             context.coordinator.parent = self
         }
-        
+
         func makeCoordinator() -> Coordinator {
             Coordinator(self)
         }
@@ -1021,7 +1021,9 @@ struct WrittenNoteView: View {
             // MARK: - PKCanvasViewDelegate
             
             func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
-                // Shape recognition processing removed
+                // This gets called immediately when a stroke is completed
+                // We can trigger recognition here by posting a notification
+                NotificationCenter.default.post(name: NSNotification.Name("StrokeCompleted"), object: canvasView)
             }
             
             deinit {
