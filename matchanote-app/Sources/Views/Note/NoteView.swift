@@ -342,11 +342,14 @@ struct NoteView: View {
         }
       }
       .onAppear {
-        // PERFORMANCE FIX: Defer all heavy operations to prevent initial CPU spike
+        // PERFORMANCE OPTIMIZED: Immediate essential operations only
         openNoteInTab()
+        canvasManager.setCurrentNote(note.id)
+        tabManager.onAllTabsClosed = { dismiss() }
 
-        // PERFORMANCE FIX: Move timestamp update to background and defer it
-        Task(priority: .utility) {
+        // PERFORMANCE OPTIMIZED: Defer all heavy operations with lower priority
+        Task(priority: .background) {
+          // Group all background tasks to reduce task creation overhead
           var updated = note
           updated.lastOpenedAt = Date()
 
@@ -354,30 +357,12 @@ struct NoteView: View {
             let saved = storageManager.saveNote(updated)
             tabManager.updateNote(saved)
           }
-        }
 
-        // PERFORMANCE FIX: Defer cleanup operations
-        Task(priority: .background) {
+          // Defer cleanup and observer setup to avoid blocking UI
+          await Task.yield() // Let other tasks run
+
           await MainActor.run {
             cleanupOrphanedTabs()
-          }
-        }
-
-        // PERFORMANCE FIX: Set up canvas manager lazily
-        Task(priority: .userInitiated) {
-          await MainActor.run {
-            canvasManager.setCurrentNote(note.id)
-          }
-        }
-
-        // Set up callback to dismiss when all tabs are closed
-        tabManager.onAllTabsClosed = {
-          dismiss()
-        }
-
-        // PERFORMANCE FIX: Defer observer setup
-        Task(priority: .background) {
-          await MainActor.run {
             setupAppLifecycleObservers()
           }
         }

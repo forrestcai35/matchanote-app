@@ -5,11 +5,6 @@ import SwiftUI
 class AutoStrokeRecognitionManager_v2: NSObject, ObservableObject {
     private let strokeRecognizer = StrokeRecognizer()
     private weak var canvasView: PKCanvasView?
-    private var longPressTimer: Timer?
-    private var lastStrokeEndTime: Date?
-    private var lastStrokeEndPosition: CGPoint?
-    private var isMonitoringStroke = false
-    private var currentStroke: PKStroke?
     private var lastProcessedStrokeCount = 0
 
 
@@ -59,14 +54,13 @@ class AutoStrokeRecognitionManager_v2: NSObject, ObservableObject {
     }
 
     func attachToCanvas(_ canvas: PKCanvasView) {
-        detachFromCanvas()
         self.canvasView = canvas
         // Initialize with current stroke count to avoid triggering on existing strokes
         lastProcessedStrokeCount = canvas.drawing.strokes.count
     }
 
     func detachFromCanvas() {
-        resetMonitoring()
+        self.canvasView = nil
         lastProcessedStrokeCount = 0
     }
 
@@ -84,162 +78,79 @@ class AutoStrokeRecognitionManager_v2: NSObject, ObservableObject {
 
     // Called from toolbar when drawing changes
     func onDrawingChanged() {
-        guard let canvas = canvasView, isEnabled else {
-            print("DEBUG: Guard failed - canvas: \(canvasView != nil), enabled: \(isEnabled)")
-            return
-        }
+        guard let canvas = canvasView, isEnabled else { return }
 
         let currentStrokeCount = canvas.drawing.strokes.count
-        print("DEBUG: Stroke count - current: \(currentStrokeCount), last processed: \(lastProcessedStrokeCount)")
 
         guard currentStrokeCount > lastProcessedStrokeCount else {
-            print("DEBUG: No new strokes, returning")
             return
         }
 
         lastProcessedStrokeCount = currentStrokeCount
-        print("DEBUG: Updated lastProcessedStrokeCount to \(currentStrokeCount)")
 
         guard let lastStroke = canvas.drawing.strokes.last else {
-            print("DEBUG: No last stroke found")
             return
         }
 
         if isDrawingTool(lastStroke) {
-            print("DEBUG: Starting monitoring for drawing tool stroke")
-            startMonitoringForLongPress(lastStroke)
-
-            // Also try immediate recognition for instant feedback
-            tryImmediateRecognition(lastStroke)
-        } else {
-            print("DEBUG: Not a drawing tool, resetting monitoring")
-            resetMonitoring()
+            // For shape tool, do immediate recognition
+            performImmediateRecognition(lastStroke)
         }
     }
 
-    private func startMonitoringForLongPress(_ stroke: PKStroke) {
-        print("DEBUG: Starting monitoring - isEnabled: \(isEnabled)")
-        guard isEnabled else { return }
-        guard isDrawingTool(stroke) else { return }
-
-        let strokePath = stroke.path
-        guard strokePath.count > 0 else {
-            print("DEBUG: Stroke path is empty")
-            return
-        }
-
-        // Reset any existing monitoring first
-        resetMonitoring()
-
-        let endPoint = strokePath[strokePath.count - 1]
-        lastStrokeEndPosition = endPoint.location
-        lastStrokeEndTime = Date()
-        isMonitoringStroke = true
-        currentStroke = stroke
-
-        print("DEBUG: Set up monitoring, starting timer for \(longPressThreshold) seconds")
-        longPressTimer = Timer.scheduledTimer(withTimeInterval: longPressThreshold, repeats: false) { [weak self] _ in
-            print("DEBUG: Timer fired!")
-            self?.checkForAutoRecognition()
-        }
-    }
 
     private func isDrawingTool(_ stroke: PKStroke) -> Bool {
         let inkType = stroke.ink.inkType
         return inkType == .pen || inkType == .marker
     }
 
-    private func tryImmediateRecognition(_ stroke: PKStroke) {
-        guard isEnabled else { return }
-        guard isDrawingTool(stroke) else { return }
+    private func performImmediateRecognition(_ stroke: PKStroke) {
+        // PERFORMANCE OPTIMIZED: Move heavy recognition to background thread
+        Task(priority: .userInitiated) {
+            let points = convertStrokeToPoints(stroke)
+            let result = strokeRecognizer.recognize(points: points)
 
-        print("DEBUG: Attempting immediate recognition")
-        let points = convertStrokeToPoints(stroke)
-        let result = strokeRecognizer.recognize(points: points)
-
-        print("DEBUG: Immediate recognition result - shape: \(result.shapeName), confidence: \(result.confidence), threshold: \(confidenceThreshold)")
-
-        if result.confidence >= confidenceThreshold && result.shapeName != "unknown" {
-            print("DEBUG: Immediate recognition successful, performing replacement")
-            performAutoReplacement(originalStroke: stroke, detectedShape: result.shapeName)
+            // Only update UI if recognition was successful
+            if result.confidence >= confidenceThreshold && result.shapeName != "unknown" {
+                await MainActor.run {
+                    performAutoReplacement(originalStroke: stroke, detectedShape: result.shapeName)
+                }
+            }
         }
     }
 
-    private func performRecognition(_ stroke: PKStroke) {
-        print("DEBUG: performRecognition called")
-        let points = convertStrokeToPoints(stroke)
-        let result = strokeRecognizer.recognize(points: points)
 
-        print("DEBUG: Recognition result - shape: \(result.shapeName), confidence: \(result.confidence), threshold: \(confidenceThreshold)")
-
-        if result.confidence >= confidenceThreshold && result.shapeName != "unknown" {
-            print("DEBUG: Recognition successful, performing replacement")
-            performAutoReplacement(originalStroke: stroke, detectedShape: result.shapeName)
-        } else {
-            print("DEBUG: Recognition failed - confidence too low or unknown shape")
-        }
-
-        resetMonitoring()
-    }
-
-    private func checkForAutoRecognition() {
-        print("DEBUG: checkForAutoRecognition called")
-        print("DEBUG: isMonitoringStroke: \(isMonitoringStroke)")
-        print("DEBUG: lastStrokeEndTime: \(lastStrokeEndTime?.description ?? "nil")")
-        print("DEBUG: currentStroke: \(currentStroke != nil)")
-
-        guard isMonitoringStroke,
-              let endTime = lastStrokeEndTime,
-              let stroke = currentStroke,
-              Date().timeIntervalSince(endTime) >= longPressThreshold else {
-            print("DEBUG: Guard failed in checkForAutoRecognition")
-            resetMonitoring()
-            return
-        }
-
-        print("DEBUG: All guards passed, performing recognition")
-        performRecognition(stroke)
-    }
 
     private func performAutoReplacement(originalStroke: PKStroke, detectedShape: String) {
         guard let canvas = canvasView else { return }
 
         if let perfectStroke = createPerfectShape(detectedShape, from: originalStroke) {
-            canvas.undoManager?.beginUndoGrouping()
+            // Store the current drawing state for undo
+            let currentDrawing = canvas.drawing
 
-            // Use a simpler approach: replace the last stroke (most recently drawn)
-            var drawing = canvas.drawing
-            var strokes = Array(drawing.strokes)
-
-            // The stroke we want to replace should be the last one since we monitor immediately after drawing
+            // Create new drawing with perfect shape
+            var strokes = Array(currentDrawing.strokes)
             if !strokes.isEmpty {
-                strokes.removeLast()
-                strokes.append(perfectStroke)
-                drawing = PKDrawing(strokes: strokes)
+                strokes.removeLast() // Remove original stroke
+                strokes.append(perfectStroke) // Add perfect stroke
+                let newDrawing = PKDrawing(strokes: strokes)
 
-                canvas.drawing = drawing
+                // Register undo action before making the change
+                canvas.undoManager?.registerUndo(withTarget: self) { [weak canvas] target in
+                    guard let canvas = canvas else { return }
+                    canvas.drawing = currentDrawing
+                    // Update stroke count when undoing
+                    target.lastProcessedStrokeCount = currentDrawing.strokes.count
+                }
+                canvas.undoManager?.setActionName("Shape Recognition")
 
-                // Update our stroke count to account for the replacement
-                // (stroke count stays the same, but we need to track it properly)
-                lastProcessedStrokeCount = canvas.drawing.strokes.count
-                print("DEBUG: Stroke replaced successfully, updated lastProcessedStrokeCount to \(lastProcessedStrokeCount)")
+                // Apply the new drawing
+                canvas.drawing = newDrawing
+                lastProcessedStrokeCount = newDrawing.strokes.count
             }
-
-            canvas.undoManager?.endUndoGrouping()
-            canvas.undoManager?.setActionName("Auto Shape Recognition")
         }
     }
 
-    private func resetMonitoring() {
-        print("DEBUG: resetMonitoring called")
-        longPressTimer?.invalidate()
-        longPressTimer = nil
-        isMonitoringStroke = false
-        lastStrokeEndTime = nil
-        lastStrokeEndPosition = nil
-        currentStroke = nil
-        print("DEBUG: Monitoring state reset complete")
-    }
 
     private func convertStrokeToPoints(_ stroke: PKStroke) -> [CGPoint] {
         var points: [CGPoint] = []

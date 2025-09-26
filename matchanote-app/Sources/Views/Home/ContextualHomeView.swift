@@ -488,7 +488,7 @@ public struct GridItemView: View {
             // Show actual image preview without overlay icon
             Image(uiImage: uiImage)
                 .resizable()
-                .aspectRatio(contentMode: .fill)
+                .aspectRatio(contentMode: .fit)
         } else {
             // Fallback for non-image content or empty content
             RoundedRectangle(cornerRadius: note.noteType == .written ? 10 : 0)
@@ -524,7 +524,7 @@ public struct GridItemView: View {
 
                 Image(uiImage: previewImage)
                     .resizable()
-                    .aspectRatio(contentMode: .fit) // Use .fit instead of .fill to show full content
+                    .aspectRatio(contentMode: .fit)
             } else {
                 // Empty note - show paper with subtle pencil icon
                 VStack {
@@ -609,19 +609,16 @@ public struct GridItemView: View {
                     // Show uploaded content preview
                     uploadedContentPreview
                         .frame(width: 160, height: 200)
-                        .clipped()
                         .clipShape(RoundedRectangle(cornerRadius: note.noteType == .written ? 10 : 0))
                 } else {
                     // Show content previews for notes without uploaded content
                     if note.noteType == .written {
                         writtenNotePreview
                             .frame(width: 160, height: 200)
-                            .clipped()
                             .clipShape(RoundedRectangle(cornerRadius: 10))
                     } else if note.noteType == .text {
                         textNotePreview
                             .frame(width: 160, height: 200)
-                            .clipped()
                     }
                 }
 

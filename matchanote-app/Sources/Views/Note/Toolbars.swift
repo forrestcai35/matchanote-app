@@ -521,6 +521,11 @@ struct WrittenNoteToolbar: View {
 
       // Enable shape recognition only for shape tool
       autoStrokeManager.isEnabled = (currentTool == .shape)
+
+      // Re-attach to canvas when switching to shape tool to ensure fresh state
+      if currentTool == .shape && currentPage < canvasViews.count {
+        autoStrokeManager.attachToCanvas(canvasViews[currentPage])
+      }
     }
     .onChange(of: showImagePicker) { oldValue, newValue in
       // Keep the photo tool selected when picker opens/closes

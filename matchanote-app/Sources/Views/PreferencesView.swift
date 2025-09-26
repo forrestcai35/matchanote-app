@@ -80,6 +80,10 @@ struct PreferencesView: View {
                                         )
                                     }
                                 }
+                                
+                                // Add some extra spacing to match the theme segment height
+                                Spacer()
+                                    .frame(height: 10)
                             }
                         }
                     }

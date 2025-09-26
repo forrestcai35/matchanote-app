@@ -140,6 +140,11 @@ struct WrittenNoteView: View {
             canvas.tool = PKInkingTool(.pen, color: .black, width: 1.0)
             canvas.isScrollEnabled = false
             canvas.backgroundColor = .clear
+
+            // Configure for high-resolution rendering
+            canvas.contentScaleFactor = UIScreen.main.scale * 2
+            canvas.layer.contentsScale = UIScreen.main.scale * 2
+            canvas.layer.shouldRasterize = false
             
             // Clear undo manager for fresh start on each note
             canvas.undoManager?.removeAllActions()
@@ -405,6 +410,11 @@ struct WrittenNoteView: View {
             newCanvas.overrideUserInterfaceStyle = .light
             newCanvas.isScrollEnabled = false
             newCanvas.backgroundColor = .clear
+
+            // Configure for high-resolution rendering
+            newCanvas.contentScaleFactor = UIScreen.main.scale * 2
+            newCanvas.layer.contentsScale = UIScreen.main.scale * 2
+            newCanvas.layer.shouldRasterize = false
             
             // Clear undo manager for fresh start
             newCanvas.undoManager?.removeAllActions()
@@ -428,19 +438,20 @@ struct WrittenNoteView: View {
             let contentSize = perPageSize(pageIndex)
             let viewportSize = geometry.size
             let fitScale = min(viewportSize.width / max(contentSize.width, 1), viewportSize.height / max(contentSize.height, 1))
-            let dynamicMinScale = min(1.0, fitScale * 0.999)
+            // Since content is 2x upscaled, default scale should be 0.5x to show at normal size
+            let dynamicMinScale = min(0.5, fitScale * 0.999)
             
             ZoomableScrollView(
                 minScale: dynamicMinScale,
-                maxScale: 6.0,
+                maxScale: 3.0,
                 resetOnDoubleTap: true,
                 currentScale: $unifiedZoomScale,
                 contentOffset: $unifiedContentOffset,
                 isPanEnabled: .constant(true)
             ) {
-                
+
                 // Content is now fixed without scrolling
-                
+
                 ZStack {
                     paperBackground(pageIndex: pageIndex)
                     paperBackground(pageIndex: pageIndex)
@@ -486,7 +497,8 @@ struct WrittenNoteView: View {
                                 canvasSize: CGSize(
                                     width: perPageSize(pageIndex).width,
                                     height: perPageSize(pageIndex).height
-                                )
+                                ),
+                                currentTool: currentTool
                             )
                             .frame(
                                 width: perPageSize(pageIndex).width,
@@ -574,38 +586,44 @@ struct WrittenNoteView: View {
             }
     }
     // Determine per-page size from background image if present; fallback to note paper size
+    // Upscale by 2x for higher resolution rendering
     private func perPageSize(_ pageIndex: Int) -> CGSize {
+        let baseSize: CGSize
         if let imageDataArray = note.imageDataByPage[String(pageIndex)],
            let imageData = imageDataArray.first,
            let uiImage = UIImage(data: imageData) {
-            return uiImage.size
+            baseSize = uiImage.size
+        } else {
+            baseSize = CGSize(width: getPaperWidth(for: note.paperSize), height: getPaperHeight(for: note.paperSize))
         }
-        return CGSize(width: getPaperWidth(for: note.paperSize), height: getPaperHeight(for: note.paperSize))
+
+        // Upscale by 2x for crisp rendering when zoomed
+        return CGSize(width: baseSize.width * 2.0, height: baseSize.height * 2.0)
     }
 
     @ViewBuilder
     private func gridOverlay(size: CGSize) -> some View {
-        let gridSpacing: CGFloat = 20
+        let gridSpacing: CGFloat = 40  // Scale up by 2x for high resolution
 
         ZStack {
             // Horizontal lines
             ForEach(0..<Int(size.height / gridSpacing + 1), id: \.self) { i in
                 let y = CGFloat(i) * gridSpacing
                 Line(start: CGPoint(x: 0, y: y), end: CGPoint(x: size.width, y: y))
-                    .stroke(Color.gray.opacity(0.3), lineWidth: 0.5)
+                    .stroke(Color.gray.opacity(0.3), lineWidth: 1.0)  // Scale up line width by 2x
             }
             // Vertical lines
             ForEach(0..<Int(size.width / gridSpacing + 1), id: \.self) { i in
                 let x = CGFloat(i) * gridSpacing
                 Line(start: CGPoint(x: x, y: 0), end: CGPoint(x: x, y: size.height))
-                    .stroke(Color.gray.opacity(0.3), lineWidth: 0.5)
+                    .stroke(Color.gray.opacity(0.3), lineWidth: 1.0)  // Scale up line width by 2x
             }
         }
     }
     @ViewBuilder
     private func dottedOverlay(size: CGSize) -> some View {
-        let baseSpacing: CGFloat = 18
-        let dotRadius: CGFloat = 1
+        let baseSpacing: CGFloat = 36  // Scale up by 2x for high resolution
+        let dotRadius: CGFloat = 2  // Scale up by 2x for high resolution
         let margin: CGFloat = baseSpacing
 
         Canvas { context, canvasSize in
@@ -643,20 +661,40 @@ struct WrittenNoteView: View {
     }
     @ViewBuilder
     private func linedOverlay(size: CGSize) -> some View {
-        let lineSpacing: CGFloat = 24
-        let marginTop: CGFloat = 30
+        let lineSpacing: CGFloat = 48  // Scale up by 2x for high resolution
+        let marginTop: CGFloat = 60  // Scale up by 2x for high resolution
 
         ZStack {
             ForEach(0..<Int((size.height - marginTop) / lineSpacing + 1), id: \.self) { i in
                 let y = marginTop + CGFloat(i) * lineSpacing
                 Line(start: CGPoint(x: 0, y: y), end: CGPoint(x: size.width, y: y))
-                    .stroke(Color.green.opacity(0.3), lineWidth: 0.5)
+                    .stroke(Color.green.opacity(0.3), lineWidth: 1.0)  // Scale up line width by 2x
             }
         }
     }
     // Page Control View
     @ViewBuilder
     private var controlsOverlay: some View {
+        Button {
+            // Preserve current zoom scale and scroll position during page addition
+            let currentZoom = unifiedZoomScale
+            let currentOffset = unifiedContentOffset
+            
+            // CRITICAL FIX: Create canvas FIRST, before updating page identifiers
+            // This prevents the race condition where TabView tries to access a non-existent canvas
+            let newPageIndex = pageCount
+            ensureCanvasExists(for: newPageIndex)
+            
+            // NOW it's safe to update page identifiers and count - canvas is guaranteed to exist
+            pageCount += 1
+            pageIdentifiers.append(UUID())
+            
+            // Restore zoom scale and scroll position to prevent view jumping
+            DispatchQueue.main.async {
+                unifiedZoomScale = currentZoom
+                unifiedContentOffset = currentOffset
+            }
+        } label: {
             VStack(spacing: 8) {
                 HStack {
                     Text("\(currentPage + 1)/\(pageCount)")
@@ -664,30 +702,9 @@ struct WrittenNoteView: View {
                         .foregroundColor(.gray)
                     
                 }
-                Button {
-                    // Preserve current zoom scale and scroll position during page addition
-                    let currentZoom = unifiedZoomScale
-                    let currentOffset = unifiedContentOffset
-                    
-                    // CRITICAL FIX: Create canvas FIRST, before updating page identifiers
-                    // This prevents the race condition where TabView tries to access a non-existent canvas
-                    let newPageIndex = pageCount
-                    ensureCanvasExists(for: newPageIndex)
-                    
-                    // NOW it's safe to update page identifiers and count - canvas is guaranteed to exist
-                    pageCount += 1
-                    pageIdentifiers.append(UUID())
-                    
-                    // Restore zoom scale and scroll position to prevent view jumping
-                    DispatchQueue.main.async {
-                        unifiedZoomScale = currentZoom
-                        unifiedContentOffset = currentOffset
-                    }
-                } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.caption)
-                        .foregroundColor(Color.matchalight_dark)
-                }
+                Image(systemName: "plus.circle.fill")
+                    .font(.caption)
+                    .foregroundColor(Color.matchalight_dark)
             }
             .padding(8)
             .background(Color.white.opacity(0.9))
@@ -695,6 +712,8 @@ struct WrittenNoteView: View {
             .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 1)
             .padding(16)
         }
+        .buttonStyle(PlainButtonStyle())
+    }
         
         // Helper function for background color
         private func getPaperBackgroundColor(for color: PaperColor) -> Color {
@@ -736,6 +755,12 @@ struct WrittenNoteView: View {
             newCanvas.overrideUserInterfaceStyle = .light
             newCanvas.isScrollEnabled = false
             newCanvas.backgroundColor = .clear
+
+            // Configure for high-resolution rendering
+            newCanvas.contentScaleFactor = UIScreen.main.scale * 2
+            newCanvas.layer.contentsScale = UIScreen.main.scale * 2
+            newCanvas.layer.shouldRasterize = false
+
             newCanvas.undoManager?.removeAllActions()
             toolPicker.addObserver(newCanvas)
             
@@ -956,19 +981,24 @@ struct WrittenNoteView: View {
         
         func makeUIView(context: Context) -> PKCanvasView {
             canvasView.backgroundColor = .clear
-            canvasView.isScrollEnabled = false
+            canvasView.isScrollEnabled = false  // Disable to let outer scroll view handle pan/zoom
             canvasView.overrideUserInterfaceStyle = .light
-            
+
+            // Configure for high-resolution rendering
+            canvasView.contentScaleFactor = UIScreen.main.scale * 2  // 2x scale for crisp rendering
+            canvasView.layer.contentsScale = UIScreen.main.scale * 2
+            canvasView.layer.shouldRasterize = false  // Never rasterize to avoid blur
+
             // Set up drawing change delegate for shape recognition
             canvasView.delegate = context.coordinator
-            
+
             // Add pencil interaction for double tap
             if UIPencilInteraction.preferredTapAction == .switchEraser {
                 let pencilInteraction = UIPencilInteraction()
                 pencilInteraction.delegate = context.coordinator
                 canvasView.addInteraction(pencilInteraction)
             }
-            
+
             return canvasView
         }
         
@@ -1214,6 +1244,11 @@ struct WrittenNoteView: View {
             let hostedView = UIHostingController(rootView: content).view!
             hostedView.translatesAutoresizingMaskIntoConstraints = false
             hostedView.backgroundColor = .clear
+
+            // Configure for lossless scaling
+            hostedView.contentScaleFactor = UIScreen.main.scale
+            hostedView.layer.rasterizationScale = UIScreen.main.scale
+            hostedView.layer.shouldRasterize = false  // Disable rasterization to avoid blur
             
             scrollView.addSubview(hostedView)
             
