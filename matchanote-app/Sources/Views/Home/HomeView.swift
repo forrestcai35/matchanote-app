@@ -1175,6 +1175,7 @@ struct HomeView: View {
                 }
                 let savedNote = storageManager.saveNote(newNote)
                 TabManager.shared.openTab(note: savedNote)
+                selectedNote = savedNote
             } label: {
                 Label("Text", systemImage: "text.alignleft")
             }
@@ -1208,6 +1209,7 @@ struct HomeView: View {
                 }
                 let savedNote = storageManager.saveNote(newNote)
                 TabManager.shared.openTab(note: savedNote)
+                selectedNote = savedNote
             })
         }
         .sheet(isPresented: $showNewFolderView) {
@@ -1355,6 +1357,7 @@ struct HomeView: View {
 
         // Optionally open the imported note
         TabManager.shared.openTab(note: savedNote)
+        selectedNote = savedNote
     }
 
     private var listNewButton: some View {
@@ -1791,6 +1794,7 @@ extension HomeView {
                 }
                 let savedNote = storageManager.saveNote(newNote)
                 TabManager.shared.openTab(note: savedNote)
+                selectedNote = savedNote
             })
         }
         .sheet(isPresented: $showNewFolderView) {
