@@ -9,6 +9,7 @@ enum PenTool {
   case lasso
   case photo
   case textbox
+  case shape
 
   func toolInstance(color: Color = .black, width: CGFloat = 1.0, eraserType: EraserType = .object)
     -> PKTool
@@ -33,6 +34,9 @@ enum PenTool {
     case .textbox:
       // Keep canvas in non-inking mode while textbox tool is active
       return PKLassoTool()
+    case .shape:
+      // Shape tool works exactly like pen but with recognition enabled
+      return PKInkingTool(.pen, color: UIColor(color), width: width)
     }
   }
 }
@@ -416,6 +420,15 @@ struct WrittenNoteToolbar: View {
                 currentTool == .textbox
                   ? .matchalight_dark : (colorScheme == .dark ? .gray : .black))
           }
+          Button(action: {
+            selectTool(.shape)
+          }) {
+            Image(systemName: "square.and.pencil")
+              .font(.system(size: 26))
+              .foregroundColor(
+                currentTool == .shape
+                  ? .matchalight_dark : (colorScheme == .dark ? .gray : .black))
+          }
         }
 
         Divider()
@@ -485,6 +498,8 @@ struct WrittenNoteToolbar: View {
       if currentPage < canvasViews.count {
         autoStrokeManager.attachToCanvas(canvasViews[currentPage])
       }
+      // Enable shape recognition only for shape tool
+      autoStrokeManager.isEnabled = (currentTool == .shape)
     }
     .onDisappear {
       stopUndoRedoTimer()
@@ -503,6 +518,9 @@ struct WrittenNoteToolbar: View {
       expandedMarkerPresetIndex = nil
       expandedEraserPresetIndex = nil
       updateCanvasTool()
+
+      // Enable shape recognition only for shape tool
+      autoStrokeManager.isEnabled = (currentTool == .shape)
     }
     .onChange(of: showImagePicker) { oldValue, newValue in
       // Keep the photo tool selected when picker opens/closes
@@ -976,6 +994,133 @@ struct WrittenNoteToolbar: View {
       .padding(.vertical, 4)
       .background(Color.matchalight_dark.opacity(0.1))
       .cornerRadius(8)
+
+    case .shape:
+      VStack(alignment: .leading, spacing: 6) {
+        HStack(spacing: 10) {
+          // Width presets with dropdown slider (same as pen)
+          VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+              ForEach(0..<toolState.penWidthPresets.count, id: \.self) { i in
+                Button {
+                  if toolState.selectedPenPresetIndex != i {
+                    toolState.selectedPenPresetIndex = i
+                    withAnimation { expandedPenPresetIndex = nil }
+                    updateCanvasTool()
+                  } else {
+                    withAnimation {
+                      expandedPenPresetIndex = (expandedPenPresetIndex == i ? nil : i)
+                    }
+                  }
+                } label: {
+                  ZStack {
+                    Circle()
+                      .fill(
+                        toolState.selectedPenPresetIndex == i
+                          ? Color.matchalight_dark : Color.gray.opacity(0.5)
+                      )
+                      .frame(
+                        width: dotDiameter(for: toolState.penWidthPresets[i], maxRange: 60),
+                        height: dotDiameter(for: toolState.penWidthPresets[i], maxRange: 60)
+                      )
+                    Image(systemName: expandedPenPresetIndex == i ? "chevron.up" : "chevron.down")
+                      .font(.system(size: 8, weight: .bold))
+                      .foregroundColor(.white.opacity(0.9))
+                  }
+                }
+                .buttonStyle(PlainButtonStyle())
+                .popover(
+                  isPresented: Binding<Bool>(
+                    get: { expandedPenPresetIndex == i },
+                    set: { newValue in expandedPenPresetIndex = newValue ? i : nil }
+                  )
+                ) {
+                  VStack(spacing: 12) {
+                    HStack(spacing: 6) {
+                      Image(systemName: "scribble.variable")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                      let binding = Binding<CGFloat>(
+                        get: { toolState.penWidthPresets[i] },
+                        set: { newValue in
+                          toolState.penWidthPresets[i] = newValue
+                          if toolState.selectedPenPresetIndex == i { updateCanvasTool() }
+                        }
+                      )
+                      Slider(value: binding, in: 0.5...60, step: 0.5)
+                        .frame(width: 200)
+                    }
+                  }
+                  .padding(.vertical, 12)
+                  .padding(.horizontal, 12)
+                }
+              }
+            }
+          }
+
+          // Colors (same as pen)
+          ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+              ForEach(Array(toolState.penPalette.enumerated()), id: \.offset) { index, color in
+                Circle()
+                  .fill(color)
+                  .frame(width: 18, height: 18)
+                  .overlay(
+                    Circle()
+                      .stroke(
+                        toolState.penColor == color ? Color.matchalight_dark : Color.clear,
+                        lineWidth: 1.5)
+                  )
+                  .contentShape(Circle())
+                  .onTapGesture {
+                    toolState.penColor = color
+                    updateCanvasTool()
+                  }
+                  .contextMenu {
+                    Button(role: .destructive) {
+                      deletePenColor(at: index)
+                    } label: {
+                      Label("Delete Color", systemImage: "trash")
+                    }
+                  }
+              }
+
+              // Add new color
+              Button {
+                showPenColorPicker = true
+              } label: {
+                Image(systemName: "plus.circle.fill")
+                  .foregroundColor(.matchalight_dark)
+              }
+              .popover(isPresented: $showPenColorPicker) {
+                VStack(spacing: 12) {
+                  ColorPicker("Pick a color", selection: $newPenColor, supportsOpacity: true)
+                    .padding(.horizontal)
+                  Divider()
+                  HStack {
+                    Button("Cancel") { showPenColorPicker = false }
+                      .foregroundColor(.red)
+                    Spacer()
+                    Button("Add") {
+                      addPenColor(newPenColor)
+                      showPenColorPicker = false
+                    }
+                  }
+                  .padding(.horizontal)
+                }
+                .padding(.vertical, 12)
+                .frame(minWidth: 260)
+              }
+            }
+            .padding(.horizontal, 4)
+          }
+          .frame(maxWidth: 200)
+        }
+      }
+      .padding(.horizontal, 8)
+      .padding(.vertical, 4)
+      .background(Color.matchalight_dark.opacity(0.1))
+      .cornerRadius(8)
     }
   }
 
@@ -1012,6 +1157,9 @@ struct WrittenNoteToolbar: View {
       canvas.tool = tool.toolInstance()
     case .textbox:
       canvas.tool = tool.toolInstance()
+    case .shape:
+      let width = toolState.penWidthPresets[safe: toolState.selectedPenPresetIndex] ?? 3.0
+      canvas.tool = tool.toolInstance(color: toolState.penColor, width: width)
     }
   }
 

@@ -86,25 +86,7 @@ struct PreferencesView: View {
                     .frame(maxWidth: .infinity)
                 }
 
-                // Drawing Section
-                VStack(alignment: .leading, spacing: 12) {
-                    MatchaSectionHeader(
-                        title: "Drawing",
-                        icon: "scribble.variable",
-                        delay: 0.5
-                    )
-
-                    MatchaCard(delay: 0.6) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            MatchaToggle(
-                                title: "Auto Shape Recognition",
-                                subtitle: "Automatically convert rough drawings to perfect shapes",
-                                icon: "circle.square",
-                                isOn: $preferencesManager.autoShapeRecognitionEnabled
-                            )
-                        }
-                    }
-                }
+           
 
                 // Storage Section
                 VStack(alignment: .leading, spacing: 12) {
