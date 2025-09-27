@@ -423,17 +423,26 @@ struct WrittenNoteToolbar: View {
           Button(action: {
             selectTool(.shape)
           }) {
-            Image(systemName: "square.and.pencil")
-              .font(.system(size: 26))
-              .foregroundColor(
-                currentTool == .shape
-                  ? .matchalight_dark : (colorScheme == .dark ? .gray : .black))
+            if currentTool == .shape {
+              Image("shapes_fill")
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 26, height: 26)
+            } else {
+              Image("shapes_outline")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 26, height: 26)
+                .foregroundColor(colorScheme == .dark ? .gray : .black)
+            }
           }
         }
 
         Divider()
           .frame(height: 24)
-          .padding(.horizontal, 8)
+          .padding(.horizontal, 4)
 
         // Shape recognition toggle removed
 

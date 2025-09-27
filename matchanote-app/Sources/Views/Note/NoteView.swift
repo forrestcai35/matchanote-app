@@ -253,6 +253,12 @@ struct NoteView: View {
     // Clear the drawing
     canvas.drawing = PKDrawing()
     
+    // Clear all images from the current page
+    canvasManager.imageManager.clearAllImagesFromPage(currentPage)
+    
+    // Clear all textboxes from the current page
+    textBoxManager.clearAllTextBoxesFromPage(currentPage)
+    
     // Mark as edited to trigger save
     isEdited = true
   }

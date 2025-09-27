@@ -497,8 +497,7 @@ struct WrittenNoteView: View {
                                 canvasSize: CGSize(
                                     width: perPageSize(pageIndex).width,
                                     height: perPageSize(pageIndex).height
-                                ),
-                                currentTool: currentTool
+                            )
                             )
                             .frame(
                                 width: perPageSize(pageIndex).width,

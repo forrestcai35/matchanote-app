@@ -240,6 +240,27 @@ public class CanvasImageManager: ObservableObject {
         images[imageIndex].zIndex = minZIndex - 1
         imagesByPage[pageIndex] = images
     }
+    
+    public func clearAllImagesFromPage(_ pageIndex: Int) {
+        guard let images = imagesByPage[pageIndex], !images.isEmpty else { return }
+        
+        // Register undo action before clearing
+        undoManager?.registerUndo(withTarget: self) { manager in
+            for image in images {
+                manager.addImage(image)
+            }
+        }
+        undoManager?.setActionName("Clear All Images")
+        
+        // Clear all images from the page
+        imagesByPage[pageIndex] = []
+        
+        // Clear selection if the selected image was on this page
+        if let selectedId = selectedImageId,
+           images.contains(where: { $0.id == selectedId }) {
+            selectedImageId = nil
+        }
+    }
 }
 
 // MARK: - Image Utilities

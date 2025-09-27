@@ -256,6 +256,21 @@ class TextBoxManager: ObservableObject {
             isEditingText = false
         }
     }
+    
+    // Clear all textboxes from a specific page
+    func clearAllTextBoxesFromPage(_ pageIndex: Int) {
+        guard let textBoxes = textBoxesByPage[pageIndex], !textBoxes.isEmpty else { return }
+        
+        // Clear all textboxes from the page
+        textBoxesByPage[pageIndex] = []
+        
+        // Clear selection if selected textbox was on this page
+        if let selected = selectedTextBox, selected.pageIndex == pageIndex {
+            selectedTextBox = nil
+            isEditingText = false
+            editingTextBoxId = nil
+        }
+    }
 
     // Load textboxes data from storage
     func loadTextBoxesData(_ data: [String: [Data]]) {
