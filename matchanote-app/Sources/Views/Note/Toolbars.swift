@@ -446,9 +446,11 @@ struct WrittenNoteToolbar: View {
 
         // Shape recognition toggle removed
 
-        // Options panel for the current tool
+        // Options panel for the current tool - fixed width container
         if let activeTool = currentTool {
           toolOptionsPanel(for: activeTool)
+            .frame(width: 320) // Fixed width to match pen tool
+            .clipped()
         }
       }
 
@@ -702,7 +704,7 @@ struct WrittenNoteToolbar: View {
             }
             .padding(.horizontal, 4)
           }
-          .frame(maxWidth: 200)
+          .frame(maxWidth: 180) // Reduced to fit within fixed width
         }
       }
       .padding(.horizontal, 8)
@@ -831,7 +833,7 @@ struct WrittenNoteToolbar: View {
             }
             .padding(.horizontal, 4)
           }
-          .frame(maxWidth: 200)
+          .frame(maxWidth: 180) // Reduced to fit within fixed width
         }
       }
       .padding(.horizontal, 8)
@@ -933,7 +935,32 @@ struct WrittenNoteToolbar: View {
 
 
     case .lasso:
-      EmptyView()
+      // Placeholder to maintain consistent toolbar width
+      HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: 4) {
+          HStack(spacing: 8) {
+            // Placeholder dots to match pen tool layout
+            ForEach(0..<3, id: \.self) { _ in
+              Circle()
+                .fill(Color.gray.opacity(0.3))
+                .frame(width: 18, height: 18)
+            }
+          }
+        }
+        
+        // Placeholder color palette
+        HStack(spacing: 6) {
+          ForEach(0..<4, id: \.self) { _ in
+            Circle()
+              .fill(Color.gray.opacity(0.3))
+              .frame(width: 18, height: 18)
+          }
+        }
+      }
+      .padding(.horizontal, 8)
+      .padding(.vertical, 4)
+      .background(Color.matchalight_dark.opacity(0.1))
+      .cornerRadius(8)
 
     case .photo:
       HStack(spacing: 10) {
@@ -1128,7 +1155,7 @@ struct WrittenNoteToolbar: View {
             }
             .padding(.horizontal, 4)
           }
-          .frame(maxWidth: 200)
+          .frame(maxWidth: 180) // Reduced to fit within fixed width
         }
       }
       .padding(.horizontal, 8)
