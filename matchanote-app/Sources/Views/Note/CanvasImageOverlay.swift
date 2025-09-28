@@ -15,11 +15,26 @@ struct CanvasImageView: View {
     let image: CanvasImage
     let pageIndex: Int
     let canvasSize: CGSize
+    @State private var isDragging: Bool = false
+    @State private var dragStartPosition: CGPoint = .zero
+    @State private var currentDragPosition: CGPoint = .zero
+    @State private var dragOffset: CGPoint = .zero
     @State private var offset: CGSize = .zero
     @State private var currentSize: CGSize = .zero
-    
+
     var isSelected: Bool {
         imageManager.selectedImageId == image.id
+    }
+
+    var effectivePosition: CGPoint {
+        if isDragging {
+            return currentDragPosition
+        } else {
+            return CGPoint(
+                x: image.position.x + image.size.width / 2,
+                y: image.position.y + image.size.height / 2
+            )
+        }
     }
     
     var body: some View {
@@ -38,7 +53,6 @@ struct CanvasImageView: View {
                             Rectangle()
                                 .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 3)
                         )
-                        .shadow(radius: isSelected ? 8 : 3)
                         .contentShape(Rectangle()) // Ensure precise hit testing
                         .onTapGesture {
                             withAnimation(.spring()) {
@@ -98,21 +112,15 @@ struct CanvasImageView: View {
                     imageManager.removeImage(withId: image.id, fromPage: pageIndex)
                 }
             }) {
-                ZStack {
-                    Circle()
-                        .fill(Color.white)
-                        .frame(width: 36, height: 36)
-                        .shadow(radius: 4)
-                    
-                    Image(systemName: "trash.circle.fill")
-                        .font(.title)
-                        .foregroundColor(.red)
-                }
+                Image(systemName: "trash")
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundColor(.red)
+                    .frame(width: 24, height: 24)
             }
             .buttonStyle(PlainButtonStyle())
-            .frame(width: 44, height: 44) // Larger hit area
-            .contentShape(Circle())
-            .offset(x: imageWidth/2 + 15, y: -imageHeight/2 - 15)
+            .frame(width: 64, height: 64) // Much larger hit area
+            .contentShape(Rectangle())
+            .offset(x: imageWidth/2 + 20, y: -imageHeight/2 - 20)
             .allowsHitTesting(true)
             
             // Corner handle - proportional scaling (bottom-right)
@@ -130,7 +138,7 @@ struct CanvasImageView: View {
                     currentSize = .zero
                 }
             )
-            .offset(x: imageWidth/2 + 15, y: imageHeight/2 + 15)
+            .offset(x: imageWidth/2 + 20, y: imageHeight/2 + 20)
             .allowsHitTesting(true)
         }
     }
@@ -143,19 +151,13 @@ struct ProportionalResizeHandle: View {
     let onEnd: () -> Void
     
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(Color.white)
-                .frame(width: 36, height: 36)
-                .shadow(radius: 4)
-            
-            Image(systemName: "arrow.up.left.and.down.right.and.arrow.up.right.and.down.left")
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(.blue)
-        }
-        .frame(width: 44, height: 44) // Larger hit area
-        .contentShape(Circle())
-        .allowsHitTesting(true)
+        Image(systemName: "arrow.up.left.and.down.right.and.arrow.up.right.and.down.left")
+            .font(.system(size: 20, weight: .medium))
+            .foregroundColor(.blue)
+            .frame(width: 20, height: 20)
+            .frame(width: 64, height: 64) // Much larger hit area
+            .contentShape(Rectangle())
+            .allowsHitTesting(true)
         .gesture(
             DragGesture()
                 .onChanged { value in

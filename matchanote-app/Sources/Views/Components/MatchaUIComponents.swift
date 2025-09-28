@@ -452,7 +452,7 @@ struct MatchaSidebarItem: View {
                 Spacer()
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.vertical, 12)
             .background(
                 RoundedRectangle(cornerRadius: MatchaUI.Style.itemCornerRadius)
                     .fill(
@@ -472,8 +472,10 @@ struct MatchaSidebarItem: View {
                             )
                     )
             )
+            .padding(.horizontal, 18)
             .scaleEffect(isSelected ? 1.02 : 1.0)
             .animation(MatchaUI.Animation.spring, value: isSelected)
+            .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
     }

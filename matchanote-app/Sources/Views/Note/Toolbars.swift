@@ -305,7 +305,7 @@ struct WrittenNoteToolbar: View {
 
       // Centered toolbar content
       HStack(spacing: 12) {
-        // Tool buttons (icons only)
+        // Tool buttons (icons only) - same width as options panel
         HStack(spacing: 12) {
           Button(action: { selectTool(.pen) }) {
             if currentTool == .pen {
@@ -446,10 +446,10 @@ struct WrittenNoteToolbar: View {
 
         // Shape recognition toggle removed
 
-        // Options panel for the current tool - fixed width container
+        // Options panel for the current tool - fixed width to prevent movement
         if let activeTool = currentTool {
           toolOptionsPanel(for: activeTool)
-            .frame(width: 320) // Fixed width to match pen tool
+            .frame(width: 300) // Fixed width to prevent toolbar movement
             .clipped()
         }
       }
@@ -935,77 +935,66 @@ struct WrittenNoteToolbar: View {
 
 
     case .lasso:
-      // Placeholder to maintain consistent toolbar width
-      HStack(spacing: 10) {
-        VStack(alignment: .leading, spacing: 4) {
-          HStack(spacing: 8) {
-            // Placeholder dots to match pen tool layout
-            ForEach(0..<3, id: \.self) { _ in
-              Circle()
-                .fill(Color.gray.opacity(0.3))
-                .frame(width: 18, height: 18)
-            }
-          }
-        }
-        
-        // Placeholder color palette
-        HStack(spacing: 6) {
-          ForEach(0..<4, id: \.self) { _ in
-            Circle()
-              .fill(Color.gray.opacity(0.3))
-              .frame(width: 18, height: 18)
-          }
-        }
+      // Minimal lasso tool options
+      HStack {
+        Text("Selection Mode")
+          .font(.caption)
+          .foregroundColor(.gray)
       }
+      .frame(maxWidth: .infinity)
       .padding(.horizontal, 8)
       .padding(.vertical, 4)
       .background(Color.matchalight_dark.opacity(0.1))
       .cornerRadius(8)
 
     case .photo:
-      HStack(spacing: 10) {
-        // Camera icon
+      HStack(spacing: 16) {
+        // Camera button with label
         Button(action: {
           imagePickerSourceType = .camera
           pickerID = UUID()
           showImagePicker = true
         }) {
-          Image(systemName: "camera")
-            .font(.system(size: 18))
-            .foregroundColor(colorScheme == .dark ? .matchadark_dark : .matchadark_light)
+          HStack(spacing: 6) {
+            Image(systemName: "camera")
+              .font(.system(size: 16))
+            Text("Camera")
+              .font(.caption)
+          }
+          .padding(.horizontal, 12)
+          .padding(.vertical, 6)
+
+          .foregroundColor(.white)
+          .background(Color.matchalight_dark)
+          .cornerRadius(6)
         }
 
-        // Gallery icon
+        // Gallery button with label
         Button(action: {
           imagePickerSourceType = .photoLibrary
           pickerID = UUID()
           showImagePicker = true
         }) {
-          Image(systemName: "photo.on.rectangle")
-            .font(.system(size: 18))
-            .foregroundColor(colorScheme == .dark ? .matchadark_dark : .matchadark_light)
+          HStack(spacing: 6) {
+            Image(systemName: "photo.on.rectangle")
+              .font(.system(size: 16))
+            Text("Gallery")
+              .font(.caption)
+          }
+          .padding(.horizontal, 12)
+          .padding(.vertical, 6)
+          .background(Color.matchalight_dark)
+          .foregroundColor(.white)
+          .cornerRadius(6)
         }
 
-        // Recent images - inline horizontal layout
-        HStack(spacing: 6) {
-          ForEach(0..<4, id: \.self) { index in
-            Button(action: {
-              imagePickerSourceType = .photoLibrary
-              pickerID = UUID()
-              showImagePicker = true
-            }) {
-              RoundedRectangle(cornerRadius: 3)
-                .stroke(Color.gray.opacity(0.4), lineWidth: 1)
-                .frame(width: 20, height: 20)
-                .overlay(
-                  Image(systemName: "photo")
-                    .foregroundColor(.gray.opacity(0.6))
-                    .font(.system(size: 8))
-                )
-            }
-          }
-        }
+        Spacer()
       }
+      .frame(maxWidth: .infinity)
+      .padding(.horizontal, 8)
+      .padding(.vertical, 4)
+
+      .cornerRadius(8)
 
     case .textbox:
       VStack(alignment: .leading, spacing: 6) {

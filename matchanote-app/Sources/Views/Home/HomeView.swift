@@ -114,7 +114,7 @@ struct HomeView: View {
         GeometryReader { geometry in
             HStack(spacing: 0) {
             // Sidebar - Always visible
-            VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 8) {
                     Image("Logo")
                         .resizable()
@@ -173,6 +173,8 @@ struct HomeView: View {
 
                 searchBar
                 sidebarList
+                
+                Spacer()
             }
             .frame(width: sidebarWidth)
             .frame(maxHeight: .infinity)
@@ -181,7 +183,6 @@ struct HomeView: View {
                     ? Color.matchabackground_dark
                     : Color.matchabackground_light)
                     .brightness(colorScheme == .dark ? -0.05 : 0.05)
-                    .ignoresSafeArea()
             )
 
             // Main content area
@@ -206,7 +207,7 @@ struct HomeView: View {
     }
 
     private var sidebarList: some View {
-        List {
+        VStack(alignment: .leading, spacing: 4) {
             ForEach(sidebarItems) { item in
                 MatchaSidebarItem(
                     item: item,
@@ -219,13 +220,10 @@ struct HomeView: View {
                         }
                     }
                 )
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
             }
         }
-        .scrollDisabled(true)
-        .listStyle(SidebarListStyle())
-        .scrollContentBackground(.hidden)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .padding(.top, 16)
     }
 
     @ViewBuilder
