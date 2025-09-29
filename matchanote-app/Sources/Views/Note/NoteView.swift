@@ -746,6 +746,35 @@ extension NoteView {
     controller.printingItem = url
     controller.present(animated: true, completionHandler: nil)
   }
+  
+  private func exportMatchaNote() -> URL? {
+    do {
+      // Create a JSON representation of the note
+      let noteData = try JSONEncoder().encode(activeNote)
+      
+      // Create a temporary file with .matcha extension
+      let sanitizedTitle = activeNote.title.replacingOccurrences(of: "/", with: "-")
+      let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(sanitizedTitle).matcha")
+      
+      try noteData.write(to: tempURL)
+      return tempURL
+    } catch {
+      print("Failed to export Matcha note: \(error)")
+      return nil
+    }
+  }
+  
+  private func handleExportMatcha() {
+    guard let url = exportMatchaNote() else { return }
+    let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+    if let popover = controller.popoverPresentationController {
+      if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+         let window = scene.windows.first(where: { $0.isKeyWindow }) {
+        popover.sourceView = window
+      }
+    }
+    topViewController()?.present(controller, animated: true)
+  }
 
   private func topViewController() -> UIViewController? {
     guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,

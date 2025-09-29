@@ -12,6 +12,7 @@ struct matchanote_App: App {
     @StateObject private var authManager = LocalAuthManager.shared
     @StateObject private var storageManager = StorageManager()
     @StateObject private var preferencesManager = PreferencesManager.shared
+    @StateObject private var documentHandler = DocumentHandler.shared
 
     var body: some Scene {
         WindowGroup {
@@ -19,7 +20,27 @@ struct matchanote_App: App {
                 .environmentObject(authManager)
                 .environmentObject(storageManager)
                 .environmentObject(preferencesManager)
+                .environmentObject(documentHandler)
                 .preferredColorScheme(colorSchemeForTheme(preferencesManager.theme))
+                .onOpenURL { url in
+                    handleOpenURL(url)
+                }
+        }
+    }
+    
+    private func handleOpenURL(_ url: URL) {
+        print("App: Received URL: \(url)")
+        
+        // Check if it's a document URL
+        if url.startAccessingSecurityScopedResource() {
+            documentHandler.handleDocumentURL(url)
+            url.stopAccessingSecurityScopedResource()
+        } else {
+            // Handle other URL schemes (like auth callbacks)
+            if url.scheme == "app.matchanote" {
+                // Handle auth callback or other app-specific URLs
+                print("App: Handling app-specific URL: \(url)")
+            }
         }
     }
 

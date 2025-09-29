@@ -22,11 +22,11 @@ public enum PaperSize: String, CaseIterable, Codable {
 }
 
 // Define the type of note
-public enum NoteType: String, CaseIterable {
+public enum NoteType: String, CaseIterable, Codable {
   case written, text
 }
 
-public struct Note: Identifiable {
+public struct Note: Identifiable, Codable {
   public var id = UUID()
   public var title: String
   public var subject: String
@@ -48,6 +48,58 @@ public struct Note: Identifiable {
   public var textBoxDataByPage: [String: [Data]] = [:]
   // Track which pages are bookmarked using page indices as Set
   public var bookmarkedPages: Set<Int> = []
+  
+  // MARK: - Codable Implementation
+  private enum CodingKeys: String, CodingKey {
+    case id, title, subject, colorString, dateCreated, dateModified, lastOpenedAt
+    case isFavorite, content, noteType, paperColor, paperStyle, paperSize
+    case drawingDataByPage, imageDataByPage, textBoxDataByPage, bookmarkedPages
+  }
+  
+  // Custom encoding to handle Color serialization
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(id, forKey: .id)
+    try container.encode(title, forKey: .title)
+    try container.encode(subject, forKey: .subject)
+    try container.encode(colorToHexString(color), forKey: .colorString)
+    try container.encode(dateCreated, forKey: .dateCreated)
+    try container.encode(dateModified, forKey: .dateModified)
+    try container.encodeIfPresent(lastOpenedAt, forKey: .lastOpenedAt)
+    try container.encode(isFavorite, forKey: .isFavorite)
+    try container.encode(content, forKey: .content)
+    try container.encode(noteType, forKey: .noteType)
+    try container.encode(paperColor, forKey: .paperColor)
+    try container.encode(paperStyle, forKey: .paperStyle)
+    try container.encode(paperSize, forKey: .paperSize)
+    try container.encode(drawingDataByPage, forKey: .drawingDataByPage)
+    try container.encode(imageDataByPage, forKey: .imageDataByPage)
+    try container.encode(textBoxDataByPage, forKey: .textBoxDataByPage)
+    try container.encode(bookmarkedPages, forKey: .bookmarkedPages)
+  }
+  
+  // Custom decoding to handle Color deserialization
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    id = try container.decode(UUID.self, forKey: .id)
+    title = try container.decode(String.self, forKey: .title)
+    subject = try container.decode(String.self, forKey: .subject)
+    let colorString = try container.decode(String.self, forKey: .colorString)
+    color = hexStringToColor(colorString)
+    dateCreated = try container.decode(Date.self, forKey: .dateCreated)
+    dateModified = try container.decode(Date.self, forKey: .dateModified)
+    lastOpenedAt = try container.decodeIfPresent(Date.self, forKey: .lastOpenedAt)
+    isFavorite = try container.decode(Bool.self, forKey: .isFavorite)
+    content = try container.decode(String.self, forKey: .content)
+    noteType = try container.decode(NoteType.self, forKey: .noteType)
+    paperColor = try container.decode(PaperColor.self, forKey: .paperColor)
+    paperStyle = try container.decode(PaperStyle.self, forKey: .paperStyle)
+    paperSize = try container.decode(PaperSize.self, forKey: .paperSize)
+    drawingDataByPage = try container.decode([String: Data].self, forKey: .drawingDataByPage)
+    imageDataByPage = try container.decode([String: [Data]].self, forKey: .imageDataByPage)
+    textBoxDataByPage = try container.decode([String: [Data]].self, forKey: .textBoxDataByPage)
+    bookmarkedPages = try container.decode(Set<Int>.self, forKey: .bookmarkedPages)
+  }
 
   public init(
     title: String, subject: String = "", color: Color = .white, dateCreated: Date,
@@ -185,4 +237,43 @@ struct PaperUtilities {
     
     return UIGraphicsGetImageFromCurrentImageContext() ?? UIImage()
   }
+}
+
+// MARK: - Color Conversion Helpers
+private func colorToHexString(_ color: Color) -> String {
+  // Convert SwiftUI Color to UIColor and then to hex string
+  let uiColor = UIColor(color)
+  var red: CGFloat = 0
+  var green: CGFloat = 0
+  var blue: CGFloat = 0
+  var alpha: CGFloat = 0
+  
+  uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+  
+  let rgb = Int(red * 255) << 16 | Int(green * 255) << 8 | Int(blue * 255) << 0
+  return String(format: "#%06x", rgb)
+}
+
+private func hexStringToColor(_ hexString: String) -> Color {
+  let hex = hexString.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+  var int: UInt64 = 0
+  Scanner(string: hex).scanHexInt64(&int)
+  let a, r, g, b: UInt64
+  switch hex.count {
+  case 3: // RGB (12-bit)
+    (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+  case 6: // RGB (24-bit)
+    (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+  case 8: // ARGB (32-bit)
+    (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+  default:
+    return Color.white // Default fallback
+  }
+  
+  return Color(
+    red: Double(r) / 255,
+    green: Double(g) / 255,
+    blue: Double(b) / 255,
+    opacity: Double(a) / 255
+  )
 }

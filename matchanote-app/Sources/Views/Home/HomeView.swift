@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 struct SidebarItem: Identifiable {
     var id: String
@@ -15,6 +16,7 @@ struct SidebarItem: Identifiable {
 
 struct HomeView: View {
     @EnvironmentObject private var storageManager: StorageManager
+    @EnvironmentObject private var documentHandler: DocumentHandler
     @State private var searchText = ""
     @State private var selectedNote: Note? = nil
     @State private var selectedItem = "documents"
@@ -1230,6 +1232,33 @@ struct HomeView: View {
                 print("Error importing file: \(error)")
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .documentImported)) { notification in
+            if let userInfo = notification.userInfo,
+               let url = userInfo["url"] as? URL,
+               let type = userInfo["type"] as? String {
+                handleDocumentImport(url: url, type: type)
+            }
+        }
+        .onChange(of: documentHandler.shouldProcessDocument) { _, shouldProcess in
+            if shouldProcess {
+                documentHandler.processDocument()
+            }
+        }
+    }
+
+    private func handleDocumentImport(url: URL, type: String) {
+        print("HomeView: Handling document import - URL: \(url), Type: \(type)")
+        
+        switch type {
+        case "pdf":
+            createNoteFromPDF(url: url, fileName: url.deletingPathExtension().lastPathComponent)
+        case "image":
+            createNoteFromImage(url: url, fileName: url.deletingPathExtension().lastPathComponent)
+        case "matcha":
+            createNoteFromMatchaFile(url: url, fileName: url.deletingPathExtension().lastPathComponent)
+        default:
+            print("HomeView: Unknown document type: \(type)")
+        }
     }
 
     private func handleImportedFiles(_ urls: [URL]) {
@@ -1326,6 +1355,40 @@ struct HomeView: View {
         )
 
         saveAndOpenNote(newNote)
+    }
+
+    private func createNoteFromMatchaFile(url: URL, fileName: String) {
+        do {
+            // Read the Matcha note data
+            let matchaData = try Data(contentsOf: url)
+            
+            // Decode the note from JSON
+            let importedNote = try JSONDecoder().decode(Note.self, from: matchaData)
+            
+            // Create a new note with the imported data but with a new ID and current timestamp
+            let newNote = Note(
+                title: importedNote.title,
+                subject: importedNote.subject,
+                color: importedNote.color,
+                dateCreated: Date(),
+                dateModified: Date(),
+                lastOpenedAt: nil,
+                isFavorite: false,
+                content: importedNote.content,
+                noteType: importedNote.noteType,
+                paperColor: importedNote.paperColor,
+                paperStyle: importedNote.paperStyle,
+                paperSize: importedNote.paperSize,
+                drawingDataByPage: importedNote.drawingDataByPage,
+                imageDataByPage: importedNote.imageDataByPage,
+                textBoxDataByPage: importedNote.textBoxDataByPage,
+                bookmarkedPages: importedNote.bookmarkedPages
+            )
+            
+            saveAndOpenNote(newNote)
+        } catch {
+            print("Error: Could not load Matcha note from \(url): \(error)")
+        }
     }
 
     private func createTextNoteFromFile(url: URL, fileName: String) {

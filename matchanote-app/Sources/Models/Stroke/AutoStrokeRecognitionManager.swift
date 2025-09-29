@@ -65,7 +65,9 @@ class AutoStrokeRecognitionManager_v2: NSObject, ObservableObject {
     }
 
     deinit {
+        // Fix potential memory leak: Remove all observers and invalidate any pending tasks
         NotificationCenter.default.removeObserver(self)
+        canvasView = nil // Break weak reference
     }
 
     @objc private func strokeCompleted(_ notification: Notification) {
@@ -106,13 +108,16 @@ class AutoStrokeRecognitionManager_v2: NSObject, ObservableObject {
 
     private func performImmediateRecognition(_ stroke: PKStroke) {
         // PERFORMANCE OPTIMIZED: Move heavy recognition to background thread
-        Task(priority: .userInitiated) {
+        // Fix: Use lower priority to avoid blocking build processes
+        Task(priority: .utility) {
             let points = convertStrokeToPoints(stroke)
             let result = strokeRecognizer.recognize(points: points)
 
-            // Only update UI if recognition was successful
+            // Only update UI if recognition was successful and canvas still exists
             if result.confidence >= confidenceThreshold && result.shapeName != "unknown" {
                 await MainActor.run {
+                    // Check canvas still exists before processing
+                    guard canvasView != nil else { return }
                     performAutoReplacement(originalStroke: stroke, detectedShape: result.shapeName)
                 }
             }
