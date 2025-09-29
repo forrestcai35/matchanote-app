@@ -388,37 +388,57 @@ struct WrittenNoteToolbar: View {
               selectTool(.lasso)
             }
           }) {
-            Image("lasso_outline")
-              .renderingMode(.template)
-              .resizable()
-              .scaledToFit()
-              .frame(width: 26, height: 26)
-              .foregroundColor(
-                currentTool == .lasso ? .matchalight_dark : (colorScheme == .dark ? .gray : .black))
+            if currentTool == .lasso {
+              Image("lasso_fill")
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 26, height: 26)
+            } else {
+              Image("lasso_outline")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 26, height: 26)
+                .foregroundColor(colorScheme == .dark ? .gray : .black)
+            }
           }
           Button(action: {
             previousToolBeforePhoto = currentTool
             selectTool(.photo)
           }) {
-            Image("photo_outline")
-              .renderingMode(.template)
-              .resizable()
-              .scaledToFit()
-              .frame(width: 26, height: 26)
-              .foregroundColor(
-                currentTool == .photo ? .matchalight_dark : (colorScheme == .dark ? .gray : .black))
+            if currentTool == .photo {
+              Image("photo_fill")
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 26, height: 26)
+            } else {
+              Image("photo_outline")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 26, height: 26)
+                .foregroundColor(colorScheme == .dark ? .gray : .black)
+            }
           }
           Button(action: {
             selectTool(.textbox)
           }) {
-            Image("textbox_outline")
-              .renderingMode(.template)
-              .resizable()
-              .scaledToFit()
-              .frame(width: 26, height: 26)
-              .foregroundColor(
-                currentTool == .textbox
-                  ? .matchalight_dark : (colorScheme == .dark ? .gray : .black))
+            if currentTool == .textbox {
+              Image("textbox_fill")
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 26, height: 26)
+            } else {
+              Image("textbox_outline")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 26, height: 26)
+                .foregroundColor(colorScheme == .dark ? .gray : .black)
+            }
           }
           Button(action: {
             selectTool(.shape)
