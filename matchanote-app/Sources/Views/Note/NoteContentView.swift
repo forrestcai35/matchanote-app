@@ -454,7 +454,7 @@ struct WrittenNoteView: View {
 
                 ZStack {
                     paperBackground(pageIndex: pageIndex)
-                    paperBackground(pageIndex: pageIndex)
+
                     
                     // Background images for this page (behind the canvas)
                     backgroundImagesView(pageIndex: pageIndex)
