@@ -6,6 +6,7 @@ struct NewWrittenNoteView: View {
   @State private var title: String = "New Note"
   @State private var paperColor: PaperColor = .white
   @State private var paperStyle: PaperStyle = .blank
+  @State private var paperSize: PaperSize = .a4
   @State private var noteColor: Color = .matchalight_light
 
   var onSave: (Note) -> Void
@@ -66,21 +67,64 @@ struct NewWrittenNoteView: View {
             }
           }
           
-          // Paper color selection
-          VStack(alignment: .center, spacing: 12) {
-            Text("Paper Color")
-              .font(.headline)
-              .foregroundColor(.primary)
-            
-            HStack(spacing: 12) {
-              ForEach(PaperColor.allCases, id: \.self) { color in
-                PaperColorCard(
-                  color: color,
-                  isSelected: paperColor == color,
-                  onTap: { paperColor = color }
+          // Paper options side by side
+          HStack(alignment: .top, spacing: 16) {
+            // Paper color
+            VStack(alignment: .leading, spacing: 12) {
+              Text("Paper Color")
+                .font(.headline)
+                .foregroundColor(.primary)
+
+              HStack(spacing: 12) {
+                ForEach(PaperColor.allCases, id: \.self) { color in
+                  PaperColorCard(
+                    color: color,
+                    isSelected: paperColor == color,
+                    onTap: { paperColor = color }
+                  )
+                }
+              }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Paper size
+            VStack(alignment: .leading, spacing: 12) {
+              Text("Paper Size")
+                .font(.headline)
+                .foregroundColor(.primary)
+
+              Menu {
+                ForEach(PaperSize.allCases, id: \.self) { size in
+                  Button(action: { paperSize = size }) {
+                    HStack {
+                      Text(displayName(for: size))
+                      if paperSize == size {
+                        Image(systemName: "checkmark")
+                      }
+                    }
+                  }
+                }
+              } label: {
+                HStack(spacing: 8) {
+                  Text(displayName(for: paperSize))
+                    .foregroundColor(.primary)
+                  Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(
+                  RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.systemGray6))
+                    .overlay(
+                      RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color(.systemGray4), lineWidth: 1)
+                    )
                 )
               }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
           }
           
           // Create button
@@ -132,10 +176,22 @@ struct NewWrittenNoteView: View {
       content: "",
       noteType: .written,
       paperColor: paperColor,
-      paperStyle: paperStyle
+      paperStyle: paperStyle,
+      paperSize: paperSize
     )
     onSave(newNote)
     dismiss()
+  }
+}
+
+extension NewWrittenNoteView {
+  private func displayName(for size: PaperSize) -> String {
+    switch size {
+    case .a4: return "A4"
+    case .letter: return "Letter"
+    case .legal: return "Legal"
+    case .tabloid: return "Tabloid"
+    }
   }
 }
 

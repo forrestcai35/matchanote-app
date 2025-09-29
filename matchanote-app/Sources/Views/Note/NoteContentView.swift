@@ -244,21 +244,12 @@ struct WrittenNoteView: View {
         var updatedNote = noteToSave
         var hasChanges = false
         
-        // Create new drawing data dictionary
+        // Create new drawing data dictionary (only for pages with existing canvases)
         var newDrawingData: [String: Data] = [:]
-        
-        // Save all pages up to the current page count, including empty ones
-        for index in 0..<pageCount {
-            if index < canvasViews.count {
-                let canvas = canvasViews[index]
-                let drawingData = canvas.drawing.dataRepresentation()
-                newDrawingData[String(index)] = drawingData
-            } else {
-                // For pages that don't have a canvas yet, save empty drawing data
-                let emptyDrawing = PKDrawing()
-                let emptyData = emptyDrawing.dataRepresentation()
-                newDrawingData[String(index)] = emptyData
-            }
+        for index in 0..<min(pageCount, canvasViews.count) {
+            let canvas = canvasViews[index]
+            let drawingData = canvas.drawing.dataRepresentation()
+            newDrawingData[String(index)] = drawingData
         }
         
         // Quick check: if the number of pages with data changed
@@ -438,8 +429,8 @@ struct WrittenNoteView: View {
             let contentSize = perPageSize(pageIndex)
             let viewportSize = geometry.size
             let fitScale = min(viewportSize.width / max(contentSize.width, 1), viewportSize.height / max(contentSize.height, 1))
-            // Since content is 2x upscaled, default scale should be 0.5x to show at normal size
-            let dynamicMinScale = min(0.5, fitScale * 0.999)
+            // Use natural fit scale as minimum to avoid rendering oversized content
+            let dynamicMinScale = max(0.2, min(fitScale * 0.999, 1.0))
             
             ZoomableScrollView(
                 minScale: dynamicMinScale,
@@ -495,8 +486,8 @@ struct WrittenNoteView: View {
                                 textBoxManager: textBoxManager,
                                 pageIndex: pageIndex,
                                 canvasSize: CGSize(
-                                    width: perPageSize(pageIndex).width,
-                                    height: perPageSize(pageIndex).height
+                                width: perPageSize(pageIndex).width,
+                                height: perPageSize(pageIndex).height
                             )
                             )
                             .frame(
@@ -555,6 +546,7 @@ struct WrittenNoteView: View {
                     height: perPageSize(pageIndex).height
                 )
                 .clipped()
+
         } else {
             EmptyView()
         }
@@ -585,7 +577,6 @@ struct WrittenNoteView: View {
             }
     }
     // Determine per-page size from background image if present; fallback to note paper size
-    // Upscale by 2x for higher resolution rendering
     private func perPageSize(_ pageIndex: Int) -> CGSize {
         let baseSize: CGSize
         if let imageDataArray = note.imageDataByPage[String(pageIndex)],
@@ -595,34 +586,35 @@ struct WrittenNoteView: View {
         } else {
             baseSize = CGSize(width: getPaperWidth(for: note.paperSize), height: getPaperHeight(for: note.paperSize))
         }
-
-        // Upscale by 2x for crisp rendering when zoomed
-        return CGSize(width: baseSize.width * 2.0, height: baseSize.height * 2.0)
+        // Render at natural size; rely on UIScreen scale for crispness
+        return baseSize
     }
 
     @ViewBuilder
     private func gridOverlay(size: CGSize) -> some View {
-        let gridSpacing: CGFloat = 40  // Scale up by 2x for high resolution
+        // Match prior visual density now that we render at natural size
+        let gridSpacing: CGFloat = 20
 
         ZStack {
             // Horizontal lines
             ForEach(0..<Int(size.height / gridSpacing + 1), id: \.self) { i in
                 let y = CGFloat(i) * gridSpacing
                 Line(start: CGPoint(x: 0, y: y), end: CGPoint(x: size.width, y: y))
-                    .stroke(Color.gray.opacity(0.3), lineWidth: 1.0)  // Scale up line width by 2x
+                    .stroke(Color.gray.opacity(0.3), lineWidth: 0.75)
             }
             // Vertical lines
             ForEach(0..<Int(size.width / gridSpacing + 1), id: \.self) { i in
                 let x = CGFloat(i) * gridSpacing
                 Line(start: CGPoint(x: x, y: 0), end: CGPoint(x: x, y: size.height))
-                    .stroke(Color.gray.opacity(0.3), lineWidth: 1.0)  // Scale up line width by 2x
+                    .stroke(Color.gray.opacity(0.3), lineWidth: 0.75)
             }
         }
     }
     @ViewBuilder
     private func dottedOverlay(size: CGSize) -> some View {
-        let baseSpacing: CGFloat = 36  // Scale up by 2x for high resolution
-        let dotRadius: CGFloat = 2  // Scale up by 2x for high resolution
+        // Match prior visual density at natural size
+        let baseSpacing: CGFloat = 18
+        let dotRadius: CGFloat = 1
         let margin: CGFloat = baseSpacing
 
         Canvas { context, canvasSize in
@@ -651,7 +643,7 @@ struct WrittenNoteView: View {
                                     width: 2 * dotRadius,
                                     height: 2 * dotRadius
                                 )),
-                            with: .color(Color.gray.opacity(0.3))
+                            with: .color(Color.gray.opacity(0.35))
                         )
                     }
                 }
@@ -660,14 +652,15 @@ struct WrittenNoteView: View {
     }
     @ViewBuilder
     private func linedOverlay(size: CGSize) -> some View {
-        let lineSpacing: CGFloat = 48  // Scale up by 2x for high resolution
-        let marginTop: CGFloat = 60  // Scale up by 2x for high resolution
+        // Match prior visual density at natural size
+        let lineSpacing: CGFloat = 24
+        let marginTop: CGFloat = 30
 
         ZStack {
             ForEach(0..<Int((size.height - marginTop) / lineSpacing + 1), id: \.self) { i in
                 let y = marginTop + CGFloat(i) * lineSpacing
                 Line(start: CGPoint(x: 0, y: y), end: CGPoint(x: size.width, y: y))
-                    .stroke(Color.green.opacity(0.3), lineWidth: 1.0)  // Scale up line width by 2x
+                    .stroke(Color.green.opacity(0.3), lineWidth: 0.75)
             }
         }
     }

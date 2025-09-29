@@ -1286,7 +1286,8 @@ struct WrittenNoteToolbar: View {
   }
 
   private func startUndoRedoTimer() {
-    undoRedoUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+    // Reduce polling frequency to cut CPU usage
+    undoRedoUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { _ in
       updateUndoRedoState()
     }
   }
