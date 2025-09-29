@@ -50,32 +50,34 @@ public struct ListItemView: View {
             } else {
                 // Show content preview for notes without uploaded content
                 if note.noteType == .written {
-                    // Check if there's actual drawing content
-                    if let drawingData = note.drawingDataByPage["0"],
-                       let pkDrawing = try? PKDrawing(data: drawingData),
-                       !pkDrawing.strokes.isEmpty {
-                        // Show drawing preview
-                        let paperSize = PaperUtilities.paperSize(for: note.paperSize)
-                        let previewBounds = CGRect(origin: .zero, size: paperSize)
-                        let previewImage = pkDrawing.image(from: previewBounds, scale: 0.3)
-
-                        Image(uiImage: previewImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 32, height: 40)
-                            .clipped()
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                    } else {
-                        // Empty written note - show paper background with pencil icon
+                    ZStack {
+                        // Paper background
                         RoundedRectangle(cornerRadius: 6)
                             .fill(PaperUtilities.getPaperBackgroundColor(for: note.paperColor))
                             .frame(width: 32, height: 40)
-                            .overlay(
-                                Image(systemName: "pencil.tip")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(Color.gray.opacity(0.5))
-                            )
+                        
+                        // Show drawing preview if available
+                        if let drawingData = note.drawingDataByPage["0"],
+                           let pkDrawing = try? PKDrawing(data: drawingData),
+                           !pkDrawing.strokes.isEmpty {
+                            // Show drawing preview
+                            let paperSize = PaperUtilities.paperSize(for: note.paperSize)
+                            let previewBounds = CGRect(origin: .zero, size: paperSize)
+                            let previewImage = pkDrawing.image(from: previewBounds, scale: 0.3)
+
+                            Image(uiImage: previewImage)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 32, height: 40)
+                                .clipped()
+                        } else {
+                            // Empty written note - show pencil icon
+                            Image(systemName: "pencil.tip")
+                                .font(.system(size: 14))
+                                .foregroundColor(Color.gray.opacity(0.5))
+                        }
                     }
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
                 } else {
                     // Text note preview
                     if !note.content.isEmpty {

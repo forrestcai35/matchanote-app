@@ -112,15 +112,20 @@ struct CanvasImageView: View {
                     imageManager.removeImage(withId: image.id, fromPage: pageIndex)
                 }
             }) {
-                Image(systemName: "trash")
-                    .font(.system(size: 24, weight: .medium))
-                    .foregroundColor(.red)
-                    .frame(width: 24, height: 24)
+                ZStack {
+                    Circle()
+                        .stroke(Color.red, lineWidth: 2)
+                        .frame(width: 28, height: 28)
+                    
+                    Image(systemName: "trash")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.red)
+                }
             }
             .buttonStyle(PlainButtonStyle())
             .frame(width: 64, height: 64) // Much larger hit area
             .contentShape(Rectangle())
-            .offset(x: imageWidth/2 + 20, y: -imageHeight/2 - 20)
+            .offset(x: imageWidth/2 + 14, y: -imageHeight/2 - 14)
             .allowsHitTesting(true)
             
             // Corner handle - proportional scaling (bottom-right)
@@ -138,7 +143,7 @@ struct CanvasImageView: View {
                     currentSize = .zero
                 }
             )
-            .offset(x: imageWidth/2 + 20, y: imageHeight/2 + 20)
+            .offset(x: imageWidth/2 + 14, y: imageHeight/2 + 14)
             .allowsHitTesting(true)
         }
     }
@@ -151,13 +156,18 @@ struct ProportionalResizeHandle: View {
     let onEnd: () -> Void
     
     var body: some View {
-        Image(systemName: "arrow.up.left.and.down.right.and.arrow.up.right.and.down.left")
-            .font(.system(size: 20, weight: .medium))
-            .foregroundColor(.blue)
-            .frame(width: 20, height: 20)
-            .frame(width: 64, height: 64) // Much larger hit area
-            .contentShape(Rectangle())
-            .allowsHitTesting(true)
+        ZStack {
+            Circle()
+                .stroke(Color.blue, lineWidth: 2)
+                .frame(width: 24, height: 24)
+            
+            Image(systemName: "arrow.up.left.and.down.right.and.arrow.up.right.and.down.left")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.blue)
+        }
+        .frame(width: 64, height: 64) // Much larger hit area
+        .contentShape(Rectangle())
+        .allowsHitTesting(true)
         .gesture(
             DragGesture()
                 .onChanged { value in
