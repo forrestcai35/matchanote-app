@@ -44,6 +44,11 @@ struct HomeView: View {
     @State private var selectedNotes: Set<UUID> = []
     @State private var selectedFolders: Set<UUID> = []
     @State private var showBulkMoveSheet = false
+    
+    // Progress feedback for bulk operations
+    @State private var isDeleting = false
+    @State private var deletionProgress: Double = 0.0
+    @State private var deletionStatus = ""
 
     private enum DragItemType {
         case folder
@@ -499,57 +504,91 @@ struct HomeView: View {
     
     // MARK: - Bulk Action Buttons
     private var bulkActionButtons: some View {
-        HStack(spacing: 8) {
-            // Selection count
-            Text("\(selectedNotes.count + selectedFolders.count) selected")
-                .font(.caption)
-                .foregroundColor(.secondary)
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                // Selection count
+                Text("\(selectedNotes.count + selectedFolders.count) selected")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.gray.opacity(0.1))
+                    )
+                
+                // Move button
+                Button(action: {
+                    showBulkMoveSheet = true
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "folder")
+                        Text("Move")
+                    }
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.blue.opacity(0.1))
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
+                .disabled(isDeleting)
+                
+                // Delete button
+                Button(action: {
+                    deleteSelectedItems()
+                }) {
+                    HStack(spacing: 4) {
+                        if isDeleting {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "trash")
+                        }
+                        Text(isDeleting ? "Deleting..." : "Delete")
+                    }
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(.red)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.red.opacity(0.1))
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
+                .disabled(isDeleting)
+            }
+            
+            // Progress indicator for large operations
+            if isDeleting && !deletionStatus.isEmpty {
+                VStack(spacing: 4) {
+                    HStack {
+                        Text(deletionStatus)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text("\(Int(deletionProgress * 100))%")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    ProgressView(value: deletionProgress)
+                        .progressViewStyle(LinearProgressViewStyle())
+                        .frame(height: 4)
+                }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background(
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.gray.opacity(0.1))
-                )
-            
-            // Move button
-            Button(action: {
-                showBulkMoveSheet = true
-            }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "folder")
-                    Text("Move")
-                }
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.primary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.blue.opacity(0.1))
+                        .fill(Color.gray.opacity(0.05))
                 )
             }
-            .buttonStyle(PlainButtonStyle())
-            
-            // Delete button
-            Button(action: {
-                deleteSelectedItems()
-            }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "trash")
-                    Text("Delete")
-                }
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.red)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.red.opacity(0.1))
-                )
-            }
-            .buttonStyle(PlainButtonStyle())
         }
     }
     
@@ -1077,23 +1116,56 @@ struct HomeView: View {
     
     // MARK: - Bulk Operations
     private func deleteSelectedItems() {
-        // Delete selected notes
-        for noteID in selectedNotes {
-            storageManager.deleteNote(withID: noteID)
+        guard !isDeleting else { return }
+        
+        let noteIDs = Array(selectedNotes)
+        let folderIDs = Array(selectedFolders)
+        let totalItems = noteIDs.count + folderIDs.count
+        
+        guard totalItems > 0 else { return }
+        
+        // Show progress for large operations
+        if totalItems > 10 {
+            isDeleting = true
+            deletionProgress = 0.0
+            deletionStatus = "Deleting \(totalItems) items..."
         }
         
-        // Delete selected folders
-        for folderID in selectedFolders {
-            storageManager.deleteFolder(withID: folderID)
-        }
-        
-        // Clear selections
-        selectedNotes.removeAll()
-        selectedFolders.removeAll()
-        
-        // Refresh UI
-        DispatchQueue.main.async {
-            self.refreshID = UUID()
+        // Use optimized bulk deletion methods
+        Task {
+            if !noteIDs.isEmpty {
+                await MainActor.run {
+                    if totalItems > 10 {
+                        deletionStatus = "Deleting \(noteIDs.count) notes..."
+                        deletionProgress = 0.3
+                    }
+                }
+                storageManager.deleteNotesBulk(noteIDs: noteIDs)
+            }
+            
+            if !folderIDs.isEmpty {
+                await MainActor.run {
+                    if totalItems > 10 {
+                        deletionStatus = "Deleting \(folderIDs.count) folders..."
+                        deletionProgress = 0.7
+                    }
+                }
+                storageManager.deleteFoldersBulk(folderIDs: folderIDs)
+            }
+            
+            await MainActor.run {
+                // Clear selections
+                selectedNotes.removeAll()
+                selectedFolders.removeAll()
+                
+                // Hide progress
+                isDeleting = false
+                deletionProgress = 0.0
+                deletionStatus = ""
+                
+                // Refresh UI
+                self.refreshID = UUID()
+            }
         }
     }
     

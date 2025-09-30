@@ -725,6 +725,75 @@ class StorageManager: ObservableObject {
     // Update storage files
     updateStorageFiles()
   }
+  
+  // MARK: - Optimized Bulk Operations
+  
+  /// Delete multiple notes efficiently in a single batch operation
+  func deleteNotesBulk(noteIDs: [UUID]) {
+    guard !noteIDs.isEmpty else { return }
+    
+    // Find all notes to delete
+    let notesToDelete = notes.filter { noteIDs.contains($0.id) }
+    
+    // Move all notes to trash in batch using optimized method
+    TrashManager.shared.moveNotesToTrashBulk(notesToDelete)
+    
+    // Remove from local arrays in batch
+    notes.removeAll { noteIDs.contains($0.id) }
+    
+    // Update folders in batch
+    for i in 0..<folders.count {
+      let originalCount = folders[i].noteIDs.count
+      folders[i].noteIDs.removeAll { noteIDs.contains($0) }
+      if folders[i].noteIDs.count != originalCount {
+        folders[i].dateModified = Date()
+      }
+    }
+    
+    // Close tabs for all deleted notes
+    for noteID in noteIDs {
+      TabManager.shared.closeTabsForDeletedNote(noteId: noteID)
+    }
+    
+    // Single storage update for all deletions
+    updateStorageFilesBulk()
+  }
+  
+  /// Delete multiple folders efficiently in a single batch operation
+  func deleteFoldersBulk(folderIDs: [UUID]) {
+    guard !folderIDs.isEmpty else { return }
+    
+    // Find all folders to delete
+    let foldersToDelete = folders.filter { folderIDs.contains($0.id) }
+    
+    // Get all notes in these folders and their subfolders
+    var allNotesToDelete: [UUID] = []
+    for folder in foldersToDelete {
+      allNotesToDelete.append(contentsOf: getAllNotesInFolder(folderID: folder.id))
+    }
+    
+    // Delete all notes in batch first
+    if !allNotesToDelete.isEmpty {
+      deleteNotesBulk(noteIDs: allNotesToDelete)
+    }
+    
+    // Move folders to trash in batch using optimized method
+    TrashManager.shared.moveFoldersToTrashBulk(foldersToDelete)
+    
+    // Remove from local array
+    folders.removeAll { folderIDs.contains($0.id) }
+    
+    // Remove references from parent folders
+    for i in 0..<folders.count {
+      folders[i].childFolders.removeAll { folderIDs.contains($0.id) }
+    }
+    
+    // Resolve folder hierarchy once
+    resolveFolderHierarchy()
+    
+    // Single storage update
+    updateStorageFilesBulk()
+  }
 
   func deleteFolder(withID id: UUID) {
     guard let folder = folders.first(where: { $0.id == id }) else {
@@ -805,6 +874,42 @@ class StorageManager: ObservableObject {
     if PreferencesManager.shared.supabaseStorageEnabled {
       Task {
         await syncDeletedItemWithSupabase()
+      }
+    }
+  }
+  
+  /// Optimized bulk storage update that processes all changes in a single operation
+  private func updateStorageFilesBulk() {
+    // Process all changes in background to avoid blocking UI
+    Task.detached(priority: .utility) { [weak self] in
+      guard let self = self else { return }
+      
+      do {
+        // Create storage models
+        let notesStorageModels = self.notes.map { StorageNote(from: $0) }
+        let foldersStorageModels = self.folders.map { StorageFolder(from: $0) }
+        
+        let notesURL = self.localStorageURL.appendingPathComponent(self.notesFileName)
+        let foldersURL = self.localStorageURL.appendingPathComponent(self.foldersFileName)
+        
+        let encoder = JSONEncoder()
+        
+        // Encode and write both files
+        let notesData = try encoder.encode(notesStorageModels)
+        let foldersData = try encoder.encode(foldersStorageModels)
+        
+        try notesData.write(to: notesURL)
+        try foldersData.write(to: foldersURL)
+        
+        // Single Supabase sync for all changes
+        if PreferencesManager.shared.supabaseStorageEnabled {
+          await self.syncDeletedItemWithSupabase()
+        }
+        
+      } catch {
+        await MainActor.run {
+          print("Error updating storage files in bulk: \(error)")
+        }
       }
     }
   }

@@ -100,6 +100,60 @@ class TrashManager: ObservableObject {
             print("Error moving folder to trash: \(error)")
         }
     }
+    
+    // MARK: - Optimized Bulk Operations
+    
+    /// Move multiple notes to trash efficiently in a single batch
+    func moveNotesToTrashBulk(_ notes: [Note]) {
+        guard !notes.isEmpty else { return }
+        
+        do {
+            let encoder = JSONEncoder()
+            let currentDate = Date()
+            
+            let trashItemsToAdd = try notes.map { note in
+                let noteData = try encoder.encode(StorageNote(from: note))
+                return TrashItem(
+                    type: .note,
+                    itemId: note.id,
+                    title: note.title,
+                    deletedAt: currentDate,
+                    originalData: noteData
+                )
+            }
+            
+            trashItems.append(contentsOf: trashItemsToAdd)
+            saveTrashItems()
+        } catch {
+            print("Error moving notes to trash in bulk: \(error)")
+        }
+    }
+    
+    /// Move multiple folders to trash efficiently in a single batch
+    func moveFoldersToTrashBulk(_ folders: [Folder]) {
+        guard !folders.isEmpty else { return }
+        
+        do {
+            let encoder = JSONEncoder()
+            let currentDate = Date()
+            
+            let trashItemsToAdd = try folders.map { folder in
+                let folderData = try encoder.encode(StorageFolder(from: folder))
+                return TrashItem(
+                    type: .folder,
+                    itemId: folder.id,
+                    title: folder.name,
+                    deletedAt: currentDate,
+                    originalData: folderData
+                )
+            }
+            
+            trashItems.append(contentsOf: trashItemsToAdd)
+            saveTrashItems()
+        } catch {
+            print("Error moving folders to trash in bulk: \(error)")
+        }
+    }
 
     func restoreItem(_ trashItem: TrashItem) -> (note: Note?, folder: Folder?) {
         do {
