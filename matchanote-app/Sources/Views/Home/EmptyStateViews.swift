@@ -41,7 +41,7 @@ struct EmptyDocumentsView: View {
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
                 .background(
-                    colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+                    colorScheme == .dark ? Color.matchadark_light : Color.matchabrown_light
                 )
                 .cornerRadius(8)
             }
@@ -91,7 +91,7 @@ struct EmptyFavoritesView: View {
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
                 .background(
-                    colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+                   colorScheme == .dark ? Color.matchadark_light : Color.matchabrown_light
                 )
                 .cornerRadius(8)
             }
@@ -141,7 +141,7 @@ struct EmptyRecentsView: View {
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
                 .background(
-                    colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+                   colorScheme == .dark ? Color.matchadark_light : Color.matchabrown_light
                 )
                 .cornerRadius(8)
             }

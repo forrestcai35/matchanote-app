@@ -431,9 +431,9 @@ struct NewFolderView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
-            .background(
+                  .background(
               LinearGradient(
-                colors: [Color.matchalight_light, Color.matchalight_light.opacity(0.8)],
+                colors: [Color.matchalight_dark, Color.matchalight_light],
                 startPoint: .leading,
                 endPoint: .trailing
               )
