@@ -6,55 +6,208 @@ struct UserMessageView: View {
     @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
-        HStack {
-            Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
+        VStack(alignment: .leading, spacing: 8) {
+            // User message as a text block
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Text("User")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                
                 Text(message.content)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .font(.system(size: 15))
+                    .foregroundColor(.primary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
                 
                 if !message.model.isEmpty {
-                    Text(message.model)
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                    HStack {
+                        Text(message.model)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
                 }
             }
-            .frame(maxWidth: .infinity * 0.8, alignment: .trailing)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(colorScheme == .dark 
+                        ? Color.gray.opacity(0.1) 
+                        : Color.gray.opacity(0.05))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(
+                                colorScheme == .dark 
+                                    ? Color.gray.opacity(0.3) 
+                                    : Color.gray.opacity(0.2), 
+                                lineWidth: 1
+                            )
+                    )
+            )
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
 struct AssistantMessageView: View {
     let message: ChatMessage
     @Environment(\.colorScheme) private var colorScheme
+    @State private var showingCopyConfirmation = false
     
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(message.content)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(
-                        colorScheme == .dark 
-                            ? Color.gray.opacity(0.2) 
-                            : Color.gray.opacity(0.1)
-                    )
-                    .foregroundColor(.primary)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                
+        VStack(alignment: .leading, spacing: 8) {
+            // Plain text response underneath user message with basic formatting support
+            FormattedTextView(text: message.content)
+                .font(.system(size: 15))
+                .foregroundColor(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            
+            HStack {
                 if !message.model.isEmpty {
                     Text(message.model)
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
+                
+                Spacer()
+                
+                // Copy button
+                Button(action: {
+                    copyToClipboard(message.content)
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: showingCopyConfirmation ? "checkmark" : "doc.on.doc")
+                            .font(.caption2)
+                        Text(showingCopyConfirmation ? "Copied!" : "Copy")
+                            .font(.caption2)
+                    }
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(4)
+                }
+                .buttonStyle(PlainButtonStyle())
             }
-            .frame(maxWidth: .infinity * 0.8, alignment: .leading)
-            Spacer()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    
+    private func copyToClipboard(_ text: String) {
+        #if canImport(UIKit)
+        UIPasteboard.general.string = text
+        #elseif canImport(AppKit)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        #endif
+        
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showingCopyConfirmation = true
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showingCopyConfirmation = false
+            }
         }
     }
+}
+
+struct FormattedTextView: View {
+    let text: String
+    
+    var body: some View {
+        let formattedText = parseFormattedText(text)
+        
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(Array(formattedText.enumerated()), id: \.offset) { index, segment in
+                if segment.isBold && segment.isItalic {
+                    Text(segment.text)
+                        .font(.system(size: 15))
+                        .fontWeight(.bold)
+                        .italic()
+                } else if segment.isBold {
+                    Text(segment.text)
+                        .font(.system(size: 15))
+                        .fontWeight(.bold)
+                } else if segment.isItalic {
+                    Text(segment.text)
+                        .font(.system(size: 15))
+                        .italic()
+                } else {
+                    Text(segment.text)
+                        .font(.system(size: 15))
+                }
+            }
+        }
+    }
+    
+    private func parseFormattedText(_ text: String) -> [TextSegment] {
+        var segments: [TextSegment] = []
+        var currentIndex = text.startIndex
+        
+        while currentIndex < text.endIndex {
+            // Look for **bold** or *italic* patterns
+            if let boldRange = findPattern(text, from: currentIndex, open: "**", close: "**") {
+                // Add text before bold
+                if boldRange.start > currentIndex {
+                    let beforeText = String(text[currentIndex..<boldRange.start])
+                    if !beforeText.isEmpty {
+                        segments.append(TextSegment(text: beforeText, isBold: false, isItalic: false))
+                    }
+                }
+                
+                // Add bold text
+                let boldText = String(text[boldRange.start..<boldRange.end])
+                segments.append(TextSegment(text: boldText, isBold: true, isItalic: false))
+                currentIndex = boldRange.end
+            } else if let italicRange = findPattern(text, from: currentIndex, open: "*", close: "*") {
+                // Add text before italic
+                if italicRange.start > currentIndex {
+                    let beforeText = String(text[currentIndex..<italicRange.start])
+                    if !beforeText.isEmpty {
+                        segments.append(TextSegment(text: beforeText, isBold: false, isItalic: false))
+                    }
+                }
+                
+                // Add italic text
+                let italicText = String(text[italicRange.start..<italicRange.end])
+                segments.append(TextSegment(text: italicText, isBold: false, isItalic: true))
+                currentIndex = italicRange.end
+            } else {
+                // No more formatting, add remaining text
+                let remainingText = String(text[currentIndex...])
+                if !remainingText.isEmpty {
+                    segments.append(TextSegment(text: remainingText, isBold: false, isItalic: false))
+                }
+                break
+            }
+        }
+        
+        return segments.isEmpty ? [TextSegment(text: text, isBold: false, isItalic: false)] : segments
+    }
+    
+    private func findPattern(_ text: String, from startIndex: String.Index, open: String, close: String) -> (start: String.Index, end: String.Index)? {
+        guard let openRange = text.range(of: open, range: startIndex..<text.endIndex) else { return nil }
+        let afterOpen = openRange.upperBound
+        
+        guard let closeRange = text.range(of: close, range: afterOpen..<text.endIndex) else { return nil }
+        
+        return (start: afterOpen, end: closeRange.lowerBound)
+    }
+}
+
+struct TextSegment {
+    let text: String
+    let isBold: Bool
+    let isItalic: Bool
 }
 
 // Enhanced AI Assistant State that includes our new capabilities
@@ -107,6 +260,7 @@ struct EnhancedAIAssistantView: View {
     @State private var contextInfo = ""
     @Environment(\.colorScheme) private var colorScheme
     @State private var isInputTargeted = false
+    @State private var keyboardHeight: CGFloat = 0
     private let inputOuterPadding: CGFloat = 16
 
     var body: some View {
@@ -134,6 +288,10 @@ struct EnhancedAIAssistantView: View {
         )
         .onAppear {
             setupAI()
+            setupKeyboardObservers()
+        }
+        .onDisappear {
+            removeKeyboardObservers()
         }
         .sheet(isPresented: $state.showingAnalysisResults) {
             if let analysis = state.aiManager.lastAnalysis {
@@ -389,7 +547,7 @@ struct EnhancedAIAssistantView: View {
 
     private var chatHistorySection: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 24) {
                 ForEach(state.messages) { message in
                     if message.isUser {
                         UserMessageView(message: message)
@@ -401,49 +559,48 @@ struct EnhancedAIAssistantView: View {
                 if state.isLoading {
                     HStack {
                         ProgressView()
-                            .padding(.horizontal, 4)
+                            .scaleEffect(0.8)
                         Text("Thinking...")
                             .font(.caption)
-                            .foregroundColor(.gray)
+                            .foregroundColor(.secondary)
                     }
-                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 if let error = state.errorMessage {
-                    Text(error)
-                        .foregroundColor(.red)
-                        .font(.caption)
-                        .padding(.vertical, 8)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Error")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.red)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 12)
+                        
+                        Text(error)
+                            .font(.system(.body, design: .default))
+                            .foregroundColor(.red)
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 12)
+                    }
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.red.opacity(0.05))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.red.opacity(0.2), lineWidth: 1)
+                            )
+                    )
                 }
             }
-            .padding()
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
         }
     }
 
     private var inputSection: some View {
         VStack(spacing: 8) {
-            // Controls row (preserved from original)
+            // + icon and media items above text input
             HStack {
-                Menu {
-                    ForEach(state.availableModels, id: \.self) { model in
-                        Button(model) {
-                            state.selectedModel = model
-                        }
-                    }
-                } label: {
-                    HStack {
-                        Text(state.selectedModel)
-                            .font(.caption)
-                            .foregroundColor(.primary)
-                        Image(systemName: "chevron.down")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                    }
-                    .padding(.horizontal, 6)
-                    .cornerRadius(8)
-                }
-
-                // Media upload menu (preserved from original)
                 Menu {
                     Button {
                         showingImagePicker = true
@@ -465,20 +622,95 @@ struct EnhancedAIAssistantView: View {
                         }
                     #endif
                 } label: {
-                    Image(systemName: "plus.circle")
+                    Image(systemName: "plus")
                         .foregroundColor(.gray)
+                        .font(.caption)
+                        .padding(4)
+                        .background(Color.gray.opacity(0.1))
+                        .clipShape(Circle())
                 }
-                .padding(.horizontal, 6)
+                
+                // Media items display (smaller and inline)
+                if !state.tempMediaItems.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(state.tempMediaItems) { item in
+                                ZStack(alignment: .topTrailing) {
+                                    if case .image = item.type {
+                                        #if canImport(UIKit)
+                                            if let uiImage = UIImage(data: item.data) {
+                                                Image(uiImage: uiImage)
+                                                    .resizable()
+                                                    .scaledToFit()
+                                                    .frame(width: 32, height: 32)
+                                                    .cornerRadius(4)
+                                            }
+                                        #endif
+                                    } else if case .file(let name) = item.type {
+                                        HStack(spacing: 2) {
+                                            Image(systemName: "doc")
+                                                .font(.caption2)
+                                            Text(name)
+                                                .font(.caption2)
+                                                .lineLimit(1)
+                                        }
+                                        .padding(4)
+                                        .background(Color.gray.opacity(0.1))
+                                        .cornerRadius(4)
+                                        .frame(height: 32)
+                                    }
 
+                                    Button(action: {
+                                        removeMediaItem(item)
+                                    }) {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundColor(.red)
+                                            .background(Color.white.opacity(0.8))
+                                            .clipShape(Circle())
+                                            .font(.caption2)
+                                    }
+                                    .offset(x: 4, y: -4)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                    }
+                }
+                
                 Spacer()
             }
             .padding(.horizontal)
 
-            // Input area with send button (simplified from original)
-            HStack {
+            // Input area with model selection on left and send button on right
+            HStack(spacing: 8) {
+                // Model selection on the left
+                Menu {
+                    ForEach(state.availableModels, id: \.self) { model in
+                        Button(model) {
+                            state.selectedModel = model
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(state.selectedModel)
+                            .font(.caption)
+                            .foregroundColor(.primary)
+                        Image(systemName: "chevron.down")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(6)
+                }
+
+                // Text input in the middle
                 TextField("Ask about your note...", text: $state.userInput)
+                    .font(.system(size: 15))
                     .textFieldStyle(.roundedBorder)
 
+                // Send button on the right
                 Button(action: {
                     sendContextualMessage()
                 }) {
@@ -491,6 +723,8 @@ struct EnhancedAIAssistantView: View {
             .padding(.horizontal)
             .padding(.bottom, inputOuterPadding)
         }
+        .offset(y: state.messages.isEmpty ? 0 : -keyboardHeight)
+        .animation(.easeInOut(duration: 0.3), value: keyboardHeight)
     }
 
     // MARK: - AI Analysis Methods
@@ -636,6 +870,43 @@ struct EnhancedAIAssistantView: View {
             // Update current mode to show results
             state.currentMode = .suggestions
         }
+    }
+    
+    private func removeMediaItem(_ item: MediaItem) {
+        if let index = state.tempMediaItems.firstIndex(where: { $0.id == item.id }) {
+            state.tempMediaItems.remove(at: index)
+        }
+    }
+    
+    // MARK: - Keyboard Handling
+    
+    private func setupKeyboardObservers() {
+        #if canImport(UIKit)
+        NotificationCenter.default.addObserver(
+            forName: UIResponder.keyboardWillShowNotification,
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
+                keyboardHeight = keyboardFrame.height
+            }
+        }
+        
+        NotificationCenter.default.addObserver(
+            forName: UIResponder.keyboardWillHideNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            keyboardHeight = 0
+        }
+        #endif
+    }
+    
+    private func removeKeyboardObservers() {
+        #if canImport(UIKit)
+        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillShowNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
+        #endif
     }
 }
 

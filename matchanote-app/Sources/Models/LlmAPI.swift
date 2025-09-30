@@ -53,10 +53,11 @@ struct OpenRouterAPI {
     let requestBody: [String: Any] = [
       "model": model,
       "messages": [
-        ["role": "system", "content": "You are a helpful assistant called Matcha Assistant."],
+        ["role": "system", "content": "You are a helpful assistant called Matcha Assistant. You can use basic text formatting: **bold text** for emphasis and *italic text* for subtle emphasis. Use simple line breaks and avoid complex markdown formatting like code blocks or headers."],
         ["role": "user", "content": userMessage],
       ],
       "temperature": 0.7,
+      "max_tokens": 8000,
     ]
 
     // Serialize to JSON

@@ -41,6 +41,7 @@ struct GrowingTextEditor: View {
 
       if text.isEmpty {
         Text(placeholderText)
+          .font(.system(size: 15))
           .foregroundColor(.gray.opacity(0.7))
           .padding(.horizontal, 4)
           .padding(.vertical, 8)

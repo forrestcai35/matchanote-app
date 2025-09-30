@@ -85,6 +85,8 @@ class RecursiveAI: ObservableObject {
         5. Use suggest_connections to identify relationships
         6. Provide comprehensive analysis with actionable suggestions
 
+        IMPORTANT: You may use basic text formatting like **bold text** and *italic text* for emphasis, but avoid complex markdown like code blocks, headers (#), lists (- or 1.), or other special formatting. Keep responses clean with simple line breaks and basic emphasis formatting only.
+
         Respond with specific, actionable insights that help the user learn and improve their notes.
         """
 

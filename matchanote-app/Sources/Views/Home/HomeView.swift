@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Combine
+import PencilKit
 
 struct SidebarItem: Identifiable {
     var id: String
@@ -1026,6 +1027,12 @@ struct HomeView: View {
                 )
             }
 
+            Button(action: {
+                exportNote(note)
+            }) {
+                Label("Export", systemImage: "square.and.arrow.up")
+            }
+
             Divider()
 
             Button(
@@ -1038,6 +1045,18 @@ struct HomeView: View {
             }
         }
     }
+
+    // MARK: - Export Functionality
+    private func exportNote(_ note: Note) {
+        // Always export as PDF for consistency with NoteView
+        exportNoteAsPDF(note)
+    }
+    
+    private func exportNoteAsPDF(_ note: Note) {
+        // Use the universal export manager
+        ExportManager.shared.presentExportShareSheet(for: note)
+    }
+    
 
     // MARK: - Selection Helpers
     private func toggleNoteSelection(_ noteID: UUID) {
@@ -1320,14 +1339,18 @@ struct HomeView: View {
             }
         }
 
+        // Create a better title from the filename
+        let noteTitle = createNoteTitle(from: fileName, type: "PDF")
+
         let newNote = Note(
-            title: fileName,
+            title: noteTitle,
             color: .matchalight_light,
             dateCreated: Date(),
             dateModified: Date(),
             noteType: .written,
             paperColor: .white,
             paperStyle: .blank,
+            paperSize: .a4,
             imageDataByPage: imageDataByPage
         )
 
@@ -1343,14 +1366,18 @@ struct HomeView: View {
         // Create a note with the image as background on the first page
         let imageDataByPage: [String: [Data]] = ["0": [imageData]]
 
+        // Create a better title from the filename
+        let noteTitle = createNoteTitle(from: fileName, type: "Image")
+
         let newNote = Note(
-            title: fileName,
+            title: noteTitle,
             color: .matchalight_light,
             dateCreated: Date(),
             dateModified: Date(),
             noteType: .written,
             paperColor: .white,
             paperStyle: .blank,
+            paperSize: .a4,
             imageDataByPage: imageDataByPage
         )
 
@@ -1404,6 +1431,25 @@ struct HomeView: View {
         saveAndOpenNote(newNote)
     }
 
+    // MARK: - Helper Functions for Upload
+    private func createNoteTitle(from fileName: String, type: String) -> String {
+        // Clean up the filename and create a better title
+        let cleanName = fileName
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+            .capitalized
+        
+        // If the name is too long, truncate it
+        if cleanName.count > 30 {
+            let truncated = String(cleanName.prefix(27))
+            return "\(truncated)..."
+        }
+        
+        return cleanName.isEmpty ? "Imported \(type)" : cleanName
+    }
+    
+    
+    
     private func saveAndOpenNote(_ newNote: Note) {
         // Add to current folder if we're in one
         if let currentFolderID = currentFolderID,

@@ -55,12 +55,10 @@ struct CanvasImageView: View {
                         )
                         .contentShape(Rectangle()) // Ensure precise hit testing
                         .onTapGesture {
-                            withAnimation(.spring()) {
-                                if isSelected {
-                                    imageManager.deselectImage()
-                                } else {
-                                    imageManager.selectImage(withId: image.id)
-                                }
+                            if isSelected {
+                                imageManager.deselectImage()
+                            } else {
+                                imageManager.selectImage(withId: image.id)
                             }
                         }
                         .highPriorityGesture(
@@ -88,10 +86,9 @@ struct CanvasImageView: View {
                         selectionControls()
                     }
                 }
-                .offset(offset)
                 .position(
-                    x: image.position.x + image.size.width / 2,
-                    y: image.position.y + image.size.height / 2
+                    x: image.position.x + image.size.width / 2 + offset.width,
+                    y: image.position.y + image.size.height / 2 + offset.height
                 )
                 .zIndex(Double(image.zIndex + (isSelected ? 1000 : 0)))
                 // The highPriorityGesture above ensures the scroll view doesn't capture drags
@@ -108,9 +105,7 @@ struct CanvasImageView: View {
         ZStack {
             // Delete button (top-right corner)
             Button(action: {
-                withAnimation(.spring()) {
-                    imageManager.removeImage(withId: image.id, fromPage: pageIndex)
-                }
+                imageManager.removeImage(withId: image.id, fromPage: pageIndex)
             }) {
                 ZStack {
                     Circle()

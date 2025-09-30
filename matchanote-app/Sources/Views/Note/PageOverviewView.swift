@@ -10,6 +10,12 @@ struct PageOverviewView: View {
   @EnvironmentObject private var storageManager: StorageManager
   @ObservedObject private var tabManager = TabManager.shared
   
+  // Selection state
+  @State private var isSelectionMode = false
+  @State private var selectedPages: Set<Int> = []
+  @State private var showingExportSheet = false
+  @State private var showingDeleteAlert = false
+  
   private let columns = Array(repeating: GridItem(.flexible(), spacing: 16), count: 3)
   
   var body: some View {
@@ -23,8 +29,14 @@ struct PageOverviewView: View {
               canvasViews: canvasViews,
               isCurrentPage: pageIndex == currentPage,
               isBookmarked: note.bookmarkedPages.contains(pageIndex),
+              isSelectionMode: isSelectionMode,
+              isSelected: selectedPages.contains(pageIndex),
               onTap: {
-                navigateToPage(pageIndex)
+                if isSelectionMode {
+                  togglePageSelection(pageIndex)
+                } else {
+                  navigateToPage(pageIndex)
+                }
               },
               onBookmarkToggle: {
                 toggleBookmark(for: pageIndex)
@@ -37,14 +49,57 @@ struct PageOverviewView: View {
       .navigationTitle("Pages Overview")
       .navigationBarTitleDisplayMode(.large)
       .toolbar {
+        ToolbarItem(placement: .navigationBarLeading) {
+          if isSelectionMode {
+            Button("Cancel") {
+              exitSelectionMode()
+            }
+          }
+        }
+        
         ToolbarItem(placement: .navigationBarTrailing) {
-          Button("Done") {
-            isPresented = false
+          HStack {
+            if isSelectionMode {
+              // Selection mode controls
+              if !selectedPages.isEmpty {
+                Button("Export") {
+                  showingExportSheet = true
+                }
+                
+                Button("Delete") {
+                  showingDeleteAlert = true
+                }
+                .foregroundColor(.red)
+              }
+            } else {
+              Button("Select") {
+                enterSelectionMode()
+              }
+            }
+            
+            Button("Done") {
+              isPresented = false
+            }
           }
         }
       }
     }
     .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
+    .alert("Delete Pages", isPresented: $showingDeleteAlert) {
+      Button("Cancel", role: .cancel) { }
+      Button("Delete", role: .destructive) {
+        deleteSelectedPages()
+        exitSelectionMode()
+      }
+    } message: {
+      Text("Are you sure you want to delete \(selectedPages.count) page\(selectedPages.count == 1 ? "" : "s")? This action cannot be undone.")
+    }
+    .onChange(of: showingExportSheet) { _, newValue in
+      if newValue {
+        exportSelectedPages()
+        showingExportSheet = false
+      }
+    }
   }
   
   private var totalPages: Int {
@@ -70,6 +125,117 @@ struct PageOverviewView: View {
     let savedNote = storageManager.saveNote(updatedNote)
     tabManager.updateNote(savedNote)
   }
+  
+  // MARK: - Selection Management
+  private func enterSelectionMode() {
+    isSelectionMode = true
+    selectedPages.removeAll()
+  }
+  
+  private func exitSelectionMode() {
+    isSelectionMode = false
+    selectedPages.removeAll()
+  }
+  
+  private func togglePageSelection(_ pageIndex: Int) {
+    if selectedPages.contains(pageIndex) {
+      selectedPages.remove(pageIndex)
+    } else {
+      selectedPages.insert(pageIndex)
+    }
+  }
+  
+  // MARK: - Page Actions
+  private func exportSelectedPages() {
+    guard !selectedPages.isEmpty else { return }
+    
+    // Use the universal export manager with selected pages
+    let selectedPagesArray = Array(selectedPages).sorted()
+    ExportManager.shared.presentExportShareSheet(for: note, selectedPages: selectedPagesArray)
+  }
+  
+  private func deleteSelectedPages() {
+    guard !selectedPages.isEmpty else { return }
+    
+    // Create updated note with selected pages removed
+    var updatedNote = note
+    let selectedPagesArray = Array(selectedPages).sorted()
+    
+    // Remove drawing data for selected pages
+    for pageIndex in selectedPagesArray {
+      updatedNote.drawingDataByPage.removeValue(forKey: String(pageIndex))
+      updatedNote.imageDataByPage.removeValue(forKey: String(pageIndex))
+      updatedNote.textBoxDataByPage.removeValue(forKey: String(pageIndex))
+      updatedNote.bookmarkedPages.remove(pageIndex)
+    }
+    
+    // Adjust remaining page indices
+    let adjustedNote = adjustPageIndicesAfterDeletion(updatedNote, deletedPages: selectedPagesArray)
+    
+    updatedNote.dateModified = Date()
+    let savedNote = storageManager.saveNote(adjustedNote)
+    tabManager.updateNote(savedNote)
+    
+    // Update canvas views to reflect the changes
+    updateCanvasViewsAfterDeletion(deletedPages: selectedPagesArray)
+  }
+  
+  
+  private func adjustPageIndicesAfterDeletion(_ note: Note, deletedPages: [Int]) -> Note {
+    var adjustedNote = note
+    var newDrawingData: [String: Data] = [:]
+    var newImageData: [String: [Data]] = [:]
+    var newTextBoxData: [String: [Data]] = [:]
+    var newBookmarkedPages: Set<Int> = []
+    
+    // Get all remaining pages (not deleted)
+    let allPages = Set(0..<totalPages)
+    let remainingPages = allPages.subtracting(Set(deletedPages)).sorted()
+    
+    // Reindex remaining pages
+    for (newIndex, originalIndex) in remainingPages.enumerated() {
+      if let drawingData = note.drawingDataByPage[String(originalIndex)] {
+        newDrawingData[String(newIndex)] = drawingData
+      }
+      if let imageData = note.imageDataByPage[String(originalIndex)] {
+        newImageData[String(newIndex)] = imageData
+      }
+      if let textBoxData = note.textBoxDataByPage[String(originalIndex)] {
+        newTextBoxData[String(newIndex)] = textBoxData
+      }
+      if note.bookmarkedPages.contains(originalIndex) {
+        newBookmarkedPages.insert(newIndex)
+      }
+    }
+    
+    adjustedNote.drawingDataByPage = newDrawingData
+    adjustedNote.imageDataByPage = newImageData
+    adjustedNote.textBoxDataByPage = newTextBoxData
+    adjustedNote.bookmarkedPages = newBookmarkedPages
+    
+    return adjustedNote
+  }
+  
+  private func updateCanvasViewsAfterDeletion(deletedPages: [Int]) {
+    // Remove canvas views for deleted pages
+    let sortedDeletedPages = deletedPages.sorted()
+    
+    // Remove from the end to avoid index shifting issues
+    for pageIndex in sortedDeletedPages.reversed() {
+      if pageIndex < canvasViews.count {
+        canvasViews.remove(at: pageIndex)
+      }
+    }
+    
+    // Adjust current page if it was affected
+    if let maxDeletedPage = deletedPages.max(), currentPage > maxDeletedPage {
+      currentPage -= deletedPages.filter { $0 < currentPage }.count
+    } else if deletedPages.contains(currentPage) {
+      // If current page was deleted, go to the previous page or 0
+      currentPage = max(0, currentPage - 1)
+    }
+  }
+  
 }
 
 struct PageThumbnailView: View {
@@ -78,6 +244,8 @@ struct PageThumbnailView: View {
   let canvasViews: [PKCanvasView]
   let isCurrentPage: Bool
   let isBookmarked: Bool
+  let isSelectionMode: Bool
+  let isSelected: Bool
   let onTap: () -> Void
   let onBookmarkToggle: () -> Void
   
@@ -144,8 +312,24 @@ struct PageThumbnailView: View {
           }
         }
         
-        // Current page indicator
-        if isCurrentPage {
+        // Selection indicator
+        if isSelectionMode {
+          VStack {
+            HStack {
+              Spacer()
+              Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                .foregroundColor(isSelected ? .blue : .gray)
+                .font(.title2)
+                .background(Color.white.opacity(0.8))
+                .clipShape(Circle())
+                .padding(8)
+            }
+            Spacer()
+          }
+        }
+        
+        // Current page indicator (only show when not in selection mode)
+        if isCurrentPage && !isSelectionMode {
           VStack {
             Spacer()
             HStack {
