@@ -39,8 +39,18 @@ struct SignInView: View {
 
               VStack(spacing: 8) {
                 Text("Welcome Back")
-                  .font(.system(size: 32, weight: .bold, design: .rounded))
-                  .foregroundColor(colorScheme == .dark ? .matchadark_dark : .matchadark_light)
+                  .font(.system(size: 40, weight: .bold, design: .rounded))
+                  .foregroundStyle(
+                    LinearGradient(
+                      gradient: Gradient(colors: [
+                        colorScheme == .dark ? .matchalight_dark : .matchalight_light,
+                        colorScheme == .dark ? Color(red: 0.3, green: 0.7, blue: 0.4) : .matchadark_light
+                      ]),
+                      startPoint: .topLeading,
+                      endPoint: .bottomTrailing
+                    )
+                  )
+                  .shadow(color: colorScheme == .dark ? .white.opacity(0.1) : .black.opacity(0.1), radius: 2, x: 0, y: 1)
 
                 Text("Choose your preferred sign-in method")
                   .font(.system(size: 16, weight: .medium))
@@ -164,7 +174,7 @@ struct SignInView: View {
                     HStack(spacing: 12) {
                       if isLoading {
                         ProgressView()
-                          .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                          .progressViewStyle(CircularProgressViewStyle(tint: .black))
                           .scaleEffect(0.8)
                       } else {
                         Image(systemName: "apple.logo")
@@ -174,12 +184,16 @@ struct SignInView: View {
                       Text("Continue with Apple")
                         .font(.system(size: 16, weight: .semibold))
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(.black)
                     .frame(maxWidth: min(geometry.size.width * 0.8, 400))
                     .frame(height: 56)
-                    .background(Color.black)
+                    .background(Color.white)
                     .cornerRadius(12)
-                    .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+                    .overlay(
+                      RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
                   }
                   .disabled(isLoading)
 
@@ -192,9 +206,10 @@ struct SignInView: View {
                     }
                   }) {
                     HStack(spacing: 12) {
-                      Image(systemName: "g.circle.fill")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundColor(.black)
+                      Image("google_logo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 20, height: 20)
 
                       Text("Continue with Google")
                         .font(.system(size: 16, weight: .semibold))
