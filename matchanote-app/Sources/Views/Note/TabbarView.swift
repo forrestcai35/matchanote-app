@@ -41,7 +41,9 @@ struct TabBarView: View {
         dismiss()
       }) {
         Image(systemName: "house")
-          .foregroundColor(.gray)
+          .foregroundColor(
+            colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+          )
           .font(.system(size: 18))
           .frame(width: 32, height: 32)
           .contentShape(Rectangle())
@@ -64,7 +66,9 @@ struct TabBarView: View {
         // Add / Upload popover
         Button(action: { showAddPopover.toggle() }) {
           Image(systemName: "plus.circle")
-            .foregroundColor(.gray)
+            .foregroundColor(
+              colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+            )
             .font(.system(size: 20))
             .frame(width: 32, height: 32)
             .contentShape(Rectangle())
@@ -91,12 +95,18 @@ struct TabBarView: View {
               }) {
                 Label("Add Page", systemImage: "doc.badge.plus")
               }
+              .foregroundColor(
+                colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+              )
               Button(action: {
                 onUpload?(selectedPlacement)
                 showAddPopover = false
               }) {
                 Label("Upload", systemImage: "square.and.arrow.up")
               }
+              .foregroundColor(
+                colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+              )
             }
             .padding(.horizontal, 6)
           }
@@ -107,7 +117,9 @@ struct TabBarView: View {
         // Share popover
         Button(action: { showSharePopover.toggle() }) {
           Image(systemName: "square.and.arrow.up")
-            .foregroundColor(.gray)
+            .foregroundColor(
+              colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+            )
             .font(.system(size: 18))
             .frame(width: 32, height: 32)
             .contentShape(Rectangle())
@@ -121,12 +133,18 @@ struct TabBarView: View {
             }) {
               Label("Export this page", systemImage: "doc")
             }
+            .foregroundColor(
+              colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+            )
             Button(action: {
               exportAllPagesAction?()
               showSharePopover = false
             }) {
               Label("Export all pages", systemImage: "doc.on.doc")
             }
+            .foregroundColor(
+              colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+            )
             Divider()
             Button(action: {
               printCurrentPageAction?()
@@ -134,12 +152,18 @@ struct TabBarView: View {
             }) {
               Label("Print this page", systemImage: "printer")
             }
+            .foregroundColor(
+              colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+            )
             Button(action: {
               printAllPagesAction?()
               showSharePopover = false
             }) {
               Label("Print all pages", systemImage: "printer.fill")
             }
+            .foregroundColor(
+              colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+            )
           }
           .padding(.horizontal, 12)
           .padding(.vertical, 12)
@@ -149,7 +173,9 @@ struct TabBarView: View {
         // More options popover
         Button(action: { showMorePopover.toggle() }) {
           Image(systemName: "ellipsis")
-            .foregroundColor(.gray)
+            .foregroundColor(
+              colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+            )
             .font(.system(size: 18))
             .frame(width: 32, height: 32)
             .contentShape(Rectangle())
@@ -163,6 +189,9 @@ struct TabBarView: View {
             }) {
               Label("Rotate Page", systemImage: "rotate.right")
             }
+            .foregroundColor(
+              colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+            )
             Divider()
             Button(action: {
               clearPageAction?()
@@ -189,7 +218,9 @@ struct TabBarView: View {
     .padding(.horizontal, 12)
     .frame(height: 40)
     .frame(maxWidth: .infinity, alignment: .center)
-    .background(colorScheme == .dark ? Color.black : Color.gray.opacity(0.15))
+    .background(
+      colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light
+    )
   }
 
 }
@@ -213,8 +244,8 @@ struct TabItemView: View {
           .lineLimit(1)
           .foregroundColor(
             tab.isActive
-              ? (colorScheme == .dark ? Color.white : Color.black)
-              : (colorScheme == .dark ? Color.white.opacity(0.8) : Color.black.opacity(0.8)))
+              ? (colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+              : (colorScheme == .dark ? Color.matchabrown_dark.opacity(0.8) : Color.matchabrown_light.opacity(0.8)))
         Spacer()
         // Close button
         Button(action: {
@@ -222,7 +253,9 @@ struct TabItemView: View {
         }) {
           Image(systemName: "xmark")
             .font(.system(size: 10))
-            .foregroundColor(.gray)
+            .foregroundColor(
+              colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+            )
             .padding(4)
         }
         .buttonStyle(PlainButtonStyle())

@@ -289,8 +289,7 @@ struct WrittenNoteToolbar: View {
       }) {
         Image(systemName: isCurrentPageBookmarked ? "bookmark.fill" : "bookmark")
           .foregroundColor(
-            isCurrentPageBookmarked
-              ? .matchalight_dark : (colorScheme == .dark ? .matchadark_dark : .matchadark_light))
+            colorScheme == .dark ? .matchadark_dark : .matchadark_light)
       }
 
       Button(action: {

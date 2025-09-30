@@ -60,14 +60,20 @@ public struct ListItemView: View {
                         if let drawingData = note.drawingDataByPage["0"],
                            let pkDrawing = try? PKDrawing(data: drawingData),
                            !pkDrawing.strokes.isEmpty {
-                            // Show drawing preview
+                            // Use PaperUtilities for consistent preview generation
                             let paperSize = PaperUtilities.paperSize(for: note.paperSize)
-                            let previewBounds = CGRect(origin: .zero, size: paperSize)
-                            let previewImage = pkDrawing.image(from: previewBounds, scale: 0.3)
+                            let backgroundImages = note.imageDataByPage["0"]
+                            let previewImage = PaperUtilities.generatePreviewWithBackground(
+                                drawing: pkDrawing,
+                                paperSize: paperSize,
+                                paperColor: note.paperColor,
+                                scale: 0.3,
+                                backgroundImages: backgroundImages
+                            )
 
                             Image(uiImage: previewImage)
                                 .resizable()
-                                .aspectRatio(contentMode: .fit)
+                                .aspectRatio(contentMode: .fill)
                                 .frame(width: 32, height: 40)
                                 .clipped()
                         } else {
@@ -128,7 +134,11 @@ public struct ListItemView: View {
                 // Selection indicator
                 if isSelectionMode {
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .foregroundColor(isSelected ? .blue : .gray)
+                        .foregroundColor(
+                            isSelected 
+                                ? (colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light)
+                                : .gray
+                        )
                         .font(.title3)
                 }
                 
@@ -262,7 +272,11 @@ public struct ListFolderItemView: View {
                 // Selection indicator
                 if isSelectionMode {
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .foregroundColor(isSelected ? .blue : .gray)
+                        .foregroundColor(
+                            isSelected 
+                                ? (colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light)
+                                : .gray
+                        )
                         .font(.title3)
                 }
                 
@@ -378,17 +392,26 @@ public struct GridFolderItemView: View {
                     .frame(width: 175, height: 140)
                     .clipped()
                 
-                // Selection indicator - centered circle
+                // Selection indicator - centered circle with checkmark
                 if isSelectionMode {
-                    Circle()
-                        .fill(isSelected ? Color.blue : Color.clear)
-                        .stroke(isSelected ? Color.blue : Color.gray, lineWidth: 2)
-                        .frame(width: 24, height: 24)
-                        .background(
+                    ZStack {
+                        Circle()
+                            .fill(Color.white)
+                            .frame(width: 24, height: 24)
+                            .shadow(radius: 2)
+                        
+                        if isSelected {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(
+                                    colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light
+                                )
+                                .font(.system(size: 20))
+                        } else {
                             Circle()
-                                .fill(Color.white)
-                                .frame(width: 24, height: 24)
-                        )
+                                .stroke(Color.gray, lineWidth: 2)
+                                .frame(width: 20, height: 20)
+                        }
+                    }
                 }
             }
             // Folder title with rename dropdown
@@ -481,31 +504,34 @@ public struct GridItemView: View {
         return !note.imageDataByPage.isEmpty
     }
 
+    // Helper to get the drawing data for uploaded content preview
+    private var uploadedContentDrawing: PKDrawing {
+        if let drawingData = note.drawingDataByPage["0"],
+           let existingDrawing = try? PKDrawing(data: drawingData) {
+            return existingDrawing
+        } else {
+            return PKDrawing() // Empty drawing
+        }
+    }
+    
     // Preview view for uploaded content
     @ViewBuilder
     private var uploadedContentPreview: some View {
-        if let firstPageImages = note.imageDataByPage["0"],
-           let firstImageData = firstPageImages.first,
-           let uiImage = UIImage(data: firstImageData) {
-            // Show actual image preview without overlay icon
-            Image(uiImage: uiImage)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-        } else {
-            // Fallback for non-image content or empty content
-            RoundedRectangle(cornerRadius: note.noteType == .written ? 10 : 0)
-                .fill(note.color)
-                .overlay(
-                    VStack {
-                        Image(systemName: "doc.fill")
-                            .font(.system(size: 30))
-                            .foregroundColor(.white.opacity(0.8))
-                        Text("Imported")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.8))
-                    }
-                )
-        }
+        // Use PaperUtilities to properly composite paper background, uploaded images, and drawing data
+        let paperSize = PaperUtilities.paperSize(for: note.paperSize)
+        let backgroundImages = note.imageDataByPage["0"]
+        let previewImage = PaperUtilities.generatePreviewWithBackground(
+            drawing: uploadedContentDrawing,
+            paperSize: paperSize,
+            paperColor: note.paperColor,
+            scale: 0.5,
+            backgroundImages: backgroundImages
+        )
+        
+        Image(uiImage: previewImage)
+            .resizable()
+            .aspectRatio(contentMode: .fill)
+            .clipped()
     }
 
     // Preview view for written notes (show drawing/content preview)
@@ -519,14 +545,21 @@ public struct GridItemView: View {
             // Show drawing preview if available
             if let drawingData = note.drawingDataByPage["0"],
                let pkDrawing = try? PKDrawing(data: drawingData) {
-                // Use actual paper dimensions for proper aspect ratio
+                // Use PaperUtilities for consistent preview generation with background images
                 let paperSize = PaperUtilities.paperSize(for: note.paperSize)
-                let previewBounds = CGRect(origin: .zero, size: paperSize)
-                let previewImage = pkDrawing.image(from: previewBounds, scale: 0.5)
+                let backgroundImages = note.imageDataByPage["0"]
+                let previewImage = PaperUtilities.generatePreviewWithBackground(
+                    drawing: pkDrawing,
+                    paperSize: paperSize,
+                    paperColor: note.paperColor,
+                    scale: 0.5,
+                    backgroundImages: backgroundImages
+                )
 
                 Image(uiImage: previewImage)
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
+                    .aspectRatio(contentMode: .fill)
+                    .clipped()
             } else {
                 // Empty note - show paper with subtle pencil icon
                 VStack {
@@ -637,17 +670,26 @@ public struct GridItemView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                     .padding(8)
                 
-                // Selection indicator - centered circle
+                // Selection indicator - centered circle with checkmark
                 if isSelectionMode {
-                    Circle()
-                        .fill(isSelected ? Color.blue : Color.clear)
-                        .stroke(isSelected ? Color.blue : Color.gray, lineWidth: 2)
-                        .frame(width: 24, height: 24)
-                        .background(
+                    ZStack {
+                        Circle()
+                            .fill(Color.white)
+                            .frame(width: 24, height: 24)
+                            .shadow(radius: 2)
+                        
+                        if isSelected {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(
+                                    colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light
+                                )
+                                .font(.system(size: 20))
+                        } else {
                             Circle()
-                                .fill(Color.white)
-                                .frame(width: 24, height: 24)
-                        )
+                                .stroke(Color.gray, lineWidth: 2)
+                                .frame(width: 20, height: 20)
+                        }
+                    }
                 }
             }
 

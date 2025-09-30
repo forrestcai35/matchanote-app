@@ -14,7 +14,7 @@ extension Color {
     static let matchadark_light = Color(red: 0.267, green: 0.384, blue: 0.290) // #44624a
     
     static let matchabackground_dark = Color(red: 0.089, green: 0.091, blue: 0.082)
-    static let matchabackground_light = Color(red: 0.9725, green: 0.9804, blue: 0.9608)
+    static let matchabackground_light = Color(red: 0.9725, green: 0.9725, blue: 0.9725)
 
     // Paper Colors
     static let paper_offwhite = Color(red: 0.980, green: 0.972, blue: 0.950)

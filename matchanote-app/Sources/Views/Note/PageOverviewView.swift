@@ -268,15 +268,42 @@ struct PageThumbnailView: View {
               )
           )
         
-        // Drawing preview
+        // Drawing preview - use simple logic like home view
         if let previewImage = previewImage {
           Image(uiImage: previewImage)
             .resizable()
             .aspectRatio(paperAspectRatio(for: pageIndex), contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 6))
-        } else if (pageIndex < canvasViews.count && !canvasViews[pageIndex].drawing.strokes.isEmpty) ||
-                  note.imageDataByPage[String(pageIndex)] != nil {
-          // Fallback while loading (either drawing strokes or background images)
+        } else if note.imageDataByPage[String(pageIndex)] != nil {
+          // Show uploaded background image directly (like home view)
+          if let imageDataArray = note.imageDataByPage[String(pageIndex)],
+             let firstImageData = imageDataArray.first,
+             let uiImage = UIImage(data: firstImageData) {
+            Image(uiImage: uiImage)
+              .resizable()
+              .aspectRatio(contentMode: .fit)
+              .aspectRatio(paperAspectRatio(for: pageIndex), contentMode: .fit)
+              .clipShape(RoundedRectangle(cornerRadius: 6))
+          }
+        } else if note.drawingDataByPage[String(pageIndex)] != nil {
+          // Show stored drawing data directly (like home view)
+          if let drawingData = note.drawingDataByPage[String(pageIndex)],
+             let pkDrawing = try? PKDrawing(data: drawingData) {
+            let paperSize = CGSize(
+              width: getPaperWidth(for: note.paperSize),
+              height: getPaperHeight(for: note.paperSize)
+            )
+            let previewBounds = CGRect(origin: .zero, size: paperSize)
+            let previewImage = pkDrawing.image(from: previewBounds, scale: 0.5)
+            
+            Image(uiImage: previewImage)
+              .resizable()
+              .aspectRatio(contentMode: .fit)
+              .aspectRatio(paperAspectRatio(for: pageIndex), contentMode: .fit)
+              .clipShape(RoundedRectangle(cornerRadius: 6))
+          }
+        } else if (pageIndex < canvasViews.count && !canvasViews[pageIndex].drawing.strokes.isEmpty) {
+          // Fallback while loading (drawing strokes)
           Rectangle()
             .fill(Color.gray.opacity(0.1))
             .aspectRatio(paperAspectRatio(for: pageIndex), contentMode: .fit)
@@ -289,6 +316,7 @@ struct PageThumbnailView: View {
         // Paper pattern overlay (subtle) - only show if no preview image and no background images
         if previewImage == nil &&
            note.imageDataByPage[String(pageIndex)] == nil &&
+           note.drawingDataByPage[String(pageIndex)] == nil &&
            (pageIndex >= canvasViews.count || canvasViews[pageIndex].drawing.strokes.isEmpty) {
           paperPatternOverlay()
             .opacity(0.3)
