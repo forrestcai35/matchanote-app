@@ -27,26 +27,27 @@ public struct ListItemView: View {
         ZStack {
             // Content preview with vertical rectangle aspect ratio (same as grid)
             if hasUploadedContent {
-                // Show uploaded content preview
-                if let firstPageImages = note.imageDataByPage["0"],
-                   let firstImageData = firstPageImages.first,
-                   let uiImage = UIImage(data: firstImageData) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 32, height: 40)
-                        .clipped()
-                        .clipShape(RoundedRectangle(cornerRadius: note.noteType == .written ? 6 : 2))
-                } else {
-                    RoundedRectangle(cornerRadius: note.noteType == .written ? 6 : 2)
-                        .fill(note.color)
-                        .frame(width: 32, height: 40)
-                        .overlay(
-                            Image(systemName: "doc.fill")
-                                .font(.system(size: 14))
-                                .foregroundColor(.white.opacity(0.8))
-                        )
-                }
+                // Show uploaded content preview with drawing strokes
+                let paperSize = PaperUtilities.paperSize(for: note.paperSize)
+                let backgroundImages = note.imageDataByPage["0"]
+                let drawingData = note.drawingDataByPage["0"]
+                let pkDrawing = (drawingData != nil) ? (try? PKDrawing(data: drawingData!)) ?? PKDrawing() : PKDrawing()
+                
+                let previewImage = PaperUtilities.generatePreviewWithBackground(
+                    drawing: pkDrawing,
+                    paperSize: paperSize,
+                    paperColor: note.paperColor,
+                    paperStyle: note.paperStyle,
+                    scale: 0.3,
+                    backgroundImages: backgroundImages
+                )
+                
+                Image(uiImage: previewImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 32, height: 40)
+                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: note.noteType == .written ? 6 : 2))
             } else {
                 // Show content preview for notes without uploaded content
                 if note.noteType == .written {
@@ -67,6 +68,7 @@ public struct ListItemView: View {
                                 drawing: pkDrawing,
                                 paperSize: paperSize,
                                 paperColor: note.paperColor,
+                                paperStyle: note.paperStyle,
                                 scale: 0.3,
                                 backgroundImages: backgroundImages
                             )
@@ -76,12 +78,7 @@ public struct ListItemView: View {
                                 .aspectRatio(contentMode: .fill)
                                 .frame(width: 32, height: 40)
                                 .clipped()
-                        } else {
-                            // Empty written note - show pencil icon
-                            Image(systemName: "pencil.tip")
-                                .font(.system(size: 14))
-                                .foregroundColor(Color.gray.opacity(0.5))
-                        }
+                        } 
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 } else {
@@ -209,9 +206,18 @@ public struct ListItemView: View {
                 Spacer()
 
                 // Star indicator
-                Image(systemName: note.isFavorite ? "star.fill" : "star")
-                    .foregroundColor(note.isFavorite ? .yellow : .gray)
-                    .font(.caption)
+                Button(action: {
+                    var updatedNote = note
+                    updatedNote.isFavorite.toggle()
+                    updatedNote.dateModified = Date()
+                    let savedNote = storageManager.saveNote(updatedNote)
+                    TabManager.shared.updateNote(savedNote)
+                }) {
+                    Image(systemName: note.isFavorite ? "star.fill" : "star")
+                        .foregroundColor(note.isFavorite ? .yellow : .gray)
+                        .font(.caption)
+                }
+                .buttonStyle(PlainButtonStyle())
             }
             .frame(maxWidth: .infinity)
             .frame(height: 56)
@@ -524,6 +530,7 @@ public struct GridItemView: View {
             drawing: uploadedContentDrawing,
             paperSize: paperSize,
             paperColor: note.paperColor,
+            paperStyle: note.paperStyle,
             scale: 0.5,
             backgroundImages: backgroundImages
         )
@@ -552,6 +559,7 @@ public struct GridItemView: View {
                     drawing: pkDrawing,
                     paperSize: paperSize,
                     paperColor: note.paperColor,
+                    paperStyle: note.paperStyle,
                     scale: 0.5,
                     backgroundImages: backgroundImages
                 )
@@ -560,19 +568,7 @@ public struct GridItemView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .clipped()
-            } else {
-                // Empty note - show paper with subtle pencil icon
-                VStack {
-                    Spacer()
-                    Image(systemName: "pencil.tip")
-                        .font(.system(size: 30))
-                        .foregroundColor(Color.gray.opacity(0.3))
-                    Text("Empty")
-                        .font(.caption)
-                        .foregroundColor(Color.gray.opacity(0.6))
-                    Spacer()
-                }
-            }
+            } 
         }
     }
 
@@ -657,10 +653,19 @@ public struct GridItemView: View {
                     }
                 }
 
-                Image(systemName: note.isFavorite ? "star.fill" : "star")
-                    .foregroundColor(note.isFavorite ? .yellow : .gray)
-                    .padding(8)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                Button(action: {
+                    var updatedNote = note
+                    updatedNote.isFavorite.toggle()
+                    updatedNote.dateModified = Date()
+                    let savedNote = storageManager.saveNote(updatedNote)
+                    TabManager.shared.updateNote(savedNote)
+                }) {
+                    Image(systemName: note.isFavorite ? "star.fill" : "star")
+                        .foregroundColor(note.isFavorite ? .yellow : .gray)
+                        .padding(8)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
 
                 Image(systemName: noteTypeIcon(note.noteType))
                     .foregroundColor(.white)

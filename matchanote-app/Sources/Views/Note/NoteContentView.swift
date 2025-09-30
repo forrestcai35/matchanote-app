@@ -660,7 +660,7 @@ struct WrittenNoteView: View {
             ForEach(0..<Int((size.height - marginTop) / lineSpacing + 1), id: \.self) { i in
                 let y = marginTop + CGFloat(i) * lineSpacing
                 Line(start: CGPoint(x: 0, y: y), end: CGPoint(x: size.width, y: y))
-                    .stroke(Color.green.opacity(0.3), lineWidth: 0.75)
+                    .stroke(Color.gray.opacity(0.3), lineWidth: 0.75)
             }
         }
     }
