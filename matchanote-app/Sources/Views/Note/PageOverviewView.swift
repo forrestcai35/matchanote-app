@@ -293,8 +293,17 @@ struct PageThumbnailView: View {
               width: getPaperWidth(for: note.paperSize),
               height: getPaperHeight(for: note.paperSize)
             )
-            let previewBounds = CGRect(origin: .zero, size: paperSize)
-            let previewImage = pkDrawing.image(from: previewBounds, scale: 0.5)
+            let backgroundImages = note.imageDataByPage[String(pageIndex)]
+            let overlayImages = PaperUtilities.extractCanvasImages(from: note.imageDataByPage, for: pageIndex)
+            let previewImage = PaperUtilities.generatePreviewWithBackground(
+              drawing: pkDrawing,
+              paperSize: paperSize,
+              paperColor: note.paperColor,
+              paperStyle: note.paperStyle,
+              scale: 0.5,
+              backgroundImages: backgroundImages,
+              overlayImages: overlayImages
+            )
             
             Image(uiImage: previewImage)
               .resizable()
@@ -499,64 +508,26 @@ struct PageThumbnailView: View {
     }
     
     DispatchQueue.main.async {
-      // Create preview image from canvas drawing
+      // Use PaperUtilities for consistent preview generation with overlay images
       let paperSize = CGSize(
         width: getPaperWidth(for: note.paperSize),
         height: getPaperHeight(for: note.paperSize)
       )
-
-      // Use higher scale for crisp thumbnails - scale based on screen density
-      let screenScale = UIScreen.main.scale
-      let thumbnailScale: CGFloat = 0.5 // Increased from 0.2 for better quality
-      let effectiveScale = thumbnailScale * screenScale
-
-      let thumbnailSize = CGSize(
-        width: paperSize.width * thumbnailScale,
-        height: paperSize.height * thumbnailScale
+      
+      let backgroundImages = note.imageDataByPage[String(pageIndex)]
+      let overlayImages = PaperUtilities.extractCanvasImages(from: note.imageDataByPage, for: pageIndex)
+      
+      let previewImage = PaperUtilities.generatePreviewWithBackground(
+        drawing: canvas.drawing,
+        paperSize: paperSize,
+        paperColor: note.paperColor,
+        paperStyle: note.paperStyle,
+        scale: 0.5,
+        backgroundImages: backgroundImages,
+        overlayImages: overlayImages
       )
-
-      // Always use the full paper size as bounds to show entire page
-      let fullPageBounds = CGRect(origin: .zero, size: paperSize)
-
-      // Create a composite image with paper background
-      UIGraphicsBeginImageContextWithOptions(thumbnailSize, false, screenScale)
-
-      defer {
-        UIGraphicsEndImageContext()
-      }
-
-      guard let context = UIGraphicsGetCurrentContext() else {
-        previewImage = nil
-        return
-      }
-
-      // Enable high quality rendering
-      context.setAllowsAntialiasing(true)
-      context.setShouldAntialias(true)
-      context.interpolationQuality = .high
-
-      // Draw paper background
-      let paperColor = getPaperBackgroundColor(for: note.paperColor)
-      UIColor(paperColor).setFill()
-      context.fill(CGRect(origin: .zero, size: thumbnailSize))
-
-      // Draw background images from uploads first
-      if let imageDataArray = note.imageDataByPage[String(pageIndex)] {
-        for imageData in imageDataArray {
-          if let backgroundImage = UIImage(data: imageData) {
-            // Scale and draw the background image to fit the thumbnail
-            backgroundImage.draw(in: CGRect(origin: .zero, size: thumbnailSize), blendMode: .normal, alpha: 1.0)
-          }
-        }
-      }
-
-      // Draw the canvas drawing on top if it exists
-      if hasDrawing {
-        let drawingImage = canvas.drawing.image(from: fullPageBounds, scale: effectiveScale)
-        drawingImage.draw(in: CGRect(origin: .zero, size: thumbnailSize))
-      }
-
-      previewImage = UIGraphicsGetImageFromCurrentImageContext()
+      
+      self.previewImage = previewImage
     }
   }
   

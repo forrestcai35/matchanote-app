@@ -33,13 +33,15 @@ public struct ListItemView: View {
                 let drawingData = note.drawingDataByPage["0"]
                 let pkDrawing = (drawingData != nil) ? (try? PKDrawing(data: drawingData!)) ?? PKDrawing() : PKDrawing()
                 
+                let overlayImages = PaperUtilities.extractCanvasImages(from: note.imageDataByPage, for: 0)
                 let previewImage = PaperUtilities.generatePreviewWithBackground(
                     drawing: pkDrawing,
                     paperSize: paperSize,
                     paperColor: note.paperColor,
                     paperStyle: note.paperStyle,
                     scale: 0.3,
-                    backgroundImages: backgroundImages
+                    backgroundImages: backgroundImages,
+                    overlayImages: overlayImages
                 )
                 
                 Image(uiImage: previewImage)
@@ -64,13 +66,15 @@ public struct ListItemView: View {
                             // Use PaperUtilities for consistent preview generation
                             let paperSize = PaperUtilities.paperSize(for: note.paperSize)
                             let backgroundImages = note.imageDataByPage["0"]
+                            let overlayImages = PaperUtilities.extractCanvasImages(from: note.imageDataByPage, for: 0)
                             let previewImage = PaperUtilities.generatePreviewWithBackground(
                                 drawing: pkDrawing,
                                 paperSize: paperSize,
                                 paperColor: note.paperColor,
                                 paperStyle: note.paperStyle,
                                 scale: 0.3,
-                                backgroundImages: backgroundImages
+                                backgroundImages: backgroundImages,
+                                overlayImages: overlayImages
                             )
 
                             Image(uiImage: previewImage)
@@ -526,13 +530,15 @@ public struct GridItemView: View {
         // Use PaperUtilities to properly composite paper background, uploaded images, and drawing data
         let paperSize = PaperUtilities.paperSize(for: note.paperSize)
         let backgroundImages = note.imageDataByPage["0"]
+        let overlayImages = PaperUtilities.extractCanvasImages(from: note.imageDataByPage, for: 0)
         let previewImage = PaperUtilities.generatePreviewWithBackground(
             drawing: uploadedContentDrawing,
             paperSize: paperSize,
             paperColor: note.paperColor,
             paperStyle: note.paperStyle,
             scale: 0.5,
-            backgroundImages: backgroundImages
+            backgroundImages: backgroundImages,
+            overlayImages: overlayImages
         )
         
         Image(uiImage: previewImage)
@@ -555,13 +561,15 @@ public struct GridItemView: View {
                 // Use PaperUtilities for consistent preview generation with background images
                 let paperSize = PaperUtilities.paperSize(for: note.paperSize)
                 let backgroundImages = note.imageDataByPage["0"]
+                let overlayImages = PaperUtilities.extractCanvasImages(from: note.imageDataByPage, for: 0)
                 let previewImage = PaperUtilities.generatePreviewWithBackground(
                     drawing: pkDrawing,
                     paperSize: paperSize,
                     paperColor: note.paperColor,
                     paperStyle: note.paperStyle,
                     scale: 0.5,
-                    backgroundImages: backgroundImages
+                    backgroundImages: backgroundImages,
+                    overlayImages: overlayImages
                 )
 
                 Image(uiImage: previewImage)

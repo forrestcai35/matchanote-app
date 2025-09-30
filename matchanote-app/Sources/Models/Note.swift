@@ -188,6 +188,19 @@ struct PaperUtilities {
     return width / height
   }
   
+  // MARK: - Helper function to extract CanvasImage objects from imageDataByPage
+  static func extractCanvasImages(from imageDataByPage: [String: [Data]], for pageIndex: Int) -> [CanvasImage] {
+    guard let imageDataArray = imageDataByPage[String(pageIndex)] else { return [] }
+    
+    var canvasImages: [CanvasImage] = []
+    for imageData in imageDataArray {
+      if let canvasImage = try? JSONDecoder().decode(CanvasImage.self, from: imageData) {
+        canvasImages.append(canvasImage)
+      }
+    }
+    return canvasImages
+  }
+  
   // MARK: - Preview Generation
   static func generatePreviewWithBackground(
     drawing: PKDrawing,
@@ -195,7 +208,8 @@ struct PaperUtilities {
     paperColor: PaperColor,
     paperStyle: PaperStyle,
     scale: CGFloat,
-    backgroundImages: [Data]? = nil
+    backgroundImages: [Data]? = nil,
+    overlayImages: [CanvasImage]? = nil
   ) -> UIImage {
     let thumbnailSize = CGSize(
       width: paperSize.width * scale,
@@ -233,6 +247,41 @@ struct PaperUtilities {
     
     // Draw paper pattern on top of background images
     drawPaperPattern(context: context, paperStyle: paperStyle, size: thumbnailSize)
+    
+    // Draw overlay images if provided
+    if let overlayImages = overlayImages {
+      for canvasImage in overlayImages {
+        if let overlayUIImage = UIImage(data: canvasImage.imageData) {
+          // Calculate the scaled position and size for the overlay image
+          let scaledPosition = CGPoint(
+            x: canvasImage.position.x * scale,
+            y: canvasImage.position.y * scale
+          )
+          let scaledSize = CGSize(
+            width: canvasImage.size.width * scale,
+            height: canvasImage.size.height * scale
+          )
+          
+          // Apply rotation if needed
+          if canvasImage.rotation != 0 {
+            context.saveGState()
+            let centerX = scaledPosition.x + scaledSize.width / 2
+            let centerY = scaledPosition.y + scaledSize.height / 2
+            context.translateBy(x: centerX, y: centerY)
+            context.rotate(by: canvasImage.rotation)
+            context.translateBy(x: -centerX, y: -centerY)
+          }
+          
+          // Draw the overlay image
+          overlayUIImage.draw(in: CGRect(origin: scaledPosition, size: scaledSize))
+          
+          // Restore context if rotation was applied
+          if canvasImage.rotation != 0 {
+            context.restoreGState()
+          }
+        }
+      }
+    }
     
     // Draw the drawing on top
     let fullPageBounds = CGRect(origin: .zero, size: paperSize)
