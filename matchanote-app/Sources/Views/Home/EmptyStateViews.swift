@@ -16,36 +16,17 @@ struct EmptyDocumentsView: View {
         VStack(spacing: 20) {
             Spacer()
 
-            VStack(spacing: 8) {
-                Text("No Documents")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                    .foregroundColor(
-                        colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
-
-                Text("Create your first note or folder to get started")
-                    .font(.body)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-
-            Button(action: {
-                showNewWrittenNoteView = true
-            }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "plus")
-                    Text("Create Note")
+            // Mascot with context
+            MatchaMascotWithContext(
+                emotion: .happy,
+                size: .large,
+                title: "No Documents Yet",
+                subtitle: "Create your first note or folder to get started",
+                actionTitle: "Create Note",
+                action: {
+                    showNewWrittenNoteView = true
                 }
-                .font(.headline)
-                .foregroundColor(.white)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 12)
-                .background(
-                    colorScheme == .dark ? Color.matchadark_light : Color.matchabrown_light
-                )
-                .cornerRadius(8)
-            }
-            .buttonStyle(PlainButtonStyle())
+            )
 
             Spacer()
         }
@@ -64,38 +45,19 @@ struct EmptyFavoritesView: View {
         VStack(spacing: 20) {
             Spacer()
 
-            VStack(spacing: 8) {
-                Text("No Favorites")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                    .foregroundColor(
-                        colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
-
-                Text("Mark notes as favorites to see them here")
-                    .font(.body)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-
-            Button(action: {
-                selectedItem = "documents"
-                currentFolderID = nil
-                folderPath = []
-            }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "folder")
-                    Text("Browse Documents")
+            // Mascot with context
+            MatchaMascotWithContext(
+                emotion: .star,
+                size: .large,
+                title: "No Favorites Yet",
+                subtitle: "Mark notes as favorites to see them here",
+                actionTitle: "Browse Documents",
+                action: {
+                    selectedItem = "documents"
+                    currentFolderID = nil
+                    folderPath = []
                 }
-                .font(.headline)
-                .foregroundColor(.white)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 12)
-                .background(
-                   colorScheme == .dark ? Color.matchadark_light : Color.matchabrown_light
-                )
-                .cornerRadius(8)
-            }
-            .buttonStyle(PlainButtonStyle())
+            )
 
             Spacer()
         }
@@ -114,38 +76,19 @@ struct EmptyRecentsView: View {
         VStack(spacing: 20) {
             Spacer()
 
-            VStack(spacing: 8) {
-                Text("No Recent Notes")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                    .foregroundColor(
-                        colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
-
-                Text("Recently opened notes will appear here")
-                    .font(.body)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-
-            Button(action: {
-                selectedItem = "documents"
-                currentFolderID = nil
-                folderPath = []
-            }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "folder")
-                    Text("Browse Documents")
+            // Mascot with context
+            MatchaMascotWithContext(
+                emotion: .happy,
+                size: .large,
+                title: "No Recent Notes",
+                subtitle: "Recently opened notes will appear here",
+                actionTitle: "Browse Documents",
+                action: {
+                    selectedItem = "documents"
+                    currentFolderID = nil
+                    folderPath = []
                 }
-                .font(.headline)
-                .foregroundColor(.white)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 12)
-                .background(
-                   colorScheme == .dark ? Color.matchadark_light : Color.matchabrown_light
-                )
-                .cornerRadius(8)
-            }
-            .buttonStyle(PlainButtonStyle())
+            )
 
             Spacer()
         }
