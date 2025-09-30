@@ -100,13 +100,13 @@ struct MatchaMascot: View {
                 .scaleEffect(isAnimating ? size.animationScale : 1.0)
                 .animation(
                     isAnimated ? 
-                        .easeInOut(duration: 2.0).repeatForever(autoreverses: true) : 
-                        .easeInOut(duration: 0.3),
+                        .easeInOut(duration: 0.3) : 
+                        .easeInOut(duration: 0.2),
                     value: isAnimating
                 )
                 .onAppear {
                     if isAnimated {
-                        withAnimation(.easeInOut(duration: 0.5).delay(0.2)) {
+                        withAnimation(.easeInOut(duration: 0.3).delay(0.1)) {
                             isAnimating = true
                         }
                     }
@@ -127,7 +127,7 @@ struct MatchaMascot: View {
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                         .opacity(isAnimating ? 1.0 : 0.0)
-                        .animation(.easeInOut(duration: 0.8).delay(0.5), value: isAnimating)
+                        .animation(.easeInOut(duration: 0.4).delay(0.3), value: isAnimating)
                 }
                 .padding(.horizontal, 16)
             }
@@ -173,7 +173,7 @@ struct MatchaMascotWithContext: View {
             )
             .opacity(isVisible ? 1.0 : 0.0)
             .offset(y: isVisible ? 0 : 20)
-            .animation(.easeInOut(duration: 0.6).delay(0.1), value: isVisible)
+            .animation(.easeInOut(duration: 0.3).delay(0.1), value: isVisible)
             
             // Content
             VStack(spacing: 12) {
@@ -186,7 +186,7 @@ struct MatchaMascotWithContext: View {
                     .multilineTextAlignment(.center)
                     .opacity(isVisible ? 1.0 : 0.0)
                     .offset(y: isVisible ? 0 : 10)
-                    .animation(.easeInOut(duration: 0.6).delay(0.3), value: isVisible)
+                    .animation(.easeInOut(duration: 0.3).delay(0.2), value: isVisible)
                 
                 if let subtitle = subtitle {
                     Text(subtitle)
@@ -195,7 +195,7 @@ struct MatchaMascotWithContext: View {
                         .multilineTextAlignment(.center)
                         .opacity(isVisible ? 1.0 : 0.0)
                         .offset(y: isVisible ? 0 : 10)
-                        .animation(.easeInOut(duration: 0.6).delay(0.5), value: isVisible)
+                        .animation(.easeInOut(duration: 0.3).delay(0.3), value: isVisible)
                 }
                 
                 // Action Button
@@ -217,7 +217,7 @@ struct MatchaMascotWithContext: View {
                     .buttonStyle(PlainButtonStyle())
                     .opacity(isVisible ? 1.0 : 0.0)
                     .offset(y: isVisible ? 0 : 10)
-                    .animation(.easeInOut(duration: 0.6).delay(0.7), value: isVisible)
+                    .animation(.easeInOut(duration: 0.3).delay(0.4), value: isVisible)
                 }
             }
         }
@@ -232,7 +232,6 @@ struct MatchaFloatingMascot: View {
     let emotion: MascotEmotion
     let position: FloatingPosition
     
-    @State private var isFloating = false
     @Environment(\.colorScheme) private var colorScheme
     
     enum FloatingPosition {
@@ -262,17 +261,9 @@ struct MatchaFloatingMascot: View {
         MatchaMascot(
             emotion: emotion,
             size: .small,
-            isAnimated: true
+            isAnimated: false
         )
         .opacity(0.6)
-        .offset(y: isFloating ? -5 : 5)
-        .animation(
-            .easeInOut(duration: 3.0).repeatForever(autoreverses: true),
-            value: isFloating
-        )
-        .onAppear {
-            isFloating = true
-        }
     }
 }
 
