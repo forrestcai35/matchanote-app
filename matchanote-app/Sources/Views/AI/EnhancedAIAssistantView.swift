@@ -740,6 +740,7 @@ struct EnhancedAIAssistantView: View {
             await state.subscriptionManager.fetchUserProfile()
             await MainActor.run {
                 state.availableModels = state.subscriptionManager.getAvailableModels()
+                print("🔍 EnhancedAIAssistantView: Loaded models: \(state.availableModels)")
             }
         }
     }

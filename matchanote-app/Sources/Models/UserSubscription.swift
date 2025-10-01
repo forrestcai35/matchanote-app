@@ -196,64 +196,79 @@ class SubscriptionManager: ObservableObject {
             let session = try await supabase.auth.session
             let user = session.user
 
-
-            // Try to extract subscription data directly from raw JSON to bypass RLS filtering
-            let rawResponse = try await supabase
-                .from("user_storage")
+            // Query both tables to get complete user profile
+            // 1. Get subscription tier from user_subscription table
+            let subscriptionResponse = try await supabase
+                .from("user_subscription")
                 .select("*")
                 .eq("user_id", value: user.id.uuidString)
                 .execute()
             
-            if let _ = String(data: rawResponse.data, encoding: .utf8),
-               let jsonArray = try? JSONSerialization.jsonObject(with: rawResponse.data) as? [[String: Any]],
-               let firstRecord = jsonArray.first {
+            // 2. Get request counts from user_storage table
+            let storageResponse = try await supabase
+                .from("user_storage")
+                .select("normal_requests, premium_requests")
+                .eq("user_id", value: user.id.uuidString)
+                .execute()
+            
+            // Parse subscription data
+            var subscriptionTier: SubscriptionTier = .free
+            var subscriptionStartDate: Date? = nil
+            var stripeCustomerId: String? = nil
+            var stripeSubscriptionId: String? = nil
+            
+            if let subscriptionData = try? JSONSerialization.jsonObject(with: subscriptionResponse.data) as? [[String: Any]],
+               let subscriptionRecord = subscriptionData.first {
+                let subscriptionTierString = subscriptionRecord["subscription_tier"] as? String ?? "FREE"
+                subscriptionTier = SubscriptionTier(rawValue: subscriptionTierString) ?? .free
+                subscriptionStartDate = (subscriptionRecord["subscription_start_date"] as? String).flatMap { ISO8601DateFormatter().date(from: $0) }
+                stripeCustomerId = subscriptionRecord["stripe_customer_id"] as? String
+                stripeSubscriptionId = subscriptionRecord["stripe_subscription_id"] as? String
                 
-                // Extract subscription data directly from the raw JSON
-                let normalRequests = firstRecord["normal_requests"] as? Int64 ?? 0
-                let premiumRequests = firstRecord["premium_requests"] as? Int16 ?? 0
-                let subscriptionTierString = firstRecord["subscription_tier"] as? String ?? "FREE"
-                let subscriptionStartDateString = firstRecord["subscription_start_date"] as? String
-                let stripeCustomerId = firstRecord["stripe_customer_id"] as? String
-                let stripeSubscriptionId = firstRecord["stripe_subscription_id"] as? String
+                print("🔍 SubscriptionManager: Subscription data from user_subscription table:")
+                print("  - subscription_tier: \(subscriptionTierString)")
+                print("  - subscription_start_date: \(subscriptionRecord["subscription_start_date"] as? String ?? "nil")")
+                print("  - stripe_customer_id: \(stripeCustomerId ?? "nil")")
+                print("  - stripe_subscription_id: \(stripeSubscriptionId ?? "nil")")
+            }
+            
+            // Parse request counts
+            var normalRequests: Int64 = 0
+            var premiumRequests: Int16 = 0
+            
+            if let storageData = try? JSONSerialization.jsonObject(with: storageResponse.data) as? [[String: Any]],
+               let storageRecord = storageData.first {
+                normalRequests = storageRecord["normal_requests"] as? Int64 ?? 0
+                premiumRequests = storageRecord["premium_requests"] as? Int16 ?? 0
                 
-                
-                // Create a UserProfile with the extracted data
-                let extractedProfile = UserProfile(
-                    createdAt: nil,
-                    userId: user.id,
-                    notesJson: nil,
-                    foldersJson: nil,
-                    updatedAt: nil,
-                    premiumRequests: premiumRequests,
-                    normalRequests: normalRequests,
-                    subscriptionTier: SubscriptionTier(rawValue: subscriptionTierString) ?? .free,
-                    subscriptionStartDate: subscriptionStartDateString != nil ? ISO8601DateFormatter().date(from: subscriptionStartDateString!) : nil,
-                    stripeCustomerId: stripeCustomerId,
-                    stripeSubscriptionId: stripeSubscriptionId
-                )
-                
-                await MainActor.run {
-                    userProfile = extractedProfile
-                }
-            } else {
-                // Fallback to the original method
-                let fullProfiles: [UserProfile] =
-                    try await supabase
-                    .from("user_storage")
-                    .select("*")
-                    .eq("user_id", value: user.id.uuidString)
-                    .execute()
-                    .value
-
-                if let firstProfile = fullProfiles.first {
-                    print("🔍 SubscriptionManager: Setting user profile with normalRequests: \(firstProfile.normalRequests), premiumRequests: \(firstProfile.premiumRequests)")
-                    await MainActor.run {
-                        userProfile = firstProfile
-                    }
-                }
+                print("🔍 SubscriptionManager: Request data from user_storage table:")
+                print("  - normal_requests: \(normalRequests)")
+                print("  - premium_requests: \(premiumRequests)")
+            }
+            
+            // Create combined UserProfile
+            let combinedProfile = UserProfile(
+                createdAt: nil,
+                userId: user.id,
+                notesJson: nil,
+                foldersJson: nil,
+                updatedAt: nil,
+                premiumRequests: premiumRequests,
+                normalRequests: normalRequests,
+                subscriptionTier: subscriptionTier,
+                subscriptionStartDate: subscriptionStartDate,
+                stripeCustomerId: stripeCustomerId,
+                stripeSubscriptionId: stripeSubscriptionId
+            )
+            
+            print("🔍 SubscriptionManager: Created combined profile with tier: \(combinedProfile.subscriptionTier.rawValue), hasPremiumAccess: \(combinedProfile.subscriptionTier.hasPremiumAccess)")
+            
+            await MainActor.run {
+                userProfile = combinedProfile
             }
 
         } catch {
+            print("🔍 SubscriptionManager: Error fetching user profile: \(error)")
             await MainActor.run {
                 errorMessage = "Failed to fetch user profile: \(error.localizedDescription)"
             }
@@ -285,9 +300,7 @@ class SubscriptionManager: ObservableObject {
             return false
         }
 
-
-        do {
-            let updatedProfile: UserProfile
+        let updatedProfile: UserProfile
 
             switch type {
             case .premium:
@@ -295,62 +308,93 @@ class SubscriptionManager: ObservableObject {
                     return false
                 }
 
-                // Update the database
-                let _ = try await supabase
-                    .from("user_storage")
-                    .update([
-                        "premium_requests": profile.premiumRequests - 1
-                    ])
-                    .eq("user_id", value: profile.userId.uuidString)
-                    .execute()
+                // Update the database - premium requests are stored in user_storage table
+                do {
+                    let _ = try await supabase
+                        .from("user_storage")
+                        .update([
+                            "premium_requests": profile.premiumRequests - 1
+                        ])
+                        .eq("user_id", value: profile.userId.uuidString)
+                        .execute()
+                } catch {
+                    print("🔍 SubscriptionManager: Error updating premium requests: \(error)")
+                }
 
             case .normal:
                 guard profile.normalRequests > 0 else {
                     return false
                 }
 
-                // Update the database
-                let _ = try await supabase
-                    .from("user_storage")
-                    .update([
-                        "normal_requests": profile.normalRequests - 1
-                    ])
-                    .eq("user_id", value: profile.userId.uuidString)
-                    .execute()
+                // Update the database - normal requests are stored in user_storage table
+                do {
+                    let _ = try await supabase
+                        .from("user_storage")
+                        .update([
+                            "normal_requests": profile.normalRequests - 1
+                        ])
+                        .eq("user_id", value: profile.userId.uuidString)
+                        .execute()
+                } catch {
+                    print("🔍 SubscriptionManager: Error updating normal requests: \(error)")
+                }
             }
 
-            // Fetch the updated profile using the same raw JSON extraction method
-            let session = try await supabase.auth.session
-            let user = session.user
-            
-            let rawResponse = try await supabase
-                .from("user_storage")
-                .select("*")
-                .eq("user_id", value: user.id.uuidString)
-                .execute()
-            
-            if let jsonArray = try? JSONSerialization.jsonObject(with: rawResponse.data) as? [[String: Any]],
-               let firstRecord = jsonArray.first {
+            // Fetch the updated profile by querying both tables
+            do {
+                let session = try await supabase.auth.session
+                let user = session.user
                 
-                // Extract subscription data directly from the raw JSON
-                let normalRequests = firstRecord["normal_requests"] as? Int64 ?? 0
-                let premiumRequests = firstRecord["premium_requests"] as? Int16 ?? 0
-                let subscriptionTierString = firstRecord["subscription_tier"] as? String ?? "FREE"
-                let subscriptionStartDateString = firstRecord["subscription_start_date"] as? String
-                let stripeCustomerId = firstRecord["stripe_customer_id"] as? String
-                let stripeSubscriptionId = firstRecord["stripe_subscription_id"] as? String
+                // Get updated request counts from user_storage
+                let storageResponse = try await supabase
+                    .from("user_storage")
+                    .select("normal_requests, premium_requests")
+                    .eq("user_id", value: user.id.uuidString)
+                    .execute()
                 
-                // Create updated UserProfile with the extracted data
+                // Get subscription data from user_subscription
+                let subscriptionResponse = try await supabase
+                    .from("user_subscription")
+                    .select("*")
+                    .eq("user_id", value: user.id.uuidString)
+                    .execute()
+            
+                // Parse updated request counts
+                var updatedNormalRequests: Int64 = profile.normalRequests
+                var updatedPremiumRequests: Int16 = profile.premiumRequests
+                
+                if let storageData = try? JSONSerialization.jsonObject(with: storageResponse.data) as? [[String: Any]],
+                   let storageRecord = storageData.first {
+                    updatedNormalRequests = storageRecord["normal_requests"] as? Int64 ?? profile.normalRequests
+                    updatedPremiumRequests = storageRecord["premium_requests"] as? Int16 ?? profile.premiumRequests
+                }
+                
+                // Parse subscription data
+                var subscriptionTier: SubscriptionTier = profile.subscriptionTier
+                var subscriptionStartDate: Date? = profile.subscriptionStartDate
+                var stripeCustomerId: String? = profile.stripeCustomerId
+                var stripeSubscriptionId: String? = profile.stripeSubscriptionId
+                
+                if let subscriptionData = try? JSONSerialization.jsonObject(with: subscriptionResponse.data) as? [[String: Any]],
+                   let subscriptionRecord = subscriptionData.first {
+                    let subscriptionTierString = subscriptionRecord["subscription_tier"] as? String ?? profile.subscriptionTier.rawValue
+                    subscriptionTier = SubscriptionTier(rawValue: subscriptionTierString) ?? profile.subscriptionTier
+                    subscriptionStartDate = (subscriptionRecord["subscription_start_date"] as? String).flatMap { ISO8601DateFormatter().date(from: $0) } ?? profile.subscriptionStartDate
+                    stripeCustomerId = subscriptionRecord["stripe_customer_id"] as? String ?? profile.stripeCustomerId
+                    stripeSubscriptionId = subscriptionRecord["stripe_subscription_id"] as? String ?? profile.stripeSubscriptionId
+                }
+                
+                // Create updated UserProfile with the combined data
                 updatedProfile = UserProfile(
-                    createdAt: nil,
+                    createdAt: profile.createdAt,
                     userId: user.id,
-                    notesJson: nil,
-                    foldersJson: nil,
-                    updatedAt: nil,
-                    premiumRequests: premiumRequests,
-                    normalRequests: normalRequests,
-                    subscriptionTier: SubscriptionTier(rawValue: subscriptionTierString) ?? .free,
-                    subscriptionStartDate: subscriptionStartDateString != nil ? ISO8601DateFormatter().date(from: subscriptionStartDateString!) : nil,
+                    notesJson: profile.notesJson,
+                    foldersJson: profile.foldersJson,
+                    updatedAt: profile.updatedAt,
+                    premiumRequests: updatedPremiumRequests,
+                    normalRequests: updatedNormalRequests,
+                    subscriptionTier: subscriptionTier,
+                    subscriptionStartDate: subscriptionStartDate,
                     stripeCustomerId: stripeCustomerId,
                     stripeSubscriptionId: stripeSubscriptionId
                 )
@@ -358,7 +402,8 @@ class SubscriptionManager: ObservableObject {
                 await MainActor.run {
                     userProfile = updatedProfile
                 }
-            } else {
+            } catch {
+                print("🔍 SubscriptionManager: Error fetching updated profile: \(error)")
                 // Fallback: manually update the local profile
                 let newNormalRequests = type == .normal ? profile.normalRequests - 1 : profile.normalRequests
                 let newPremiumRequests = type == .premium ? profile.premiumRequests - 1 : profile.premiumRequests
@@ -383,13 +428,6 @@ class SubscriptionManager: ObservableObject {
             }
             
             return true
-
-        } catch {
-            await MainActor.run {
-                errorMessage = "Failed to consume request: \(error.localizedDescription)"
-            }
-            return false
-        }
     }
 
     func getAvailableModels() -> [String] {

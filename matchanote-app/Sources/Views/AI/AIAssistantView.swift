@@ -139,23 +139,6 @@ struct AIAssistantView: View {
     private var chatHistorySection: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                // Show welcome message with mascot when no messages
-                if state.messages.isEmpty {
-                    VStack(spacing: 20) {
-                        Spacer(minLength: 40)
-                        
-                        // Welcome message with mascot
-                        MatchaMascotWithContext(
-                            emotion: .knowledge,
-                            size: .large,
-                            title: "Hi! I'm your AI Assistant",
-                            subtitle: "Ask me anything about your notes, or let me help you analyze and improve your content"
-                        )
-                        
-                        Spacer(minLength: 40)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
                 
                 ForEach(state.messages) { message in
                     if message.isUser {
@@ -431,8 +414,10 @@ struct AIAssistantView: View {
             await MainActor.run {
                 if let profile = state.subscriptionManager.userProfile {
                     state.availableModels = ModelConfiguration.getAvailableModelNames(for: profile.subscriptionTier)
+                    print("🔍 AIAssistantView: Loaded models for tier \(profile.subscriptionTier.rawValue): \(state.availableModels)")
                 } else {
                     state.availableModels = ModelConfiguration.getFreeModelNames()
+                    print("🔍 AIAssistantView: No profile found, using free models: \(state.availableModels)")
                 }
             }
         }
