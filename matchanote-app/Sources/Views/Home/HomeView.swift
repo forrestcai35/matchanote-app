@@ -158,7 +158,7 @@ struct HomeView: View {
                         Button(role: .destructive) {
                             LocalAuthManager.shared.logout()
                         } label: {
-                            Label("Sign Out", systemImage: "arrow.right.square")
+Label("Sign Out", systemImage: "arrow.right.square")
                         }
                     } label: {
                         Image(systemName: "gear")
@@ -191,6 +191,7 @@ struct HomeView: View {
                     ? Color.matchabackground_dark
                     : Color.matchabackground_light)
                     .brightness(colorScheme == .dark ? -0.05 : 0.05)
+                    .ignoresSafeArea(.container, edges: .top)
             )
 
             // Main content area

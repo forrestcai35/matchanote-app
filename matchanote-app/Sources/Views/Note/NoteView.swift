@@ -678,48 +678,8 @@ extension NoteView {
   }
 
   private func exportPDF(forPages pages: [Int]) -> URL? {
-    // We will create a renderer with a default bound, but adjust per page when beginning each page
-    let renderer = UIGraphicsPDFRenderer(bounds: pageBounds)
-    let sanitizedTitle = activeNote.title.replacingOccurrences(of: "/", with: "-")
-    let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("Note_Export_\(sanitizedTitle)_\(UUID().uuidString).pdf")
-    do {
-      try renderer.writePDF(to: tempURL) { context in
-        for page in pages {
-          // Determine per-page size using background image when available
-          let pageKey = String(page)
-          var size = PaperUtilities.paperSize(for: activeNote.paperSize)
-          if let imageData = activeNote.imageDataByPage[pageKey]?.first, let uiImage = UIImage(data: imageData) {
-            size = uiImage.size
-          }
-
-          let bounds = CGRect(origin: .zero, size: size)
-          context.beginPage(withBounds: bounds, pageInfo: [:])
-
-          // Fill background
-          UIColor(PaperUtilities.getPaperBackgroundColor(for: activeNote.paperColor)).setFill()
-          UIRectFill(bounds)
-
-          // Draw background image if present
-          if let imageDataArray = activeNote.imageDataByPage[pageKey] {
-            for data in imageDataArray {
-              if let bg = UIImage(data: data) {
-                bg.draw(in: bounds)
-              }
-            }
-          }
-
-          // Draw strokes on top
-          if let drawing = drawingForPage(page) {
-            let image = drawing.image(from: bounds, scale: 2)
-            image.draw(in: bounds)
-          }
-        }
-      }
-      return tempURL
-    } catch {
-      print("Failed to write PDF: \(error)")
-      return nil
-    }
+    // Use the centralized export manager instead of duplicating logic
+    return ExportManager.shared.exportNoteAsPDF(activeNote, selectedPages: pages)
   }
 
   private func handleExport(pages: [Int]) {
@@ -747,7 +707,7 @@ extension NoteView {
       let noteData = try JSONEncoder().encode(activeNote)
       
       // Create a temporary file with .matcha extension
-      let sanitizedTitle = activeNote.title.replacingOccurrences(of: "/", with: "-")
+      let sanitizedTitle = ExportManager.sanitizeTitle(activeNote.title)
       let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(sanitizedTitle).matcha")
       
       try noteData.write(to: tempURL)
