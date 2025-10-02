@@ -414,10 +414,8 @@ struct AIAssistantView: View {
             await MainActor.run {
                 if let profile = state.subscriptionManager.userProfile {
                     state.availableModels = ModelConfiguration.getAvailableModelNames(for: profile.subscriptionTier)
-                    print("🔍 AIAssistantView: Loaded models for tier \(profile.subscriptionTier.rawValue): \(state.availableModels)")
                 } else {
                     state.availableModels = ModelConfiguration.getFreeModelNames()
-                    print("🔍 AIAssistantView: No profile found, using free models: \(state.availableModels)")
                 }
             }
         }

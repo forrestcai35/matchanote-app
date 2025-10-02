@@ -69,38 +69,19 @@ struct UserProfile: Codable, Identifiable {
 
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt)
         
-        // Handle UUID decoding - try as UUID first, then as string, then check if key exists
-        if let uuidValue = try? container.decode(UUID.self, forKey: .userId) {
-            userId = uuidValue
-        } else if let stringValue = try? container.decode(String.self, forKey: .userId),
-                  let uuidFromString = UUID(uuidString: stringValue) {
-            userId = uuidFromString
-        } else if container.contains(.userId) {
-            // Key exists but couldn't decode
-            throw DecodingError.typeMismatch(UUID.self, DecodingError.Context(
-                codingPath: decoder.codingPath,
-                debugDescription: "Could not decode user_id as UUID or string"
-            ))
-        } else {
-            // user_id is not included in the response (likely due to RLS policies)
-            // We can use a placeholder UUID since the data is already user-specific
-            // The actual user identification is handled by the auth session
-            userId = UUID() // Placeholder UUID - the real user_id is managed by Supabase auth
-        }
+        // Simple UUID decoding - just use a placeholder since we get user_id from auth session
+        userId = UUID() // Placeholder - actual user_id comes from auth session
 
         // Handle JSONB fields - decode as raw JSON data from Supabase
-        // Try to decode as string first (if stored as JSON string)
         if let notesString = try? container.decodeIfPresent(String.self, forKey: .notesJson) {
             notesJson = notesString.data(using: .utf8)
         } else {
-            // Try to decode as raw data
             notesJson = try? container.decodeIfPresent(Data.self, forKey: .notesJson)
         }
         
         if let foldersString = try? container.decodeIfPresent(String.self, forKey: .foldersJson) {
             foldersJson = foldersString.data(using: .utf8)
         } else {
-            // Try to decode as raw data
             foldersJson = try? container.decodeIfPresent(Data.self, forKey: .foldersJson)
         }
 
@@ -111,11 +92,9 @@ struct UserProfile: Codable, Identifiable {
         let tierString = try container.decodeIfPresent(String.self, forKey: .subscriptionTier) ?? SubscriptionTier.free.rawValue
         subscriptionTier = SubscriptionTier(rawValue: tierString) ?? .free
 
-        subscriptionStartDate = try container.decodeIfPresent(
-            Date.self, forKey: .subscriptionStartDate)
+        subscriptionStartDate = try container.decodeIfPresent(Date.self, forKey: .subscriptionStartDate)
         stripeCustomerId = try container.decodeIfPresent(String.self, forKey: .stripeCustomerId)
-        stripeSubscriptionId = try container.decodeIfPresent(
-            String.self, forKey: .stripeSubscriptionId)
+        stripeSubscriptionId = try container.decodeIfPresent(String.self, forKey: .stripeSubscriptionId)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -224,12 +203,6 @@ class SubscriptionManager: ObservableObject {
                 subscriptionStartDate = (subscriptionRecord["subscription_start_date"] as? String).flatMap { ISO8601DateFormatter().date(from: $0) }
                 stripeCustomerId = subscriptionRecord["stripe_customer_id"] as? String
                 stripeSubscriptionId = subscriptionRecord["stripe_subscription_id"] as? String
-                
-                print("🔍 SubscriptionManager: Subscription data from user_subscription table:")
-                print("  - subscription_tier: \(subscriptionTierString)")
-                print("  - subscription_start_date: \(subscriptionRecord["subscription_start_date"] as? String ?? "nil")")
-                print("  - stripe_customer_id: \(stripeCustomerId ?? "nil")")
-                print("  - stripe_subscription_id: \(stripeSubscriptionId ?? "nil")")
             }
             
             // Parse request counts
@@ -240,10 +213,6 @@ class SubscriptionManager: ObservableObject {
                let storageRecord = storageData.first {
                 normalRequests = storageRecord["normal_requests"] as? Int64 ?? 0
                 premiumRequests = storageRecord["premium_requests"] as? Int16 ?? 0
-                
-                print("🔍 SubscriptionManager: Request data from user_storage table:")
-                print("  - normal_requests: \(normalRequests)")
-                print("  - premium_requests: \(premiumRequests)")
             }
             
             // Create combined UserProfile
@@ -261,16 +230,17 @@ class SubscriptionManager: ObservableObject {
                 stripeSubscriptionId: stripeSubscriptionId
             )
             
-            print("🔍 SubscriptionManager: Created combined profile with tier: \(combinedProfile.subscriptionTier.rawValue), hasPremiumAccess: \(combinedProfile.subscriptionTier.hasPremiumAccess)")
-            
             await MainActor.run {
                 userProfile = combinedProfile
             }
 
         } catch {
-            print("🔍 SubscriptionManager: Error fetching user profile: \(error)")
             await MainActor.run {
-                errorMessage = "Failed to fetch user profile: \(error.localizedDescription)"
+                if error.localizedDescription.contains("sessionMissing") {
+                    errorMessage = "Please sign in to view your subscription details"
+                } else {
+                    errorMessage = "Failed to fetch user profile: \(error.localizedDescription)"
+                }
             }
         }
 
@@ -387,7 +357,7 @@ class SubscriptionManager: ObservableObject {
                 // Create updated UserProfile with the combined data
                 updatedProfile = UserProfile(
                     createdAt: profile.createdAt,
-                    userId: user.id,
+                    userId: user.id, // Use actual user ID from auth session
                     notesJson: profile.notesJson,
                     foldersJson: profile.foldersJson,
                     updatedAt: profile.updatedAt,
@@ -459,6 +429,7 @@ class SubscriptionManager: ObservableObject {
         let fiveMinutesAgo = Date().addingTimeInterval(-300)
         return updatedAt < fiveMinutesAgo
     }
+    
 }
 
 // MARK: - Errors
