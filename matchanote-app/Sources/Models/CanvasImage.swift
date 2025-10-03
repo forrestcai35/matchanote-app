@@ -120,6 +120,9 @@ public class CanvasImageManager: ObservableObject {
         if let index = images.firstIndex(where: { $0.id == updatedImage.id }) {
             let previousImage = images[index]
             
+            // Skip update if position hasn't changed (performance optimization)
+            guard previousImage.position != updatedImage.position else { return }
+            
             // Register undo action before updating
             undoManager?.registerUndo(withTarget: self) { manager in
                 manager.updateImage(previousImage)

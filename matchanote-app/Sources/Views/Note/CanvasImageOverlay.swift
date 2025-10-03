@@ -15,26 +15,18 @@ struct CanvasImageView: View {
     let image: CanvasImage
     let pageIndex: Int
     let canvasSize: CGSize
-    @State private var isDragging: Bool = false
-    @State private var dragStartPosition: CGPoint = .zero
-    @State private var currentDragPosition: CGPoint = .zero
-    @State private var dragOffset: CGPoint = .zero
-    @State private var offset: CGSize = .zero
     @State private var currentSize: CGSize = .zero
 
     var isSelected: Bool {
         imageManager.selectedImageId == image.id
     }
 
-    var effectivePosition: CGPoint {
-        if isDragging {
-            return currentDragPosition
-        } else {
-            return CGPoint(
-                x: image.position.x + image.size.width / 2,
-                y: image.position.y + image.size.height / 2
-            )
-        }
+    // Simple, fast position calculation
+    private var currentPosition: CGPoint {
+        CGPoint(
+            x: image.position.x + image.size.width / 2,
+            y: image.position.y + image.size.height / 2
+        )
     }
     
     var body: some View {
@@ -61,23 +53,23 @@ struct CanvasImageView: View {
                                 imageManager.selectImage(withId: image.id)
                             }
                         }
-                        .highPriorityGesture(
+                        .gesture(
                             // Only allow dragging if the image is selected
                             isSelected ?
-                            DragGesture(minimumDistance: 10)
+                            DragGesture(minimumDistance: 0)
                                 .onChanged { value in
-                                    offset = value.translation
-                                }
-                                .onEnded { value in
-                                    // Update the actual image position
-                                    var updatedImage = image
+                                    // Direct model update - most performant approach
                                     let newPosition = CGPoint(
                                         x: image.position.x + value.translation.width,
                                         y: image.position.y + value.translation.height
                                     )
+                                    
+                                    var updatedImage = image
                                     updatedImage.updatePosition(to: newPosition)
                                     imageManager.updateImage(updatedImage)
-                                    offset = .zero
+                                }
+                                .onEnded { _ in
+                                    // No additional work needed - position already updated
                                 } : nil
                         )
                     
@@ -87,8 +79,8 @@ struct CanvasImageView: View {
                     }
                 }
                 .position(
-                    x: image.position.x + image.size.width / 2 + offset.width,
-                    y: image.position.y + image.size.height / 2 + offset.height
+                    x: currentPosition.x,
+                    y: currentPosition.y
                 )
                 .zIndex(Double(image.zIndex + (isSelected ? 1000 : 0)))
                 // The highPriorityGesture above ensures the scroll view doesn't capture drags
@@ -311,7 +303,9 @@ extension CanvasImageManager {
         // Add to manager (this will automatically register undo action)
         addImage(canvasImage)
         
-        // Select the newly added image
-        selectImage(withId: canvasImage.id)
+        // Select the newly added image with a small delay to ensure view is rendered
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.selectImage(withId: canvasImage.id)
+        }
     }
 }
