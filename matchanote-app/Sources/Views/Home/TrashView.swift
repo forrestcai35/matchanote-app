@@ -100,11 +100,10 @@ struct TrashView: View {
         VStack(alignment: .leading, spacing: 12) {
             MatchaSectionHeader(
                 title: "Deleted Items",
-                icon: "trash",
-                delay: 0.1
+                icon: "trash"
             )
 
-            MatchaCard(delay: 0.2) {
+            MatchaCard {
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(trashManager.trashItems) { trashItem in
@@ -122,7 +121,7 @@ struct TrashView: View {
             }
 
             if trashManager.trashItems.contains(where: { $0.shouldAutoDelete }) {
-                MatchaCard(delay: 0.3) {
+                MatchaCard {
                     HStack(spacing: 12) {
                         Image(systemName: "info.circle.fill")
                             .foregroundColor(.orange)

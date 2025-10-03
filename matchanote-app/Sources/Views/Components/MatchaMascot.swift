@@ -72,21 +72,17 @@ enum MascotSize {
 struct MatchaMascot: View {
     let emotion: MascotEmotion
     let size: MascotSize
-    let isAnimated: Bool
     let showDescription: Bool
     
-    @State private var isAnimating = false
     @Environment(\.colorScheme) private var colorScheme
     
     init(
         emotion: MascotEmotion = .happy,
         size: MascotSize = .medium,
-        isAnimated: Bool = true,
         showDescription: Bool = false
     ) {
         self.emotion = emotion
         self.size = size
-        self.isAnimated = isAnimated
         self.showDescription = showDescription
     }
     
@@ -97,20 +93,6 @@ struct MatchaMascot: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: size.frameSize, height: size.frameSize)
-                .scaleEffect(isAnimating ? size.animationScale : 1.0)
-                .animation(
-                    isAnimated ? 
-                        .easeInOut(duration: 0.3) : 
-                        .easeInOut(duration: 0.2),
-                    value: isAnimating
-                )
-                .onAppear {
-                    if isAnimated {
-                        withAnimation(.easeInOut(duration: 0.3).delay(0.1)) {
-                            isAnimating = true
-                        }
-                    }
-                }
             
             // Optional Description
             if showDescription {
@@ -126,8 +108,6 @@ struct MatchaMascot: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
-                        .opacity(isAnimating ? 1.0 : 0.0)
-                        .animation(.easeInOut(duration: 0.4).delay(0.3), value: isAnimating)
                 }
                 .padding(.horizontal, 16)
             }
@@ -144,7 +124,6 @@ struct MatchaMascotWithContext: View {
     let actionTitle: String?
     let action: (() -> Void)?
     
-    @State private var isVisible = false
     @Environment(\.colorScheme) private var colorScheme
     
     init(
@@ -168,12 +147,8 @@ struct MatchaMascotWithContext: View {
             // Mascot
             MatchaMascot(
                 emotion: emotion,
-                size: size,
-                isAnimated: true
+                size: size
             )
-            .opacity(isVisible ? 1.0 : 0.0)
-            .offset(y: isVisible ? 0 : 20)
-            .animation(.easeInOut(duration: 0.3).delay(0.1), value: isVisible)
             
             // Content
             VStack(spacing: 12) {
@@ -184,18 +159,12 @@ struct MatchaMascotWithContext: View {
                         colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
                     )
                     .multilineTextAlignment(.center)
-                    .opacity(isVisible ? 1.0 : 0.0)
-                    .offset(y: isVisible ? 0 : 10)
-                    .animation(.easeInOut(duration: 0.3).delay(0.2), value: isVisible)
                 
                 if let subtitle = subtitle {
                     Text(subtitle)
                         .font(.body)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
-                        .opacity(isVisible ? 1.0 : 0.0)
-                        .offset(y: isVisible ? 0 : 10)
-                        .animation(.easeInOut(duration: 0.3).delay(0.3), value: isVisible)
                 }
                 
                 // Action Button
@@ -215,14 +184,8 @@ struct MatchaMascotWithContext: View {
                         .cornerRadius(8)
                     }
                     .buttonStyle(PlainButtonStyle())
-                    .opacity(isVisible ? 1.0 : 0.0)
-                    .offset(y: isVisible ? 0 : 10)
-                    .animation(.easeInOut(duration: 0.3).delay(0.4), value: isVisible)
                 }
             }
-        }
-        .onAppear {
-            isVisible = true
         }
     }
 }
@@ -260,8 +223,7 @@ struct MatchaFloatingMascot: View {
     var body: some View {
         MatchaMascot(
             emotion: emotion,
-            size: .small,
-            isAnimated: false
+            size: .small
         )
         .opacity(0.6)
     }

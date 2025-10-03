@@ -17,11 +17,10 @@ struct PreferencesView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         MatchaSectionHeader(
                             title: "Appearance",
-                            icon: "paintbrush.fill",
-                            delay: 0.1
+                            icon: "paintbrush.fill"
                         )
 
-                        MatchaCard(delay: 0.2) {
+                        MatchaCard {
                             VStack(alignment: .leading, spacing: 12) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Theme")
@@ -53,11 +52,10 @@ struct PreferencesView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         MatchaSectionHeader(
                             title: "Assistant",
-                            icon: "brain.head.profile",
-                            delay: 0.3
+                            icon: "brain.head.profile"
                         )
 
-                        MatchaCard(delay: 0.4) {
+                        MatchaCard {
                             VStack(alignment: .leading, spacing: 12) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Default Orientation")
@@ -96,11 +94,10 @@ struct PreferencesView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     MatchaSectionHeader(
                         title: "Storage",
-                        icon: "externaldrive.fill",
-                        delay: 0.7
+                        icon: "externaldrive.fill"
                     )
 
-                    MatchaCard(delay: 0.8) {
+                    MatchaCard {
                         VStack(alignment: .leading, spacing: 12) {
                             MatchaToggle(
                                 title: "Cloud Sync",

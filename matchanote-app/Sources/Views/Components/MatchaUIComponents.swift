@@ -28,16 +28,13 @@ struct MatchaUI {
     }
 }
 
-// MARK: - Animated Card Component
+// MARK: - Card Component
 struct MatchaCard<Content: View>: View {
     let content: Content
-    @State private var animateOnAppear = false
-    let delay: Double
 
     @Environment(\.colorScheme) private var colorScheme
 
-    init(delay: Double = 0, @ViewBuilder content: () -> Content) {
-        self.delay = delay
+    init(@ViewBuilder content: () -> Content) {
         self.content = content()
     }
 
@@ -62,12 +59,6 @@ struct MatchaCard<Content: View>: View {
                     )
             )
             .padding(.horizontal, MatchaUI.Style.cardPadding)
-            .opacity(animateOnAppear ? 1.0 : 0.0)
-            .offset(y: animateOnAppear ? 0 : 20)
-            .animation(MatchaUI.Animation.springWithDelay(delay), value: animateOnAppear)
-            .onAppear {
-                animateOnAppear = true
-            }
     }
 }
 
@@ -75,10 +66,8 @@ struct MatchaCard<Content: View>: View {
 struct MatchaSectionHeader: View {
     let title: String
     let icon: String
-    let delay: Double
 
     @Environment(\.colorScheme) private var colorScheme
-    @State private var animateOnAppear = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -95,12 +84,6 @@ struct MatchaSectionHeader: View {
                     colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
         }
         .padding(.horizontal, MatchaUI.Style.cardPadding)
-        .opacity(animateOnAppear ? 1.0 : 0.0)
-        .offset(y: animateOnAppear ? 0 : 20)
-        .animation(MatchaUI.Animation.springWithDelay(delay), value: animateOnAppear)
-        .onAppear {
-            animateOnAppear = true
-        }
     }
 }
 
