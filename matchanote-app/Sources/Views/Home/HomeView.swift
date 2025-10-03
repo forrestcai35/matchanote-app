@@ -751,12 +751,7 @@ Label("Sign Out", systemImage: "arrow.right.square")
 
     // Centralize note type icon logic
     private func noteTypeIcon(_ type: NoteType) -> String {
-        switch type {
-        case .written:
-            return "pencil"
-        case .text:
-            return "text.page"
-        }
+        return "pencil"
     }
 
     // MARK: - Drag and Drop Handling
@@ -784,14 +779,6 @@ Label("Sign Out", systemImage: "arrow.right.square")
                         Image(systemName: "pencil.tip")
                             .font(.system(size: 30))
                             .foregroundColor(Color.white.opacity(0.3))
-                    } else if note.noteType == .text {
-                        RoundedRectangle(cornerRadius: 0)
-                            .fill(note.color)
-                            .frame(width: width, height: height)
-
-                        Image(systemName: "text.alignleft")
-                            .font(.system(size: 30))
-                            .foregroundColor(Color.black.opacity(0.6))
                     }
                 }
                 .background(Color.clear)
@@ -1320,30 +1307,6 @@ Label("Sign Out", systemImage: "arrow.right.square")
                 Label("Folder", systemImage: "folder")
             }
 
-            Button {
-                let newNote = Note(
-                    title: "New Text Note",
-                    color: .white,
-                    dateCreated: Date(),
-                    dateModified: Date(),
-                    noteType: .text
-                )
-                // Add to current folder if we're in one
-                if let currentFolderID = currentFolderID,
-                    let folderIndex = storageManager.folders.firstIndex(where: {
-                        $0.id == currentFolderID
-                    })
-                {
-                    var updatedFolder = storageManager.folders[folderIndex]
-                    updatedFolder.addNote(noteID: newNote.id)
-                    _ = storageManager.saveFolder(updatedFolder)
-                }
-                let savedNote = storageManager.saveNote(newNote)
-                TabManager.shared.openTab(note: savedNote)
-                selectedNote = savedNote
-            } label: {
-                Label("Text", systemImage: "text.alignleft")
-            }
 
             // Upload
             Button {
@@ -1571,7 +1534,7 @@ Label("Sign Out", systemImage: "arrow.right.square")
             dateCreated: Date(),
             dateModified: Date(),
             content: "Imported from \(fileName)",
-            noteType: .text
+            noteType: .written
         )
 
         saveAndOpenNote(newNote)
@@ -1967,29 +1930,6 @@ extension HomeView {
                 Label("Folder", systemImage: "folder")
             }
 
-            // Button {
-            //     let newNote = Note(
-            //         title: "New Text Note",
-            //         color: .white,
-            //         dateCreated: Date(),
-            //         dateModified: Date(),
-            //         noteType: .text
-            //     )
-            //     // Add to current folder if we're in one
-            //     if let currentFolderID = currentFolderID,
-            //         let folderIndex = storageManager.folders.firstIndex(where: {
-            //             $0.id == currentFolderID
-            //         })
-            //     {
-            //         var updatedFolder = storageManager.folders[folderIndex]
-            //         updatedFolder.addNote(noteID: newNote.id)
-            //         _ = storageManager.saveFolder(updatedFolder)
-            //     }
-            //     let savedNote = storageManager.saveNote(newNote)
-            //     TabManager.shared.openTab(note: savedNote)
-            // } label: {
-            //     Label("Text", systemImage: "text.alignleft")
-            // }
 
             // Upload
             Button {

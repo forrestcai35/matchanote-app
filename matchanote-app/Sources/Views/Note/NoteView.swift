@@ -286,27 +286,14 @@ struct NoteView: View {
 
           if let activeTab = tabManager.getActiveTab() {
             // Showcase Contextual Toolbars
-            switch activeTab.note.noteType {
-            case .written:
-              WrittenNoteToolbar(
-                isAssistantVisible: $isAssistantVisible,
-                note: activeTab.note,
-                canvasViews: $canvasManager.canvasViews,
-                currentPage: $currentPage,
-                currentTool: $currentTool,
-                imageManager: canvasManager.imageManager,
-                textBoxManager: textBoxManager)
-            case .text:
-              TextNoteToolbar(
-                isAssistantVisible: $isAssistantVisible,
-                note: activeTab.note,
-                canvasViews: $canvasManager.canvasViews,
-                currentPage: $currentPage,
-                currentTool: $currentTool,
-                imageManager: canvasManager.imageManager,
-                textBoxManager: textBoxManager)
-
-            }
+            WrittenNoteToolbar(
+              isAssistantVisible: $isAssistantVisible,
+              note: activeTab.note,
+              canvasViews: $canvasManager.canvasViews,
+              currentPage: $currentPage,
+              currentTool: $currentTool,
+              imageManager: canvasManager.imageManager,
+              textBoxManager: textBoxManager)
             Divider()
           } else if !tabManager.tabs.isEmpty {
             // Edge case for handling active tab + no tabs open
@@ -427,27 +414,22 @@ struct NoteView: View {
       if let activeTab = tabManager.getActiveTab() {
         // Check if the note still exists in storage
         if storageManager.notes.contains(where: { $0.id == activeTab.note.id }) {
-          // Switch view based on note type
-          switch activeTab.note.noteType {
-            case .written:
-              WrittenNoteView(
-                note: activeTab.note,
-                isEdited: $isEdited,
-                toolPickerIsVisible: $toolPickerIsVisible,
-                canvasViews: $canvasManager.canvasViews,
-                currentPage: $currentPage,
-                currentTool: $currentTool,
-                imageManager: canvasManager.imageManager,
-                textBoxManager: textBoxManager,
-                onAddPageCallback: { callback in
-                  addPageCallback = callback
-                },
-                onDeletePageCallback: { callback in
-                  deletePageCallback = callback
-                })
-          case .text:
-            TextNoteView(note: activeTab.note, isEdited: $isEdited)
-          }
+          // Written note view
+          WrittenNoteView(
+            note: activeTab.note,
+            isEdited: $isEdited,
+            toolPickerIsVisible: $toolPickerIsVisible,
+            canvasViews: $canvasManager.canvasViews,
+            currentPage: $currentPage,
+            currentTool: $currentTool,
+            imageManager: canvasManager.imageManager,
+            textBoxManager: textBoxManager,
+            onAddPageCallback: { callback in
+              addPageCallback = callback
+            },
+            onDeletePageCallback: { callback in
+              deletePageCallback = callback
+            })
         } else {
           // Note has been deleted, show message and close tab
           VStack {
@@ -464,27 +446,22 @@ struct NoteView: View {
         let firstTab = tabManager.tabs[0]
         // Check if the note still exists in storage
         if storageManager.notes.contains(where: { $0.id == firstTab.note.id }) {
-          // Switch view based on note type for fallback if we close a tab
-          switch firstTab.note.noteType {
-          case .written:
-            WrittenNoteView(
-              note: firstTab.note,
-              isEdited: $isEdited,
-              toolPickerIsVisible: $toolPickerIsVisible,
-              canvasViews: $canvasManager.canvasViews,
-              currentPage: $currentPage,
-              currentTool: $currentTool,
-              imageManager: canvasManager.imageManager,
-              textBoxManager: textBoxManager,
-              onAddPageCallback: { callback in
-                addPageCallback = callback
-              },
-              onDeletePageCallback: { callback in
-                deletePageCallback = callback
-              })
-          case .text:
-            TextNoteView(note: firstTab.note, isEdited: $isEdited)
-          }
+          // Written note view for fallback if we close a tab
+          WrittenNoteView(
+            note: firstTab.note,
+            isEdited: $isEdited,
+            toolPickerIsVisible: $toolPickerIsVisible,
+            canvasViews: $canvasManager.canvasViews,
+            currentPage: $currentPage,
+            currentTool: $currentTool,
+            imageManager: canvasManager.imageManager,
+            textBoxManager: textBoxManager,
+            onAddPageCallback: { callback in
+              addPageCallback = callback
+            },
+            onDeletePageCallback: { callback in
+              deletePageCallback = callback
+            })
         } else {
           // Note has been deleted, show message and close tab
           VStack {

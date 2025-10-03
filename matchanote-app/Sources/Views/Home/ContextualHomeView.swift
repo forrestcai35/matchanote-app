@@ -241,12 +241,7 @@ public struct ListItemView: View {
 
     // Use the DocumentsView noteTypeIcon function
     private func noteTypeIcon(_ type: NoteType) -> String {
-        switch type {
-        case .written:
-            return "pencil"
-        case .text:
-            return "text.page"
-        }
+        return "pencil"
     }
 }
 
@@ -580,54 +575,6 @@ public struct GridItemView: View {
         }
     }
 
-    // Preview view for text notes
-    @ViewBuilder
-    private var textNotePreview: some View {
-        ZStack {
-            // Background
-            RoundedRectangle(cornerRadius: 0)
-                .fill(note.color)
-
-            // Show text preview if available
-            if !note.content.isEmpty {
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(0..<min(8, note.content.components(separatedBy: .newlines).count), id: \.self) { lineIndex in
-                        let lines = note.content.components(separatedBy: .newlines)
-                        if lineIndex < lines.count {
-                            HStack {
-                                Text(lines[lineIndex])
-                                    .font(.system(size: 8))
-                                    .lineLimit(1)
-                                    .foregroundColor(
-                                        colorScheme == .dark ? Color.white.opacity(0.8) : Color.black.opacity(0.8)
-                                    )
-                                Spacer()
-                            }
-                        }
-                    }
-                    Spacer()
-                }
-                .padding(8)
-            } else {
-                // Empty text note
-                VStack {
-                    Spacer()
-                    Image(systemName: "text.alignleft")
-                        .font(.system(size: 30))
-                        .foregroundColor(
-                            colorScheme == .dark ? Color.white.opacity(0.3) : Color.black.opacity(0.3)
-                        )
-                    Text("Empty")
-                        .font(.caption)
-                        .foregroundColor(
-                            colorScheme == .dark ? Color.white.opacity(0.6) : Color.black.opacity(0.6)
-                        )
-                    Spacer()
-                }
-            }
-        }
-    }
-
     public var body: some View {
         VStack(spacing: 2) {
             // Note card
@@ -655,9 +602,6 @@ public struct GridItemView: View {
                         writtenNotePreview
                             .frame(width: 160, height: 200)
                             .clipShape(RoundedRectangle(cornerRadius: 10))
-                    } else if note.noteType == .text {
-                        textNotePreview
-                            .frame(width: 160, height: 200)
                     }
                 }
 
@@ -773,11 +717,6 @@ public struct GridItemView: View {
 
     // Use the DocumentsView noteTypeIcon function
     private func noteTypeIcon(_ type: NoteType) -> String {
-        switch type {
-        case .written:
-            return "pencil"
-        case .text:
-            return "text.page"
-        }
+        return "pencil"
     }
 }

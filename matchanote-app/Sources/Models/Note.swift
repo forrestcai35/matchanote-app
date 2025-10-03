@@ -23,7 +23,7 @@ public enum PaperSize: String, CaseIterable, Codable {
 
 // Define the type of note
 public enum NoteType: String, CaseIterable, Codable {
-  case written, text
+  case written
 }
 
 public struct Note: Identifiable, Codable {
