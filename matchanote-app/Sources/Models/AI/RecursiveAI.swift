@@ -194,7 +194,7 @@ class RecursiveAI: ObservableObject {
         }
 
         let requestBody: [String: Any] = [
-            "model": ModelConfiguration.getModelId(for: "Matcha Assistant") ?? "x-ai/grok-4-fast:free",
+            "model": ModelConfiguration.getModelId(for: "Matcha Assistant") ?? "deepseek/deepseek-chat-v3.1:free",
             "messages": messages,
             "temperature": 0.7,
             "tools": conversation.tools.map { tool in

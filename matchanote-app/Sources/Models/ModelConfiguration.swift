@@ -18,7 +18,7 @@ struct ModelConfiguration {
     
     // MARK: - Free Models
     static let freeModels: [Model] = [
-        Model(displayName: "Matcha Assistant", modelId: "x-ai/grok-4-fast:free", isPremium: false)
+        Model(displayName: "Matcha Assistant", modelId: "deepseek/deepseek-chat-v3.1:free", isPremium: false)
     ]
     
     // MARK: - Premium Models
