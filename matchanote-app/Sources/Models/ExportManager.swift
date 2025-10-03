@@ -63,11 +63,15 @@ class ExportManager {
                     UIColor(PaperUtilities.getPaperBackgroundColor(for: noteToExport.paperColor)).setFill()
                     UIRectFill(bounds)
 
-                    // Draw background image if present
+                    // Separate raw background images and encoded CanvasImage overlays
+                    var overlayCanvasImages: [CanvasImage] = []
                     if let imageDataArray = noteToExport.imageDataByPage[pageKey] {
                         for data in imageDataArray {
                             if let bg = UIImage(data: data) {
+                                // Raw background image – draw full-bleed
                                 bg.draw(in: bounds)
+                            } else if let canvasImage = try? JSONDecoder().decode(CanvasImage.self, from: data) {
+                                overlayCanvasImages.append(canvasImage)
                             }
                         }
                     }
@@ -75,10 +79,22 @@ class ExportManager {
                     // Draw paper pattern on top of background images
                     drawPaperPattern(context: context.cgContext, paperStyle: noteToExport.paperStyle, size: bounds.size)
 
-                    // Draw strokes on top
+                    // Draw strokes next (under overlays to match UI layering)
                     if let drawing = drawingForPage(page, note: noteToExport) {
                         let image = drawing.image(from: bounds, scale: 2)
                         image.draw(in: bounds)
+                    }
+
+                    // Draw overlay canvas images (positioned and z-ordered)
+                    if !overlayCanvasImages.isEmpty {
+                        // Sort by zIndex ascending so higher zIndex draws later (on top)
+                        let sorted = overlayCanvasImages.sorted { $0.zIndex < $1.zIndex }
+                        for item in sorted {
+                            if let uiImage = ImageUtilities.dataToImage(item.imageData) {
+                                let rect = CGRect(origin: item.position, size: item.size)
+                                uiImage.draw(in: rect)
+                            }
+                        }
                     }
                 }
             }
