@@ -15,45 +15,81 @@ struct TrashView: View {
     @State private var showingEmptyConfirmation = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 0) {
             // Header
-            MatchaPageHeader(
-                "Trash",
-                subtitle: trashManager.trashItems.isEmpty
-                    ? "No items in trash"
-                    : "\(trashManager.trashItems.count) item\(trashManager.trashItems.count == 1 ? "" : "s") in trash"
-            )
-
+            HStack {
+                Text("Trash")
+                    .font(.system(.largeTitle, design: .serif))
+                    .bold()
+                    .foregroundStyle(
+                        colorScheme == .dark
+                            ? Color.matchabrown_dark : Color.matchabrown_light)
+                
+                Spacer()
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 12)
+            .background(
+                colorScheme == .dark
+                    ? Color.matchabackground_dark : Color.matchabackground_light)
+            
             if trashManager.trashItems.isEmpty {
                 emptyTrashView
             } else {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Spacer()
-                        Button("Empty Trash") {
-                            showingEmptyConfirmation = true
+                // Trash list
+                List {
+                    Section {
+                        ForEach(trashManager.trashItems) { trashItem in
+                            trashItemRow(trashItem)
                         }
-                        .foregroundColor(.red)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.red.opacity(0.1))
-                        )
+                    } header: {
+                        HStack {
+                            Image(systemName: "trash")
+                                .foregroundColor(
+                                    colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+                                .font(.system(size: 14))
+                            Text("Deleted Items")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(
+                                    colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+                            
+                            Spacer()
+                            
+                            Button("Empty Trash") {
+                                showingEmptyConfirmation = true
+                            }
+                            .foregroundColor(.red)
+                            .font(.caption)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Color.red.opacity(0.1))
+                            )
+                        }
+                    } footer: {
+                        if trashManager.trashItems.contains(where: { $0.shouldAutoDelete }) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "info.circle.fill")
+                                    .foregroundColor(.orange)
+                                    .font(.system(size: 14))
+                                
+                                Text("Some items are scheduled for automatic deletion after 30 days")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.top, 4)
+                        }
                     }
-                    
-                    trashItemsSection
                 }
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
             }
-
-            Spacer()
         }
-        .frame(maxWidth: .infinity)
         .background(
             colorScheme == .dark
                 ? Color.matchabackground_dark : Color.matchabackground_light)
-        .padding(.horizontal)
-        .padding(.vertical, 20)
         .confirmationDialog(
             "Empty Trash",
             isPresented: $showingEmptyConfirmation,
@@ -89,56 +125,9 @@ struct TrashView: View {
         .padding()
     }
 
-    private var trashItemsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            MatchaSectionHeader(
-                title: "Deleted Items",
-                icon: "trash"
-            )
-
-            MatchaCard {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(trashManager.trashItems) { trashItem in
-                            trashItemRow(trashItem)
-
-                            if trashItem != trashManager.trashItems.last {
-                                Divider()
-                                    .padding(.leading, 52)
-                            }
-                        }
-                    }
-                    .padding(.trailing, 16)
-                }
-                .frame(maxHeight: 400)
-            }
-
-            if trashManager.trashItems.contains(where: { $0.shouldAutoDelete }) {
-                MatchaCard {
-                    HStack(spacing: 12) {
-                        Image(systemName: "info.circle.fill")
-                            .foregroundColor(.orange)
-                            .font(.system(size: 20))
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Auto-Delete Notice")
-                                .font(.headline)
-                                .foregroundColor(.primary)
-
-                            Text("Some items are scheduled for automatic deletion after 30 days")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-
-                        Spacer()
-                    }
-                }
-            }
-        }
-    }
 
     private func trashItemRow(_ trashItem: TrashItem) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             // Icon
             ZStack {
                 Circle()
@@ -147,15 +136,15 @@ struct TrashView: View {
                             ? Color.blue.opacity(0.1)
                             : Color.orange.opacity(0.1)
                     )
-                    .frame(width: 40, height: 40)
+                    .frame(width: 32, height: 32)
 
                 Image(systemName: trashItem.type == .note ? "doc.text" : "folder")
                     .foregroundColor(trashItem.type == .note ? .blue : .orange)
-                    .font(.system(size: 18))
+                    .font(.system(size: 14))
             }
 
             // Content
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(trashItem.title)
                     .font(.subheadline)
                     .fontWeight(.medium)
@@ -164,24 +153,24 @@ struct TrashView: View {
 
                 HStack {
                     Text(trashItem.type == .note ? "Note" : "Folder")
-                        .font(.caption)
+                        .font(.caption2)
                         .foregroundColor(.secondary)
 
                     Text("•")
-                        .font(.caption)
+                        .font(.caption2)
                         .foregroundColor(.secondary)
 
                     Text("Deleted \(formatDaysAgo(trashItem.daysSinceDeletion))")
-                        .font(.caption)
+                        .font(.caption2)
                         .foregroundColor(trashItem.shouldAutoDelete ? .orange : .secondary)
 
                     if trashItem.shouldAutoDelete {
                         Text("•")
-                            .font(.caption)
+                            .font(.caption2)
                             .foregroundColor(.orange)
 
                         Text("Auto-delete soon")
-                            .font(.caption)
+                            .font(.caption2)
                             .foregroundColor(.orange)
                             .fontWeight(.medium)
                     }
@@ -191,14 +180,14 @@ struct TrashView: View {
             Spacer()
 
             // Action buttons
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 Button {
                     restoreTrashItem(trashItem)
                 } label: {
                     Text("Restore")
-                        .font(.caption)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                        .font(.caption2)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
                         .background(
                             colorScheme == .dark
                                 ? Color.matchalight_dark.opacity(0.2)
@@ -209,7 +198,7 @@ struct TrashView: View {
                                 ? Color.matchalight_dark
                                 : Color.matchalight_light
                         )
-                        .cornerRadius(8)
+                        .cornerRadius(6)
                 }
                 .buttonStyle(.plain)
 
@@ -218,15 +207,15 @@ struct TrashView: View {
                 } label: {
                     Image(systemName: "trash")
                         .foregroundColor(.red)
-                        .font(.system(size: 14))
-                        .padding(6)
+                        .font(.system(size: 12))
+                        .padding(4)
                         .background(Color.red.opacity(0.1))
-                        .cornerRadius(6)
+                        .cornerRadius(4)
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.vertical, 12)
+        .padding(.vertical, 6)
         .contentShape(Rectangle())
     }
 

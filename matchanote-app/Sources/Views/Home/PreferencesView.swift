@@ -6,115 +6,155 @@ struct PreferencesView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 0) {
             // Header
-            MatchaPageHeader("Preferences", subtitle: "Customize your Matcha experience")
-
-            // Appearance and Assistant Sections (Side by Side)
-            HStack(alignment: .top, spacing: 12) {
+            HStack {
+                Text("Preferences")
+                    .font(.system(.largeTitle, design: .serif))
+                    .bold()
+                    .foregroundStyle(
+                        colorScheme == .dark
+                            ? Color.matchabrown_dark : Color.matchabrown_light)
+                
+                Spacer()
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 12)
+            .background(
+                colorScheme == .dark
+                    ? Color.matchabackground_dark : Color.matchabackground_light)
+            
+            // Preferences list
+            List {
                 // Appearance Section
-                VStack(alignment: .leading, spacing: 12) {
-                    MatchaSectionHeader(
-                        title: "Appearance",
-                        icon: "paintbrush.fill"
-                    )
-
-                    MatchaCard {
-                        VStack(alignment: .leading, spacing: 12) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Theme")
-                                    .font(.headline)
-                                    .foregroundColor(.primary)
-
-                                Text("Choose how Matcha looks")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-
-                            HStack(spacing: 8) {
-                                ForEach(AppTheme.allCases, id: \.self) { theme in
-                                    MatchaThemeOption(
-                                        theme: theme,
-                                        isSelected: preferencesManager.theme == theme,
-                                        onSelect: {
-                                            preferencesManager.theme = theme
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity)
-
-                // Assistant Section
-                VStack(alignment: .leading, spacing: 12) {
-                    MatchaSectionHeader(
-                        title: "Assistant",
-                        icon: "brain.head.profile"
-                    )
-
-                    MatchaCard {
-                        VStack(alignment: .leading, spacing: 12) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Default Orientation")
-                                    .font(.headline)
-                                    .foregroundColor(.primary)
-
-                                Text("Choose which side the assistant appears on")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-
-                            HStack(spacing: 8) {
-                                ForEach(AssistantOrientation.allCases, id: \.self) { orientation in
-                                    MatchaCompactOrientationOption(
-                                        orientation: orientation,
-                                        isSelected: preferencesManager.assistantDefaultOrientation == orientation,
-                                        onSelect: {
-                                            preferencesManager.assistantDefaultOrientation = orientation
-                                        }
-                                    )
-                                }
-                            }
+                Section {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Theme")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.primary)
                             
-                            // Add some extra spacing to match the theme segment height
-                            Spacer()
-                                .frame(height: 10)
+                            Text("Choose how Matcha looks")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        HStack(spacing: 6) {
+                            ForEach(AppTheme.allCases, id: \.self) { theme in
+                                MatchaThemeOption(
+                                    theme: theme,
+                                    isSelected: preferencesManager.theme == theme,
+                                    onSelect: {
+                                        preferencesManager.theme = theme
+                                    }
+                                )
+                            }
                         }
                     }
+                    .padding(.vertical, 4)
+                } header: {
+                    HStack {
+                        Image(systemName: "paintbrush.fill")
+                            .foregroundColor(
+                                colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+                            .font(.system(size: 14))
+                        Text("Appearance")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(
+                                colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+                    }
                 }
-                .frame(maxWidth: .infinity)
-            }
-
-       
-
-            // Storage Section
-            VStack(alignment: .leading, spacing: 12) {
-                MatchaSectionHeader(
-                    title: "Storage",
-                    icon: "externaldrive.fill"
-                )
-
-                MatchaCard {
-                    VStack(alignment: .leading, spacing: 12) {
-                        MatchaToggle(
-                            title: "Cloud Sync",
-                            subtitle: "Sync your notes and folders to the cloud (Premium feature)",
-                            icon: "icloud.fill",
-                            isOn: $preferencesManager.supabaseStorageEnabled
-                        )
+                
+                // Assistant Section
+                Section {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Default Orientation")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.primary)
+                            
+                            Text("Choose which side the assistant appears on")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        HStack(spacing: 6) {
+                            ForEach(AssistantOrientation.allCases, id: \.self) { orientation in
+                                MatchaCompactOrientationOption(
+                                    orientation: orientation,
+                                    isSelected: preferencesManager.assistantDefaultOrientation == orientation,
+                                    onSelect: {
+                                        preferencesManager.assistantDefaultOrientation = orientation
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                } header: {
+                    HStack {
+                        Image(systemName: "brain.head.profile")
+                            .foregroundColor(
+                                colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+                            .font(.system(size: 14))
+                        Text("Assistant")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(
+                                colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+                    }
+                }
+                
+                // Storage Section
+                Section {
+                    HStack(spacing: 10) {
+                        Image(systemName: "icloud.fill")
+                            .foregroundColor(.blue)
+                            .font(.system(size: 16))
+                        
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Cloud Sync")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.primary)
+                            
+                            Text("Sync your notes and folders to the cloud (Premium feature)")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        Toggle("", isOn: $preferencesManager.supabaseStorageEnabled)
+                            .labelsHidden()
+                    }
+                    .padding(.vertical, 4)
+                } header: {
+                    HStack {
+                        Image(systemName: "externaldrive.fill")
+                            .foregroundColor(
+                                colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+                            .font(.system(size: 14))
+                        Text("Storage")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(
+                                colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                     }
                 }
             }
-
-            Spacer()
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
         }
-        .frame(maxWidth: .infinity)
         .background(
             colorScheme == .dark
                 ? Color.matchabackground_dark : Color.matchabackground_light)
-        .padding(.horizontal)
-        .padding(.vertical, 20)
     }
 }
