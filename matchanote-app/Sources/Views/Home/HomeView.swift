@@ -505,6 +505,74 @@ Label("Sign Out", systemImage: "arrow.right.square")
     
     // MARK: - Bulk Action Buttons
     private var bulkActionButtons: some View {
+        Group {
+            if isPortrait {
+                // Compact horizontal layout for portrait
+                portraitBulkActionButtons
+            } else {
+                // Full layout for landscape
+                landscapeBulkActionButtons
+            }
+        }
+    }
+    
+    // Portrait: Compact horizontal layout
+    private var portraitBulkActionButtons: some View {
+        HStack(spacing: 6) {
+            // Selection count (compact)
+            Text("\(selectedNotes.count + selectedFolders.count)")
+                .font(.caption2)
+                .fontWeight(.medium)
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.gray.opacity(0.1))
+                )
+            
+            // Move button (icon only)
+            Button(action: {
+                showBulkMoveSheet = true
+            }) {
+                Image(systemName: "folder")
+                    .font(.caption)
+                    .foregroundColor(.primary)
+                    .padding(6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.blue.opacity(0.1))
+                    )
+            }
+            .buttonStyle(PlainButtonStyle())
+            .disabled(isDeleting)
+            
+            // Delete button (icon only)
+            Button(action: {
+                deleteSelectedItems()
+            }) {
+                if isDeleting {
+                    ProgressView()
+                        .scaleEffect(0.6)
+                        .padding(6)
+                } else {
+                    Image(systemName: "trash")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .padding(6)
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+            .disabled(isDeleting)
+            .background(
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.red.opacity(0.1))
+            )
+        }
+    }
+    
+    // Landscape: Full layout with progress indicator
+    private var landscapeBulkActionButtons: some View {
         VStack(spacing: 8) {
             HStack(spacing: 8) {
                 // Selection count
@@ -591,6 +659,11 @@ Label("Sign Out", systemImage: "arrow.right.square")
                 )
             }
         }
+    }
+    
+    // Helper to determine if we're in portrait mode
+    private var isPortrait: Bool {
+        screenSize.height > screenSize.width
     }
     
     private var documentContent: some View {

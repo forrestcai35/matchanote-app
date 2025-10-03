@@ -425,16 +425,13 @@ struct WrittenNoteView: View {
     private func pageContent(pageIndex: Int, isInfinite: Bool) -> some View {
         // Wrap Canvas in a GeometryReader to get parent size for centering and safe area insets
         GeometryReader { geometry in
-            // Compute dynamic min scale so the full page can fit in the viewport
-            let contentSize = perPageSize(pageIndex)
-            let viewportSize = geometry.size
-            let fitScale = min(viewportSize.width / max(contentSize.width, 1), viewportSize.height / max(contentSize.height, 1))
-            // Use natural fit scale as minimum to avoid rendering oversized content
-            let dynamicMinScale = max(0.2, min(fitScale * 0.999, 1.0))
+            // Use static zoom caps for consistent behavior across orientations
+            let staticMinScale: CGFloat = 0.75
+            let staticMaxScale: CGFloat = 5.0
             
             ZoomableScrollView(
-                minScale: dynamicMinScale,
-                maxScale: 3.0,
+                minScale: staticMinScale,
+                maxScale: staticMaxScale,
                 resetOnDoubleTap: true,
                 currentScale: $unifiedZoomScale,
                 contentOffset: $unifiedContentOffset,
@@ -509,23 +506,28 @@ struct WrittenNoteView: View {
             .onAppear {
                 // Auto-fit to screen on first appearance of the content after loading a note
                 if !didApplyInitialFit {
-                    unifiedZoomScale = dynamicMinScale
+                    // Calculate fit scale for initial display but don't use it as minimum
+                    let contentSize = perPageSize(pageIndex)
+                    let viewportSize = geometry.size
+                    let fitScale = min(viewportSize.width / max(contentSize.width, 1), viewportSize.height / max(contentSize.height, 1))
+                    let initialScale = max(staticMinScale, min(fitScale * 0.999, 1.0))
+                    unifiedZoomScale = initialScale
                     unifiedContentOffset = .zero
                     didApplyInitialFit = true
                 }
             }
             .onChange(of: geometry.size) { _, _ in
-                clampScaleIfNeeded(dynamicMinScale)
+                clampScaleIfNeeded(staticMinScale)
             }
             .onChange(of: currentPage) { _, _ in
-                clampScaleIfNeeded(dynamicMinScale)
+                clampScaleIfNeeded(staticMinScale)
             }
             .coordinateSpace(name: "scroll")
             .edgesIgnoringSafeArea(.bottom)
         }
     }
     
-    // Ensure current scale is not below the dynamic minimum when page or geometry changes
+    // Ensure current scale is not below the static minimum when page or geometry changes
     private func clampScaleIfNeeded(_ minScale: CGFloat) {
         if unifiedZoomScale < minScale {
             unifiedZoomScale = minScale
@@ -1437,4 +1439,5 @@ struct WrittenNoteView: View {
             }
         }
     }
+
 

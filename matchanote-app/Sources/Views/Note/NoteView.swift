@@ -508,34 +508,74 @@ struct NoteView: View {
   // Orientation hover indicator
   @ViewBuilder
   private func orientationIndicator(for orientation: AssistantOrientation, in size: CGSize)
-    -> some View
+-> some View
   {
     ZStack {
       // Transparent overlay to avoid darkening content
       Color.clear
         .edgesIgnoringSafeArea(.all)
 
-      // Position indicator
+      // Position indicator - covers entire side
       Group {
         switch orientation {
         case .right:
+          // Cover right side with reasonable width
           Rectangle()
-            .fill(Color.green.opacity(0.2))
-            .frame(width: assistantWidth, height: size.height)
+            .fill(
+              LinearGradient(
+                colors: [
+                  Color.matchalight_light.opacity(0.15),
+                  Color.matchalight_light.opacity(0.05)
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+              )
+            )
+            .frame(width: min(300, size.width * 0.25), height: size.height)
             .overlay(
               Rectangle()
-                .strokeBorder(Color.green.opacity(0.5), lineWidth: 2)
+                .strokeBorder(
+                  LinearGradient(
+                    colors: [
+                      Color.matchalight_light.opacity(0.6),
+                      Color.matchalight_light.opacity(0.3)
+                    ],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                  ),
+                  lineWidth: 3
+                )
             )
-            .position(x: size.width - assistantWidth / 2, y: size.height / 2)
+            .position(x: size.width - min(300, size.width * 0.25) / 2, y: size.height / 2)
         case .left:
+          // Cover left side with reasonable width
           Rectangle()
-            .fill(Color.green.opacity(0.2))
-            .frame(width: assistantWidth, height: size.height)
+            .fill(
+              LinearGradient(
+                colors: [
+                  Color.matchalight_light.opacity(0.15),
+                  Color.matchalight_light.opacity(0.05)
+                ],
+                startPoint: .trailing,
+                endPoint: .leading
+              )
+            )
+            .frame(width: min(300, size.width * 0.25), height: size.height)
             .overlay(
               Rectangle()
-                .strokeBorder(Color.green.opacity(0.5), lineWidth: 2)
+                .strokeBorder(
+                  LinearGradient(
+                    colors: [
+                      Color.matchalight_light.opacity(0.6),
+                      Color.matchalight_light.opacity(0.3)
+                    ],
+                    startPoint: .trailing,
+                    endPoint: .leading
+                  ),
+                  lineWidth: 3
+                )
             )
-            .position(x: assistantWidth / 2, y: size.height / 2)
+            .position(x: min(300, size.width * 0.25) / 2, y: size.height / 2)
         }
       }
 
