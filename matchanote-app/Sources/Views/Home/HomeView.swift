@@ -23,8 +23,7 @@ struct HomeView: View {
     @State private var selectedItem = "documents"
     @State private var sortOption = "Date"
     @State private var isGridView = true
-    @State private var showingPreferences = false
-    @State private var showingTrash = false
+    @State private var showingSettings = false
     @State private var currentFolderID: UUID? = nil
     @State private var folderPath: [Folder] = []
     @State private var dragItem: (type: DragItemType, id: UUID)? = nil
@@ -137,30 +136,10 @@ struct HomeView: View {
 
                     Spacer()
 
-                    // Settings menu in sidebar
-                    Menu {
-                        Button("Account", systemImage: "person.circle") {
-                            if let url = URL(string: "https://matchanote.app/app/settings") {
-                                UIApplication.shared.open(url)
-                            }
-                        }
-
-                        Button("Preferences", systemImage: "paintpalette") {
-                            showingPreferences = true
-                        }
-
-                        Button("Trash", systemImage: "trash") {
-                            showingTrash = true
-                        }
-
-                        Divider()
-
-                        Button(role: .destructive) {
-                            LocalAuthManager.shared.logout()
-                        } label: {
-Label("Sign Out", systemImage: "arrow.right.square")
-                        }
-                    } label: {
+                    // Settings button in sidebar
+                    Button(action: {
+                        showingSettings = true
+                    }) {
                         Image(systemName: "gear")
                             .fontWeight(.medium)
                             .foregroundStyle(
@@ -171,12 +150,9 @@ Label("Sign Out", systemImage: "arrow.right.square")
                 .padding(.horizontal)
                 .padding(.top, 15)
 
-                // Settings sheets
-                .sheet(isPresented: $showingPreferences) {
-                    PreferencesView()
-                }
-                .sheet(isPresented: $showingTrash) {
-                    TrashView()
+                // Settings sheet
+                .sheet(isPresented: $showingSettings) {
+                    SettingsView()
                 }
 
                 searchBar

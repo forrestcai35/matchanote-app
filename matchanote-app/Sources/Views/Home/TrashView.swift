@@ -12,66 +12,59 @@ struct TrashView: View {
     @EnvironmentObject private var storageManager: StorageManager
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
-    @State private var selectedNote: Note? = nil
     @State private var showingEmptyConfirmation = false
 
     var body: some View {
-        NavigationView {
-            VStack(alignment: .leading, spacing: 20) {
-                // Header
-                MatchaPageHeader(
-                    "Trash",
-                    subtitle: trashManager.trashItems.isEmpty
-                        ? "No items in trash"
-                        : "\(trashManager.trashItems.count) item\(trashManager.trashItems.count == 1 ? "" : "s") in trash"
-                )
+        VStack(alignment: .leading, spacing: 20) {
+            // Header
+            MatchaPageHeader(
+                "Trash",
+                subtitle: trashManager.trashItems.isEmpty
+                    ? "No items in trash"
+                    : "\(trashManager.trashItems.count) item\(trashManager.trashItems.count == 1 ? "" : "s") in trash"
+            )
 
-                if trashManager.trashItems.isEmpty {
-                    emptyTrashView
-                } else {
-                    trashItemsSection
-                }
-
-                Spacer()
-            }
-            .frame(maxWidth: .infinity)
-            .background(
-                colorScheme == .dark
-                    ? Color.matchabackground_dark : Color.matchabackground_light)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                    .foregroundColor(
-                        colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
-                }
-
-                if !trashManager.trashItems.isEmpty {
-                    ToolbarItem(placement: .navigationBarTrailing) {
+            if trashManager.trashItems.isEmpty {
+                emptyTrashView
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Spacer()
                         Button("Empty Trash") {
                             showingEmptyConfirmation = true
                         }
                         .foregroundColor(.red)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.red.opacity(0.1))
+                        )
                     }
+                    
+                    trashItemsSection
                 }
             }
-            .confirmationDialog(
-                "Empty Trash",
-                isPresented: $showingEmptyConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button("Empty Trash", role: .destructive) {
-                    trashManager.emptyTrash()
-                }
-                Button("Cancel", role: .cancel) { }
-            } message: {
-                Text("This will permanently delete all items in the trash. This action cannot be undone.")
-            }
+
+            Spacer()
         }
-        .fullScreenCover(item: $selectedNote) { note in
-            NoteView(note: note)
+        .frame(maxWidth: .infinity)
+        .background(
+            colorScheme == .dark
+                ? Color.matchabackground_dark : Color.matchabackground_light)
+        .padding(.horizontal)
+        .padding(.vertical, 20)
+        .confirmationDialog(
+            "Empty Trash",
+            isPresented: $showingEmptyConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Empty Trash", role: .destructive) {
+                trashManager.emptyTrash()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will permanently delete all items in the trash. This action cannot be undone.")
         }
     }
 
@@ -235,15 +228,6 @@ struct TrashView: View {
         }
         .padding(.vertical, 12)
         .contentShape(Rectangle())
-        .onTapGesture {
-            if trashItem.type == .note {
-                let restored = trashManager.restoreItem(trashItem)
-                if let note = restored.note {
-                    // Temporarily add to storage for preview
-                    selectedNote = note
-                }
-            }
-        }
     }
 
     private func formatDaysAgo(_ days: Int) -> String {
