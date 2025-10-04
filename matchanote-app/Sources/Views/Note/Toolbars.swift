@@ -623,6 +623,12 @@ struct WrittenNoteToolbar: View {
                   }
                 } label: {
                   ZStack {
+                    // Fixed outer circle frame to prevent layout shifts
+                    Circle()
+                      .fill(Color.gray.opacity(0.1))
+                      .frame(width: 26, height: 26)
+                    
+                    // Inner circle that changes size based on tool width
                     Circle()
                       .fill(
                         toolState.selectedPenPresetIndex == i
@@ -632,9 +638,6 @@ struct WrittenNoteToolbar: View {
                         width: dotDiameter(for: toolState.penWidthPresets[i], maxRange: 60),
                         height: dotDiameter(for: toolState.penWidthPresets[i], maxRange: 60)
                       )
-                    Image(systemName: expandedPenPresetIndex == i ? "chevron.up" : "chevron.down")
-                      .font(.system(size: 8, weight: .bold))
-                      .foregroundColor(.white.opacity(0.9))
                   }
                 }
                 .buttonStyle(PlainButtonStyle())
@@ -728,8 +731,6 @@ struct WrittenNoteToolbar: View {
       }
       .padding(.horizontal, 8)
       .padding(.vertical, 4)
-      .background(Color.matchalight_dark.opacity(0.1))
-      .cornerRadius(8)
 
     case .marker:
       VStack(alignment: .leading, spacing: 6) {
@@ -750,6 +751,12 @@ struct WrittenNoteToolbar: View {
                   }
                 } label: {
                   ZStack {
+                    // Fixed outer circle frame to prevent layout shifts
+                    Circle()
+                      .fill(Color.gray.opacity(0.1))
+                      .frame(width: 26, height: 26)
+                    
+                    // Inner circle that changes size based on tool width
                     Circle()
                       .fill(
                         toolState.selectedMarkerPresetIndex == i
@@ -759,11 +766,6 @@ struct WrittenNoteToolbar: View {
                         width: dotDiameter(for: toolState.markerWidthPresets[i], maxRange: 40),
                         height: dotDiameter(for: toolState.markerWidthPresets[i], maxRange: 40)
                       )
-                    Image(
-                      systemName: expandedMarkerPresetIndex == i ? "chevron.up" : "chevron.down"
-                    )
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundColor(.white.opacity(0.9))
                   }
                 }
                 .buttonStyle(PlainButtonStyle())
@@ -857,8 +859,6 @@ struct WrittenNoteToolbar: View {
       }
       .padding(.horizontal, 8)
       .padding(.vertical, 4)
-      .background(Color.matchalight_dark.opacity(0.1))
-      .cornerRadius(8)
 
     case .eraser:
       HStack(spacing: 16) {
@@ -897,22 +897,21 @@ struct WrittenNoteToolbar: View {
                     }
                   }
                 } label: {
-                  Circle()
-                    .fill(
-                      toolState.selectedEraserAreaPresetIndex == i
-                        ? Color.matchalight_dark : Color.gray.opacity(0.5)
-                    )
-                    .frame(
-                      width: toolState.eraserAreaDotSizes[safe: i]
-                        ?? dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: eraserBitmapMaxWidth),
-                      height: toolState.eraserAreaDotSizes[safe: i]
-                        ?? dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: eraserBitmapMaxWidth)
-                    )
-                    .overlay(
-                      Image(systemName: expandedEraserPresetIndex == i ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundColor(.white.opacity(0.9))
-                    )
+                  ZStack {
+      
+                    // Inner circle that changes size based on tool width
+                    Circle()
+                      .fill(
+                        toolState.selectedEraserAreaPresetIndex == i
+                          ? Color.matchalight_dark : Color.gray.opacity(0.5)
+                      )
+                      .frame(
+                        width: toolState.eraserAreaDotSizes[safe: i]
+                          ?? dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: eraserBitmapMaxWidth),
+                        height: toolState.eraserAreaDotSizes[safe: i]
+                          ?? dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: eraserBitmapMaxWidth)
+                      )
+                  }
                 }
                 .buttonStyle(PlainButtonStyle())
                 .overlay(alignment: .bottom) {
@@ -947,7 +946,24 @@ struct WrittenNoteToolbar: View {
             }
           }
         }
+        
+        // Show text for object eraser
+        if toolState.eraserType == .object {
+    HStack {
+        Text("Object Eraser")
+          .font(.caption)
+          .foregroundColor(.gray)
       }
+      .frame(maxWidth: .infinity)
+      .padding(.horizontal, 8)
+      .padding(.vertical, 4)
+      .background(Color.matchalight_dark.opacity(0.1))
+      .cornerRadius(8)
+
+
+        }
+      }
+      
       .padding(.horizontal, 8)
       .clipped()
       .padding(.vertical, 4)
@@ -1041,8 +1057,6 @@ struct WrittenNoteToolbar: View {
       }
       .padding(.horizontal, 8)
       .padding(.vertical, 4)
-      .background(Color.matchalight_dark.opacity(0.1))
-      .cornerRadius(8)
 
     case .shape:
       VStack(alignment: .leading, spacing: 6) {
@@ -1063,6 +1077,12 @@ struct WrittenNoteToolbar: View {
                   }
                 } label: {
                   ZStack {
+                    // Fixed outer circle frame to prevent layout shifts
+                    Circle()
+                      .fill(Color.gray.opacity(0.1))
+                      .frame(width: 26, height: 26)
+                    
+                    // Inner circle that changes size based on tool width
                     Circle()
                       .fill(
                         toolState.selectedPenPresetIndex == i
@@ -1072,9 +1092,6 @@ struct WrittenNoteToolbar: View {
                         width: dotDiameter(for: toolState.penWidthPresets[i], maxRange: 60),
                         height: dotDiameter(for: toolState.penWidthPresets[i], maxRange: 60)
                       )
-                    Image(systemName: expandedPenPresetIndex == i ? "chevron.up" : "chevron.down")
-                      .font(.system(size: 8, weight: .bold))
-                      .foregroundColor(.white.opacity(0.9))
                   }
                 }
                 .buttonStyle(PlainButtonStyle())
@@ -1168,8 +1185,6 @@ struct WrittenNoteToolbar: View {
       }
       .padding(.horizontal, 8)
       .padding(.vertical, 4)
-      .background(Color.matchalight_dark.opacity(0.1))
-      .cornerRadius(8)
     }
   }
 
