@@ -731,8 +731,20 @@ struct EnhancedAIAssistantView: View {
 
     private func setupAI() {
         // Configure API
-        if let apiKey = EnvironmentManager.shared.getLlmAPIKey(for: "OPENROUTER") {
-            OpenRouterAPI.configure(apiKey: apiKey)
+        if let openRouterKey = EnvironmentManager.shared.get("OPENROUTER_API_KEY"),
+           let openAIKey = EnvironmentManager.shared.get("OPENAI_API_KEY"),
+           let anthropicKey = EnvironmentManager.shared.get("CLAUDE_API_KEY"),
+           let deepSeekKey = EnvironmentManager.shared.get("DEEPSEEK_API_KEY"),
+           let googleKey = EnvironmentManager.shared.get("GEMINI_API_KEY"),
+           let xKey = EnvironmentManager.shared.get("X_API_KEY") {
+            LlmAPI.configure(
+                openRouterAPIKey: openRouterKey,
+                openAIAPIKey: openAIKey,
+                anthropicAPIKey: anthropicKey,
+                deepSeekAPIKey: deepSeekKey,
+                googleAPIKey: googleKey,
+                xAPIKey: xKey
+            )
         }
 
         // Load user profile and available models
@@ -835,7 +847,7 @@ struct EnhancedAIAssistantView: View {
 
         Task {
             do {
-                let response = try await OpenRouterAPI.sendMessage(
+                let response = try await LlmAPI.sendMessage(
                     userMessage: contextualPrompt,
                     model_string: state.selectedModel
                 )

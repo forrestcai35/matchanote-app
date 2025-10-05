@@ -1,5 +1,26 @@
 import Foundation
 
+// MARK: - API Provider
+enum APIProvider: String, CaseIterable {
+    case openRouter = "openrouter"
+    case openai = "openai"
+    case anthropic = "anthropic"
+    case deepseek = "deepseek"
+    case google = "google"
+    case x = "x"
+    
+    var displayName: String {
+        switch self {
+        case .openRouter: return "OpenRouter"
+        case .openai: return "OpenAI"
+        case .anthropic: return "Anthropic"
+        case .deepseek: return "DeepSeek"
+        case .google: return "Google"
+        case .x: return "X (Grok)"
+        }
+    }
+}
+
 // MARK: - Model Configuration
 struct ModelConfiguration {
     
@@ -8,25 +29,28 @@ struct ModelConfiguration {
         let displayName: String
         let modelId: String
         let isPremium: Bool
+        let provider: APIProvider
         
-        init(displayName: String, modelId: String, isPremium: Bool = false) {
+        init(displayName: String, modelId: String, isPremium: Bool = false, provider: APIProvider = .openRouter) {
             self.displayName = displayName
             self.modelId = modelId
             self.isPremium = isPremium
+            self.provider = provider
         }
     }
     
     // MARK: - Free Models
     static let freeModels: [Model] = [
-        Model(displayName: "Matcha Assistant", modelId: "deepseek/deepseek-chat-v3.1:free", isPremium: false)
+        Model(displayName: "Matcha Assistant", modelId: "deepseek/deepseek-chat-v3.1:free", isPremium: false, provider: .openRouter)
     ]
     
     // MARK: - Premium Models
     static let premiumModels: [Model] = [
-        Model(displayName: "gpt-5", modelId: "openai/gpt-5-flash", isPremium: true),
-        Model(displayName: "claude 4.5 Sonnet", modelId: "anthropic/claude-sonnet-4.5", isPremium: true),
-        Model(displayName: "o4", modelId: "openai/o4-mini", isPremium: true),
-        Model(displayName: "gemini-2.5", modelId: "google/gemini-2.5-flash", isPremium: true),
+        Model(displayName: "gpt-5", modelId: "gpt-5-nano", isPremium: true, provider: .openai),
+        Model(displayName: "claude 4.5 Sonnet", modelId: "claude-sonnet-4-5-20250929", isPremium: true, provider: .anthropic),
+        Model(displayName: "gemini-2.5", modelId: "gemini-2.5-flash", isPremium: true, provider: .google),
+        Model(displayName: "grok 4", modelId: "grok-4-fast-non-reasoning", isPremium: true, provider: .x),
+        Model(displayName: "DeepSeek V3", modelId: "deepseek-chat", isPremium: true, provider: .deepseek),
     ]
     
     // MARK: - All Models
@@ -73,4 +97,15 @@ struct ModelConfiguration {
     static func getFreeModelNames() -> [String] {
         return freeModels.map { $0.displayName }
     }
+    
+    /// Get the API provider for a given display name
+    static func getProvider(for displayName: String) -> APIProvider? {
+        return allModels.first { $0.displayName == displayName }?.provider
+    }
+    
+    /// Get the model configuration for a given display name
+    static func getModelConfig(for displayName: String) -> Model? {
+        return allModels.first { $0.displayName == displayName }
+    }
+    
 }

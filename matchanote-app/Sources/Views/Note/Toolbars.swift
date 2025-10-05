@@ -880,10 +880,10 @@ struct WrittenNoteToolbar: View {
           }
         }
 
-        // Area eraser: three quick presets with dropdown slider (capped)
-        if toolState.eraserType == .area {
-          HStack(spacing: 12) {
-            // Preset dots (tap again to toggle dropdown)
+        // Fixed width container to prevent toolbar movement
+        HStack(spacing: 12) {
+          if toolState.eraserType == .area {
+            // Area eraser: three quick presets with dropdown slider (capped)
             HStack(spacing: 8) {
               ForEach(0..<toolState.eraserAreaWidthPresets.count, id: \.self) { i in
                 Button {
@@ -898,7 +898,7 @@ struct WrittenNoteToolbar: View {
                   }
                 } label: {
                   ZStack {
-      
+    
                     // Inner circle that changes size based on tool width
                     Circle()
                       .fill(
@@ -944,24 +944,21 @@ struct WrittenNoteToolbar: View {
                 }
               }
             }
+          } else {
+            // Object eraser: show text with same spacing as area eraser controls
+            HStack {
+              Text("Object Eraser")
+                .font(.caption)
+                .foregroundColor(.gray)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color.matchalight_dark.opacity(0.1))
+            .cornerRadius(8)
           }
         }
-        
-        // Show text for object eraser
-        if toolState.eraserType == .object {
-    HStack {
-        Text("Object Eraser")
-          .font(.caption)
-          .foregroundColor(.gray)
-      }
-      .frame(maxWidth: .infinity)
-      .padding(.horizontal, 8)
-      .padding(.vertical, 4)
-      .background(Color.matchalight_dark.opacity(0.1))
-      .cornerRadius(8)
-
-
-        }
+        .frame(width: 200) // Fixed width to prevent toolbar movement
       }
       
       .padding(.horizontal, 8)

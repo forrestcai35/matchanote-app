@@ -1,15 +1,6 @@
 {
-  "originHash" : "ca96dcef5b2236c0a60a6df494ffc852793a198936161273ccb569d9aa4c0907",
+  "originHash" : "ccc727310637079b7355ccf59e7d153c26677020c1a43e177b78cc9df7963c0f",
   "pins" : [
-    {
-      "identity" : "down",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/johnxnguyen/Down.git",
-      "state" : {
-        "revision" : "f34b166be1f1db4aa8f573067e901d72f2a6be57",
-        "version" : "0.11.0"
-      }
-    },
     {
       "identity" : "supabase-swift",
       "kind" : "remoteSourceControl",
@@ -62,15 +53,6 @@
       "state" : {
         "revision" : "a0a57e949a8903563aba4615869310c0ebf14c03",
         "version" : "1.4.0"
-      }
-    },
-    {
-      "identity" : "swiftdown",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/qeude/SwiftDown.git",
-      "state" : {
-        "revision" : "3a988bfa50ffbc55ee312749c326f8791d7f87ad",
-        "version" : "0.4.1"
       }
     },
     {

@@ -405,9 +405,39 @@ struct AIAssistantView: View {
     // MARK: - AI Intelligence Methods
     
     private func setupAI() {
-        if let apiKey = EnvironmentManager.shared.getLlmAPIKey(for: "OPENROUTER") {
-            OpenRouterAPI.configure(apiKey: apiKey)
+        // Debug: Check which API keys are available
+        let openRouterKey = EnvironmentManager.shared.get("OPENROUTER_API_KEY")
+        let openAIKey = EnvironmentManager.shared.get("OPENAI_API_KEY")
+        let anthropicKey = EnvironmentManager.shared.get("CLAUDE_API_KEY")
+        let deepSeekKey = EnvironmentManager.shared.get("DEEPSEEK_API_KEY")
+        let googleKey = EnvironmentManager.shared.get("GEMINI_API_KEY")
+        let xKey = EnvironmentManager.shared.get("X_API_KEY")
+        
+        print("🔑 API Key Debug:")
+        print("OPENROUTER_API_KEY: \(openRouterKey != nil ? "✅ Found" : "❌ Missing")")
+        print("OPENAI_API_KEY: \(openAIKey != nil ? "✅ Found" : "❌ Missing")")
+        print("CLAUDE_API_KEY: \(anthropicKey != nil ? "✅ Found" : "❌ Missing")")
+        print("DEEPSEEK_API_KEY: \(deepSeekKey != nil ? "✅ Found" : "❌ Missing")")
+        print("GEMINI_API_KEY: \(googleKey != nil ? "✅ Found" : "❌ Missing")")
+        print("X_API_KEY: \(xKey != nil ? "✅ Found" : "❌ Missing")")
+        
+        // Debug: Print all environment variables
+        print("🌍 All Environment Variables:")
+        for (key, value) in ProcessInfo.processInfo.environment {
+            if key.contains("API") || key.contains("KEY") {
+                print("  \(key) = \(value.prefix(10))...")
+            }
         }
+        
+        // Configure with available keys (allow partial configuration)
+        LlmAPI.configure(
+            openRouterAPIKey: openRouterKey,
+            openAIAPIKey: openAIKey,
+            anthropicAPIKey: anthropicKey,
+            deepSeekAPIKey: deepSeekKey,
+            googleAPIKey: googleKey,
+            xAPIKey: xKey
+        )
         
         Task {
             await state.subscriptionManager.fetchUserProfile()
@@ -503,7 +533,7 @@ struct AIAssistantView: View {
                 }
                 
                 // Send to AI with context
-                let response = try await OpenRouterAPI.sendMessage(
+                let response = try await LlmAPI.sendMessage(
                     userMessage: contextualPrompt,
                     model_string: selectedModel
                 )
@@ -565,7 +595,7 @@ struct AIAssistantView: View {
                     return
                 }
                 
-                let response = try await OpenRouterAPI.sendMessage(
+                let response = try await LlmAPI.sendMessage(
                     userMessage: input,
                     model_string: selectedModel
                 )

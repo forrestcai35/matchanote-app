@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>UILaunchStoryboardName</key>
-	<string>Launch Screen.storyboard</string>
+	<string>launch_screen.storyboard</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>We need access to your photo library to insert images into notes.</string>
 	<key>NSCameraUsageDescription</key>
@@ -15,7 +15,7 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>app.matchanote://auth-callback</string>
+				<string>matchanote://auth-callback</string>
 			</array>
 		</dict>
 	</array>

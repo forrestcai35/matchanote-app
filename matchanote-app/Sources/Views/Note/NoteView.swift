@@ -301,20 +301,26 @@ struct NoteView: View {
               .foregroundColor(.red)
           }
 
-          // AI ASSISTANT PANEL
-          HStack(spacing: 0) {
-            // Left-side assistant
-            if isAssistantVisible && assistantOrientation == .left {
-              assistantPanelView()
-            }
-
+          // Main content with AI assistant overlay
+          ZStack {
             // Main content
             mainContentView()
-
-
-            // Right-side assistant
-            if isAssistantVisible && assistantOrientation == .right {
-              assistantPanelView()
+            
+            // AI ASSISTANT OVERLAY - constrained to main content area
+            if isAssistantVisible {
+              HStack(spacing: 0) {
+                // Left-side assistant
+                if assistantOrientation == .left {
+                  assistantPanelView()
+                }
+                
+                Spacer()
+                
+                // Right-side assistant
+                if assistantOrientation == .right {
+                  assistantPanelView()
+                }
+              }
             }
           }
         }
@@ -588,82 +594,77 @@ struct NoteView: View {
   // Extracted assistant panel view
   @ViewBuilder
   private func assistantPanelView() -> some View {
-    // Horizontal layout (left/right)
-    HStack(spacing: 0) {
-
-   AIAssistantView()
-        .environmentObject(assistantState)
-        .frame(width: assistantWidth)
-        .contentShape(Rectangle())
-        .onAppear {
-          if let activeTab = tabManager.getActiveTab() {
-            // Set current note for AI assistant
-            assistantState.currentNote = activeTab.note
-          }
+    AIAssistantView()
+      .environmentObject(assistantState)
+      .frame(width: assistantWidth)
+      .contentShape(Rectangle())
+      .onAppear {
+        if let activeTab = tabManager.getActiveTab() {
+          // Set current note for AI assistant
+          assistantState.currentNote = activeTab.note
         }
-        // Drag to flip orientation
-        .gesture(
-          DragGesture(minimumDistance: 20, coordinateSpace: .global)
-            .onChanged { value in
+      }
+      // Drag to flip orientation
+      .gesture(
+        DragGesture(minimumDistance: 20, coordinateSpace: .global)
+          .onChanged { value in
+            isDraggingAssistant = true
+            dragLocation = value.location
 
-              isDraggingAssistant = true
-              dragLocation = value.location
-
-              // Determine direction based on horizontal movement
+            // Determine direction based on horizontal movement
+            if value.translation.width > 0 {
+              // Dragged right
+              draggedPosition = .right
+            } else {
+              // Dragged left
+              draggedPosition = .left
+            }
+          }
+          .onEnded { value in
+            // Reset dragging state
+            isDraggingAssistant = false
+            if abs(value.translation.width) > 50 {
               if value.translation.width > 0 {
                 // Dragged right
-                draggedPosition = .right
+                assistantOrientation = .right
               } else {
                 // Dragged left
-                draggedPosition = .left
+                assistantOrientation = .left
               }
             }
-            .onEnded { value in
-              // Reset dragging state
-              isDraggingAssistant = false
-              if abs(value.translation.width) > 50 {
-                if value.translation.width > 0 {
-                  // Dragged right
-                  assistantOrientation = .right
-                } else {
-                  // Dragged left
-                  assistantOrientation = .left
-                }
-              }
 
-              // Clear the dragged position
-              draggedPosition = nil
-            }
-        )
-        // Transparent resize handle overlaid so it does not consume width
-        .overlay(alignment: assistantOrientation == .right ? .leading : .trailing) {
-          ZStack(alignment: assistantOrientation == .right ? .leading : .trailing) {
-            // Subtle edge shadow to separate from note area (under the handle)
-            let edgeWidth: CGFloat = 3
-            let startPoint: UnitPoint = assistantOrientation == .right ? .trailing : .leading
-            let endPoint: UnitPoint = assistantOrientation == .right ? .leading : .trailing
-            let noteBg = colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light
-              let shadowColor = colorScheme == .dark ? Color.matchabackground_light.opacity(0.18) : Color.matchabackground_dark.opacity(0.12)
+            // Clear the dragged position
+            draggedPosition = nil
+          }
+      )
+      // Transparent resize handle overlaid so it does not consume width
+      .overlay(alignment: assistantOrientation == .right ? .leading : .trailing) {
+        ZStack(alignment: assistantOrientation == .right ? .leading : .trailing) {
+          // Subtle edge shadow to separate from note area (under the handle)
+          let edgeWidth: CGFloat = 3
+          let startPoint: UnitPoint = assistantOrientation == .right ? .trailing : .leading
+          let endPoint: UnitPoint = assistantOrientation == .right ? .leading : .trailing
+          let noteBg = colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light
+            let shadowColor = colorScheme == .dark ? Color.matchabackground_light.opacity(0.18) : Color.matchabackground_dark.opacity(0.12)
 
-            Rectangle()
-              .fill(noteBg)
-              .frame(width: edgeWidth)
-              .allowsHitTesting(false)
-
-            LinearGradient(
-              colors: [shadowColor, shadowColor.opacity(0.0)],
-              startPoint: startPoint,
-              endPoint: endPoint
-            )
+          Rectangle()
+            .fill(noteBg)
             .frame(width: edgeWidth)
             .allowsHitTesting(false)
-            resizeHandleOverlay(for: assistantOrientation)
-          }
+
+          LinearGradient(
+            colors: [shadowColor, shadowColor.opacity(0.0)],
+            startPoint: startPoint,
+            endPoint: endPoint
+          )
+          .frame(width: edgeWidth)
+          .allowsHitTesting(false)
+          resizeHandleOverlay(for: assistantOrientation)
         }
-        .background()
-    }
-    .ignoresSafeArea(.all, edges: .bottom)
-    .transition(assistantOrientation == .right ? .move(edge: .trailing) : .move(edge: .leading))
+      }
+      .background()
+      .ignoresSafeArea(.all, edges: .bottom)
+      .transition(assistantOrientation == .right ? .move(edge: .trailing) : .move(edge: .leading))
   }
 }
 

@@ -13,7 +13,6 @@
 		A82C61A42DA59F290091B96C /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = A82C61A32DA59F290091B96C /* Realtime */; };
 		A82C61A62DA59F290091B96C /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = A82C61A52DA59F290091B96C /* Storage */; };
 		A82C61A82DA59F290091B96C /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = A82C61A72DA59F290091B96C /* Supabase */; };
-		A86450322DA19A0700C20088 /* SwiftDown in Frameworks */ = {isa = PBXBuildFile; productRef = A86450312DA19A0700C20088 /* SwiftDown */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -81,7 +80,6 @@
 				A82C61A02DA59F290091B96C /* Functions in Frameworks */,
 				A82C619E2DA59F290091B96C /* Auth in Frameworks */,
 				A82C61A42DA59F290091B96C /* Realtime in Frameworks */,
-				A86450322DA19A0700C20088 /* SwiftDown in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -142,7 +140,6 @@
 			);
 			name = "matchanote-app";
 			packageProductDependencies = (
-				A86450312DA19A0700C20088 /* SwiftDown */,
 				A82C619D2DA59F290091B96C /* Auth */,
 				A82C619F2DA59F290091B96C /* Functions */,
 				A82C61A12DA59F290091B96C /* PostgREST */,
@@ -233,7 +230,6 @@
 			mainGroup = A87155182D9FC9EA005FA72A;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				A86450302DA19A0700C20088 /* XCRemoteSwiftPackageReference "SwiftDown" */,
 				A86451AD2DA59CA900C20088 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -615,14 +611,6 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		A86450302DA19A0700C20088 /* XCRemoteSwiftPackageReference "SwiftDown" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/qeude/SwiftDown.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.4.1;
-			};
-		};
 		A86451AD2DA59CA900C20088 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase/supabase-swift.git";
@@ -663,11 +651,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A86451AD2DA59CA900C20088 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
-		};
-		A86450312DA19A0700C20088 /* SwiftDown */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = A86450302DA19A0700C20088 /* XCRemoteSwiftPackageReference "SwiftDown" */;
-			productName = SwiftDown;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
