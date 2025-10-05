@@ -79,6 +79,7 @@ struct AIAssistantView: View {
     @State private var isInputTargeted = false
     @State private var keyboardHeight: CGFloat = 0
     private let inputOuterPadding: CGFloat = 16
+    @State private var userScrollTrigger: Int = 0
     
     var body: some View {
         VStack(spacing: 0) {
@@ -86,8 +87,10 @@ struct AIAssistantView: View {
                 inputSection
                     .padding(.top, inputOuterPadding)
                 chatHistorySection
+                    .padding(.bottom, max(0, keyboardHeight.isFinite ? keyboardHeight : 0))
             } else {
                 chatHistorySection
+                    .padding(.bottom, max(0, keyboardHeight.isFinite ? keyboardHeight : 0))
                 inputSection
                     .padding(.top, 12) // Add some top padding when at bottom
             }
@@ -139,8 +142,9 @@ struct AIAssistantView: View {
     }
     
     private var chatHistorySection: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
                 
                 ForEach(state.messages) { message in
                     if message.isUser {
@@ -214,16 +218,33 @@ struct AIAssistantView: View {
                             )
                     )
                 }
+                    // Bottom anchor for auto-scroll
+                    Color.clear
+                        .frame(height: 1)
+                        .id("CHAT_BOTTOM")
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
+            .background(
+                (colorScheme == .dark
+                 ? Color.matchabackground_dark
+                 : Color.matchabackground_light)
+                .brightness(colorScheme == .dark ? -0.05 : 0.05)
+            )
+            .onAppear {
+                // Scroll to bottom on first appear
+                withAnimation(.easeOut(duration: 0.25)) {
+                    proxy.scrollTo("CHAT_BOTTOM", anchor: .bottom)
+                }
+            }
+            .onChange(of: userScrollTrigger) { _, _ in
+                // Scroll only when user sends a message (triggered explicitly)
+                withAnimation(.easeOut(duration: 0.25)) {
+                    proxy.scrollTo("CHAT_BOTTOM", anchor: .bottom)
+                }
+            }
         }
-        .background(
-            (colorScheme == .dark
-             ? Color.matchabackground_dark
-             : Color.matchabackground_light)
-            .brightness(colorScheme == .dark ? -0.05 : 0.05)
-        )
     }
     
     private var inputSection: some View {
@@ -313,7 +334,16 @@ struct AIAssistantView: View {
             .padding(.horizontal)
             
             ZStack(alignment: .bottomTrailing) {
-                GrowingTextEditor(text: $state.userInput, placeholderText: "Ask me about your notes...")
+                GrowingTextEditor(
+                    text: $state.userInput,
+                    placeholderText: "Ask me about your notes...",
+                    submitsOnReturn: true,
+                    onSubmit: {
+                        if (!state.userInput.isEmpty || !state.tempMediaItems.isEmpty) && !state.isLoading {
+                            sendIntelligentMessage()
+                        }
+                    }
+                )
                     .font(.system(size: 16))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
@@ -419,7 +449,7 @@ struct AIAssistantView: View {
              : Color.matchabackground_light)
             .brightness(colorScheme == .dark ? -0.05 : 0.05)
         )
-        .offset(y: state.messages.isEmpty ? 0 : -keyboardHeight)
+        .offset(y: state.messages.isEmpty ? 0 : -max(0, keyboardHeight.isFinite ? keyboardHeight : 0))
         .animation(.easeInOut(duration: 0.3), value: keyboardHeight)
     }
     
@@ -541,6 +571,8 @@ struct AIAssistantView: View {
             mediaItems: state.tempMediaItems.isEmpty ? nil : state.tempMediaItems
         )
         state.messages.append(userMessage)
+        // Trigger auto-scroll to the just-added user message
+        userScrollTrigger &+= 1
         
         // Store input and clear
         let input = state.userInput
@@ -631,6 +663,8 @@ struct AIAssistantView: View {
             mediaItems: state.tempMediaItems.isEmpty ? nil : state.tempMediaItems
         )
         state.messages.append(userMessage)
+        // Trigger auto-scroll to the just-added user message
+        userScrollTrigger &+= 1
         
         let input = state.userInput
         let selectedModel = state.selectedModel

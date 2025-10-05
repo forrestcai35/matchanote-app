@@ -13,6 +13,8 @@ struct GrowingTextEditor: View {
   @State private var lastCalculatedText: String = ""
   let maxHeight: CGFloat = 200
   let placeholderText: String
+  var submitsOnReturn: Bool = false
+  var onSubmit: (() -> Void)? = nil
   
   // Cache screen width to avoid repeated UIScreen calls
   #if canImport(UIKit)
@@ -28,6 +30,15 @@ struct GrowingTextEditor: View {
         .frame(height: min(max(textEditorHeight, 80), maxHeight))
         .scrollContentBackground(.hidden)
         .onChange(of: text) { oldValue, newValue in
+          // If configured, treat Return as submit (single trailing newline typed)
+          if submitsOnReturn,
+             newValue.count == oldValue.count + 1,
+             newValue.hasSuffix("\n") {
+            // Remove the trailing newline and submit
+            text = String(newValue.dropLast())
+            onSubmit?()
+            return
+          }
           // Only recalculate if text actually changed and is significantly different
           if newValue != lastCalculatedText && abs(newValue.count - lastCalculatedText.count) > 2 {
             heightCalculationTimer?.invalidate()
