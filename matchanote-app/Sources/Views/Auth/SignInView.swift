@@ -350,7 +350,7 @@ struct SignInView: View {
     do {
       let _ = try await supabase.auth.signInWithOAuth(
         provider: .google,
-        redirectTo: URL(string: "app.matchanote://auth-callback")!
+        redirectTo: URL(string: "matchanote://authcallback")!
       )
       await MainActor.run {
         isLoading = false
@@ -373,7 +373,7 @@ struct SignInView: View {
     do {
       let _ = try await supabase.auth.signInWithOAuth(
         provider: .apple,
-        redirectTo: URL(string: "app.matchanote://auth-callback")!
+        redirectTo: URL(string: "matchanote://authcallback")!
       ) 
       await MainActor.run {
         isLoading = false

@@ -58,7 +58,7 @@ struct LlmAPI {
     self.xAPIKey = xAPIKey
   }
 
-  static func sendMessage(userMessage: String, model_string: String) async throws -> String {
+  static func sendMessage(userMessage: String, model_string: String, mediaItems: [MediaItem]? = nil) async throws -> String {
     print("🤖 Sending message to model: \(model_string)")
     
     guard let modelConfig = ModelConfiguration.getModelConfig(for: model_string) else {
@@ -69,34 +69,34 @@ struct LlmAPI {
     print("🔧 Using provider: \(modelConfig.provider.displayName)")
     
     do {
-      return try await sendMessageWithProvider(userMessage: userMessage, modelConfig: modelConfig)
+      return try await sendMessageWithProvider(userMessage: userMessage, modelConfig: modelConfig, mediaItems: mediaItems)
     } catch {
       print("❌ Error with \(modelConfig.provider.displayName): \(error)")
       
       // If the primary model is "Matcha Assistant" (free model) and we hit any error, try fallback
       if model_string == "Matcha Assistant" {
         print("🔄 Error with Matcha Assistant, falling back to Gemma 3")
-        return try await sendGoogleMessage(userMessage: userMessage, model: "gemma-3-27b-it")
+        return try await sendGoogleMessage(userMessage: userMessage, model: "gemma-3-27b-it", mediaItems: mediaItems)
       }
       
       throw error
     }
   }
   
-  private static func sendMessageWithProvider(userMessage: String, modelConfig: ModelConfiguration.Model) async throws -> String {
+  private static func sendMessageWithProvider(userMessage: String, modelConfig: ModelConfiguration.Model, mediaItems: [MediaItem]? = nil) async throws -> String {
     switch modelConfig.provider {
     case .openRouter:
-      return try await sendOpenRouterMessage(userMessage: userMessage, model: modelConfig.modelId)
+      return try await sendOpenRouterMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems)
     case .openai:
-      return try await sendOpenAIMessage(userMessage: userMessage, model: modelConfig.modelId)
+      return try await sendOpenAIMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems)
     case .anthropic:
-      return try await sendAnthropicMessage(userMessage: userMessage, model: modelConfig.modelId)
+      return try await sendAnthropicMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems)
     case .deepseek:
-      return try await sendDeepSeekMessage(userMessage: userMessage, model: modelConfig.modelId)
+      return try await sendDeepSeekMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems)
     case .google:
-      return try await sendGoogleMessage(userMessage: userMessage, model: modelConfig.modelId)
+      return try await sendGoogleMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems)
     case .x:
-      return try await sendXMessage(userMessage: userMessage, model: modelConfig.modelId)
+      return try await sendXMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems)
     }
   }
   
@@ -126,7 +126,7 @@ struct LlmAPI {
   
   // MARK: - Provider-specific Methods
   
-  private static func sendOpenRouterMessage(userMessage: String, model: String) async throws -> String {
+  private static func sendOpenRouterMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil) async throws -> String {
     guard let apiKey = openRouterAPIKey else {
       print("❌ Missing OpenRouter API key")
       throw LlmError.missingAPIKey
@@ -141,12 +141,41 @@ struct LlmAPI {
     request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
     request.addValue("application/json", forHTTPHeaderField: "Content-Type")
     request.addValue("Matcha Note App", forHTTPHeaderField: "HTTP-Referer")
+    
+    // Build user message content
+    var userContent: Any = userMessage
+    
+    // Add images if present
+    if let mediaItems = mediaItems, !mediaItems.isEmpty {
+      var contentArray: [[String: Any]] = []
+      
+      // Add text content
+      contentArray.append([
+        "type": "text",
+        "text": userMessage
+      ])
+      
+      // Add image content
+      for mediaItem in mediaItems {
+        if case .image = mediaItem.type {
+          let base64Image = mediaItem.data.base64EncodedString()
+          contentArray.append([
+            "type": "image_url",
+            "image_url": [
+              "url": "data:image/jpeg;base64,\(base64Image)"
+            ]
+          ])
+        }
+      }
+      
+      userContent = contentArray
+    }
       
     let requestBody: [String: Any] = [
       "model": model,
       "messages": [
-        ["role": "system", "content": "You are a helpful assistant called Matcha Assistant. You can use basic text formatting: **bold text** for emphasis and *italic text* for subtle emphasis. Use simple line breaks and avoid complex markdown formatting like code blocks or headers."],
-        ["role": "user", "content": userMessage],
+        ["role": "system", "content": "You are a helpful AI assistant. Respond naturally and conversationally. You can use **bold text** for emphasis and *italic text* for subtle emphasis. Do not introduce yourself. Keep responses concise and avoid excessive line breaks. When quoting text, format it properly: use **bold** for emphasis within quotes, not raw markdown syntax."],
+        ["role": "user", "content": userContent],
       ],
       "temperature": 0.7,
       "max_tokens": 8000,
@@ -161,7 +190,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: OpenRouterResponse.self)
   }
   
-  private static func sendOpenAIMessage(userMessage: String, model: String) async throws -> String {
+  private static func sendOpenAIMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil) async throws -> String {
     guard let apiKey = openAIAPIKey else {
       print("❌ Missing OpenAI API key")
       throw LlmError.missingAPIKey
@@ -175,12 +204,41 @@ struct LlmAPI {
     request.httpMethod = "POST"
     request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
     request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+    
+    // Build user message content
+    var userContent: Any = userMessage
+    
+    // Add images if present
+    if let mediaItems = mediaItems, !mediaItems.isEmpty {
+      var contentArray: [[String: Any]] = []
+      
+      // Add text content
+      contentArray.append([
+        "type": "text",
+        "text": userMessage
+      ])
+      
+      // Add image content
+      for mediaItem in mediaItems {
+        if case .image = mediaItem.type {
+          let base64Image = mediaItem.data.base64EncodedString()
+          contentArray.append([
+            "type": "image_url",
+            "image_url": [
+              "url": "data:image/jpeg;base64,\(base64Image)"
+            ]
+          ])
+        }
+      }
+      
+      userContent = contentArray
+    }
       
     let requestBody: [String: Any] = [
       "model": model,
       "messages": [
-        ["role": "system", "content": "You are a helpful assistant called Matcha Assistant. You can use basic text formatting: **bold text** for emphasis and *italic text* for subtle emphasis. Use simple line breaks and avoid complex markdown formatting like code blocks or headers."],
-        ["role": "user", "content": userMessage],
+        ["role": "system", "content": "You are a helpful AI assistant. Respond naturally and conversationally. You can use **bold text** for emphasis and *italic text* for subtle emphasis. Do not introduce yourself. Keep responses concise and avoid excessive line breaks. When quoting text, format it properly: use **bold** for emphasis within quotes, not raw markdown syntax."],
+        ["role": "user", "content": userContent],
       ],
       "temperature": 0.7,
       "max_tokens": 8000,
@@ -195,7 +253,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: OpenAIResponse.self)
   }
   
-  private static func sendAnthropicMessage(userMessage: String, model: String) async throws -> String {
+  private static func sendAnthropicMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil) async throws -> String {
     guard let apiKey = anthropicAPIKey else {
       throw LlmError.missingAPIKey
     }
@@ -209,12 +267,43 @@ struct LlmAPI {
     request.addValue(apiKey, forHTTPHeaderField: "x-api-key")
     request.addValue("application/json", forHTTPHeaderField: "Content-Type")
     request.addValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+    
+    // Build user message content
+    var userContent: Any = "You are a helpful AI assistant. Respond naturally and conversationally. You can use **bold text** for emphasis and *italic text* for subtle emphasis. Do not introduce yourself. Keep responses concise and avoid excessive line breaks. When quoting text, format it properly: use **bold** for emphasis within quotes, not raw markdown syntax.\n\nUser: \(userMessage)"
+    
+    // Add images if present
+    if let mediaItems = mediaItems, !mediaItems.isEmpty {
+      var contentArray: [[String: Any]] = []
+      
+      // Add text content
+      contentArray.append([
+        "type": "text",
+        "text": "You are a helpful AI assistant. Respond naturally and conversationally. You can use **bold text** for emphasis and *italic text* for subtle emphasis. Do not introduce yourself. Keep responses concise and avoid excessive line breaks. When quoting text, format it properly: use **bold** for emphasis within quotes, not raw markdown syntax.\n\nUser: \(userMessage)"
+      ])
+      
+      // Add image content
+      for mediaItem in mediaItems {
+        if case .image = mediaItem.type {
+          let base64Image = mediaItem.data.base64EncodedString()
+          contentArray.append([
+            "type": "image",
+            "source": [
+              "type": "base64",
+              "media_type": "image/jpeg",
+              "data": base64Image
+            ]
+          ])
+        }
+      }
+      
+      userContent = contentArray
+    }
       
     let requestBody: [String: Any] = [
       "model": model,
       "max_tokens": 8000,
       "messages": [
-        ["role": "user", "content": "You are a helpful assistant called Matcha Assistant. You can use basic text formatting: **bold text** for emphasis and *italic text* for subtle emphasis. Use simple line breaks and avoid complex markdown formatting like code blocks or headers.\n\nUser: \(userMessage)"]
+        ["role": "user", "content": userContent]
       ]
     ]
 
@@ -227,7 +316,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: AnthropicResponse.self)
   }
   
-  private static func sendDeepSeekMessage(userMessage: String, model: String) async throws -> String {
+  private static func sendDeepSeekMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil) async throws -> String {
     guard let apiKey = deepSeekAPIKey else {
       throw LlmError.missingAPIKey
     }
@@ -240,12 +329,41 @@ struct LlmAPI {
     request.httpMethod = "POST"
     request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
     request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+    
+    // Build user message content
+    var userContent: Any = userMessage
+    
+    // Add images if present
+    if let mediaItems = mediaItems, !mediaItems.isEmpty {
+      var contentArray: [[String: Any]] = []
+      
+      // Add text content
+      contentArray.append([
+        "type": "text",
+        "text": userMessage
+      ])
+      
+      // Add image content
+      for mediaItem in mediaItems {
+        if case .image = mediaItem.type {
+          let base64Image = mediaItem.data.base64EncodedString()
+          contentArray.append([
+            "type": "image_url",
+            "image_url": [
+              "url": "data:image/jpeg;base64,\(base64Image)"
+            ]
+          ])
+        }
+      }
+      
+      userContent = contentArray
+    }
       
     let requestBody: [String: Any] = [
       "model": model,
       "messages": [
-        ["role": "system", "content": "You are a helpful assistant called Matcha Assistant. You can use basic text formatting: **bold text** for emphasis and *italic text* for subtle emphasis. Use simple line breaks and avoid complex markdown formatting like code blocks or headers."],
-        ["role": "user", "content": userMessage],
+        ["role": "system", "content": "You are a helpful AI assistant. Respond naturally and conversationally. You can use **bold text** for emphasis and *italic text* for subtle emphasis. Do not introduce yourself. Keep responses concise and avoid excessive line breaks. When quoting text, format it properly: use **bold** for emphasis within quotes, not raw markdown syntax."],
+        ["role": "user", "content": userContent],
       ],
       "temperature": 0.7,
       "max_tokens": 8000,
@@ -260,7 +378,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: DeepSeekResponse.self)
   }
   
-  private static func sendGoogleMessage(userMessage: String, model: String) async throws -> String {
+  private static func sendGoogleMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil) async throws -> String {
     guard let apiKey = googleAPIKey else {
       print("❌ Missing Google API key")
       throw LlmError.missingAPIKey
@@ -273,13 +391,31 @@ struct LlmAPI {
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
     request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+    
+    // Build parts array
+    var parts: [[String: Any]] = [
+      ["text": "You are a helpful AI assistant. Respond naturally and conversationally. You can use **bold text** for emphasis and *italic text* for subtle emphasis. Do not introduce yourself. Keep responses concise and avoid excessive line breaks. When quoting text, format it properly: use **bold** for emphasis within quotes, not raw markdown syntax.\n\nUser: \(userMessage)"]
+    ]
+    
+    // Add images if present
+    if let mediaItems = mediaItems, !mediaItems.isEmpty {
+      for mediaItem in mediaItems {
+        if case .image = mediaItem.type {
+          let base64Image = mediaItem.data.base64EncodedString()
+          parts.append([
+            "inline_data": [
+              "mime_type": "image/jpeg",
+              "data": base64Image
+            ]
+          ])
+        }
+      }
+    }
       
     let requestBody: [String: Any] = [
       "contents": [
         [
-          "parts": [
-            ["text": "You are a helpful assistant called Matcha Assistant. You can use basic text formatting: **bold text** for emphasis and *italic text* for subtle emphasis. Use simple line breaks and avoid complex markdown formatting like code blocks or headers.\n\nUser: \(userMessage)"]
-          ]
+          "parts": parts
         ]
       ],
       "generationConfig": [
@@ -297,7 +433,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: GoogleResponse.self)
   }
   
-  private static func sendXMessage(userMessage: String, model: String) async throws -> String {
+  private static func sendXMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil) async throws -> String {
     guard let apiKey = xAPIKey else {
       throw LlmError.missingAPIKey
     }
@@ -310,12 +446,41 @@ struct LlmAPI {
     request.httpMethod = "POST"
     request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
     request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+    
+    // Build user message content
+    var userContent: Any = userMessage
+    
+    // Add images if present
+    if let mediaItems = mediaItems, !mediaItems.isEmpty {
+      var contentArray: [[String: Any]] = []
+      
+      // Add text content
+      contentArray.append([
+        "type": "text",
+        "text": userMessage
+      ])
+      
+      // Add image content
+      for mediaItem in mediaItems {
+        if case .image = mediaItem.type {
+          let base64Image = mediaItem.data.base64EncodedString()
+          contentArray.append([
+            "type": "image_url",
+            "image_url": [
+              "url": "data:image/jpeg;base64,\(base64Image)"
+            ]
+          ])
+        }
+      }
+      
+      userContent = contentArray
+    }
       
     let requestBody: [String: Any] = [
       "model": model,
       "messages": [
-        ["role": "system", "content": "You are a helpful assistant called Matcha Assistant. You can use basic text formatting: **bold text** for emphasis and *italic text* for subtle emphasis. Use simple line breaks and avoid complex markdown formatting like code blocks or headers."],
-        ["role": "user", "content": userMessage],
+        ["role": "system", "content": "You are a helpful AI assistant. Respond naturally and conversationally. You can use **bold text** for emphasis and *italic text* for subtle emphasis. Do not introduce yourself. Keep responses concise and avoid excessive line breaks. When quoting text, format it properly: use **bold** for emphasis within quotes, not raw markdown syntax."],
+        ["role": "user", "content": userContent],
       ],
       "temperature": 0.7,
       "max_tokens": 8000,

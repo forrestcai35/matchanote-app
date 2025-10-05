@@ -37,7 +37,7 @@ struct matchanote_App: App {
             url.stopAccessingSecurityScopedResource()
         } else {
             // Handle other URL schemes (like auth callbacks)
-            if url.scheme == "app.matchanote" {
+            if url.scheme == "matchanote" {
                 // Handle auth callback or other app-specific URLs
                 print("App: Handling app-specific URL: \(url)")
             }

@@ -402,7 +402,7 @@ struct OnboardingView: View {
       try await supabase.auth.signUp(
         email: email,
         password: password,
-        redirectTo: URL(string: "app.matchanote://auth-callback")!
+        redirectTo: URL(string: "matchanote://authcallback")!
       )
       await MainActor.run {
         isLoading = false
@@ -425,7 +425,7 @@ struct OnboardingView: View {
     do {
       let _ = try await supabase.auth.signInWithOAuth(
         provider: .google,
-        redirectTo: URL(string: "app.matchanote://auth-callback")!
+        redirectTo: URL(string: "matchanote://authcallback")!
       )
       await MainActor.run {
         isLoading = false
@@ -448,7 +448,7 @@ struct OnboardingView: View {
     do {
       let _ = try await supabase.auth.signInWithOAuth(
         provider: .apple,
-        redirectTo: URL(string: "app.matchanote://auth-callback")!
+        redirectTo: URL(string: "matchanote://authcallback")!
       ) 
       await MainActor.run {
         isLoading = false

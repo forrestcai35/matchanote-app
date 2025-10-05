@@ -1,4 +1,5 @@
 import SwiftUI
+import PencilKit
 
 #if canImport(UIKit)
   import UIKit
@@ -88,6 +89,7 @@ struct AIAssistantView: View {
             } else {
                 chatHistorySection
                 inputSection
+                    .padding(.top, 12) // Add some top padding when at bottom
             }
         }
         .background(
@@ -296,11 +298,13 @@ struct AIAssistantView: View {
                                             .clipShape(Circle())
                                             .font(.caption2)
                                     }
-                                    .offset(x: 4, y: -4)
+                                    .offset(x: 2, y: -2)
                                 }
+                                .frame(width: 40, height: 40) // Ensure enough space for the X button
                             }
                         }
-                        .padding(.horizontal, 4)
+                        .padding(.horizontal, 8) // Increased padding to prevent clipping
+                        .padding(.vertical, 4) // Add vertical padding for the X button
                     }
                 }
                 
@@ -310,9 +314,9 @@ struct AIAssistantView: View {
             
             ZStack(alignment: .bottomTrailing) {
                 GrowingTextEditor(text: $state.userInput, placeholderText: "Ask me about your notes...")
-                    .font(.system(size: 15))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                    .font(.system(size: 16))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
                     .padding(.trailing, 40)
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
@@ -331,9 +335,10 @@ struct AIAssistantView: View {
                             state.userInput = ""
                         }
                     }
-                    .onDrop(of: ["public.image", "public.file-url"], isTargeted: $isInputTargeted) {
+                    .onDrop(of: ["public.image", "public.file-url", "public.data", "public.png", "public.jpeg"], isTargeted: $isInputTargeted) {
                         providers, _ in
                         for provider in providers {
+                            // Try to load as URL first (for file drops)
                             if provider.canLoadObject(ofClass: URL.self) {
                                 _ = provider.loadObject(ofClass: URL.self) { url, error in
                                     guard let url = url else { return }
@@ -343,6 +348,22 @@ struct AIAssistantView: View {
                                 }
                                 return true
                             }
+                            
+                            #if canImport(UIKit)
+                            // Try to load as UIImage (for lasso tool selections)
+                            if provider.canLoadObject(ofClass: UIImage.self) {
+                                _ = provider.loadObject(ofClass: UIImage.self) { image, error in
+                                    guard let image = image as? UIImage else { return }
+                                    DispatchQueue.main.async {
+                                        if let imageData = image.jpegData(compressionQuality: 0.8) {
+                                            let mediaItem = MediaItem(data: imageData, type: .image)
+                                            state.tempMediaItems.append(mediaItem)
+                                        }
+                                    }
+                                }
+                                return true
+                            }
+                            #endif
                         }
                         return false
                     }
@@ -455,12 +476,55 @@ struct AIAssistantView: View {
         state.currentNote = note
     }
     
+    private func saveCurrentNote() {
+        guard let note = state.currentNote else { 
+            print("❌ No current note to save")
+            return 
+        }
+        
+        print("💾 Saving note: \(note.title)")
+        
+        // Get the latest version of the note from storage to ensure we have the most recent data
+        if let latestNote = storageManager.notes.first(where: { $0.id == note.id }) {
+            // Update the current note reference with the latest version
+            state.currentNote = latestNote
+            print("🔄 Updated note reference with latest data")
+        }
+        
+        // Force save the current note to ensure all changes are persisted
+        let savedNote = storageManager.saveNote(note)
+        
+        // Update the current note reference with the saved version
+        state.currentNote = savedNote
+        
+        print("✅ Note saved successfully")
+    }
+    
+    // Public function for saving notes (useful for exporting)
+    func saveNote() -> Note? {
+        guard var note = state.currentNote else { return nil }
+        
+        // Update the modified date
+        note.dateModified = Date()
+        
+        // Save the note through StorageManager
+        let savedNote = storageManager.saveNote(note)
+        
+        // Update the current note reference
+        state.currentNote = savedNote
+        
+        return savedNote
+    }
+    
     private func sendIntelligentMessage() {
         guard !state.userInput.isEmpty || !state.tempMediaItems.isEmpty else { return }
         guard let note = state.currentNote else {
             sendRegularMessage()
             return
         }
+        
+        // Save the note before analysis to ensure AI has access to latest content
+        saveCurrentNote()
         
         // Check if user can make this request type
         let isPremium = ModelConfiguration.isPremiumModel(state.selectedModel)
@@ -503,39 +567,31 @@ struct AIAssistantView: View {
                 }
                 
                 var contextualPrompt = input
+                var mediaItems = state.tempMediaItems
                 
                 // If needed, analyze the note first to provide context
                 if needsAnalysis {
-                    // Run quick analysis to get note context
-                    let handwritingText = await state.aiManager.quickAnalyzeHandwriting(note)
-                    let contentAnalysis = await state.aiManager.quickAnalyzeContent(note)
-                    let relatedNotes = state.aiManager.findRelatedNotes(for: note, in: storageManager.notes)
+                    // Convert note to images for visual analysis
+                    let noteImages = await convertNoteToImages(note)
+                    mediaItems.append(contentsOf: noteImages)
                     
                     // Create rich context prompt
                     contextualPrompt = """
                     User question: \(input)
                     
-                    Current note context:
+                    I've provided images of the note for visual analysis. Please examine the note content (both typed text and handwritten content) and answer the user's question based on what you can see in the note.
+                    
+                    Note details:
                     Title: \(note.title)
                     Subject: \(note.subject)
-                    Typed content: \(note.content)
-                    Handwritten content: \(handwritingText)
-                    
-                    Analysis insights:
-                    - Main topics: \(contentAnalysis.insights.mainTopics.joined(separator: ", "))
-                    - Questions found: \(contentAnalysis.insights.questions.joined(separator: "; "))
-                    - Content gaps: \(contentAnalysis.gaps.map { $0.description }.joined(separator: "; "))
-                    
-                    Related notes: \(relatedNotes.map { $0.title }.joined(separator: ", "))
-                    
-                    Please answer the user's question using this note context. Be specific and reference the actual content when possible.
                     """
                 }
                 
-                // Send to AI with context
+                // Send to AI with context and images
                 let response = try await LlmAPI.sendMessage(
                     userMessage: contextualPrompt,
-                    model_string: selectedModel
+                    model_string: selectedModel,
+                    mediaItems: mediaItems.isEmpty ? nil : mediaItems
                 )
                 
                 await MainActor.run {
@@ -597,7 +653,8 @@ struct AIAssistantView: View {
                 
                 let response = try await LlmAPI.sendMessage(
                     userMessage: input,
-                    model_string: selectedModel
+                    model_string: selectedModel,
+                    mediaItems: state.tempMediaItems.isEmpty ? nil : state.tempMediaItems
                 )
                 
                 await MainActor.run {
@@ -620,17 +677,154 @@ struct AIAssistantView: View {
     }
     
     private func shouldAnalyzeNote(for input: String) -> Bool {
-        let analysisKeywords = [
-            "analyze", "analysis", "what", "how", "why", "explain", "summary", "summarize",
-            "gaps", "missing", "incomplete", "improve", "suggest", "help", "understand",
-            "clarify", "examples", "related", "connections", "handwriting", "content",
-            "topics", "main points", "key concepts", "questions", "review"
+        let lowercaseInput = input.lowercased()
+        
+        // Direct analysis keywords
+        let directAnalysisKeywords = [
+            "analyze", "analysis", "gaps", "missing", "incomplete", "handwriting", 
+            "handwritten", "extract text", "suggestions", "improve", "connections", 
+            "related", "summary", "summarize", "main points", "key concepts", 
+            "review", "feedback", "critique"
         ]
         
-        let lowercaseInput = input.lowercased()
-        return analysisKeywords.contains { keyword in
+        // Note-specific possessive patterns
+        let notePossessivePatterns = [
+            "my note", "this note", "my notes", "these notes", "the note", "the notes"
+        ]
+        
+        // Action verbs that suggest note analysis
+        let analysisActionVerbs = [
+            "analyze", "summarize", "explain", "describe", "review", "check", 
+            "examine", "study", "extract", "find", "search", "look at"
+        ]
+        
+        // Content inquiry patterns
+        let contentInquiryPatterns = [
+            "what does", "what's in", "what did i write", "what did i", 
+            "what's written", "what's on", "what's about", "what contains"
+        ]
+        
+        // General question words that DON'T need analysis (unless note-specific)
+        let generalQuestionWords = [
+            "what is", "how do", "why does", "when should", "where can"
+        ]
+        
+        // Check for direct analysis keywords
+        let hasDirectAnalysis = directAnalysisKeywords.contains { keyword in
             lowercaseInput.contains(keyword)
         }
+        
+        // Check for note-specific possessive patterns
+        let hasNotePossessive = notePossessivePatterns.contains { pattern in
+            lowercaseInput.contains(pattern)
+        }
+        
+        // Check for action verbs + note context
+        let hasAnalysisAction = analysisActionVerbs.contains { verb in
+            lowercaseInput.contains(verb) && (
+                lowercaseInput.contains("note") || 
+                lowercaseInput.contains("writing") || 
+                lowercaseInput.contains("content") ||
+                lowercaseInput.contains("page") ||
+                lowercaseInput.contains("drawing")
+            )
+        }
+        
+        // Check for content inquiry patterns
+        let hasContentInquiry = contentInquiryPatterns.contains { pattern in
+            lowercaseInput.contains(pattern) && (
+                lowercaseInput.contains("note") || 
+                lowercaseInput.contains("writing") || 
+                lowercaseInput.contains("page") ||
+                lowercaseInput.contains("drawing") ||
+                lowercaseInput.contains("this") ||
+                lowercaseInput.contains("my")
+            )
+        }
+        
+        // Check if it's a general question without note context
+        let isGeneralQuestion = generalQuestionWords.contains { pattern in
+            lowercaseInput.hasPrefix(pattern)
+        } && !hasNotePossessive && !lowercaseInput.contains("note")
+        
+        // Advanced pattern matching for nuanced requests
+        let nuancedPatterns = [
+            // Questions about specific content
+            "what note", "what writing", "what page", "what drawing",
+            "how note", "how writing", "how page", "how drawing",
+            "can you note", "can you writing", "can you page", "can you drawing",
+            "help me note", "help me writing", "help me page", "help me drawing",
+            "show me note", "show me writing", "show me page", "show me drawing",
+            
+            // Requests for interpretation
+            "what does this mean", "what does this say", "what does this show", "what does this represent",
+            "what does my mean", "what does my say", "what does my show", "what does my represent",
+            "what does the mean", "what does the say", "what does the show", "what does the represent",
+            
+            // Requests for analysis
+            "can you analyze", "can you review", "can you check", "can you examine",
+            "help me understand", "help me figure out", "help me make sense",
+            "what do you think", "what do you see", "what do you notice", "what do you observe"
+        ]
+        
+        let hasNuancedPattern = nuancedPatterns.contains { pattern in
+            lowercaseInput.contains(pattern)
+        }
+        
+        // Don't analyze for general questions without note context
+        if isGeneralQuestion {
+            return false
+        }
+        
+        // Return true if any analysis trigger is detected
+        return hasDirectAnalysis || hasNotePossessive || hasAnalysisAction || 
+               hasContentInquiry || hasNuancedPattern
+    }
+    
+    private func convertNoteToImages(_ note: Note) async -> [MediaItem] {
+        var mediaItems: [MediaItem] = []
+        
+        // Get all pages from the note
+        let pageKeys = Array(note.drawingDataByPage.keys).sorted { key1, key2 in
+            guard let page1 = Int(key1), let page2 = Int(key2) else { return key1 < key2 }
+            return page1 < page2
+        }
+        
+        for pageKey in pageKeys {
+            guard let pageIndex = Int(pageKey) else { continue }
+            
+            // Get drawing data for this page
+            guard let drawingData = note.drawingDataByPage[pageKey],
+                  let drawing = try? PKDrawing(data: drawingData) else { continue }
+            
+            // Get paper size
+            let paperSize = PaperUtilities.paperSize(for: note.paperSize)
+            
+            // Get background images for this page
+            let backgroundImages = note.imageDataByPage[pageKey] ?? []
+            
+            // Get overlay images for this page
+            let overlayImages = PaperUtilities.extractCanvasImages(from: note.imageDataByPage, for: pageIndex)
+            
+            // Generate preview image
+            let previewImage = PaperUtilities.generatePreviewWithBackground(
+                drawing: drawing,
+                paperSize: paperSize,
+                paperColor: note.paperColor,
+                paperStyle: note.paperStyle,
+                scale: 0.5, // Use smaller scale for faster processing
+                backgroundImages: backgroundImages,
+                overlayImages: overlayImages
+            )
+            
+            // Convert to JPEG data
+            if let imageData = previewImage.jpegData(compressionQuality: 0.8) {
+                let mediaItem = MediaItem(data: imageData, type: .image)
+                mediaItems.append(mediaItem)
+            }
+        }
+        
+        return mediaItems
     }
     
     private func handleDroppedMedia(from url: URL) {
