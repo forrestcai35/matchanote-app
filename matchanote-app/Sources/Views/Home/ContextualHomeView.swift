@@ -154,52 +154,51 @@ public struct ListItemView: View {
 
                 // Note info
                 VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 4) {
-                        Text(note.title)
-                            .fontWeight(.medium)
-                            .lineLimit(1)
-
-                        // Rename dropdown button
-                        Button(action: {
-                            newTitle = note.title
-                            showRenamePopover = true
-                        }) {
+                    Button(action: {
+                        newTitle = note.title
+                        showRenamePopover = true
+                    }) {
+                        HStack(spacing: 4) {
+                            Text(note.title)
+                                .fontWeight(.medium)
+                                .lineLimit(1)
                             Image(systemName: "chevron.down")
                                 .foregroundColor(.gray)
                                 .font(.system(size: 10))
                         }
-                        .buttonStyle(PlainButtonStyle())
-                        .popover(isPresented: $showRenamePopover) {
-                            VStack(spacing: 12) {
-                                Text("Rename Note")
-                                    .font(.headline)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .popover(isPresented: $showRenamePopover) {
+                        VStack(spacing: 12) {
+                            Text("Rename Note")
+                                .font(.headline)
 
-                                TextField("Note name", text: $newTitle)
-                                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                                    .frame(width: 200)
+                            TextField("Note name", text: $newTitle)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .frame(width: 200)
 
-                                HStack {
-                                    Button("Cancel") {
-                                        showRenamePopover = false
-                                    }
-                                    .foregroundColor(.red)
-
-                                    Spacer()
-
-                                    Button("Save") {
-                                        var updatedNote = note
-                                        updatedNote.title = newTitle
-                                        updatedNote.dateModified = Date()
-                                        let savedNote = storageManager.saveNote(updatedNote)
-                                        TabManager.shared.updateNote(savedNote)
-                                        showRenamePopover = false
-                                    }
-                                    .disabled(newTitle.isEmpty)
+                            HStack {
+                                Button("Cancel") {
+                                    showRenamePopover = false
                                 }
+                                .foregroundColor(.red)
+
+                                Spacer()
+
+                                Button("Save") {
+                                    var updatedNote = note
+                                    updatedNote.title = newTitle
+                                    updatedNote.dateModified = Date()
+                                    let savedNote = storageManager.saveNote(updatedNote)
+                                    TabManager.shared.updateNote(savedNote)
+                                    showRenamePopover = false
+                                }
+                                .disabled(newTitle.isEmpty)
                             }
-                            .padding()
-                            .frame(minWidth: 250)
                         }
+                        .padding()
+                        .frame(minWidth: 250)
                     }
 
                     Text(note.dateModified, style: .date)
@@ -650,54 +649,53 @@ public struct GridItemView: View {
                 }
             }
 
-            HStack(spacing: 4) {
-                Text(note.title)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .fontWeight(.medium)
-                    .font(.subheadline)
-
-                // Rename dropdown button
-                Button(action: {
-                    newTitle = note.title
-                    showRenamePopover = true
-                }) {
+            Button(action: {
+                newTitle = note.title
+                showRenamePopover = true
+            }) {
+                HStack(spacing: 4) {
+                    Text(note.title)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .fontWeight(.medium)
+                        .font(.subheadline)
                     Image(systemName: "chevron.down")
                         .foregroundColor(.gray)
                         .font(.system(size: 10))
                 }
-                .buttonStyle(PlainButtonStyle())
-                .popover(isPresented: $showRenamePopover) {
-                    VStack(spacing: 12) {
-                        Text("Rename Note")
-                            .font(.headline)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(PlainButtonStyle())
+            .popover(isPresented: $showRenamePopover) {
+                VStack(spacing: 12) {
+                    Text("Rename Note")
+                        .font(.headline)
 
-                        TextField("Note name", text: $newTitle)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                            .frame(width: 200)
+                    TextField("Note name", text: $newTitle)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .frame(width: 200)
 
-                        HStack {
-                            Button("Cancel") {
-                                showRenamePopover = false
-                            }
-                            .foregroundColor(.red)
-
-                            Spacer()
-
-                            Button("Save") {
-                                var updatedNote = note
-                                updatedNote.title = newTitle
-                                updatedNote.dateModified = Date()
-                                let savedNote = storageManager.saveNote(updatedNote)
-                                TabManager.shared.updateNote(savedNote)
-                                showRenamePopover = false
-                            }
-                            .disabled(newTitle.isEmpty)
+                    HStack {
+                        Button("Cancel") {
+                            showRenamePopover = false
                         }
+                        .foregroundColor(.red)
+
+                        Spacer()
+
+                        Button("Save") {
+                            var updatedNote = note
+                            updatedNote.title = newTitle
+                            updatedNote.dateModified = Date()
+                            let savedNote = storageManager.saveNote(updatedNote)
+                            TabManager.shared.updateNote(savedNote)
+                            showRenamePopover = false
+                        }
+                        .disabled(newTitle.isEmpty)
                     }
-                    .padding()
-                    .frame(minWidth: 250)
                 }
+                .padding()
+                .frame(minWidth: 250)
             }
             .padding(.top, 5)
             .frame(width: 160)

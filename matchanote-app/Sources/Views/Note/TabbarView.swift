@@ -230,23 +230,69 @@ struct TabItemView: View {
   let tab: NoteTab
   @ObservedObject private var tabManager = TabManager.shared
   @Environment(\.colorScheme) private var colorScheme
+  @EnvironmentObject private var storageManager: StorageManager
+  @State private var showRenamePopover: Bool = false
+  @State private var newTitle: String = ""
 
   var body: some View {
     HStack {
       // Tab Content
       HStack {
-        RoundedRectangle(cornerRadius: 2)
-          .fill(tab.note.color)
-          .frame(width: 12, height: 12)
-        Spacer()
-        Text(tab.note.title)
-          .font(.caption)
-          .lineLimit(1)
-          .foregroundColor(
-            tab.isActive
-              ? (colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
-              : (colorScheme == .dark ? Color.matchabrown_dark.opacity(0.8) : Color.matchabrown_light.opacity(0.8)))
-        Spacer()
+        Spacer(minLength: 6)
+        // Title centered; rename available only when active
+        if tab.isActive {
+          Button(action: {
+            newTitle = tab.note.title
+            showRenamePopover = true
+          }) {
+            HStack(spacing: 4) {
+              Text(tab.note.title)
+                .font(.caption)
+                .lineLimit(1)
+                .foregroundColor(
+                  colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+              Image(systemName: "chevron.down")
+                .foregroundColor(.gray)
+                .font(.system(size: 10))
+            }
+            .contentShape(Rectangle())
+          }
+          .buttonStyle(PlainButtonStyle())
+          .popover(isPresented: $showRenamePopover) {
+            VStack(spacing: 12) {
+              Text("Rename Note")
+                .font(.headline)
+              TextField("Note name", text: $newTitle)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .frame(width: 200)
+              HStack {
+                Button("Cancel") {
+                  showRenamePopover = false
+                }
+                .foregroundColor(.red)
+                Spacer()
+                Button("Save") {
+                  var updatedNote = tab.note
+                  updatedNote.title = newTitle
+                  updatedNote.dateModified = Date()
+                  let savedNote = storageManager.saveNote(updatedNote)
+                  TabManager.shared.updateNote(savedNote)
+                  showRenamePopover = false
+                }
+                .disabled(newTitle.isEmpty)
+              }
+            }
+            .padding()
+            .frame(minWidth: 250)
+          }
+        } else {
+          Text(tab.note.title)
+            .font(.caption)
+            .lineLimit(1)
+            .foregroundColor(
+              colorScheme == .dark ? Color.matchabrown_dark.opacity(0.8) : Color.matchabrown_light.opacity(0.8))
+        }
+        Spacer(minLength: 6)
         // Close button
         Button(action: {
           closeTab()
@@ -263,7 +309,7 @@ struct TabItemView: View {
       }
       .padding(.horizontal, 8)
       .frame(height: tab.isActive ? 34 : 32)
-      .frame(minWidth: tab.isActive ? 140 : 135)
+      .frame(minWidth: tab.isActive ? 160 : 155)
       .background(
         tab.isActive
           ? colorScheme == .dark ? Color.gray.opacity(0.3) : Color.white
