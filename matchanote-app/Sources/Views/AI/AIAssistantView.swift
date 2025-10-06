@@ -406,23 +406,28 @@ struct AIAssistantView: View {
                     // Model selection dropdown
                     Menu {
                         ForEach(state.availableModels, id: \.self) { model in
-                            Button(model) {
-                                state.selectedModel = model
+                            Button(action: { state.selectedModel = model }) {
+                                ModelNameLabel(name: model)
+                                    .font(.caption)
                             }
                         }
                     } label: {
                         HStack(spacing: 4) {
-                            Text(state.selectedModel)
+                            ModelNameLabel(name: state.selectedModel)
                                 .font(.caption)
-                                .foregroundColor(.primary)
                             Image(systemName: "chevron.down")
                                 .font(.caption2)
                                 .foregroundColor(.gray)
                         }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(6)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.ultraThinMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 2)
                     }
                     
                     // Send button
@@ -463,22 +468,8 @@ struct AIAssistantView: View {
         let deepSeekKey = EnvironmentManager.shared.get("DEEPSEEK_API_KEY")
         let googleKey = EnvironmentManager.shared.get("GEMINI_API_KEY")
         let xKey = EnvironmentManager.shared.get("X_API_KEY")
-        
-        print("🔑 API Key Debug:")
-        print("OPENROUTER_API_KEY: \(openRouterKey != nil ? "✅ Found" : "❌ Missing")")
-        print("OPENAI_API_KEY: \(openAIKey != nil ? "✅ Found" : "❌ Missing")")
-        print("CLAUDE_API_KEY: \(anthropicKey != nil ? "✅ Found" : "❌ Missing")")
-        print("DEEPSEEK_API_KEY: \(deepSeekKey != nil ? "✅ Found" : "❌ Missing")")
-        print("GEMINI_API_KEY: \(googleKey != nil ? "✅ Found" : "❌ Missing")")
-        print("X_API_KEY: \(xKey != nil ? "✅ Found" : "❌ Missing")")
-        
-        // Debug: Print all environment variables
-        print("🌍 All Environment Variables:")
-        for (key, value) in ProcessInfo.processInfo.environment {
-            if key.contains("API") || key.contains("KEY") {
-                print("  \(key) = \(value.prefix(10))...")
-            }
-        }
+
+
         
         // Configure with available keys (allow partial configuration)
         LlmAPI.configure(
@@ -493,10 +484,11 @@ struct AIAssistantView: View {
         Task {
             await state.subscriptionManager.fetchUserProfile()
             await MainActor.run {
+                let enabled = PreferencesManager.shared.enabledModels
                 if let profile = state.subscriptionManager.userProfile {
-                    state.availableModels = ModelConfiguration.getAvailableModelNames(for: profile.subscriptionTier)
+                    state.availableModels = ModelConfiguration.getAvailableModelNames(for: profile.subscriptionTier).filter { enabled.contains($0) }
                 } else {
-                    state.availableModels = ModelConfiguration.getFreeModelNames()
+                    state.availableModels = ModelConfiguration.getFreeModelNames().filter { enabled.contains($0) }
                 }
             }
         }

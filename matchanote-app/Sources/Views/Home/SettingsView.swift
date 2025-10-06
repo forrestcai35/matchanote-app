@@ -8,6 +8,7 @@ struct SettingsView: View {
     enum SettingsSection {
         case preferences
         case trash
+        case models
     }
     
     var body: some View {
@@ -20,6 +21,8 @@ struct SettingsView: View {
                         PreferencesView()
                     case .trash:
                         TrashView()
+                    case .models:
+                        ModelsSettingsView()
                     }
                 } else {
                     // Show main settings menu
@@ -101,6 +104,14 @@ struct SettingsView: View {
                                 icon: "paintpalette",
                                 action: {
                                     selectedSection = .preferences
+                                }
+                            ),
+                            SettingsItem(
+                                title: "Models",
+                                subtitle: "Enable or disable AI models",
+                                icon: "slider.vertical.3",
+                                action: {
+                                    selectedSection = .models
                                 }
                             ),
                             SettingsItem(

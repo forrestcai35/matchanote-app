@@ -259,6 +259,10 @@ class SubscriptionManager: ObservableObject {
         case .premium:
             canMake = profile.premiumRequests > 0
         case .normal:
+            // PRO users always have access to free models regardless of normal_requests balance
+            if profile.subscriptionTier == .pro {
+                return true
+            }
             canMake = profile.normalRequests > 0
         }
 
@@ -292,6 +296,10 @@ class SubscriptionManager: ObservableObject {
                 }
 
             case .normal:
+                // PRO users can always use free models and do not consume normal_requests
+                if profile.subscriptionTier == .pro {
+                    break
+                }
                 guard profile.normalRequests > 0 else {
                     return false
                 }

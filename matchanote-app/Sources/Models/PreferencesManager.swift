@@ -47,6 +47,7 @@ class PreferencesManager: ObservableObject {
         static let assistantDefaultOrientation = "preferences.assistantDefaultOrientation"
         static let theme = "preferences.theme"
         static let supabaseStorageEnabled = "preferences.supabaseStorageEnabled"
+        static let enabledModels = "preferences.enabledModels"
     }
     
     // MARK: - Published Properties
@@ -68,6 +69,13 @@ class PreferencesManager: ObservableObject {
         }
     }
 
+    // Enabled AI models (by display name)
+    @Published var enabledModels: Set<String> {
+        didSet {
+            userDefaults.set(Array(enabledModels), forKey: DefaultsKeys.enabledModels)
+        }
+    }
+
     
     private init() {
         // Load saved orientation or default to left
@@ -80,7 +88,13 @@ class PreferencesManager: ObservableObject {
         
         // Load saved Supabase storage preference or default to false (disabled)
         self.supabaseStorageEnabled = userDefaults.bool(forKey: DefaultsKeys.supabaseStorageEnabled)
-
+        
+        // Load enabled models or default to enabling all known models
+        if let savedModels = userDefaults.array(forKey: DefaultsKeys.enabledModels) as? [String] {
+            self.enabledModels = Set(savedModels)
+        } else {
+            self.enabledModels = Set(ModelConfiguration.allModels.map { $0.displayName })
+        }
     }
     
     // MARK: - Public Methods
@@ -88,5 +102,21 @@ class PreferencesManager: ObservableObject {
         assistantDefaultOrientation = .left
         theme = .system
         supabaseStorageEnabled = false
+        enabledModels = Set(ModelConfiguration.allModels.map { $0.displayName })
+    }
+
+    // MARK: - Model Enablement Helpers
+    func isModelEnabled(_ displayName: String) -> Bool {
+        return enabledModels.contains(displayName)
+    }
+
+    func setModel(_ displayName: String, enabled: Bool) {
+        var updated = enabledModels
+        if enabled {
+            updated.insert(displayName)
+        } else {
+            updated.remove(displayName)
+        }
+        enabledModels = updated
     }
 }

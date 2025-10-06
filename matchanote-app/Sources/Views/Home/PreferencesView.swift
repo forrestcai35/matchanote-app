@@ -149,6 +149,8 @@ struct PreferencesView: View {
                                 colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                     }
                 }
+                
+                // Models moved to dedicated Models settings view
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)

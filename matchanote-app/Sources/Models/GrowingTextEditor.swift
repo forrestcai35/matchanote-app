@@ -37,6 +37,7 @@ struct GrowingTextEditor: View {
             // Remove the trailing newline and submit
             text = String(newValue.dropLast())
             onSubmit?()
+            dismissKeyboard()
             return
           }
           // Only recalculate if text actually changed and is significantly different
@@ -62,6 +63,15 @@ struct GrowingTextEditor: View {
     .onDisappear {
       heightCalculationTimer?.invalidate()
     }
+  }
+  
+  // Dismisses the keyboard on the current platform
+  private func dismissKeyboard() {
+    #if canImport(UIKit)
+    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    #elseif canImport(AppKit)
+    NSApp.keyWindow?.makeFirstResponder(nil)
+    #endif
   }
   
   private func calculateTextHeight(for text: String) {

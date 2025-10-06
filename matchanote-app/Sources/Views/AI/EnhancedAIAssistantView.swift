@@ -687,23 +687,28 @@ struct EnhancedAIAssistantView: View {
                 // Model selection on the left
                 Menu {
                     ForEach(state.availableModels, id: \.self) { model in
-                        Button(model) {
-                            state.selectedModel = model
+                        Button(action: { state.selectedModel = model }) {
+                            ModelNameLabel(name: model)
+                                .font(.caption)
                         }
                     }
                 } label: {
                     HStack(spacing: 4) {
-                        Text(state.selectedModel)
+                        ModelNameLabel(name: state.selectedModel)
                             .font(.caption)
-                            .foregroundColor(.primary)
                         Image(systemName: "chevron.down")
                             .font(.caption2)
                             .foregroundColor(.gray)
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(6)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 2)
                 }
 
                 // Text input in the middle
@@ -784,7 +789,9 @@ struct EnhancedAIAssistantView: View {
         Task {
             await state.subscriptionManager.fetchUserProfile()
             await MainActor.run {
-                state.availableModels = state.subscriptionManager.getAvailableModels()
+                // Filter by enabled models preference
+                let enabled = PreferencesManager.shared.enabledModels
+                state.availableModels = state.subscriptionManager.getAvailableModels().filter { enabled.contains($0) }
             }
         }
     }
