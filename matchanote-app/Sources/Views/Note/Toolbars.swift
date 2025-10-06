@@ -16,7 +16,7 @@ enum PenTool {
   {
     switch self {
     case .pen:
-      return PKInkingTool(.pen, color: UIColor(color), width: width)
+      return PKInkingTool(.monoline, color: UIColor(color), width: width)
     case .marker:
       // Increase opacity for the highlighter by boosting the alpha channel
       return PKInkingTool(
@@ -36,7 +36,7 @@ enum PenTool {
       return PKLassoTool()
     case .shape:
       // Shape tool works exactly like pen but with recognition enabled
-      return PKInkingTool(.pen, color: UIColor(color), width: width)
+      return PKInkingTool(.monoline, color: UIColor(color), width: width)
     }
   }
 }
@@ -120,7 +120,7 @@ class ToolState: ObservableObject {
     }
   }
 
-  @Published var markerWidthPresets: [CGFloat] = [8.0, 16.0, 32.0] {
+  @Published var markerWidthPresets: [CGFloat] = [8.0, 16.0, 24.0] {
     didSet { saveMarkerPresets() }
   }
   @Published var selectedMarkerPresetIndex: Int = 1 {
@@ -528,8 +528,8 @@ struct WrittenNoteToolbar: View {
       if currentPage < canvasViews.count {
         autoStrokeManager.attachToCanvas(canvasViews[currentPage])
       }
-      // Enable shape recognition only for shape tool
-      autoStrokeManager.isEnabled = (currentTool == .shape)
+      // Sync auto stroke settings (includes shape tool enabling)
+      syncAutoStrokeSettings()
     }
     .onDisappear {
       stopUndoRedoTimer()
@@ -549,8 +549,8 @@ struct WrittenNoteToolbar: View {
       expandedEraserPresetIndex = nil
       updateCanvasTool()
 
-      // Enable shape recognition only for shape tool
-      autoStrokeManager.isEnabled = (currentTool == .shape)
+      // Sync auto stroke settings (includes shape tool enabling)
+      syncAutoStrokeSettings()
 
       // Re-attach to canvas when switching to shape tool to ensure fresh state
       if currentTool == .shape && currentPage < canvasViews.count {
@@ -568,9 +568,6 @@ struct WrittenNoteToolbar: View {
       syncAutoStrokeSettings()
     }
     .onChange(of: toolState.strokeRecognitionSensitivity) { _, _ in
-      syncAutoStrokeSettings()
-    }
-    .onChange(of: preferencesManager.autoShapeRecognitionEnabled) { _, _ in
       syncAutoStrokeSettings()
     }
     .onChange(of: currentPage < canvasViews.count ? canvasViews[currentPage].drawing : PKDrawing()) { _, _ in
@@ -635,8 +632,8 @@ struct WrittenNoteToolbar: View {
                           ? Color.matchalight_dark : Color.gray.opacity(0.5)
                       )
                       .frame(
-                        width: dotDiameter(for: toolState.penWidthPresets[i], maxRange: 60),
-                        height: dotDiameter(for: toolState.penWidthPresets[i], maxRange: 60)
+                        width: dotDiameter(for: toolState.penWidthPresets[i], maxRange: 10),
+                        height: dotDiameter(for: toolState.penWidthPresets[i], maxRange: 10)
                       )
                   }
                 }
@@ -659,7 +656,7 @@ struct WrittenNoteToolbar: View {
                           if toolState.selectedPenPresetIndex == i { updateCanvasTool() }
                         }
                       )
-                      Slider(value: binding, in: 0.5...60, step: 0.5)
+                      Slider(value: binding, in: 0.5...10, step: 0.5)
                         .frame(width: 200)
                     }
                   }
@@ -763,8 +760,8 @@ struct WrittenNoteToolbar: View {
                           ? Color.matchalight_dark : Color.gray.opacity(0.5)
                       )
                       .frame(
-                        width: dotDiameter(for: toolState.markerWidthPresets[i], maxRange: 40),
-                        height: dotDiameter(for: toolState.markerWidthPresets[i], maxRange: 40)
+                        width: highlighterDotDiameter(for: toolState.markerWidthPresets[i], maxRange: 30),
+                        height: highlighterDotDiameter(for: toolState.markerWidthPresets[i], maxRange: 30)
                       )
                   }
                 }
@@ -787,7 +784,7 @@ struct WrittenNoteToolbar: View {
                           if toolState.selectedMarkerPresetIndex == i { updateCanvasTool() }
                         }
                       )
-                      Slider(value: binding, in: 0.5...120, step: 0.5)
+                      Slider(value: binding, in: 0.5...30, step: 0.5)
                         .frame(width: 200)
                     }
                   }
@@ -871,11 +868,12 @@ struct WrittenNoteToolbar: View {
               updateCanvasTool()
             }) {
               Image(type.icon)
-                .renderingMode(.original)
+                .renderingMode(.template)
                 .resizable()
                 .scaledToFit()
-                .frame(width: 18, height: 18)
+                .frame(width: 24, height: 24)
                 .opacity(toolState.eraserType == type ? 1.0 : 0.5)
+                .foregroundColor(toolState.eraserType == type ? (colorScheme == .dark ? .white : .black) : (colorScheme == .dark ? .gray : .gray))
             }
           }
         }
@@ -884,7 +882,7 @@ struct WrittenNoteToolbar: View {
         HStack(spacing: 12) {
           if toolState.eraserType == .area {
             // Area eraser: three quick presets with dropdown slider (capped)
-            HStack(spacing: 8) {
+            HStack(spacing: 16) {
               ForEach(0..<toolState.eraserAreaWidthPresets.count, id: \.self) { i in
                 Button {
                   if toolState.selectedEraserAreaPresetIndex != i {
@@ -929,7 +927,7 @@ struct WrittenNoteToolbar: View {
                             if toolState.selectedEraserAreaPresetIndex == i { updateCanvasTool() }
                           }
                         )
-                        Slider(value: binding, in: 4...120, step: 1)
+                        Slider(value: binding, in: 4...20, step: 1)
                           .frame(width: 200)
                       }
                     }
@@ -947,9 +945,9 @@ struct WrittenNoteToolbar: View {
           } else {
             // Object eraser: show text with same spacing as area eraser controls
             HStack {
-              Text("Object Eraser")
+              Text("Erase entire strokes")
                 .font(.caption)
-                .foregroundColor(.gray)
+                .foregroundColor(colorScheme == .dark ? .white : .gray)
             }
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 8)
@@ -1086,8 +1084,8 @@ struct WrittenNoteToolbar: View {
                           ? Color.matchalight_dark : Color.gray.opacity(0.5)
                       )
                       .frame(
-                        width: dotDiameter(for: toolState.penWidthPresets[i], maxRange: 60),
-                        height: dotDiameter(for: toolState.penWidthPresets[i], maxRange: 60)
+                        width: dotDiameter(for: toolState.penWidthPresets[i], maxRange: 10),
+                        height: dotDiameter(for: toolState.penWidthPresets[i], maxRange: 10)
                       )
                   }
                 }
@@ -1110,7 +1108,7 @@ struct WrittenNoteToolbar: View {
                           if toolState.selectedPenPresetIndex == i { updateCanvasTool() }
                         }
                       )
-                      Slider(value: binding, in: 0.5...60, step: 0.5)
+                      Slider(value: binding, in: 0.5...10, step: 0.5)
                         .frame(width: 200)
                     }
                   }
@@ -1258,10 +1256,21 @@ struct WrittenNoteToolbar: View {
 
   // Map a tool width to a visually distinct diameter for the preset dot
   private func dotDiameter(for width: CGFloat, maxRange: CGFloat) -> CGFloat {
-    let minDiam: CGFloat = 12
-    let maxDiam: CGFloat = 26
-    let clamped = max(0.001, min(width, maxRange))
-    let fraction = sqrt(clamped / maxRange)  // emphasize separation at lower widths
+    let minDiam: CGFloat = 4
+    let maxDiam: CGFloat = 22
+    let clamped = max(0.5, min(width, maxRange))
+    // Use linear scaling to better represent actual pen widths
+    let fraction = clamped / maxRange
+    return minDiam + fraction * (maxDiam - minDiam)
+  }
+  
+  // Map a highlighter width to a visually distinct diameter for the preset dot
+  private func highlighterDotDiameter(for width: CGFloat, maxRange: CGFloat) -> CGFloat {
+    let minDiam: CGFloat = 6
+    let maxDiam: CGFloat = 22
+    let clamped = max(0.5, min(width, maxRange))
+    // Use square root scaling for highlighter to better show size differences
+    let fraction = sqrt(clamped / maxRange)
     return minDiam + fraction * (maxDiam - minDiam)
   }
 
@@ -1346,7 +1355,8 @@ struct WrittenNoteToolbar: View {
   // MARK: - Auto Stroke Recognition Methods
 
   private func syncAutoStrokeSettings() {
-    autoStrokeManager.isEnabled = preferencesManager.autoShapeRecognitionEnabled
+    // Only enable auto stroke recognition for shape tool
+    autoStrokeManager.isEnabled = (currentTool == .shape)
     // Don't override longPressThreshold and sensitivity - let them use stored UserDefaults values
   }
 

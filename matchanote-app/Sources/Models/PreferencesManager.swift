@@ -47,7 +47,6 @@ class PreferencesManager: ObservableObject {
         static let assistantDefaultOrientation = "preferences.assistantDefaultOrientation"
         static let theme = "preferences.theme"
         static let supabaseStorageEnabled = "preferences.supabaseStorageEnabled"
-        static let autoShapeRecognitionEnabled = "preferences.autoShapeRecognitionEnabled"
     }
     
     // MARK: - Published Properties
@@ -69,11 +68,6 @@ class PreferencesManager: ObservableObject {
         }
     }
 
-    @Published var autoShapeRecognitionEnabled: Bool {
-        didSet {
-            userDefaults.set(autoShapeRecognitionEnabled, forKey: DefaultsKeys.autoShapeRecognitionEnabled)
-        }
-    }
     
     private init() {
         // Load saved orientation or default to left
@@ -87,8 +81,6 @@ class PreferencesManager: ObservableObject {
         // Load saved Supabase storage preference or default to false (disabled)
         self.supabaseStorageEnabled = userDefaults.bool(forKey: DefaultsKeys.supabaseStorageEnabled)
 
-        // Load saved auto shape recognition preference or default to true (enabled)
-        self.autoShapeRecognitionEnabled = userDefaults.object(forKey: DefaultsKeys.autoShapeRecognitionEnabled) as? Bool ?? true
     }
     
     // MARK: - Public Methods
@@ -96,6 +88,5 @@ class PreferencesManager: ObservableObject {
         assistantDefaultOrientation = .left
         theme = .system
         supabaseStorageEnabled = false
-        autoShapeRecognitionEnabled = true
     }
 }

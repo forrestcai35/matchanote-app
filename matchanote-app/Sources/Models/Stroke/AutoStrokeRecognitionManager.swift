@@ -103,7 +103,7 @@ class AutoStrokeRecognitionManager_v2: NSObject, ObservableObject {
 
     private func isDrawingTool(_ stroke: PKStroke) -> Bool {
         let inkType = stroke.ink.inkType
-        return inkType == .pen || inkType == .marker
+        return inkType == .pen || inkType == .marker || inkType == .monoline
     }
 
     private func performImmediateRecognition(_ stroke: PKStroke) {
