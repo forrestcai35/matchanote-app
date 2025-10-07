@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct NoteEditorSettingsView: View {
-    @AppStorage("preferences.noteEditor.statusBarHidden") private var noteEditorStatusBarHidden: Bool = false
+    @ObservedObject private var preferencesManager = PreferencesManager.shared
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
 
@@ -59,7 +59,7 @@ struct NoteEditorSettingsView: View {
                                 .foregroundColor(.secondary)
                         }
                         Spacer()
-                        Toggle("", isOn: $noteEditorStatusBarHidden)
+                        Toggle("", isOn: $preferencesManager.noteEditorStatusBarHidden)
                             .labelsHidden()
                             .controlSize(.small)
                             .tint(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)

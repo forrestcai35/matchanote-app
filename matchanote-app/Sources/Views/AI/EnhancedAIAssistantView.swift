@@ -225,11 +225,11 @@ class EnhancedAIAssistantState: ObservableObject {
             }
         }
     }
-    @Published var selectedModel = "Matcha Assistant"
+    @Published var selectedModel = ""
     @Published var isLoading = false
     @Published var errorMessage: String? = nil
     @Published var tempMediaItems: [MediaItem] = []
-    @Published var availableModels = ["Matcha Assistant"]
+    @Published var availableModels: [String] = []
     @Published var subscriptionManager = SubscriptionManager()
 
     // Enhanced AI capabilities
@@ -290,6 +290,9 @@ struct EnhancedAIAssistantView: View {
         .onAppear {
             setupAI()
             setupKeyboardObservers()
+            // Set initial model immediately to avoid delay
+            setInitialModel()
+            refreshAvailableModels()
         }
         .onDisappear {
             removeKeyboardObservers()
@@ -766,6 +769,45 @@ struct EnhancedAIAssistantView: View {
     }
 
     // MARK: - AI Analysis Methods
+    
+    private func setInitialModel() {
+        // Set the first available model immediately to avoid delay
+        let preferencesManager = PreferencesManager.shared
+        let orderedEnabled = preferencesManager.getOrderedEnabledModels()
+        
+        if !orderedEnabled.isEmpty {
+            state.selectedModel = orderedEnabled.first!
+        } else {
+            // Fallback to first free model if no preferences set
+            let freeModels = ModelConfiguration.getFreeModelNames()
+            if !freeModels.isEmpty {
+                state.selectedModel = freeModels.first!
+            }
+        }
+    }
+    
+    private func refreshAvailableModels() {
+        let preferencesManager = PreferencesManager.shared
+        let orderedEnabled = preferencesManager.getOrderedEnabledModels()
+        
+        if let profile = state.subscriptionManager.userProfile {
+            let availableForTier = ModelConfiguration.getAvailableModelNames(for: profile.subscriptionTier)
+            // Filter to only enabled models that are available for the user's tier, maintaining order
+            state.availableModels = orderedEnabled.filter { availableForTier.contains($0) }
+        } else {
+            let freeModels = ModelConfiguration.getFreeModelNames()
+            // Filter to only enabled free models, maintaining order
+            state.availableModels = orderedEnabled.filter { freeModels.contains($0) }
+        }
+        
+        // Set selectedModel to the first available model only if current selection is not available
+        if !state.availableModels.isEmpty && !state.availableModels.contains(state.selectedModel) {
+            // Only override if the current selection is empty or invalid
+            if state.selectedModel.isEmpty {
+                state.selectedModel = state.availableModels.first!
+            }
+        }
+    }
 
     private func setupAI() {
         // Configure API
@@ -791,9 +833,7 @@ struct EnhancedAIAssistantView: View {
         Task {
             await state.subscriptionManager.fetchUserProfile()
             await MainActor.run {
-                // Filter by enabled models preference
-                let enabled = PreferencesManager.shared.enabledModels
-                state.availableModels = state.subscriptionManager.getAvailableModels().filter { enabled.contains($0) }
+                refreshAvailableModels()
             }
         }
     }

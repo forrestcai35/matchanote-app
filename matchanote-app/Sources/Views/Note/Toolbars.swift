@@ -263,15 +263,7 @@ struct WrittenNoteToolbar: View {
   @State private var previousToolBeforePhoto: PenTool? = nil
   @State private var pickerID = UUID()  // Force picker recreation
 
-  // Tool visibility preferences
-  @AppStorage("preferences.noteEditor.tools.pen") private var showToolPen: Bool = true
-  @AppStorage("preferences.noteEditor.tools.marker") private var showToolMarker: Bool = true
-  @AppStorage("preferences.noteEditor.tools.eraser") private var showToolEraser: Bool = true
-  @AppStorage("preferences.noteEditor.tools.lasso") private var showToolLasso: Bool = true
-  @AppStorage("preferences.noteEditor.tools.photo") private var showToolPhoto: Bool = true
-  @AppStorage("preferences.noteEditor.tools.textbox") private var showToolTextbox: Bool = true
-  @AppStorage("preferences.noteEditor.tools.shape") private var showToolShape: Bool = true
-  @AppStorage("preferences.noteEditor.tools.order") private var toolOrderString: String = "pen,marker,eraser,lasso,photo,textbox,shape"
+  // Tool visibility preferences - now using PreferencesManager
 
   // Dropdown slider visibility per tool
   @State private var expandedPenPresetIndex: Int? = nil
@@ -1252,8 +1244,7 @@ struct WrittenNoteToolbar: View {
 
   // Determine first enabled tool based on user preferences
   private func firstEnabledTool() -> PenTool? {
-    let orderedIds = toolOrderString.split(separator: ",").map { String($0) }
-    let orderedTools: [PenTool] = orderedIds.compactMap { id in toolFromId(id) }
+    let orderedTools: [PenTool] = preferencesManager.noteEditorToolsOrder.compactMap { id in toolFromId(id) }
     for tool in (orderedTools.isEmpty ? [.pen, .marker, .eraser, .lasso, .photo, .textbox, .shape] : orderedTools) {
       if isToolEnabled(tool) {
         return tool
@@ -1265,27 +1256,18 @@ struct WrittenNoteToolbar: View {
   // Check if a given tool is enabled in preferences
   private func isToolEnabled(_ tool: PenTool) -> Bool {
     switch tool {
-    case .pen: return showToolPen
-    case .marker: return showToolMarker
-    case .eraser: return showToolEraser
-    case .lasso: return showToolLasso
-    case .photo: return showToolPhoto
-    case .textbox: return showToolTextbox
-    case .shape: return showToolShape
+    case .pen: return preferencesManager.noteEditorToolPen
+    case .marker: return preferencesManager.noteEditorToolMarker
+    case .eraser: return preferencesManager.noteEditorToolEraser
+    case .lasso: return preferencesManager.noteEditorToolLasso
+    case .photo: return preferencesManager.noteEditorToolPhoto
+    case .textbox: return preferencesManager.noteEditorToolTextbox
+    case .shape: return preferencesManager.noteEditorToolShape
     }
   }
 
   private func isToolEnabled(_ id: String) -> Bool {
-    switch id {
-    case "pen": return showToolPen
-    case "marker": return showToolMarker
-    case "eraser": return showToolEraser
-    case "lasso": return showToolLasso
-    case "photo": return showToolPhoto
-    case "textbox": return showToolTextbox
-    case "shape": return showToolShape
-    default: return false
-    }
+    return preferencesManager.isToolEnabled(id)
   }
 
   private func toolFromId(_ id: String) -> PenTool? {
@@ -1329,7 +1311,7 @@ struct WrittenNoteToolbar: View {
   @ViewBuilder
   private var toolButtonsView: some View {
     HStack(spacing: 12) {
-      ForEach(toolOrderString.split(separator: ",").map { String($0) }, id: \.self) { id in
+      ForEach(preferencesManager.noteEditorToolsOrder, id: \.self) { id in
         if isToolEnabled(id) {
           renderToolButton(id)
         }

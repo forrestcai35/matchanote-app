@@ -49,11 +49,11 @@ struct ModelConfiguration {
     // MARK: - Premium Models
     static let premiumModels: [Model] = [
         Model(displayName: "gpt-5", modelId: "gpt-5-nano", isPremium: true, provider: .openai),
-        Model(displayName: "claude 4.5 Sonnet", modelId: "claude-sonnet-4-5-20250929", isPremium: true, provider: .anthropic),
+        Model(displayName: "claude-4.5-sonnet", modelId: "claude-sonnet-4-5-20250929", isPremium: true, provider: .anthropic),
         Model(displayName: "gemini-2.5", modelId: "gemini-2.5-flash", isPremium: true, provider: .google),
-        Model(displayName: "grok 4", modelId: "grok-4-fast-non-reasoning", isPremium: true, provider: .x),
+        Model(displayName: "grok-4", modelId: "grok-4-fast-non-reasoning", isPremium: true, provider: .x),
         Model(displayName: "deepseek-v3", modelId: "deepseek-chat", isPremium: true, provider: .deepseek),
-        Model(displayName: "Mistral Large", modelId: "mistral-large-latest", isPremium: true, provider: .mistral),
+        Model(displayName: "mistral-large", modelId: "mistral-large-latest", isPremium: true, provider: .mistral),
     ]
     
     // MARK: - All Models

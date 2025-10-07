@@ -3,23 +3,7 @@ import SwiftUI
 struct NoteEditorToolsSettingsView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
-
-    // AppStorage toggles for each tool
-    @AppStorage("preferences.noteEditor.tools.pen") private var showToolPen: Bool = true
-    @AppStorage("preferences.noteEditor.tools.marker") private var showToolMarker: Bool = true
-    @AppStorage("preferences.noteEditor.tools.eraser") private var showToolEraser: Bool = true
-    @AppStorage("preferences.noteEditor.tools.lasso") private var showToolLasso: Bool = true
-    @AppStorage("preferences.noteEditor.tools.photo") private var showToolPhoto: Bool = true
-    @AppStorage("preferences.noteEditor.tools.textbox") private var showToolTextbox: Bool = true
-    @AppStorage("preferences.noteEditor.tools.shape") private var showToolShape: Bool = true
-
-    // Persist tool order as a comma-separated list
-    @AppStorage("preferences.noteEditor.tools.order") private var toolOrderString: String = "pen,marker,eraser,lasso,photo,textbox,shape"
-
-    private var toolOrder: [String] {
-        get { toolOrderString.split(separator: ",").map { String($0) }.filter { !$0.isEmpty } }
-        nonmutating set { toolOrderString = newValue.joined(separator: ",") }
-    }
+    @ObservedObject private var preferencesManager = PreferencesManager.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -42,18 +26,31 @@ struct NoteEditorToolsSettingsView: View {
 
             List {
                 Section {
-                    ForEach(toolOrder, id: \.self) { toolId in
+                    ForEach(preferencesManager.noteEditorToolsOrder, id: \.self) { toolId in
+                        let isEnabled = preferencesManager.isToolEnabled(toolId)
+                        
                         HStack(spacing: 12) {
                             // Visibility toggle (eye / eye.slash) on the left
-                            let visBinding = binding(for: toolId)
-                            Button(action: { visBinding.wrappedValue.toggle() }) {
+                            let visBinding = Binding(
+                                get: { preferencesManager.isToolEnabled(toolId) },
+                                set: { preferencesManager.setTool(toolId, enabled: $0) }
+                            )
+                            let canDisable = preferencesManager.canDisableTool(toolId)
+                            
+                            Button(action: { 
+                                if canDisable {
+                                    visBinding.wrappedValue.toggle()
+                                }
+                            }) {
                                 Image(systemName: visBinding.wrappedValue ? "eye" : "eye.slash")
                                     .foregroundColor(
                                         visBinding.wrappedValue
                                             ? (colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                                             : .secondary)
+                                    .opacity(canDisable ? 1.0 : 0.3)
                             }
                             .buttonStyle(PlainButtonStyle())
+                            .disabled(!canDisable)
                             .accessibilityLabel(visBinding.wrappedValue ? "Hide tool" : "Show tool")
 
                             // Tool icon (fill), adaptive to light/dark
@@ -62,21 +59,33 @@ struct NoteEditorToolsSettingsView: View {
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: 20, height: 20)
-
+                                .foregroundColor(
+                                    isEnabled
+                                        ? (colorScheme == .dark ? .white : .black)
+                                        : .secondary
+                                )
+                                .opacity(isEnabled ? 1.0 : 0.4)
 
                             // Tool name
                             Text(displayName(for: toolId))
                                 .font(.subheadline)
                                 .fontWeight(.medium)
+                                .foregroundColor(
+                                    isEnabled
+                                        ? (colorScheme == .dark ? .white : .black)
+                                        : .secondary
+                                )
+                                .opacity(isEnabled ? 1.0 : 0.4)
 
                             Spacer()
                         }
                         .padding(.vertical, 6)
+                        .opacity(isEnabled ? 1.0 : 0.6) // Gray out the entire row for disabled tools
                     }
                     .onMove { indices, newOffset in
-                        var items = toolOrder
+                        var items = preferencesManager.noteEditorToolsOrder
                         items.move(fromOffsets: indices, toOffset: newOffset)
-                        toolOrder = items
+                        preferencesManager.updateToolsOrder(items)
                     }
                 } header: {
                     HStack {
@@ -90,6 +99,10 @@ struct NoteEditorToolsSettingsView: View {
                             .foregroundColor(
                                 colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                     }
+                } footer: {
+                    Text("Enable tools to show them in the editor toolbar. At least one tool must remain enabled.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
             }
             .listStyle(.insetGrouped)
@@ -116,18 +129,6 @@ struct NoteEditorToolsSettingsView: View {
     }
 
     // MARK: - Helpers
-    private func binding(for toolId: String) -> Binding<Bool> {
-        switch toolId {
-        case "pen": return $showToolPen
-        case "marker": return $showToolMarker
-        case "eraser": return $showToolEraser
-        case "lasso": return $showToolLasso
-        case "photo": return $showToolPhoto
-        case "textbox": return $showToolTextbox
-        case "shape": return $showToolShape
-        default: return .constant(true)
-        }
-    }
 
     private func displayName(for toolId: String) -> String {
         switch toolId {
