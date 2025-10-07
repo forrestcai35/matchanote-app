@@ -213,6 +213,7 @@ struct NoteView: View {
   @StateObject private var assistantState = AIAssistantState()
   @Environment(\.colorScheme) private var colorScheme
   @EnvironmentObject private var storageManager: StorageManager
+  @AppStorage("preferences.noteEditor.statusBarHidden") private var noteEditorStatusBarHidden: Bool = false
   // Added for lasso tool functionality - now managed per note
   @State private var canvasManager = CanvasManager()
   @State private var currentPage: Int = 0
@@ -334,6 +335,7 @@ struct NoteView: View {
           )
         }
       }
+      .statusBar(hidden: noteEditorStatusBarHidden)
       .onAppear {
         // PERFORMANCE OPTIMIZED: Immediate essential operations only
         openNoteInTab()

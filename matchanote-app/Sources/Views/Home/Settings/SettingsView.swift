@@ -9,6 +9,7 @@ struct SettingsView: View {
         case preferences
         case trash
         case models
+        case noteEditor
     }
     
     var body: some View {
@@ -19,6 +20,8 @@ struct SettingsView: View {
                     switch section {
                     case .preferences:
                         PreferencesView()
+                    case .noteEditor:
+                        NoteEditorSettingsView()
                     case .trash:
                         TrashView()
                     case .models:
@@ -36,8 +39,10 @@ struct SettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     if selectedSection != nil {
-                        Button("Back") {
-                            selectedSection = nil
+                        Button(action: { selectedSection = nil }) {
+                            HStack(spacing: 4) {
+                                Text("Back")
+                            }
                         }
                         .foregroundColor(
                             colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
@@ -51,6 +56,11 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+    
+    private var appVersionString: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        return version
     }
     
     private var mainSettingsView: some View {
@@ -72,79 +82,74 @@ struct SettingsView: View {
                 colorScheme == .dark
                     ? Color.matchabackground_dark : Color.matchabackground_light)
             
-            // Settings content
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    // Account Section
-                    settingsSection(
-                        title: "Account",
-                        icon: "person.circle",
-                        items: [
-                            SettingsItem(
-                                title: "Account Settings",
-                                subtitle: "Manage your account and subscription",
-                                icon: "person.circle",
-                                action: {
-                                    if let url = URL(string: "https://matchanote.app/app/settings") {
-                                        UIApplication.shared.open(url)
-                                    }
-                                }
-                            )
-                        ]
-                    )
-                    
-                    // App Settings Section
-                    settingsSection(
-                        title: "App Settings",
-                        icon: "gear",
-                        items: [
-                            SettingsItem(
-                                title: "Preferences",
-                                subtitle: "Customize your Matcha experience",
-                                icon: "paintpalette",
-                                action: {
-                                    selectedSection = .preferences
-                                }
-                            ),
-                            SettingsItem(
-                                title: "Models",
-                                subtitle: "Enable or disable AI models",
-                                icon: "slider.vertical.3",
-                                action: {
-                                    selectedSection = .models
-                                }
-                            ),
-                            SettingsItem(
-                                title: "Trash",
-                                subtitle: "Manage deleted items",
-                                icon: "trash",
-                                action: {
-                                    selectedSection = .trash
-                                }
-                            )
-                        ]
-                    )
-                    
-                    // Sign Out Section
-                    settingsSection(
-                        title: "Account Actions",
-                        icon: "arrow.right.square",
-                        items: [
-                            SettingsItem(
-                                title: "Sign Out",
-                                subtitle: "Sign out of your account",
-                                icon: "arrow.right.square",
-                                isDestructive: true,
-                                action: {
-                                    LocalAuthManager.shared.logout()
-                                }
-                            )
-                        ]
-                    )
-                }
-                .padding(.horizontal)
-                .padding(.vertical, 20)
+            // Settings content (non-scrollable, no subheadings)
+            VStack(alignment: .leading, spacing: 12) {
+                SettingsItemView(item: SettingsItem(
+                    title: "Account Settings",
+                    subtitle: "Manage your account and subscription",
+                    icon: "person.circle",
+                    action: {
+                        if let url = URL(string: "https://matchanote.app/app/settings") {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                ))
+
+                SettingsItemView(item: SettingsItem(
+                    title: "Preferences",
+                    subtitle: "Customize your Matcha experience",
+                    icon: "paintpalette",
+                    action: {
+                        selectedSection = .preferences
+                    }
+                ))
+
+                SettingsItemView(item: SettingsItem(
+                    title: "Note editor",
+                    subtitle: "Preferences for the note editor",
+                    icon: "pencil.and.outline",
+                    action: {
+                        selectedSection = .noteEditor
+                    }
+                ))
+
+                SettingsItemView(item: SettingsItem(
+                    title: "Models",
+                    subtitle: "Enable or disable AI models",
+                    icon: "slider.vertical.3",
+                    action: {
+                        selectedSection = .models
+                    }
+                ))
+
+                SettingsItemView(item: SettingsItem(
+                    title: "Trash",
+                    subtitle: "Manage deleted items",
+                    icon: "trash",
+                    action: {
+                        selectedSection = .trash
+                    }
+                ))
+
+                SettingsItemView(item: SettingsItem(
+                    title: "Sign Out",
+                    subtitle: "Sign out of your account",
+                    icon: "arrow.right.square",
+                    isDestructive: true,
+                    action: {
+                        LocalAuthManager.shared.logout()
+                    }
+                ))
+
+                Spacer()
+                Text("Version \(appVersionString)")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
             }
+            .padding(.horizontal)
+            .padding(.vertical, 20)
+            .padding(.bottom, 20)
         }
     }
     

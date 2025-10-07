@@ -263,6 +263,16 @@ struct WrittenNoteToolbar: View {
   @State private var previousToolBeforePhoto: PenTool? = nil
   @State private var pickerID = UUID()  // Force picker recreation
 
+  // Tool visibility preferences
+  @AppStorage("preferences.noteEditor.tools.pen") private var showToolPen: Bool = true
+  @AppStorage("preferences.noteEditor.tools.marker") private var showToolMarker: Bool = true
+  @AppStorage("preferences.noteEditor.tools.eraser") private var showToolEraser: Bool = true
+  @AppStorage("preferences.noteEditor.tools.lasso") private var showToolLasso: Bool = true
+  @AppStorage("preferences.noteEditor.tools.photo") private var showToolPhoto: Bool = true
+  @AppStorage("preferences.noteEditor.tools.textbox") private var showToolTextbox: Bool = true
+  @AppStorage("preferences.noteEditor.tools.shape") private var showToolShape: Bool = true
+  @AppStorage("preferences.noteEditor.tools.order") private var toolOrderString: String = "pen,marker,eraser,lasso,photo,textbox,shape"
+
   // Dropdown slider visibility per tool
   @State private var expandedPenPresetIndex: Int? = nil
   @State private var expandedMarkerPresetIndex: Int? = nil
@@ -304,160 +314,8 @@ struct WrittenNoteToolbar: View {
 
       // Centered toolbar content
       HStack(spacing: 12) {
-        // Tool buttons (icons only) - same width as options panel
-        HStack(spacing: 12) {
-          Button(action: { selectTool(.pen) }) {
-            if currentTool == .pen {
-              ZStack {
-                if let fillImage = UIImage(named: "pen_fill") {
-                  Image(uiImage: fillImage)
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 26, height: 26)
-                    .foregroundColor(toolState.penColor)
-                }
-                Image("pen_outline")
-                  .renderingMode(.template)
-                  .resizable()
-                  .scaledToFit()
-                  .frame(width: 26, height: 26)
-                  .foregroundColor(colorScheme == .dark ? .white : .black)
-              }
-            } else {
-              Image("pen_outline")
-                .renderingMode(.template)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 26, height: 26)
-                .foregroundColor(colorScheme == .dark ? .gray : .black)
-            }
-          }
-          Button(action: { selectTool(.marker) }) {
-            if currentTool == .marker {
-              ZStack {
-                if let fillImage = UIImage(named: "highlighter_fill") {
-                  Image(uiImage: fillImage)
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 26, height: 26)
-                    .foregroundColor(toolState.markerColor)
-                } else {
-                  RoundedRectangle(cornerRadius: 4)
-                    .fill(toolState.markerColor)
-                    .frame(width: 22, height: 14)
-                }
-                Image("highlighter_outline")
-                  .renderingMode(.template)
-                  .resizable()
-                  .scaledToFit()
-                  .frame(width: 26, height: 26)
-                  .foregroundColor(colorScheme == .dark ? .white : .black)
-              }
-            } else {
-              Image("highlighter_outline")
-                .renderingMode(.template)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 26, height: 26)
-                .foregroundColor(colorScheme == .dark ? .gray : .black)
-            }
-          }
-          Button(action: { selectTool(.eraser) }) {
-            if currentTool == .eraser {
-              Image("eraser_fill")
-                .renderingMode(.original)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 26, height: 26)
-            } else {
-              Image("eraser_outline")
-                .renderingMode(.template)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 26, height: 26)
-                .foregroundColor(colorScheme == .dark ? .gray : .black)
-            }
-          }
-          Button(action: {
-            if currentTool == .lasso {
-              selectTool(.pen)
-            } else {
-              selectTool(.lasso)
-            }
-          }) {
-            if currentTool == .lasso {
-              Image("lasso_fill")
-                .renderingMode(.original)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 26, height: 26)
-            } else {
-              Image("lasso_outline")
-                .renderingMode(.template)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 26, height: 26)
-                .foregroundColor(colorScheme == .dark ? .gray : .black)
-            }
-          }
-          Button(action: {
-            previousToolBeforePhoto = currentTool
-            selectTool(.photo)
-          }) {
-            if currentTool == .photo {
-              Image("photo_fill")
-                .renderingMode(.original)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 26, height: 26)
-            } else {
-              Image("photo_outline")
-                .renderingMode(.template)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 26, height: 26)
-                .foregroundColor(colorScheme == .dark ? .gray : .black)
-            }
-          }
-          Button(action: {
-            selectTool(.textbox)
-          }) {
-            if currentTool == .textbox {
-              Image("textbox_fill")
-                .renderingMode(.original)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 26, height: 26)
-            } else {
-              Image("textbox_outline")
-                .renderingMode(.template)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 26, height: 26)
-                .foregroundColor(colorScheme == .dark ? .gray : .black)
-            }
-          }
-          Button(action: {
-            selectTool(.shape)
-          }) {
-            if currentTool == .shape {
-              Image("shapes_fill")
-                .renderingMode(.original)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 26, height: 26)
-            } else {
-              Image("shapes_outline")
-                .renderingMode(.template)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 26, height: 26)
-                .foregroundColor(colorScheme == .dark ? .gray : .black)
-            }
-          }
-        }
+        // Tool buttons (icons only) - ordered by settings
+        toolButtonsView
 
         Divider()
           .frame(height: 24)
@@ -519,7 +377,9 @@ struct WrittenNoteToolbar: View {
     .clipped()
     .onAppear {
       // Ensure we start with a known tool/color instead of any remembered system default
-      if currentTool == nil { currentTool = .pen }
+      if currentTool == nil || !(isToolEnabled(currentTool!)) {
+        currentTool = firstEnabledTool() ?? .pen
+      }
       updateCanvasTool()
       startUndoRedoTimer()
       // Sync auto stroke recognition settings with tool state
@@ -1390,6 +1250,238 @@ struct WrittenNoteToolbar: View {
     textBoxManager.addTextBox(to: currentPage, at: centerPosition)
   }
 
+  // Determine first enabled tool based on user preferences
+  private func firstEnabledTool() -> PenTool? {
+    let orderedIds = toolOrderString.split(separator: ",").map { String($0) }
+    let orderedTools: [PenTool] = orderedIds.compactMap { id in toolFromId(id) }
+    for tool in (orderedTools.isEmpty ? [.pen, .marker, .eraser, .lasso, .photo, .textbox, .shape] : orderedTools) {
+      if isToolEnabled(tool) {
+        return tool
+      }
+    }
+    return nil
+  }
+
+  // Check if a given tool is enabled in preferences
+  private func isToolEnabled(_ tool: PenTool) -> Bool {
+    switch tool {
+    case .pen: return showToolPen
+    case .marker: return showToolMarker
+    case .eraser: return showToolEraser
+    case .lasso: return showToolLasso
+    case .photo: return showToolPhoto
+    case .textbox: return showToolTextbox
+    case .shape: return showToolShape
+    }
+  }
+
+  private func isToolEnabled(_ id: String) -> Bool {
+    switch id {
+    case "pen": return showToolPen
+    case "marker": return showToolMarker
+    case "eraser": return showToolEraser
+    case "lasso": return showToolLasso
+    case "photo": return showToolPhoto
+    case "textbox": return showToolTextbox
+    case "shape": return showToolShape
+    default: return false
+    }
+  }
+
+  private func toolFromId(_ id: String) -> PenTool? {
+    switch id {
+    case "pen": return .pen
+    case "marker": return .marker
+    case "eraser": return .eraser
+    case "lasso": return .lasso
+    case "photo": return .photo
+    case "textbox": return .textbox
+    case "shape": return .shape
+    default: return nil
+    }
+  }
+
+  @ViewBuilder
+  private func renderToolButton(_ id: String) -> some View {
+    switch id {
+    case "pen":
+      Button(action: { selectTool(.pen) }) { renderPenIcon(isActive: currentTool == .pen) }
+    case "marker":
+      Button(action: { selectTool(.marker) }) { renderMarkerIcon(isActive: currentTool == .marker) }
+    case "eraser":
+      Button(action: { selectTool(.eraser) }) { renderEraserIcon(isActive: currentTool == .eraser) }
+    case "lasso":
+      Button(action: {
+        if currentTool == .lasso { selectTool(.pen) } else { selectTool(.lasso) }
+      }) { renderLassoIcon(isActive: currentTool == .lasso) }
+    case "photo":
+      Button(action: { previousToolBeforePhoto = currentTool; selectTool(.photo) }) { renderPhotoIcon(isActive: currentTool == .photo) }
+    case "textbox":
+      Button(action: { selectTool(.textbox) }) { renderTextboxIcon(isActive: currentTool == .textbox) }
+    case "shape":
+      Button(action: { selectTool(.shape) }) { renderShapeIcon(isActive: currentTool == .shape) }
+    default:
+      EmptyView()
+    }
+  }
+
+  // MARK: - Tool Buttons View
+  @ViewBuilder
+  private var toolButtonsView: some View {
+    HStack(spacing: 12) {
+      ForEach(toolOrderString.split(separator: ",").map { String($0) }, id: \.self) { id in
+        if isToolEnabled(id) {
+          renderToolButton(id)
+        }
+      }
+    }
+  }
+
+  // MARK: - Icon Renderers
+  @ViewBuilder private func renderPenIcon(isActive: Bool) -> some View {
+    if isActive {
+      ZStack {
+        if let fillImage = UIImage(named: "pen_fill") {
+          Image(uiImage: fillImage)
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .frame(width: 26, height: 26)
+            .foregroundColor(toolState.penColor)
+        }
+        Image("pen_outline")
+          .renderingMode(.template)
+          .resizable()
+          .scaledToFit()
+          .frame(width: 26, height: 26)
+          .foregroundColor(colorScheme == .dark ? .white : .black)
+      }
+    } else {
+      Image("pen_outline")
+        .renderingMode(.template)
+        .resizable()
+        .scaledToFit()
+        .frame(width: 26, height: 26)
+        .foregroundColor(colorScheme == .dark ? .gray : .black)
+    }
+  }
+
+  @ViewBuilder private func renderMarkerIcon(isActive: Bool) -> some View {
+    if isActive {
+      ZStack {
+        if let fillImage = UIImage(named: "highlighter_fill") {
+          Image(uiImage: fillImage)
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .frame(width: 26, height: 26)
+            .foregroundColor(toolState.markerColor)
+        } else {
+          RoundedRectangle(cornerRadius: 4)
+            .fill(toolState.markerColor)
+            .frame(width: 22, height: 14)
+        }
+        Image("highlighter_outline")
+          .renderingMode(.template)
+          .resizable()
+          .scaledToFit()
+          .frame(width: 26, height: 26)
+          .foregroundColor(colorScheme == .dark ? .white : .black)
+      }
+    } else {
+      Image("highlighter_outline")
+        .renderingMode(.template)
+        .resizable()
+        .scaledToFit()
+        .frame(width: 26, height: 26)
+        .foregroundColor(colorScheme == .dark ? .gray : .black)
+    }
+  }
+
+  @ViewBuilder private func renderEraserIcon(isActive: Bool) -> some View {
+    if isActive {
+      Image("eraser_fill")
+        .renderingMode(.original)
+        .resizable()
+        .scaledToFit()
+        .frame(width: 26, height: 26)
+    } else {
+      Image("eraser_outline")
+        .renderingMode(.template)
+        .resizable()
+        .scaledToFit()
+        .frame(width: 26, height: 26)
+        .foregroundColor(colorScheme == .dark ? .gray : .black)
+    }
+  }
+
+  @ViewBuilder private func renderLassoIcon(isActive: Bool) -> some View {
+    if isActive {
+      Image("lasso_fill")
+        .renderingMode(.original)
+        .resizable()
+        .scaledToFit()
+        .frame(width: 26, height: 26)
+    } else {
+      Image("lasso_outline")
+        .renderingMode(.template)
+        .resizable()
+        .scaledToFit()
+        .frame(width: 26, height: 26)
+        .foregroundColor(colorScheme == .dark ? .gray : .black)
+    }
+  }
+
+  @ViewBuilder private func renderPhotoIcon(isActive: Bool) -> some View {
+    if isActive {
+      Image("photo_fill")
+        .renderingMode(.original)
+        .resizable()
+        .scaledToFit()
+        .frame(width: 26, height: 26)
+    } else {
+      Image("photo_outline")
+        .renderingMode(.template)
+        .resizable()
+        .scaledToFit()
+        .frame(width: 26, height: 26)
+        .foregroundColor(colorScheme == .dark ? .gray : .black)
+    }
+  }
+
+  @ViewBuilder private func renderTextboxIcon(isActive: Bool) -> some View {
+    if isActive {
+      Image("textbox_fill")
+        .renderingMode(.original)
+        .resizable()
+        .scaledToFit()
+        .frame(width: 26, height: 26)
+    } else {
+      Image("textbox_outline")
+        .renderingMode(.template)
+        .resizable()
+        .scaledToFit()
+        .frame(width: 26, height: 26)
+        .foregroundColor(colorScheme == .dark ? .gray : .black)
+    }
+  }
+
+  @ViewBuilder private func renderShapeIcon(isActive: Bool) -> some View {
+    if isActive {
+      Image("shapes_fill")
+        .renderingMode(.original)
+        .resizable()
+        .scaledToFit()
+        .frame(width: 26, height: 26)
+    } else {
+      Image("shapes_outline")
+        .renderingMode(.template)
+        .resizable()
+        .scaledToFit()
+        .frame(width: 26, height: 26)
+        .foregroundColor(colorScheme == .dark ? .gray : .black)
+    }
+  }
 }
 
 // Safe index extension
