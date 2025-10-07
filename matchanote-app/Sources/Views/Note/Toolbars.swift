@@ -604,7 +604,7 @@ struct WrittenNoteToolbar: View {
     case .pen:
       VStack(alignment: .leading, spacing: 6) {
         HStack(spacing: 10) {
-          // Width presets with dropdown slider
+          // Width presets with dropdown segmented control
           VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
               ForEach(0..<toolState.penWidthPresets.count, id: \.self) { i in
@@ -649,16 +649,20 @@ struct WrittenNoteToolbar: View {
                       Image(systemName: "scribble.variable")
                         .font(.caption)
                         .foregroundColor(.gray)
-                      let binding = Binding<CGFloat>(
-                        get: { toolState.penWidthPresets[i] },
-                        set: { newValue in
-                          toolState.penWidthPresets[i] = newValue
-                          if toolState.selectedPenPresetIndex == i { updateCanvasTool() }
-                        }
-                      )
-                      Slider(value: binding, in: 0.5...10, step: 0.5)
-                        .frame(width: 200)
+                      Text("Width: \(String(format: "%.1f", toolState.penWidthPresets[i]))")
+                        .font(.caption)
+                        .foregroundColor(.gray)
                     }
+                    
+                    let binding = Binding<CGFloat>(
+                      get: { toolState.penWidthPresets[i] },
+                      set: { newValue in
+                        toolState.penWidthPresets[i] = newValue
+                        if toolState.selectedPenPresetIndex == i { updateCanvasTool() }
+                      }
+                    )
+                    Slider(value: binding, in: 0.25...10, step: 0.25)
+                      .frame(width: 200)
                   }
                   .padding(.vertical, 12)
                   .padding(.horizontal, 12)
@@ -732,7 +736,7 @@ struct WrittenNoteToolbar: View {
     case .marker:
       VStack(alignment: .leading, spacing: 6) {
         HStack(spacing: 10) {
-          // Width presets with dropdown slider
+          // Width presets with dropdown segmented control
           VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
               ForEach(0..<toolState.markerWidthPresets.count, id: \.self) { i in
@@ -777,16 +781,20 @@ struct WrittenNoteToolbar: View {
                       Image(systemName: "scribble")
                         .font(.caption)
                         .foregroundColor(.gray)
-                      let binding = Binding<CGFloat>(
-                        get: { toolState.markerWidthPresets[i] },
-                        set: { newValue in
-                          toolState.markerWidthPresets[i] = newValue
-                          if toolState.selectedMarkerPresetIndex == i { updateCanvasTool() }
-                        }
-                      )
-                      Slider(value: binding, in: 0.5...30, step: 0.5)
-                        .frame(width: 200)
+                      Text("Width: \(String(format: "%.1f", toolState.markerWidthPresets[i]))")
+                        .font(.caption)
+                        .foregroundColor(.gray)
                     }
+                    
+                    let binding = Binding<CGFloat>(
+                      get: { toolState.markerWidthPresets[i] },
+                      set: { newValue in
+                        toolState.markerWidthPresets[i] = newValue
+                        if toolState.selectedMarkerPresetIndex == i { updateCanvasTool() }
+                      }
+                    )
+                    Slider(value: binding, in: 0.5...20, step: 0.5)
+                      .frame(width: 200)
                   }
                   .padding(.vertical, 12)
                   .padding(.horizontal, 12)
@@ -1056,7 +1064,7 @@ struct WrittenNoteToolbar: View {
     case .shape:
       VStack(alignment: .leading, spacing: 6) {
         HStack(spacing: 10) {
-          // Width presets with dropdown slider (same as pen)
+          // Width presets with dropdown segmented control (same as pen)
           VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
               ForEach(0..<toolState.penWidthPresets.count, id: \.self) { i in
@@ -1101,16 +1109,20 @@ struct WrittenNoteToolbar: View {
                       Image(systemName: "scribble.variable")
                         .font(.caption)
                         .foregroundColor(.gray)
-                      let binding = Binding<CGFloat>(
-                        get: { toolState.penWidthPresets[i] },
-                        set: { newValue in
-                          toolState.penWidthPresets[i] = newValue
-                          if toolState.selectedPenPresetIndex == i { updateCanvasTool() }
-                        }
-                      )
-                      Slider(value: binding, in: 0.5...10, step: 0.5)
-                        .frame(width: 200)
+                      Text("Width: \(String(format: "%.1f", toolState.penWidthPresets[i]))")
+                        .font(.caption)
+                        .foregroundColor(.gray)
                     }
+                    
+                    let binding = Binding<CGFloat>(
+                      get: { toolState.penWidthPresets[i] },
+                      set: { newValue in
+                        toolState.penWidthPresets[i] = newValue
+                        if toolState.selectedPenPresetIndex == i { updateCanvasTool() }
+                      }
+                    )
+                    Slider(value: binding, in: 0.25...10, step: 0.25)
+                      .frame(width: 200)
                   }
                   .padding(.vertical, 12)
                   .padding(.horizontal, 12)
