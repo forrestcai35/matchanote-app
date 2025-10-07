@@ -80,6 +80,7 @@ struct AIAssistantView: View {
     @State private var keyboardHeight: CGFloat = 0
     private let inputOuterPadding: CGFloat = 16
     @State private var userScrollTrigger: Int = 0
+    @State private var shouldScrollToUserMessage = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -149,8 +150,10 @@ struct AIAssistantView: View {
                 ForEach(state.messages) { message in
                     if message.isUser {
                         UserMessageView(message: message)
+                            .id(message.id)
                     } else {
                         AssistantMessageView(message: message)
+                            .id(message.id)
                     }
                 }
                 
@@ -239,9 +242,15 @@ struct AIAssistantView: View {
                 }
             }
             .onChange(of: userScrollTrigger) { _, _ in
-                // Scroll only when user sends a message (triggered explicitly)
-                withAnimation(.easeOut(duration: 0.25)) {
-                    proxy.scrollTo("CHAT_BOTTOM", anchor: .bottom)
+                // Scroll to show the user's message, not all the way to bottom
+                if shouldScrollToUserMessage {
+                    withAnimation(.easeOut(duration: 0.25)) {
+                        // Scroll to the last user message instead of bottom
+                        if let lastUserMessage = state.messages.last(where: { $0.isUser }) {
+                            proxy.scrollTo(lastUserMessage.id, anchor: .center)
+                        }
+                    }
+                    shouldScrollToUserMessage = false
                 }
             }
         }
@@ -468,7 +477,7 @@ struct AIAssistantView: View {
         let deepSeekKey = EnvironmentManager.shared.get("DEEPSEEK_API_KEY")
         let googleKey = EnvironmentManager.shared.get("GEMINI_API_KEY")
         let xKey = EnvironmentManager.shared.get("X_API_KEY")
-
+        let mistralKey = EnvironmentManager.shared.get("MISTRAL_API_KEY")
 
         
         // Configure with available keys (allow partial configuration)
@@ -478,7 +487,8 @@ struct AIAssistantView: View {
             anthropicAPIKey: anthropicKey,
             deepSeekAPIKey: deepSeekKey,
             googleAPIKey: googleKey,
-            xAPIKey: xKey
+            xAPIKey: xKey,
+            mistralAPIKey: mistralKey
         )
         
         Task {
@@ -539,9 +549,29 @@ struct AIAssistantView: View {
     }
     
     private func sendIntelligentMessage() {
-        guard !state.userInput.isEmpty || !state.tempMediaItems.isEmpty else { return }
+        // Store input and media items first to avoid race conditions
+        let input = state.userInput
+        let mediaItems = state.tempMediaItems
+        let selectedModel = state.selectedModel
+        
+        // Check if we have anything to send
+        guard !input.isEmpty || !mediaItems.isEmpty else { 
+            print("❌ Send button pressed but no input or media items")
+            return 
+        }
+        
+        // Clear input immediately to prevent double-sending
+        state.userInput = ""
+        state.tempMediaItems = []
+        state.isLoading = true
+        state.errorMessage = nil
+        
+        // Trigger scroll immediately when user submits
+        shouldScrollToUserMessage = true
+        userScrollTrigger &+= 1
+        
         guard let note = state.currentNote else {
-            sendRegularMessage()
+            sendRegularMessage(input: input, mediaItems: mediaItems, selectedModel: selectedModel)
             return
         }
         
@@ -549,30 +579,21 @@ struct AIAssistantView: View {
         saveCurrentNote()
         
         // Check if user can make this request type
-        let isPremium = ModelConfiguration.isPremiumModel(state.selectedModel)
+        let isPremium = ModelConfiguration.isPremiumModel(selectedModel)
         let requestType: RequestType = isPremium ? .premium : .normal
         guard state.subscriptionManager.canMakeRequest(type: requestType) else {
             state.errorMessage = "Insufficient \(requestType == .premium ? "premium" : "free") requests remaining"
+            state.isLoading = false
             return
         }
         
         // Add user message to chat
         let userMessage = ChatMessage(
-            content: state.userInput,
+            content: input,
             isUser: true,
-            mediaItems: state.tempMediaItems.isEmpty ? nil : state.tempMediaItems
+            mediaItems: mediaItems.isEmpty ? nil : mediaItems
         )
         state.messages.append(userMessage)
-        // Trigger auto-scroll to the just-added user message
-        userScrollTrigger &+= 1
-        
-        // Store input and clear
-        let input = state.userInput
-        let selectedModel = state.selectedModel
-        state.userInput = ""
-        state.tempMediaItems = []
-        state.isLoading = true
-        state.errorMessage = nil
         
         // Determine if we need to analyze the note first
         let needsAnalysis = shouldAnalyzeNote(for: input)
@@ -591,13 +612,13 @@ struct AIAssistantView: View {
                 }
                 
                 var contextualPrompt = input
-                var mediaItems = state.tempMediaItems
+                var finalMediaItems = mediaItems
                 
                 // If needed, analyze the note first to provide context
                 if needsAnalysis {
                     // Convert note to images for visual analysis
                     let noteImages = await convertNoteToImages(note)
-                    mediaItems.append(contentsOf: noteImages)
+                    finalMediaItems.append(contentsOf: noteImages)
                     
                     // Create rich context prompt
                     contextualPrompt = """
@@ -615,7 +636,7 @@ struct AIAssistantView: View {
                 let response = try await LlmAPI.sendMessage(
                     userMessage: contextualPrompt,
                     model_string: selectedModel,
-                    mediaItems: mediaItems.isEmpty ? nil : mediaItems
+                    mediaItems: finalMediaItems.isEmpty ? nil : finalMediaItems
                 )
                 
                 await MainActor.run {
@@ -638,32 +659,24 @@ struct AIAssistantView: View {
         }
     }
     
-    private func sendRegularMessage() {
+    private func sendRegularMessage(input: String, mediaItems: [MediaItem], selectedModel: String) {
         // Fallback to regular chat without note context
-        guard !state.userInput.isEmpty else { return }
+        guard !input.isEmpty else { return }
         
-        let isPremium = ModelConfiguration.isPremiumModel(state.selectedModel)
+        let isPremium = ModelConfiguration.isPremiumModel(selectedModel)
         let requestType: RequestType = isPremium ? .premium : .normal
         guard state.subscriptionManager.canMakeRequest(type: requestType) else {
             state.errorMessage = "Insufficient \(requestType == .premium ? "premium" : "free") requests remaining"
+            state.isLoading = false
             return
         }
         
         let userMessage = ChatMessage(
-            content: state.userInput,
+            content: input,
             isUser: true,
-            mediaItems: state.tempMediaItems.isEmpty ? nil : state.tempMediaItems
+            mediaItems: mediaItems.isEmpty ? nil : mediaItems
         )
         state.messages.append(userMessage)
-        // Trigger auto-scroll to the just-added user message
-        userScrollTrigger &+= 1
-        
-        let input = state.userInput
-        let selectedModel = state.selectedModel
-        state.userInput = ""
-        state.tempMediaItems = []
-        state.isLoading = true
-        state.errorMessage = nil
         
         Task {
             do {
@@ -680,7 +693,7 @@ struct AIAssistantView: View {
                 let response = try await LlmAPI.sendMessage(
                     userMessage: input,
                     model_string: selectedModel,
-                    mediaItems: state.tempMediaItems.isEmpty ? nil : state.tempMediaItems
+                    mediaItems: mediaItems.isEmpty ? nil : mediaItems
                 )
                 
                 await MainActor.run {

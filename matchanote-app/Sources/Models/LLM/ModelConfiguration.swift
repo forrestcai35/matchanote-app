@@ -8,6 +8,7 @@ enum APIProvider: String, CaseIterable {
     case deepseek = "deepseek"
     case google = "google"
     case x = "x"
+    case mistral = "mistral"
     
     var displayName: String {
         switch self {
@@ -17,6 +18,7 @@ enum APIProvider: String, CaseIterable {
         case .deepseek: return "DeepSeek"
         case .google: return "Google"
         case .x: return "X (Grok)"
+        case .mistral: return "Mistral"
         }
     }
 }
@@ -50,7 +52,8 @@ struct ModelConfiguration {
         Model(displayName: "claude 4.5 Sonnet", modelId: "claude-sonnet-4-5-20250929", isPremium: true, provider: .anthropic),
         Model(displayName: "gemini-2.5", modelId: "gemini-2.5-flash", isPremium: true, provider: .google),
         Model(displayName: "grok 4", modelId: "grok-4-fast-non-reasoning", isPremium: true, provider: .x),
-        Model(displayName: "DeepSeek V3", modelId: "deepseek-chat", isPremium: true, provider: .deepseek),
+        Model(displayName: "deepseek-v3", modelId: "deepseek-chat", isPremium: true, provider: .deepseek),
+        Model(displayName: "Mistral Large", modelId: "mistral-large-latest", isPremium: true, provider: .mistral),
     ]
     
     // MARK: - All Models

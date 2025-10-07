@@ -774,14 +774,16 @@ struct EnhancedAIAssistantView: View {
            let anthropicKey = EnvironmentManager.shared.get("CLAUDE_API_KEY"),
            let deepSeekKey = EnvironmentManager.shared.get("DEEPSEEK_API_KEY"),
            let googleKey = EnvironmentManager.shared.get("GEMINI_API_KEY"),
-           let xKey = EnvironmentManager.shared.get("X_API_KEY") {
+           let xKey = EnvironmentManager.shared.get("X_API_KEY"),
+           let mistralKey = EnvironmentManager.shared.get("MISTRAL_API_KEY") {
             LlmAPI.configure(
                 openRouterAPIKey: openRouterKey,
                 openAIAPIKey: openAIKey,
                 anthropicAPIKey: anthropicKey,
                 deepSeekAPIKey: deepSeekKey,
                 googleAPIKey: googleKey,
-                xAPIKey: xKey
+                xAPIKey: xKey,
+                mistralAPIKey: mistralKey
             )
         }
 
