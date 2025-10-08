@@ -140,9 +140,9 @@ struct WrittenNoteView: View {
             canvas.isScrollEnabled = false
             canvas.backgroundColor = .clear
 
-            // Configure for high-resolution rendering
-            canvas.contentScaleFactor = UIScreen.main.scale * 2
-            canvas.layer.contentsScale = UIScreen.main.scale * 2
+            // Configure for native resolution (zoomScale handles high-res dynamically)
+            canvas.contentScaleFactor = UIScreen.main.scale
+            canvas.layer.contentsScale = UIScreen.main.scale
             canvas.layer.shouldRasterize = false
             
             // Clear undo manager for fresh start on each note
@@ -401,9 +401,9 @@ struct WrittenNoteView: View {
             newCanvas.isScrollEnabled = false
             newCanvas.backgroundColor = .clear
 
-            // Configure for high-resolution rendering
-            newCanvas.contentScaleFactor = UIScreen.main.scale * 2
-            newCanvas.layer.contentsScale = UIScreen.main.scale * 2
+            // Configure for native resolution (zoomScale handles high-res dynamically)
+            newCanvas.contentScaleFactor = UIScreen.main.scale
+            newCanvas.layer.contentsScale = UIScreen.main.scale
             newCanvas.layer.shouldRasterize = false
             
             // Clear undo manager for fresh start
@@ -696,9 +696,9 @@ struct WrittenNoteView: View {
             newCanvas.isScrollEnabled = false
             newCanvas.backgroundColor = .clear
 
-            // Configure for high-resolution rendering
-            newCanvas.contentScaleFactor = UIScreen.main.scale * 2
-            newCanvas.layer.contentsScale = UIScreen.main.scale * 2
+            // Configure for native resolution (zoomScale handles high-res dynamically)
+            newCanvas.contentScaleFactor = UIScreen.main.scale
+            newCanvas.layer.contentsScale = UIScreen.main.scale
             newCanvas.layer.shouldRasterize = false
 
             newCanvas.undoManager?.removeAllActions()
@@ -1447,9 +1447,9 @@ struct WrittenNoteView: View {
             canvasView.isScrollEnabled = false  // Disable to let outer scroll view handle pan/zoom
             canvasView.overrideUserInterfaceStyle = .light
 
-            // Configure for high-resolution rendering
-            canvasView.contentScaleFactor = UIScreen.main.scale * 2  // 2x scale for crisp rendering
-            canvasView.layer.contentsScale = UIScreen.main.scale * 2
+            // Configure for native resolution (zoomScale handles high-res dynamically)
+            canvasView.contentScaleFactor = UIScreen.main.scale
+            canvasView.layer.contentsScale = UIScreen.main.scale
             canvasView.layer.shouldRasterize = false  // Never rasterize to avoid blur
 
             // Set up drawing change delegate for shape recognition
