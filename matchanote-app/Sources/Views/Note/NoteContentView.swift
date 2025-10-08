@@ -438,7 +438,7 @@ struct WrittenNoteView: View {
                     textBoxManager: textBoxManager,
                     pageIndex: pageIndex,
                     canvasSize: perPageSize(pageIndex),
-                    currentTool: currentTool,
+                    currentTool: $currentTool,
                     minScale: staticMinScale,
                     maxScale: staticMaxScale,
                     currentScale: $unifiedZoomScale,
@@ -911,7 +911,7 @@ struct WrittenNoteView: View {
         let textBoxManager: TextBoxManager
         let pageIndex: Int
         let canvasSize: CGSize
-        let currentTool: PenTool?
+        @Binding var currentTool: PenTool?
         let minScale: CGFloat
         let maxScale: CGFloat
         @Binding var currentScale: CGFloat
@@ -1025,6 +1025,13 @@ struct WrittenNoteView: View {
             )
             doubleTap.numberOfTapsRequired = 2
             scrollView.addGestureRecognizer(doubleTap)
+            
+            // Add Apple Pencil double-tap support for eraser switching
+            if UIPencilInteraction.preferredTapAction == .switchEraser {
+                let pencilInteraction = UIPencilInteraction()
+                pencilInteraction.delegate = context.coordinator
+                canvasView.addInteraction(pencilInteraction)
+            }
             
             // Set up drawing change observation
             context.coordinator.setupDrawingObservation()
@@ -1226,7 +1233,7 @@ struct WrittenNoteView: View {
             return layer
         }
         
-        class Coordinator: NSObject, UIScrollViewDelegate, UIGestureRecognizerDelegate {
+        class Coordinator: NSObject, UIScrollViewDelegate, UIGestureRecognizerDelegate, UIPencilInteractionDelegate {
             var parent: LosslessCanvasContainer
             var isUserInteracting = false
             var scrollView: UIScrollView?
@@ -1235,6 +1242,7 @@ struct WrittenNoteView: View {
             var overlayView: UIView?
             var overlayHosting: UIHostingController<AnyView>?
             private var drawingObserver: NSKeyValueObservation?
+            private var previousTool: PenTool = .pen
             
             init(_ parent: LosslessCanvasContainer) {
                 self.parent = parent
@@ -1243,6 +1251,31 @@ struct WrittenNoteView: View {
             func setupDrawingObservation() {
                 drawingObserver = canvasView?.observe(\.drawing, options: [.new]) { [weak self] _, _ in
                     self?.parent.onDrawingChange()
+                }
+            }
+            
+            // MARK: - UIPencilInteractionDelegate
+            
+            func pencilInteractionDidTap(_ interaction: UIPencilInteraction) {
+                guard let canvas = canvasView else { return }
+                
+                // Handle double tap to switch between eraser and previous tool
+                if let currentTool = parent.currentTool {
+                    if currentTool == .eraser {
+                        // Switch back to previous tool
+                        parent.currentTool = previousTool
+                        canvas.tool = previousTool.toolInstance()
+                    } else {
+                        // Store current tool and switch to eraser
+                        previousTool = currentTool
+                        parent.currentTool = .eraser
+                        canvas.tool = PenTool.eraser.toolInstance()
+                    }
+                } else {
+                    // If no current tool, default to pen then switch to eraser
+                    previousTool = .pen
+                    parent.currentTool = .eraser
+                    canvas.tool = PenTool.eraser.toolInstance()
                 }
             }
             
@@ -1431,338 +1464,6 @@ struct WrittenNoteView: View {
             path.move(to: start)
             path.addLine(to: end)
             return path
-        }
-    }
-    
-    // PencilKit Canvas SwiftUI wrapper
-    struct PencilKitCanvasView: UIViewRepresentable {
-        var canvasView: PKCanvasView
-        @Binding var currentTool: PenTool?
-        @Binding var canvasViews: [PKCanvasView]
-        @Binding var currentPage: Int
-        // Shape recognition removed
-        
-        func makeUIView(context: Context) -> PKCanvasView {
-            canvasView.backgroundColor = .clear
-            canvasView.isScrollEnabled = false  // Disable to let outer scroll view handle pan/zoom
-            canvasView.overrideUserInterfaceStyle = .light
-
-            // Configure for native resolution (zoomScale handles high-res dynamically)
-            canvasView.contentScaleFactor = UIScreen.main.scale
-            canvasView.layer.contentsScale = UIScreen.main.scale
-            canvasView.layer.shouldRasterize = false  // Never rasterize to avoid blur
-
-            // Set up drawing change delegate for shape recognition
-            canvasView.delegate = context.coordinator
-
-            // Add pencil interaction for double tap
-            if UIPencilInteraction.preferredTapAction == .switchEraser {
-                let pencilInteraction = UIPencilInteraction()
-                pencilInteraction.delegate = context.coordinator
-                canvasView.addInteraction(pencilInteraction)
-            }
-
-            return canvasView
-        }
-        
-        func updateUIView(_ uiView: PKCanvasView, context: Context) {
-            // No custom policy updates needed
-            context.coordinator.parent = self
-        }
-
-        func makeCoordinator() -> Coordinator {
-            Coordinator(self)
-        }
-        
-        class Coordinator: NSObject, UIPencilInteractionDelegate, PKCanvasViewDelegate {
-            var parent: PencilKitCanvasView
-            private var previousTool: PenTool = .pen
-            
-            init(_ parent: PencilKitCanvasView) {
-                self.parent = parent
-                super.init()
-                // Shape recognition configuration removed
-            }
-            
-            func pencilInteractionDidTap(_ interaction: UIPencilInteraction) {
-                // Handle double tap to switch between eraser and previous tool
-                if let currentTool = parent.currentTool {
-                    if currentTool == .eraser {
-                        // Switch back to previous tool
-                        parent.currentTool = previousTool
-                        if parent.currentPage < parent.canvasViews.count {
-                            parent.canvasViews[parent.currentPage].tool = previousTool.toolInstance()
-                        }
-                    } else {
-                        // Store current tool and switch to eraser
-                        previousTool = currentTool
-                        parent.currentTool = .eraser
-                        if parent.currentPage < parent.canvasViews.count {
-                            parent.canvasViews[parent.currentPage].tool = PenTool.eraser.toolInstance()
-                        }
-                    }
-                } else {
-                    // If no current tool, default to pen then switch to eraser
-                    previousTool = .pen
-                    parent.currentTool = .eraser
-                    if parent.currentPage < parent.canvasViews.count {
-                        parent.canvasViews[parent.currentPage].tool = PenTool.eraser.toolInstance()
-                    }
-                }
-            }
-            
-            // MARK: - PKCanvasViewDelegate
-            
-            func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
-                // This gets called immediately when a stroke is completed
-                // We can trigger recognition here by posting a notification
-                NotificationCenter.default.post(name: NSNotification.Name("StrokeCompleted"), object: canvasView)
-            }
-            
-            deinit {
-                // Shape recognition cleanup removed
-            }
-        }
-    }
-    
-    
-    // Custom ZoomableScrollView that provides a much more natural zooming experience
-    struct ZoomableScrollView<Content: View>: UIViewRepresentable {
-        private var content: Content
-        private var minScale: CGFloat
-        private var maxScale: CGFloat
-        private var resetOnDoubleTap: Bool
-        @Binding private var isPanEnabled: Bool
-        
-        @Binding private var currentScale: CGFloat
-        @Binding private var contentOffset: CGPoint
-        
-        // Initialize with default scale binding
-        init(
-            minScale: CGFloat = 0.5,
-            maxScale: CGFloat = 6.0,
-            resetOnDoubleTap: Bool = true,
-            currentScale: Binding<CGFloat> = .constant(1.0),
-            contentOffset: Binding<CGPoint> = .constant(.zero),
-            isPanEnabled: Binding<Bool> = .constant(true),
-            @ViewBuilder content: () -> Content
-        ) {
-            self.minScale = minScale
-            self.maxScale = maxScale
-            self.resetOnDoubleTap = resetOnDoubleTap
-            self._currentScale = currentScale
-            self._contentOffset = contentOffset
-            self._isPanEnabled = isPanEnabled
-            self.content = content()
-        }
-        
-        func makeUIView(context: Context) -> UIScrollView {
-            // Set up the UIScrollView
-            let scrollView = UIScrollView()
-            scrollView.delegate = context.coordinator
-            scrollView.maximumZoomScale = maxScale
-            scrollView.minimumZoomScale = minScale
-            scrollView.bouncesZoom = true
-            scrollView.showsHorizontalScrollIndicator = false
-            scrollView.showsVerticalScrollIndicator = false
-            scrollView.clipsToBounds = true
-            // Disable automatic safe area content inset adjustments
-            scrollView.contentInsetAdjustmentBehavior = .never
-            
-            // Apply initial zoom scale from binding
-            let initialScale = max(min(currentScale, maxScale), minScale)
-            scrollView.zoomScale = initialScale
-            
-            // Add the SwiftUI content
-            let hostedView = UIHostingController(rootView: content).view!
-            hostedView.translatesAutoresizingMaskIntoConstraints = false
-            hostedView.backgroundColor = .clear
-
-            // Configure for lossless scaling
-            hostedView.contentScaleFactor = UIScreen.main.scale
-            hostedView.layer.rasterizationScale = UIScreen.main.scale
-            hostedView.layer.shouldRasterize = false  // Disable rasterization to avoid blur
-            
-            scrollView.addSubview(hostedView)
-            
-            NSLayoutConstraint.activate([
-                hostedView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
-                hostedView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
-                hostedView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
-                hostedView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
-            ])
-            
-            // Add double-tap gesture if needed
-            if resetOnDoubleTap {
-                let doubleTapGesture = UITapGestureRecognizer(
-                    target: context.coordinator, action: #selector(Coordinator.handleDoubleTap(_:)))
-                doubleTapGesture.numberOfTapsRequired = 2
-                scrollView.addGestureRecognizer(doubleTapGesture)
-            }
-            
-            // Apply initial content offset after a brief delay to ensure layout is complete
-            DispatchQueue.main.async {
-                if contentOffset != .zero {
-                    scrollView.contentOffset = contentOffset
-                } else {
-                    // Force centering when content offset is zero by calling zoom delegate
-                    context.coordinator.scrollViewDidZoom(scrollView)
-                }
-            }
-            
-            return scrollView
-        }
-        
-        func updateUIView(_ uiView: UIScrollView, context: Context) {
-            // Update the coordinator's parent reference
-            context.coordinator.parent = self
-            // Keep zoom enabled but disable panning when requested
-            uiView.isScrollEnabled = true
-            uiView.panGestureRecognizer.isEnabled = isPanEnabled
-            
-            // Update the hosting controller's rootView
-            if let hostedView = uiView.subviews.first,
-               let hostingController = hostedView.findViewController() as? UIHostingController<Content>
-            {
-                hostingController.rootView = content
-            }
-            
-            // Only update zoom scale if the user is not currently interacting with the scroll view
-            // and if there's a significant difference to avoid unnecessary updates
-            let clampedScale = max(min(currentScale, maxScale), minScale)
-            if !context.coordinator.isUserInteracting && abs(uiView.zoomScale - clampedScale) > 0.01 {
-                uiView.setZoomScale(clampedScale, animated: false)
-            }
-            
-            // Only update content offset for significant changes and when not interacting
-            if !context.coordinator.isUserInteracting && contentOffset != .zero {
-                let currentOffset = uiView.contentOffset
-                let targetOffset = contentOffset
-                let offsetDistance = sqrt(pow(currentOffset.x - targetOffset.x, 2) + pow(currentOffset.y - targetOffset.y, 2))
-                // Use a larger threshold to reduce unwanted offset adjustments
-                if offsetDistance > 20.0 {
-                    uiView.contentOffset = targetOffset
-                }
-            }
-        }
-        
-        func makeCoordinator() -> Coordinator {
-            Coordinator(self)
-        }
-        
-        class Coordinator: NSObject, UIScrollViewDelegate {
-            var parent: ZoomableScrollView
-            var isUserInteracting = false
-            
-            init(_ parent: ZoomableScrollView) {
-                self.parent = parent
-            }
-            
-            func viewForZooming(in scrollView: UIScrollView) -> UIView? {
-                return scrollView.subviews.first
-            }
-            
-            func scrollViewWillBeginZooming(_ scrollView: UIScrollView, with view: UIView?) {
-                isUserInteracting = true
-            }
-            
-            func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-                isUserInteracting = true
-            }
-            
-            func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
-                isUserInteracting = false
-                // Update the binding after user interaction ends
-                if abs(parent.currentScale - scale) > 0.01 {
-                    parent.currentScale = scale
-                }
-                // Update content offset
-                parent.contentOffset = scrollView.contentOffset
-            }
-            
-            func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-                if !decelerate {
-                    isUserInteracting = false
-                    parent.contentOffset = scrollView.contentOffset
-                }
-            }
-            
-            func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
-                isUserInteracting = false
-                parent.contentOffset = scrollView.contentOffset
-            }
-            
-            func scrollViewDidZoom(_ scrollView: UIScrollView) {
-                // Center content when it's smaller than the viewport, otherwise allow free scrolling
-                let contentWidth = scrollView.contentSize.width
-                let contentHeight = scrollView.contentSize.height
-                let boundsWidth = scrollView.bounds.width
-                let boundsHeight = scrollView.bounds.height
-                
-                var insets = UIEdgeInsets.zero
-                
-                // Only center if content is significantly smaller than viewport
-                if contentWidth < boundsWidth * 0.95 {
-                    let horizontalInset = max((boundsWidth - contentWidth) * 0.5, 0)
-                    insets.left = horizontalInset
-                    insets.right = horizontalInset
-                }
-                
-                if contentHeight < boundsHeight * 0.95 {
-                    let verticalInset = max((boundsHeight - contentHeight) * 0.5, 0)
-                    insets.top = verticalInset
-                    insets.bottom = verticalInset
-                }
-                
-                scrollView.contentInset = insets
-                
-                // Only update binding during user interaction if the change is significant
-                if isUserInteracting {
-                    let newScale = scrollView.zoomScale
-                    if abs(parent.currentScale - newScale) > 0.02 {
-                        parent.currentScale = newScale
-                    }
-                }
-            }
-            
-            func scrollViewDidScroll(_ scrollView: UIScrollView) {
-                // Update content offset during scrolling, but only for significant changes
-                if isUserInteracting {
-                    let currentOffset = scrollView.contentOffset
-                    let parentOffset = parent.contentOffset
-                    let offsetDistance = sqrt(pow(currentOffset.x - parentOffset.x, 2) + pow(currentOffset.y - parentOffset.y, 2))
-                    // Increase threshold to reduce update frequency and improve performance
-                    if offsetDistance > 25.0 {
-                        parent.contentOffset = currentOffset
-                    }
-                }
-            }
-            
-            @objc func handleDoubleTap(_ gestureRecognizer: UITapGestureRecognizer) {
-                guard let scrollView = gestureRecognizer.view as? UIScrollView else { return }
-                
-                if scrollView.zoomScale > scrollView.minimumZoomScale {
-                    // Zoom out to minimum scale
-                    scrollView.setZoomScale(scrollView.minimumZoomScale, animated: true)
-                } else {
-                    // Zoom in to a reasonable scale (halfway between min and max)
-                    let targetScale = min(scrollView.maximumZoomScale, scrollView.minimumZoomScale * 2.0)
-                    let point = gestureRecognizer.location(in: scrollView.subviews.first ?? scrollView)
-                    
-                    // Calculate zoom rect centered on tap point
-                    let zoomSize = CGSize(
-                        width: scrollView.bounds.width / targetScale,
-                        height: scrollView.bounds.height / targetScale
-                    )
-                    let zoomRect = CGRect(
-                        x: point.x - zoomSize.width / 2,
-                        y: point.y - zoomSize.height / 2,
-                        width: zoomSize.width,
-                        height: zoomSize.height
-                    )
-                    scrollView.zoom(to: zoomRect, animated: true)
-                }
-            }
         }
     }
     
