@@ -426,103 +426,50 @@ struct WrittenNoteView: View {
         GeometryReader { geometry in
             // Use static zoom caps for consistent behavior across orientations
             let staticMinScale: CGFloat = 0.75
-            let staticMaxScale: CGFloat = 5.0
+            let staticMaxScale: CGFloat = 2.5
             
-            ZoomableScrollView(
-                minScale: staticMinScale,
-                maxScale: staticMaxScale,
-                resetOnDoubleTap: true,
-                currentScale: $unifiedZoomScale,
-                contentOffset: $unifiedContentOffset,
-                isPanEnabled: .constant(true)
-            ) {
-
-                // Content is now fixed without scrolling
-
-                ZStack {
-                    paperBackground(pageIndex: pageIndex)
-
-                    
-                    // Background images for this page (behind the canvas)
-                    backgroundImagesView(pageIndex: pageIndex)
-                    
-                    if pageIndex < canvasViews.count {
-                        PencilKitCanvasView(
-                            canvasView: canvasViews[pageIndex],
-                            currentTool: $currentTool,
-                            canvasViews: $canvasViews,
-                            currentPage: $currentPage
-                        )
-                        .frame(
-                            width: perPageSize(pageIndex).width,
-                            height: perPageSize(pageIndex).height
-                        )
-                        .onChange(of: canvasViews[pageIndex].drawing) { _, _ in
-                            isEdited = true
-                        }
-                        
-                        // Image overlay for this page (on top of canvas for user-added images)
-                        CanvasImageOverlay(
-                            imageManager: imageManager,
-                            pageIndex: pageIndex,
-                            canvasSize: CGSize(
-                                width: perPageSize(pageIndex).width,
-                                height: perPageSize(pageIndex).height
-                            )
-                        )
-                        .frame(
-                            width: perPageSize(pageIndex).width,
-                            height: perPageSize(pageIndex).height
-                        )
-                        
-                        // TextBox overlay for this page (on top of everything)
-                        // Only show when textbox tool is active or there are textboxes to display
-                        if currentTool == .textbox || !textBoxManager.textBoxes(for: pageIndex).isEmpty {
-                            TextBoxOverlay(
-                                textBoxManager: textBoxManager,
-                                pageIndex: pageIndex,
-                                canvasSize: CGSize(
-                                width: perPageSize(pageIndex).width,
-                                height: perPageSize(pageIndex).height
-                            )
-                            )
-                            .frame(
-                                width: perPageSize(pageIndex).width,
-                                height: perPageSize(pageIndex).height
-                            )
-                            .allowsHitTesting(currentTool == .textbox || textBoxManager.isEditingText)
-                        }
-                    } else {
-                        Text("Error: Canvas not available for page \(pageIndex + 1)")
-                            .foregroundColor(.red)
-                            .frame(
-                                width: perPageSize(pageIndex).width,
-                                height: perPageSize(pageIndex).height
-                            )
+            if pageIndex < canvasViews.count {
+                LosslessCanvasContainer(
+                    canvasView: canvasViews[pageIndex],
+                    paperColor: note.paperColor,
+                    paperStyle: note.paperStyle,
+                    backgroundImageData: note.imageDataByPage[String(pageIndex)]?.first,
+                    imageManager: imageManager,
+                    textBoxManager: textBoxManager,
+                    pageIndex: pageIndex,
+                    canvasSize: perPageSize(pageIndex),
+                    currentTool: currentTool,
+                    minScale: staticMinScale,
+                    maxScale: staticMaxScale,
+                    currentScale: $unifiedZoomScale,
+                    contentOffset: $unifiedContentOffset,
+                    onDrawingChange: {
+                        isEdited = true
+                    }
+                )
+                .onAppear {
+                    // Auto-fit to screen on first appearance
+                    if !didApplyInitialFit {
+                        let contentSize = perPageSize(pageIndex)
+                        let viewportSize = geometry.size
+                        let fitScale = min(viewportSize.width / max(contentSize.width, 1), viewportSize.height / max(contentSize.height, 1))
+                        let initialScale = max(staticMinScale, min(fitScale * 0.999, 1.0))
+                        unifiedZoomScale = initialScale
+                        unifiedContentOffset = .zero
+                        didApplyInitialFit = true
                     }
                 }
-            }
-            .onAppear {
-                // Auto-fit to screen on first appearance of the content after loading a note
-                if !didApplyInitialFit {
-                    // Calculate fit scale for initial display but don't use it as minimum
-                    let contentSize = perPageSize(pageIndex)
-                    let viewportSize = geometry.size
-                    let fitScale = min(viewportSize.width / max(contentSize.width, 1), viewportSize.height / max(contentSize.height, 1))
-                    let initialScale = max(staticMinScale, min(fitScale * 0.999, 1.0))
-                    unifiedZoomScale = initialScale
-                    unifiedContentOffset = .zero
-                    didApplyInitialFit = true
+                .onChange(of: geometry.size) { _, _ in
+                    clampScaleIfNeeded(staticMinScale)
                 }
+                .onChange(of: currentPage) { _, _ in
+                    clampScaleIfNeeded(staticMinScale)
+                }
+                .edgesIgnoringSafeArea(.bottom)
+            } else {
+                Text("Error: Canvas not available for page \(pageIndex + 1)")
+                    .foregroundColor(.red)
             }
-            .onChange(of: geometry.size) { _, _ in
-                clampScaleIfNeeded(staticMinScale)
-            }
-            .onChange(of: currentPage) { _, _ in
-                clampScaleIfNeeded(staticMinScale)
-            }
-            .coordinateSpace(name: "scroll")
-            .edgesIgnoringSafeArea(.bottom)
         }
     }
     
@@ -949,6 +896,529 @@ struct WrittenNoteView: View {
                 currentCanvas.tool = selectedTool.toolInstance()
             } else {
                 currentCanvas.tool = PKInkingTool(.pen, color: .black, width: 1.0)
+            }
+        }
+    }
+    
+    // MARK: - Lossless Canvas Container (Pure UIKit Solution)
+    
+    struct LosslessCanvasContainer: UIViewRepresentable {
+        let canvasView: PKCanvasView
+        let paperColor: PaperColor
+        let paperStyle: PaperStyle
+        let backgroundImageData: Data?
+        let imageManager: CanvasImageManager
+        let textBoxManager: TextBoxManager
+        let pageIndex: Int
+        let canvasSize: CGSize
+        let currentTool: PenTool?
+        let minScale: CGFloat
+        let maxScale: CGFloat
+        @Binding var currentScale: CGFloat
+        @Binding var contentOffset: CGPoint
+        let onDrawingChange: () -> Void
+        
+        func makeUIView(context: Context) -> UIView {
+            let containerView = UIView()
+            containerView.backgroundColor = .clear
+            
+            // Create scroll view for zooming
+            let scrollView = UIScrollView()
+            scrollView.delegate = context.coordinator
+            scrollView.minimumZoomScale = minScale
+            scrollView.maximumZoomScale = maxScale
+            scrollView.showsHorizontalScrollIndicator = false
+            scrollView.showsVerticalScrollIndicator = false
+            scrollView.contentInsetAdjustmentBehavior = .never
+            scrollView.backgroundColor = .clear
+            scrollView.bouncesZoom = true
+            
+            // Background layer (drawn with CALayers - resolution independent)
+            let backgroundView = createBackgroundView()
+            backgroundView.frame = CGRect(origin: .zero, size: canvasSize)
+            backgroundView.isUserInteractionEnabled = false
+            scrollView.addSubview(backgroundView)
+            context.coordinator.backgroundView = backgroundView
+            
+            // PKCanvasView - Use native zoomScale for lossless rendering
+            let initialScale = max(min(currentScale, maxScale), minScale)
+            // Keep canvas frame at base size - only zoom scale changes
+            canvasView.frame = CGRect(origin: .zero, size: canvasSize)
+            canvasView.backgroundColor = .clear
+            canvasView.isOpaque = false
+            canvasView.isUserInteractionEnabled = true  // Ensure canvas can receive touches
+            canvasView.zoomScale = initialScale
+            canvasView.minimumZoomScale = minScale
+            canvasView.maximumZoomScale = maxScale
+            // Apply visual scaling via transform to match zoom level
+            canvasView.transform = CGAffineTransform(scaleX: initialScale, y: initialScale)
+            scrollView.addSubview(canvasView)
+            context.coordinator.canvasView = canvasView
+            
+            // Calculate scaled size for layout
+            let scaledCanvasSize = CGSize(
+                width: canvasSize.width * initialScale,
+                height: canvasSize.height * initialScale
+            )
+            
+            // Overlay layers (SwiftUI content for interactivity)
+            let overlayHosting = UIHostingController(
+                rootView: AnyView(
+                    ZStack {
+                        CanvasImageOverlay(
+                            imageManager: imageManager,
+                            pageIndex: pageIndex,
+                            canvasSize: canvasSize
+                        )
+                        
+                        if currentTool == .textbox || !textBoxManager.textBoxes(for: pageIndex).isEmpty {
+                            TextBoxOverlay(
+                                textBoxManager: textBoxManager,
+                                pageIndex: pageIndex,
+                                canvasSize: canvasSize
+                            )
+                            .allowsHitTesting(currentTool == .textbox || textBoxManager.isEditingText)
+                        }
+                    }
+                )
+            )
+            let overlayView = overlayHosting.view!
+            overlayView.frame = CGRect(origin: .zero, size: canvasSize)
+            overlayView.backgroundColor = .clear
+            // Only enable interaction for textbox/photo tools, otherwise pass through to canvas
+            overlayView.isUserInteractionEnabled = (currentTool == .textbox || currentTool == .photo)
+            scrollView.addSubview(overlayView)
+            context.coordinator.overlayView = overlayView
+            context.coordinator.overlayHosting = overlayHosting
+            
+            // Use the same scaled canvas size for all initial setup
+            scrollView.contentSize = scaledCanvasSize
+            scrollView.frame = containerView.bounds
+            scrollView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            
+            // Center all views initially
+            backgroundView.center = CGPoint(x: scaledCanvasSize.width / 2, y: scaledCanvasSize.height / 2)
+            canvasView.center = CGPoint(x: scaledCanvasSize.width / 2, y: scaledCanvasSize.height / 2)
+            overlayView.center = CGPoint(x: scaledCanvasSize.width / 2, y: scaledCanvasSize.height / 2)
+            
+            // Apply initial transforms to background and overlay
+            if initialScale != 1.0 {
+                backgroundView.transform = CGAffineTransform(scaleX: initialScale, y: initialScale)
+                overlayView.transform = CGAffineTransform(scaleX: initialScale, y: initialScale)
+            }
+            
+            containerView.addSubview(scrollView)
+            context.coordinator.scrollView = scrollView
+            
+            // Add pinch gesture for zooming with delegate to avoid conflicts
+            let pinchGesture = UIPinchGestureRecognizer(
+                target: context.coordinator,
+                action: #selector(Coordinator.handlePinch(_:))
+            )
+            pinchGesture.delegate = context.coordinator
+            scrollView.addGestureRecognizer(pinchGesture)
+            
+            // Add double-tap gesture
+            let doubleTap = UITapGestureRecognizer(
+                target: context.coordinator,
+                action: #selector(Coordinator.handleDoubleTap(_:))
+            )
+            doubleTap.numberOfTapsRequired = 2
+            scrollView.addGestureRecognizer(doubleTap)
+            
+            // Set up drawing change observation
+            context.coordinator.setupDrawingObservation()
+            
+            // Apply initial centering
+            DispatchQueue.main.async {
+                context.coordinator.centerContentIfNeeded(in: scrollView)
+            }
+            
+            return containerView
+        }
+        
+        func updateUIView(_ uiView: UIView, context: Context) {
+            context.coordinator.parent = self
+            
+            // Update overlay interaction based on current tool
+            if let overlayView = context.coordinator.overlayView {
+                // Only enable interaction for textbox/photo tools, otherwise pass through to canvas
+                overlayView.isUserInteractionEnabled = (currentTool == .textbox || currentTool == .photo)
+            }
+            
+            // Update overlay content
+            context.coordinator.overlayHosting?.rootView = AnyView(
+                ZStack {
+                    CanvasImageOverlay(
+                        imageManager: imageManager,
+                        pageIndex: pageIndex,
+                        canvasSize: canvasSize
+                    )
+                    
+                    if currentTool == .textbox || !textBoxManager.textBoxes(for: pageIndex).isEmpty {
+                        TextBoxOverlay(
+                            textBoxManager: textBoxManager,
+                            pageIndex: pageIndex,
+                            canvasSize: canvasSize
+                        )
+                        .allowsHitTesting(currentTool == .textbox || textBoxManager.isEditingText)
+                    }
+                }
+            )
+            
+            // Update zoom if changed externally
+            if let canvas = context.coordinator.canvasView,
+               let background = context.coordinator.backgroundView,
+               let overlay = context.coordinator.overlayView,
+               let scrollView = context.coordinator.scrollView,
+               !context.coordinator.isUserInteracting {
+                
+                let clampedScale = max(min(currentScale, maxScale), minScale)
+                if abs(canvas.zoomScale - clampedScale) > 0.01 {
+                    // Update PKCanvasView's native zoom
+                    canvas.zoomScale = clampedScale
+                    
+                    // Apply visual scaling via transform (keeps frame constant)
+                    canvas.transform = CGAffineTransform(scaleX: clampedScale, y: clampedScale)
+                    background.transform = CGAffineTransform(scaleX: clampedScale, y: clampedScale)
+                    overlay.transform = CGAffineTransform(scaleX: clampedScale, y: clampedScale)
+                    
+                    // Calculate scaled size for layout
+                    let scaledCanvasSize = CGSize(
+                        width: canvasSize.width * clampedScale,
+                        height: canvasSize.height * clampedScale
+                    )
+                    
+                    // Update scroll view content size
+                    scrollView.contentSize = scaledCanvasSize
+                    
+                    // Center the views
+                    let centerX = scaledCanvasSize.width / 2
+                    let centerY = scaledCanvasSize.height / 2
+                    canvas.center = CGPoint(x: centerX, y: centerY)
+                    background.center = CGPoint(x: centerX, y: centerY)
+                    overlay.center = CGPoint(x: centerX, y: centerY)
+                    
+                    // Apply centering
+                    context.coordinator.centerContentIfNeeded(in: scrollView)
+                }
+                
+                if contentOffset != .zero {
+                    let currentOffset = scrollView.contentOffset
+                    let distance = sqrt(pow(currentOffset.x - contentOffset.x, 2) + pow(currentOffset.y - contentOffset.y, 2))
+                    if distance > 20 {
+                        scrollView.contentOffset = contentOffset
+                    }
+                }
+            }
+        }
+        
+        func makeCoordinator() -> Coordinator {
+            Coordinator(self)
+        }
+        
+        private func createBackgroundView() -> UIView {
+            let bgView = UIView(frame: CGRect(origin: .zero, size: canvasSize))
+            
+            // Paper color
+            let paperBgColor = PaperUtilities.getPaperBackgroundColor(for: paperColor)
+            bgView.backgroundColor = UIColor(paperBgColor)
+            
+            // Paper pattern
+            let patternLayer = createPaperPatternLayer()
+            bgView.layer.addSublayer(patternLayer)
+            
+            // Background image
+            if let imageData = backgroundImageData,
+               let uiImage = UIImage(data: imageData) {
+                let imageView = UIImageView(image: uiImage)
+                imageView.frame = bgView.bounds
+                imageView.contentMode = .scaleAspectFit
+                imageView.clipsToBounds = true
+                bgView.addSubview(imageView)
+            }
+            
+            return bgView
+        }
+        
+        private func createPaperPatternLayer() -> CALayer {
+            let layer = CALayer()
+            layer.frame = CGRect(origin: .zero, size: canvasSize)
+            
+            switch paperStyle {
+            case .grid:
+                let shapeLayer = CAShapeLayer()
+                let path = UIBezierPath()
+                let spacing: CGFloat = 20
+                
+                // Horizontal lines
+                var y: CGFloat = 0
+                while y <= canvasSize.height {
+                    path.move(to: CGPoint(x: 0, y: y))
+                    path.addLine(to: CGPoint(x: canvasSize.width, y: y))
+                    y += spacing
+                }
+                
+                // Vertical lines
+                var x: CGFloat = 0
+                while x <= canvasSize.width {
+                    path.move(to: CGPoint(x: x, y: 0))
+                    path.addLine(to: CGPoint(x: x, y: canvasSize.height))
+                    x += spacing
+                }
+                
+                shapeLayer.path = path.cgPath
+                shapeLayer.strokeColor = UIColor.gray.withAlphaComponent(0.3).cgColor
+                shapeLayer.lineWidth = 0.75
+                layer.addSublayer(shapeLayer)
+                
+            case .dotted:
+                let baseSpacing: CGFloat = 18
+                let dotRadius: CGFloat = 1
+                let margin: CGFloat = baseSpacing
+                
+                let availableWidth = canvasSize.width - 2 * margin
+                let availableHeight = canvasSize.height - 2 * margin
+                let hIntervals = max(1, Int(availableWidth / baseSpacing))
+                let vIntervals = max(1, Int(availableHeight / baseSpacing))
+                let hSpacing = availableWidth / CGFloat(hIntervals)
+                let vSpacing = availableHeight / CGFloat(vIntervals)
+                
+                for yIdx in 0...vIntervals {
+                    for xIdx in 0...hIntervals {
+                        let xPos = margin + CGFloat(xIdx) * hSpacing
+                        let yPos = margin + CGFloat(yIdx) * vSpacing
+                        
+                        let dotLayer = CAShapeLayer()
+                        dotLayer.path = UIBezierPath(ovalIn: CGRect(
+                            x: xPos - dotRadius,
+                            y: yPos - dotRadius,
+                            width: 2 * dotRadius,
+                            height: 2 * dotRadius
+                        )).cgPath
+                        dotLayer.fillColor = UIColor.gray.withAlphaComponent(0.35).cgColor
+                        layer.addSublayer(dotLayer)
+                    }
+                }
+                
+            case .lined:
+                let shapeLayer = CAShapeLayer()
+                let path = UIBezierPath()
+                let spacing: CGFloat = 24
+                let marginTop: CGFloat = 30
+                
+                var y = marginTop
+                while y <= canvasSize.height {
+                    path.move(to: CGPoint(x: 0, y: y))
+                    path.addLine(to: CGPoint(x: canvasSize.width, y: y))
+                    y += spacing
+                }
+                
+                shapeLayer.path = path.cgPath
+                shapeLayer.strokeColor = UIColor.gray.withAlphaComponent(0.3).cgColor
+                shapeLayer.lineWidth = 0.75
+                layer.addSublayer(shapeLayer)
+                
+            case .blank:
+                break
+            }
+            
+            return layer
+        }
+        
+        class Coordinator: NSObject, UIScrollViewDelegate, UIGestureRecognizerDelegate {
+            var parent: LosslessCanvasContainer
+            var isUserInteracting = false
+            var scrollView: UIScrollView?
+            var canvasView: PKCanvasView?
+            var backgroundView: UIView?
+            var overlayView: UIView?
+            var overlayHosting: UIHostingController<AnyView>?
+            private var drawingObserver: NSKeyValueObservation?
+            
+            init(_ parent: LosslessCanvasContainer) {
+                self.parent = parent
+            }
+            
+            func setupDrawingObservation() {
+                drawingObserver = canvasView?.observe(\.drawing, options: [.new]) { [weak self] _, _ in
+                    self?.parent.onDrawingChange()
+                }
+            }
+            
+            // Allow pinch gesture to work alongside PKCanvasView gestures
+            func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+                // Only allow simultaneous recognition for pinch gestures with 2+ touches
+                if let pinch = gestureRecognizer as? UIPinchGestureRecognizer {
+                    return pinch.numberOfTouches >= 2
+                }
+                return false
+            }
+            
+            // Ensure pinch only triggers with 2+ fingers
+            func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+                if let pinch = gestureRecognizer as? UIPinchGestureRecognizer {
+                    // Only begin if using 2+ fingers
+                    return pinch.numberOfTouches >= 2
+                }
+                return true
+            }
+            
+            // CRITICAL: Return nil - we'll handle zoom manually via PKCanvasView's zoomScale
+            func viewForZooming(in scrollView: UIScrollView) -> UIView? {
+                return nil
+            }
+            
+            func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+                isUserInteracting = true
+            }
+            
+            func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+                if !decelerate {
+                    isUserInteracting = false
+                    parent.contentOffset = scrollView.contentOffset
+                }
+            }
+            
+            func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+                isUserInteracting = false
+                parent.contentOffset = scrollView.contentOffset
+            }
+            
+            func scrollViewDidScroll(_ scrollView: UIScrollView) {
+                // Center content when smaller than viewport
+                centerContentIfNeeded(in: scrollView)
+                
+                if isUserInteracting {
+                    parent.contentOffset = scrollView.contentOffset
+                }
+            }
+            
+            func centerContentIfNeeded(in scrollView: UIScrollView) {
+                let contentWidth = scrollView.contentSize.width
+                let contentHeight = scrollView.contentSize.height
+                let boundsWidth = scrollView.bounds.width
+                let boundsHeight = scrollView.bounds.height
+                
+                var insets = UIEdgeInsets.zero
+                
+                if contentWidth < boundsWidth {
+                    insets.left = max((boundsWidth - contentWidth) / 2, 0)
+                    insets.right = insets.left
+                }
+                
+                if contentHeight < boundsHeight {
+                    insets.top = max((boundsHeight - contentHeight) / 2, 0)
+                    insets.bottom = insets.top
+                }
+                
+                if scrollView.contentInset != insets {
+                    scrollView.contentInset = insets
+                }
+            }
+            
+            // Handle pinch gesture to zoom PKCanvasView natively
+            @objc func handlePinch(_ gesture: UIPinchGestureRecognizer) {
+                guard let canvas = canvasView,
+                      let background = backgroundView,
+                      let overlay = overlayView,
+                      let scroll = scrollView else { return }
+                
+                switch gesture.state {
+                case .began:
+                    isUserInteracting = true
+                    
+                case .changed:
+                    // Calculate new zoom scale
+                    let newScale = max(parent.minScale, min(canvas.zoomScale * gesture.scale, parent.maxScale))
+                    
+                    // Apply native zoom to PKCanvasView for lossless rendering
+                    canvas.zoomScale = newScale
+                    
+                    // Apply visual scaling via transform (keeps frame constant)
+                    canvas.transform = CGAffineTransform(scaleX: newScale, y: newScale)
+                    background.transform = CGAffineTransform(scaleX: newScale, y: newScale)
+                    overlay.transform = CGAffineTransform(scaleX: newScale, y: newScale)
+                    
+                    // Calculate scaled size for layout
+                    let scaledCanvasSize = CGSize(
+                        width: parent.canvasSize.width * newScale,
+                        height: parent.canvasSize.height * newScale
+                    )
+                    
+                    // Update scroll view content size
+                    scroll.contentSize = scaledCanvasSize
+                    
+                    // Center the views
+                    let centerX = scaledCanvasSize.width / 2
+                    let centerY = scaledCanvasSize.height / 2
+                    canvas.center = CGPoint(x: centerX, y: centerY)
+                    background.center = CGPoint(x: centerX, y: centerY)
+                    overlay.center = CGPoint(x: centerX, y: centerY)
+                    
+                    // Apply centering insets
+                    centerContentIfNeeded(in: scroll)
+                    
+                    gesture.scale = 1.0 // Reset for next iteration
+                    
+                case .ended, .cancelled:
+                    isUserInteracting = false
+                    parent.currentScale = canvas.zoomScale
+                    centerContentIfNeeded(in: scroll)
+                    
+                default:
+                    break
+                }
+            }
+            
+            @objc func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
+                guard let canvas = canvasView,
+                      let background = backgroundView,
+                      let overlay = overlayView,
+                      let scroll = scrollView else { return }
+                
+                let targetScale: CGFloat
+                if canvas.zoomScale > parent.minScale {
+                    targetScale = parent.minScale
+                } else {
+                    targetScale = min(parent.maxScale, parent.minScale * 2.0)
+                }
+                
+                // Animate zoom using UIView animation
+                UIView.animate(withDuration: 0.25, animations: {
+                    // Apply native zoom to PKCanvasView
+                    canvas.zoomScale = targetScale
+                    
+                    // Apply visual scaling via transform (keeps frame constant)
+                    canvas.transform = CGAffineTransform(scaleX: targetScale, y: targetScale)
+                    background.transform = CGAffineTransform(scaleX: targetScale, y: targetScale)
+                    overlay.transform = CGAffineTransform(scaleX: targetScale, y: targetScale)
+                    
+                    // Calculate scaled size for layout
+                    let scaledCanvasSize = CGSize(
+                        width: self.parent.canvasSize.width * targetScale,
+                        height: self.parent.canvasSize.height * targetScale
+                    )
+                    
+                    // Update scroll view content size
+                    scroll.contentSize = scaledCanvasSize
+                    
+                    // Center the views
+                    let centerX = scaledCanvasSize.width / 2
+                    let centerY = scaledCanvasSize.height / 2
+                    canvas.center = CGPoint(x: centerX, y: centerY)
+                    background.center = CGPoint(x: centerX, y: centerY)
+                    overlay.center = CGPoint(x: centerX, y: centerY)
+                    
+                    // Apply centering insets
+                    self.centerContentIfNeeded(in: scroll)
+                }, completion: { _ in
+                    self.parent.currentScale = targetScale
+                })
+            }
+            
+            deinit {
+                drawingObserver?.invalidate()
             }
         }
     }
