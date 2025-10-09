@@ -117,6 +117,15 @@ struct HomeView: View {
             return favoriteNotes.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
         }
     }
+
+    var filteredFavoriteFolders: [Folder] {
+        let favoriteFolders = storageManager.folders.filter { $0.isFavorite }
+        if searchText.isEmpty {
+            return favoriteFolders
+        } else {
+            return favoriteFolders.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+        }
+    }
     var body: some View {
         GeometryReader { geometry in
             HStack(spacing: 0) {
@@ -1066,8 +1075,48 @@ struct HomeView: View {
         }
     }
 
+    // Helper function to navigate to a folder from favorites
+    private func navigateToFolderFromFavorites(_ folder: Folder) {
+        // Switch to documents view
+        selectedItem = "documents"
+        
+        // Build the folder path from the folder up to the root
+        var path: [Folder] = []
+        var currentFolder: Folder? = folder
+        
+        // Traverse up to build the path
+        while let folder = currentFolder {
+            path.insert(folder, at: 0)
+            
+            // Find parent folder if it exists
+            if let parentID = folder.parentID {
+                currentFolder = storageManager.folders.first(where: { $0.id == parentID })
+            } else {
+                currentFolder = nil
+            }
+        }
+        
+        // Set the current folder and path
+        folderPath = path
+        currentFolderID = folder.id
+    }
+
     private func folderContextMenu(_ folder: Folder) -> some View {
         Group {
+            Button(action: {
+                // Toggle favorite
+                var updatedFolder = folder
+                updatedFolder.toggleFavorite()
+                let savedFolder = storageManager.saveFolder(updatedFolder)
+            }) {
+                Label(
+                    folder.isFavorite ? "Remove from Favorites" : "Add to Favorites",
+                    systemImage: folder.isFavorite ? "star.slash" : "star"
+                )
+            }
+
+            Divider()
+
             Button(
                 role: .destructive,
                 action: {
@@ -1677,7 +1726,7 @@ struct HomeView: View {
 
     private var favoritesContent: some View {
         ScrollView {
-            if filteredFavoriteNotes.isEmpty {
+            if filteredFavoriteNotes.isEmpty && filteredFavoriteFolders.isEmpty {
                 EmptyFavoritesView(
                     selectedItem: $selectedItem,
                     currentFolderID: $currentFolderID,
@@ -1817,7 +1866,31 @@ struct HomeView: View {
             columns: [GridItem(.adaptive(minimum: 160), spacing: 20)],
             spacing: 20
         ) {
-            //  favorite notes
+            // Show favorite folders first
+            ForEach(filteredFavoriteFolders) { folder in
+                let isSelected = selectedFolders.contains(folder.id)
+                Button(action: {
+                    if isSelectionMode {
+                        toggleFolderSelection(folder.id)
+                    } else {
+                        // Navigate to folder from favorites
+                        navigateToFolderFromFavorites(folder)
+                    }
+                }) {
+                    GridFolderItemView(folder: folder, isSelected: isSelected, isSelectionMode: isSelectionMode)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .contextMenu {
+                    folderContextMenu(folder)
+                }
+                .onDrag {
+                    startDragging(folder: folder)
+                } preview: {
+                    dragPreview(for: folder)
+                }
+            }
+
+            // Then show favorite notes
             ForEach(filteredFavoriteNotes) { note in
                 let isSelected = selectedNotes.contains(note.id)
                 Button(action: {
@@ -1853,7 +1926,31 @@ struct HomeView: View {
 
     private var favoritesListView: some View {
         LazyVStack(spacing: 8) {
-            //  show favorite notes
+            // Show favorite folders first
+            ForEach(filteredFavoriteFolders) { folder in
+                let isSelected = selectedFolders.contains(folder.id)
+                Button(action: {
+                    if isSelectionMode {
+                        toggleFolderSelection(folder.id)
+                    } else {
+                        // Navigate to folder from favorites
+                        navigateToFolderFromFavorites(folder)
+                    }
+                }) {
+                    ListFolderItemView(folder: folder, isSelected: isSelected, isSelectionMode: isSelectionMode)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .contextMenu {
+                    folderContextMenu(folder)
+                }
+                .onDrag {
+                    startDragging(folder: folder)
+                } preview: {
+                    dragPreview(for: folder)
+                }
+            }
+
+            // Then show favorite notes
             ForEach(filteredFavoriteNotes) { note in
                 let isSelected = selectedNotes.contains(note.id)
                 Button(action: {

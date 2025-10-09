@@ -13,6 +13,7 @@ struct Folder: Identifiable, Hashable {
   var color: Color
   var dateCreated: Date
   var dateModified: Date
+  var isFavorite: Bool = false
 
   // Parent-child relationships
   var parentID: UUID?
@@ -80,6 +81,12 @@ struct Folder: Identifiable, Hashable {
   /// Change folder color
   mutating func changeColor(to newColor: Color) {
     color = newColor
+    updateModificationDate()
+  }
+
+  /// Toggle favorite status
+  mutating func toggleFavorite() {
+    isFavorite.toggle()
     updateModificationDate()
   }
 

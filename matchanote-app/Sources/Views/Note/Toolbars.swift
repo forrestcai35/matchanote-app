@@ -513,7 +513,7 @@ struct WrittenNoteToolbar: View {
                         if toolState.selectedPenPresetIndex == i { updateCanvasTool() }
                       }
                     )
-                    Slider(value: binding, in: 0.25...10, step: 0.25)
+                    Slider(value: binding, in: 0.5...10, step: 0.25)
                       .frame(width: 200)
                   }
                   .padding(.vertical, 12)
@@ -973,7 +973,7 @@ struct WrittenNoteToolbar: View {
                         if toolState.selectedPenPresetIndex == i { updateCanvasTool() }
                       }
                     )
-                    Slider(value: binding, in: 0.25...10, step: 0.25)
+                    Slider(value: binding, in: 0.5...10, step: 0.25)
                       .frame(width: 200)
                   }
                   .padding(.vertical, 12)

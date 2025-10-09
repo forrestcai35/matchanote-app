@@ -347,6 +347,20 @@ public struct ListFolderItemView: View {
                 }
 
                 Spacer()
+
+                // Star indicator for folders
+                Button(action: {
+                    if let folderIndex = storageManager.folders.firstIndex(where: { $0.id == folder.id }) {
+                        var updatedFolder = storageManager.folders[folderIndex]
+                        updatedFolder.toggleFavorite()
+                        let savedFolder = storageManager.saveFolder(updatedFolder)
+                    }
+                }) {
+                    Image(systemName: folder.isFavorite ? "star.fill" : "star")
+                        .foregroundColor(folder.isFavorite ? .yellow : .gray)
+                        .font(.system(size: 16))
+                }
+                .buttonStyle(PlainButtonStyle())
             }
             .frame(maxWidth: .infinity)
             .frame(height: 56)
@@ -395,6 +409,22 @@ public struct GridFolderItemView: View {
                     .scaledToFill()
                     .frame(width: 175, height: 140)
                     .clipped()
+                
+                // Star indicator
+                Button(action: {
+                    if let folderIndex = storageManager.folders.firstIndex(where: { $0.id == folder.id }) {
+                        var updatedFolder = storageManager.folders[folderIndex]
+                        updatedFolder.toggleFavorite()
+                        let savedFolder = storageManager.saveFolder(updatedFolder)
+                    }
+                }) {
+                    Image(systemName: folder.isFavorite ? "star.fill" : "star")
+                        .foregroundColor(folder.isFavorite ? .yellow : .gray)
+                        .padding(8)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                .offset(x: 1, y: 28)
                 
                 // Selection indicator - centered circle with checkmark
                 if isSelectionMode {
