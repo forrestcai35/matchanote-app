@@ -353,7 +353,7 @@ public struct ListFolderItemView: View {
                     if let folderIndex = storageManager.folders.firstIndex(where: { $0.id == folder.id }) {
                         var updatedFolder = storageManager.folders[folderIndex]
                         updatedFolder.toggleFavorite()
-                        let savedFolder = storageManager.saveFolder(updatedFolder)
+                        _ = storageManager.saveFolder(updatedFolder)
                     }
                 }) {
                     Image(systemName: folder.isFavorite ? "star.fill" : "star")
@@ -415,7 +415,7 @@ public struct GridFolderItemView: View {
                     if let folderIndex = storageManager.folders.firstIndex(where: { $0.id == folder.id }) {
                         var updatedFolder = storageManager.folders[folderIndex]
                         updatedFolder.toggleFavorite()
-                        let savedFolder = storageManager.saveFolder(updatedFolder)
+                        _ = storageManager.saveFolder(updatedFolder)
                     }
                 }) {
                     Image(systemName: folder.isFavorite ? "star.fill" : "star")

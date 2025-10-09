@@ -223,6 +223,47 @@ class StorageManager: ObservableObject {
 
     return noteToSave
   }
+  
+  // Synchronous save with completion handler for operations that need to wait for save to complete
+  func saveNoteSync(_ note: Note, completion: @escaping (Note) -> Void) {
+    // Ensure unique title before saving
+    var noteToSave = note
+    noteToSave.title = generateUniqueTitle(for: noteToSave.title, excludingNoteId: noteToSave.id)
+
+    // Update in-memory array immediately
+    if let existingIndex = notes.firstIndex(where: { $0.id == noteToSave.id }) {
+      notes[existingIndex] = noteToSave
+    } else {
+      notes.append(noteToSave)
+    }
+
+    // Save to local storage synchronously
+    let notesToSave = notes.map { StorageNote(from: $0) }
+    let notesURL = localStorageURL.appendingPathComponent(notesFileName)
+    
+    do {
+      let encoder = JSONEncoder()
+      let data = try encoder.encode(notesToSave)
+      try data.write(to: notesURL)
+      
+      // Call completion handler on main thread
+      DispatchQueue.main.async {
+        completion(noteToSave)
+      }
+      
+      // Save to Supabase asynchronously in background
+      if PreferencesManager.shared.supabaseStorageEnabled {
+        Task {
+          await saveNoteToSupabase(noteToSave)
+        }
+      }
+    } catch {
+      print("Error saving note synchronously: \(error)")
+      DispatchQueue.main.async {
+        completion(noteToSave)
+      }
+    }
+  }
 
   // Update a note's title while ensuring uniqueness
   func updateNoteTitle(noteId: UUID, newTitle: String) -> Note? {

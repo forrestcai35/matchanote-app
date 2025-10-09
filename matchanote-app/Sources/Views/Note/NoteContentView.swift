@@ -226,10 +226,51 @@ struct WrittenNoteView: View {
     }
     
     // Save drawing data for the current note
-    private func saveCurrentDrawingData() {
+    // Made public so it can be called before exports to ensure latest data is saved
+    func saveCurrentDrawingData() {
         if let currentId = currentNoteId {
             saveDrawingDataForNote(noteId: currentId)
         }
+    }
+    
+    // Get the current note with latest drawing data without saving to storage
+    // Useful for operations that need fresh data (like exports)
+    func getCurrentNoteWithLatestData() -> Note? {
+        guard let currentId = currentNoteId else { return nil }
+        guard let noteToUpdate = storageManager.notes.first(where: { $0.id == currentId }) else { return nil }
+        
+        var updatedNote = noteToUpdate
+        
+        // Collect current drawing data from canvases
+        var newDrawingData: [String: Data] = [:]
+        for index in 0..<min(pageCount, canvasViews.count) {
+            let canvas = canvasViews[index]
+            let drawingData = canvas.drawing.dataRepresentation()
+            newDrawingData[String(index)] = drawingData
+        }
+        
+        // Merge canvas images with background images
+        let canvasImageData = imageManager.getAllImagesData()
+        let backgroundImages = noteToUpdate.imageDataByPage
+        var finalImageData = backgroundImages
+        
+        for (pageKey, canvasImages) in canvasImageData {
+            if finalImageData[pageKey] == nil {
+                finalImageData[pageKey] = []
+            }
+            finalImageData[pageKey]?.append(contentsOf: canvasImages)
+        }
+        
+        // Get textbox data
+        let textBoxData = textBoxManager.getAllTextBoxesData()
+        
+        // Update note with latest data
+        updatedNote.drawingDataByPage = newDrawingData
+        updatedNote.imageDataByPage = finalImageData
+        updatedNote.textBoxDataByPage = textBoxData
+        updatedNote.dateModified = Date()
+        
+        return updatedNote
     }
     
     // Save drawing data for a specific note ID

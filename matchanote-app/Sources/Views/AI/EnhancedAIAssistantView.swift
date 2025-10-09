@@ -225,6 +225,9 @@ class EnhancedAIAssistantState: ObservableObject {
             }
         }
     }
+    
+    // Callback to save current canvas data before analysis
+    var saveCanvasDataCallback: (() -> Void)?
     @Published var selectedModel = ""
     @Published var isLoading = false
     @Published var errorMessage: String? = nil
@@ -848,22 +851,25 @@ struct EnhancedAIAssistantView: View {
             return 
         }
         
-        print("💾 Saving note: \(note.title)")
+        print("💾 AI Analysis (Enhanced): Saving note with latest canvas data: \(note.title)")
+        print("📊 Before save - drawingDataByPage keys: \(note.drawingDataByPage.keys.sorted())")
         
-        // Get the latest version of the note from storage to ensure we have the most recent data
-        if let latestNote = storageManager.notes.first(where: { $0.id == note.id }) {
-            // Update the current note reference with the latest version
-            state.currentNote = latestNote
-            print("🔄 Updated note reference with latest data")
+        // CRITICAL: Save current canvas data - this collects from active canvases and saves to storage
+        if state.saveCanvasDataCallback != nil {
+            print("✅ Callback exists, calling saveCurrentCanvasData()...")
+            state.saveCanvasDataCallback?()
+        } else {
+            print("⚠️ WARNING: saveCanvasDataCallback is nil! Canvas data won't be saved!")
         }
         
-        // Force save the current note to ensure all changes are persisted
-        let savedNote = storageManager.saveNote(note)
-        
-        // Update the current note reference with the saved version
-        state.currentNote = savedNote
-        
-        print("✅ Note saved successfully")
+        // Get the freshly saved note from storage (same as export flow)
+        if let latestNote = storageManager.notes.first(where: { $0.id == note.id }) {
+            print("📊 After save - drawingDataByPage keys: \(latestNote.drawingDataByPage.keys.sorted())")
+            print("✅ Note updated with latest canvas data for AI analysis")
+            state.currentNote = latestNote
+        } else {
+            print("❌ ERROR: Could not find note in storage after save!")
+        }
     }
     
     // Public function for saving notes (useful for exporting)

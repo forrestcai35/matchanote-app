@@ -1107,7 +1107,7 @@ struct HomeView: View {
                 // Toggle favorite
                 var updatedFolder = folder
                 updatedFolder.toggleFavorite()
-                let savedFolder = storageManager.saveFolder(updatedFolder)
+                _ = storageManager.saveFolder(updatedFolder)
             }) {
                 Label(
                     folder.isFavorite ? "Remove from Favorites" : "Add to Favorites",

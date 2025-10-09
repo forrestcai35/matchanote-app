@@ -224,6 +224,7 @@ struct NoteView: View {
   // Expose add page functionality
   @State private var addPageCallback: ((PagePlacement) -> Void)?
   @State private var deletePageCallback: ((Int) -> Void)?
+  @State private var writtenNoteView: WrittenNoteView?
 
   init(note: Note) {
     self.note = note
@@ -262,6 +263,52 @@ struct NoteView: View {
     
     // Mark as edited to trigger save
     isEdited = true
+  }
+  
+  // Save current canvas data to storage
+  private func saveCurrentCanvasData() {
+    print("🎨 saveCurrentCanvasData() called!")
+    
+    guard let activeTab = tabManager.getActiveTab() else { 
+      print("❌ No active tab found!")
+      return 
+    }
+    
+    var updatedNote = activeTab.note
+    print("📝 Saving canvas data for note: \(updatedNote.title)")
+    print("🖼️ Canvas count: \(canvasManager.canvasViews.count)")
+    
+    // Collect drawing data from all canvases
+    var drawingData: [String: Data] = [:]
+    for (index, canvas) in canvasManager.canvasViews.enumerated() {
+      let data = canvas.drawing.dataRepresentation()
+      drawingData[String(index)] = data
+      print("  📄 Page \(index): \(data.count) bytes")
+    }
+    updatedNote.drawingDataByPage = drawingData
+    
+    // Collect image data (canvas images)
+    let canvasImageData = canvasManager.imageManager.getAllImagesData()
+    // Merge with existing background images
+    var finalImageData = updatedNote.imageDataByPage
+    for (pageKey, images) in canvasImageData {
+      if finalImageData[pageKey] == nil {
+        finalImageData[pageKey] = []
+      }
+      finalImageData[pageKey]?.append(contentsOf: images)
+    }
+    updatedNote.imageDataByPage = finalImageData
+    
+    // Collect textbox data
+    updatedNote.textBoxDataByPage = textBoxManager.getAllTextBoxesData()
+    
+    updatedNote.dateModified = Date()
+    
+    // Save to storage
+    print("💾 Calling storageManager.saveNote()...")
+    let savedNote = storageManager.saveNote(updatedNote)
+    tabManager.updateNote(savedNote)
+    print("✅ Canvas data saved successfully!")
   }
 
   var body: some View {
@@ -604,7 +651,16 @@ struct NoteView: View {
         if let activeTab = tabManager.getActiveTab() {
           // Set current note for AI assistant
           assistantState.currentNote = activeTab.note
+          print("🤖 AI Assistant: Set current note to '\(activeTab.note.title)'")
         }
+        
+        // Connect callback to save canvas data before AI analysis
+        print("🔗 Connecting saveCanvasDataCallback for AI analysis...")
+        assistantState.saveCanvasDataCallback = {
+          print("📞 AI Analysis: saveCanvasDataCallback triggered!")
+          self.saveCurrentCanvasData()
+        }
+        print("✅ AI Assistant callback connected")
       }
       // Drag to flip orientation
       .gesture(
@@ -703,7 +759,20 @@ extension NoteView {
   }
 
   private func handleExport(pages: [Int]) {
-    guard let url = exportPDF(forPages: pages) else { return }
+    // Save current canvas data to the note via canvas manager before exporting
+    saveCurrentCanvasData()
+    
+    // Get the updated note from storage (it should have the latest data now)
+    guard let latestNote = storageManager.notes.first(where: { $0.id == activeNote.id }) else {
+      print("Could not find note to export")
+      return
+    }
+    
+    guard let url = ExportManager.shared.exportNoteAsPDF(latestNote, selectedPages: pages) else {
+      print("Failed to create PDF")
+      return
+    }
+    
     let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
     if let popover = controller.popoverPresentationController {
       if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
@@ -715,19 +784,32 @@ extension NoteView {
   }
 
   private func handlePrint(pages: [Int]) {
-    guard let url = exportPDF(forPages: pages) else { return }
+    // Save current canvas data before printing
+    saveCurrentCanvasData()
+    
+    // Get the updated note from storage
+    guard let latestNote = storageManager.notes.first(where: { $0.id == activeNote.id }) else {
+      print("Could not find note to print")
+      return
+    }
+    
+    guard let url = ExportManager.shared.exportNoteAsPDF(latestNote, selectedPages: pages) else {
+      print("Failed to create PDF for printing")
+      return
+    }
+    
     let controller = UIPrintInteractionController.shared
     controller.printingItem = url
     controller.present(animated: true, completionHandler: nil)
   }
   
-  private func exportMatchaNote() -> URL? {
+  private func exportMatchaNote(note: Note) -> URL? {
     do {
       // Create a JSON representation of the note
-      let noteData = try JSONEncoder().encode(activeNote)
+      let noteData = try JSONEncoder().encode(note)
       
       // Create a temporary file with .matcha extension
-      let sanitizedTitle = ExportManager.sanitizeTitle(activeNote.title)
+      let sanitizedTitle = ExportManager.sanitizeTitle(note.title)
       let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(sanitizedTitle).matcha")
       
       try noteData.write(to: tempURL)
@@ -739,7 +821,20 @@ extension NoteView {
   }
   
   private func handleExportMatcha() {
-    guard let url = exportMatchaNote() else { return }
+    // Save current canvas data before exporting
+    saveCurrentCanvasData()
+    
+    // Get the updated note from storage
+    guard let latestNote = storageManager.notes.first(where: { $0.id == activeNote.id }) else {
+      print("Could not find note to export as .matcha")
+      return
+    }
+    
+    guard let url = exportMatchaNote(note: latestNote) else {
+      print("Failed to create .matcha file")
+      return
+    }
+    
     let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
     if let popover = controller.popoverPresentationController {
       if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
