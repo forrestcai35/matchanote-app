@@ -18,6 +18,7 @@ struct SidebarItem: Identifiable {
 struct HomeView: View {
     @EnvironmentObject private var storageManager: StorageManager
     @EnvironmentObject private var documentHandler: DocumentHandler
+    @StateObject private var authManager = LocalAuthManager.shared
     @State private var searchText = ""
     @State private var selectedNote: Note? = nil
     @State private var selectedItem = "documents"
@@ -127,7 +128,12 @@ struct HomeView: View {
         }
     }
     var body: some View {
-        GeometryReader { geometry in
+        // Authentication check - redirect to sign in if not authenticated
+        if !authManager.isLoggedIn {
+            SignInView()
+                .environmentObject(authManager)
+        } else {
+            GeometryReader { geometry in
             HStack(spacing: 0) {
             // Sidebar - Always visible
             VStack(alignment: .leading, spacing: 0) {
@@ -185,12 +191,17 @@ struct HomeView: View {
             }
             .onAppear {
                 screenSize = geometry.size
+                // Validate session on app appear
+                Task {
+                    await authManager.validateSession()
+                }
             }
             .onChange(of: geometry.size) { _, newSize in
                 screenSize = newSize
             }
         }
         .accentColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+        }
     }
 
     // MARK: - Component Views

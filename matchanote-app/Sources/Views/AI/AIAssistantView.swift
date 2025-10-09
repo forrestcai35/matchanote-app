@@ -61,6 +61,9 @@ class AIAssistantState: ObservableObject {
     @Published var aiManager = AIAssistantManager()
     @Published var currentNote: Note?
     
+    // Callback for saving canvas data before AI analysis
+    var saveCanvasDataCallback: (() -> Void)?
+    
     // Performance optimization
     private var userInputDebounceTimer: Timer?
     

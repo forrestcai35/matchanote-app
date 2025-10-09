@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Supabase
 
 class LocalAuthManager: ObservableObject {
   static let shared = LocalAuthManager()
@@ -44,5 +45,35 @@ class LocalAuthManager: ObservableObject {
   // Switch to onboarding view
   func showOnboardingView() {
     showSignIn = false
+  }
+  
+  // MARK: - Session Validation
+  
+  /// Validates the current session with Supabase
+  func validateSession() async {
+    do {
+      _ = try await auth.session
+      // If we can get the session without error, it's valid
+      // The session object itself indicates validity
+      print("✅ Session validation successful")
+    } catch {
+      // Session is invalid or expired
+      print("❌ Session validation failed: \(error)")
+      await MainActor.run {
+        logout()
+      }
+    }
+  }
+  
+  /// Checks if the user is authenticated and session is valid
+  func isAuthenticated() -> Bool {
+    return isLoggedIn
+  }
+  
+  /// Force logout and clear all session data
+  func forceLogout() {
+    logout()
+    // Clear any additional session data if needed
+    userDefaults.removeObject(forKey: "userSessionData")
   }
 }
