@@ -424,7 +424,7 @@ public struct GridFolderItemView: View {
                 }
                 .buttonStyle(PlainButtonStyle())
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                .offset(x: 1, y: 28)
+                .offset(x: 1, y: 24)
                 
                 // Selection indicator - centered circle with checkmark
                 if isSelectionMode {

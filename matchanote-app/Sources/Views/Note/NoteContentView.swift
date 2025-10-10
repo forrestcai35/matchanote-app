@@ -1032,6 +1032,23 @@ struct WrittenNoteView: View {
                 pencilInteraction.delegate = context.coordinator
                 canvasView.addInteraction(pencilInteraction)
             }
+            
+            // Add undo/redo gesture recognizers
+            let twoFingerTapGesture = UITapGestureRecognizer(
+                target: context.coordinator, 
+                action: #selector(Coordinator.handleTwoFingerTap(_:))
+            )
+            twoFingerTapGesture.numberOfTouchesRequired = 2
+            twoFingerTapGesture.numberOfTapsRequired = 1
+            canvasView.addGestureRecognizer(twoFingerTapGesture)
+            
+            let threeFingerTapGesture = UITapGestureRecognizer(
+                target: context.coordinator, 
+                action: #selector(Coordinator.handleThreeFingerTap(_:))
+            )
+            threeFingerTapGesture.numberOfTouchesRequired = 3
+            threeFingerTapGesture.numberOfTapsRequired = 1
+            canvasView.addGestureRecognizer(threeFingerTapGesture)
 
             return canvasView
         }
@@ -1078,6 +1095,30 @@ struct WrittenNoteView: View {
                     parent.currentTool = .eraser
                     if parent.currentPage < parent.canvasViews.count {
                         parent.canvasViews[parent.currentPage].tool = PenTool.eraser.toolInstance()
+                    }
+                }
+            }
+            
+            @objc func handleTwoFingerTap(_ gestureRecognizer: UITapGestureRecognizer) {
+                guard gestureRecognizer.state == .ended else { return }
+                
+                // Perform undo on the current canvas
+                if parent.currentPage < parent.canvasViews.count {
+                    let canvas = parent.canvasViews[parent.currentPage]
+                    if let undoManager = canvas.undoManager, undoManager.canUndo {
+                        undoManager.undo()
+                    }
+                }
+            }
+            
+            @objc func handleThreeFingerTap(_ gestureRecognizer: UITapGestureRecognizer) {
+                guard gestureRecognizer.state == .ended else { return }
+                
+                // Perform redo on the current canvas
+                if parent.currentPage < parent.canvasViews.count {
+                    let canvas = parent.canvasViews[parent.currentPage]
+                    if let undoManager = canvas.undoManager, undoManager.canRedo {
+                        undoManager.redo()
                     }
                 }
             }
