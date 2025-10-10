@@ -58,7 +58,7 @@ class AIAssistantState: ObservableObject {
     @Published var subscriptionManager = SubscriptionManager()
 
     // AI capabilities
-    @Published var aiManager = AIAssistantManager()
+
     @Published var currentNote: Note?
     
     // Callback for saving canvas data before AI analysis
@@ -163,35 +163,7 @@ struct AIAssistantView: View {
                     }
                 }
                 
-                // Show AI analysis progress when running
-                if state.aiManager.isAnalyzing {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                            Text("Analyzing your note...")
-                                .font(.caption)
-                                .foregroundColor(.blue)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 12)
-                        
-                        Text(state.aiManager.currentAnalysisStep)
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 12)
-                    }
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.blue.opacity(0.05))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.blue.opacity(0.2), lineWidth: 1)
-                            )
-                    )
-                }
-                
+               
                 if state.isLoading {
                     HStack {
                         ProgressView()

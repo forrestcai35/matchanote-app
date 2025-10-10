@@ -8,7 +8,7 @@ struct UserMessageView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // User message as a text block
+            // User Message Text box
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     Text("User")
@@ -307,7 +307,7 @@ class EnhancedAIAssistantState: ObservableObject {
 
     // Enhanced AI capabilities
     @Published var currentMode: AIMode = .chat
-    @Published var aiManager = AIAssistantManager()
+
     @Published var showingAnalysisResults = false
     @Published var currentNote: Note?
     
@@ -344,15 +344,10 @@ struct EnhancedAIAssistantView: View {
                 .padding(.horizontal)
                 .padding(.top, 8)
 
-            // Content based on selected mode
-            switch state.currentMode {
-            case .chat:
+        
                 chatInterfaceView
-            case .analysis:
-                analysisInterfaceView
-            case .suggestions:
-                suggestionsInterfaceView
-            }
+   
+            
         }
         .background(
             (colorScheme == .dark
@@ -370,37 +365,13 @@ struct EnhancedAIAssistantView: View {
         .onDisappear {
             removeKeyboardObservers()
         }
-        .sheet(isPresented: $state.showingAnalysisResults) {
-            if let analysis = state.aiManager.lastAnalysis {
-                NavigationView {
-                    AIAnalysisView(
-                        analysis: analysis,
-                        onSuggestionAccept: { suggestion in
-                            acceptSuggestion(suggestion)
-                        },
-                        onSuggestionDismiss: { suggestion in
-                            state.aiManager.dismissSuggestion(suggestion)
-                        }
-                    )
-                    .navigationTitle("AI Analysis")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button("Done") {
-                                state.showingAnalysisResults = false
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    
     }
 
     private var modeSelector: some View {
         Picker("AI Mode", selection: $state.currentMode) {
             Text("Chat").tag(EnhancedAIAssistantState.AIMode.chat)
-            Text("Analysis").tag(EnhancedAIAssistantState.AIMode.analysis)
-            Text("Suggestions").tag(EnhancedAIAssistantState.AIMode.suggestions)
+   
         }
         .pickerStyle(.segmented)
     }
@@ -418,207 +389,8 @@ struct EnhancedAIAssistantView: View {
         }
     }
 
-    private var analysisInterfaceView: some View {
-        VStack(spacing: 16) {
-            // Analysis Controls
-            VStack(spacing: 12) {
-                Text("AI Note Analysis")
-                    .font(.headline)
-                    .fontWeight(.medium)
 
-                Text("Analyze your note content using AI to find insights, gaps, and improvement suggestions.")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
 
-                // Analysis Action Buttons
-                VStack(spacing: 8) {
-                    analyzeButton
-
-                    quickActionsView
-                }
-            }
-            .padding()
-
-            // Analysis Progress
-            if state.aiManager.isAnalyzing {
-                analysisProgressView
-                    .padding()
-            }
-
-            // Quick Analysis Results
-            if state.aiManager.lastAnalysis != nil, !state.aiManager.isAnalyzing {
-                quickAnalysisView
-                    .padding()
-            }
-
-            Spacer()
-        }
-    }
-
-    private var suggestionsInterfaceView: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                // Header
-                HStack {
-                    Text("AI Suggestions")
-                        .font(.headline)
-                        .fontWeight(.medium)
-
-                    Spacer()
-
-                    if !state.aiManager.suggestions.isEmpty {
-                        Text("\(state.aiManager.suggestions.count) suggestions")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-
-                // Suggestions
-                if state.aiManager.suggestions.isEmpty {
-                    EmptyStateView(
-                        icon: "sparkles",
-                        title: "No suggestions available",
-                        description: "Run an AI analysis first to get personalized suggestions for your note."
-                    )
-                } else {
-                    ForEach(state.aiManager.suggestions.sorted { $0.priority.rawValue > $1.priority.rawValue }, id: \.id) { suggestion in
-                        CompactSuggestionCard(
-                            suggestion: suggestion,
-                            onAccept: { acceptSuggestion(suggestion) },
-                            onDismiss: { state.aiManager.dismissSuggestion(suggestion) }
-                        )
-                    }
-                }
-            }
-            .padding()
-        }
-    }
-
-    private var analyzeButton: some View {
-        Button(action: {
-            runFullAnalysis()
-        }) {
-            HStack {
-                Image(systemName: state.aiManager.isAnalyzing ? "brain.head.profile.fill" : "brain.head.profile")
-                Text("Analyze Note with AI")
-                    .fontWeight(.medium)
-            }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color.blue)
-            .foregroundColor(.white)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-        }
-        .disabled(state.aiManager.isAnalyzing || state.currentNote == nil)
-    }
-
-    private var quickActionsView: some View {
-        HStack(spacing: 12) {
-            Button("Quick Handwriting") {
-                runQuickHandwritingAnalysis()
-            }
-            .font(.caption)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(Color.green.opacity(0.1))
-            .foregroundColor(.green)
-            .clipShape(Capsule())
-
-            Button("Content Gaps") {
-                runContentGapAnalysis()
-            }
-            .font(.caption)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(Color.orange.opacity(0.1))
-            .foregroundColor(.orange)
-            .clipShape(Capsule())
-
-            Button("Find Related") {
-                findRelatedNotes()
-            }
-            .font(.caption)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(Color.purple.opacity(0.1))
-            .foregroundColor(.purple)
-            .clipShape(Capsule())
-        }
-    }
-
-    private var analysisProgressView: some View {
-        VStack(spacing: 12) {
-            ProgressView(value: state.aiManager.analysisProgress)
-                .progressViewStyle(LinearProgressViewStyle())
-
-            HStack {
-                Image(systemName: "brain.head.profile")
-                    .foregroundColor(.blue)
-
-                Text(state.aiManager.currentAnalysisStep)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                Spacer()
-
-                Text("\(Int(state.aiManager.analysisProgress * 100))%")
-                    .font(.caption)
-                    .fontWeight(.medium)
-            }
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.blue.opacity(0.05))
-        )
-    }
-
-    private var quickAnalysisView: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Latest Analysis")
-                    .font(.headline)
-
-                Spacer()
-
-                Button("View Full Results") {
-                    state.showingAnalysisResults = true
-                }
-                .font(.caption)
-                .foregroundColor(.blue)
-            }
-
-            if let analysis = state.aiManager.lastAnalysis {
-                Text(analysis.summary)
-                    .font(.body)
-                    .lineLimit(3)
-
-                if !analysis.keyInsights.isEmpty {
-                    Text("Key Insights:")
-                        .font(.caption)
-                        .fontWeight(.medium)
-
-                    ForEach(analysis.keyInsights.prefix(3), id: \.self) { insight in
-                        Text("• \(insight)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-
-                if analysis.keyInsights.count > 3 {
-                    Text("...and \(analysis.keyInsights.count - 3) more insights")
-                        .font(.caption)
-                        .foregroundColor(.blue)
-                }
-            }
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(colorScheme == .dark ? Color.gray.opacity(0.05) : Color.gray.opacity(0.02))
-        )
-    }
 
     // MARK: - Chat Interface (Preserved from original)
 
@@ -949,87 +721,7 @@ struct EnhancedAIAssistantView: View {
         return latestNote
     }
 
-    private func runFullAnalysis() {
-        guard let note = state.currentNote else { return }
-        
-        // Save the note before analysis to ensure AI has access to latest content
-        saveCurrentNote()
-        
-        // Get the latest saved note from storage (same pattern as export)
-        guard let latestNote = storageManager.notes.first(where: { $0.id == note.id }) else {
-            return
-        }
-
-        Task {
-            await state.aiManager.analyzeNote(latestNote, with: storageManager)
-        }
-    }
-
-    private func runQuickHandwritingAnalysis() {
-        guard let note = state.currentNote else { return }
-        
-        // Save the note before analysis
-        saveCurrentNote()
-        
-        // Get the latest saved note from storage (same pattern as export)
-        guard let latestNote = storageManager.notes.first(where: { $0.id == note.id }) else {
-            return
-        }
-
-        Task {
-            let result = await state.aiManager.quickAnalyzeHandwriting(latestNote)
-
-            await MainActor.run {
-                let message = ChatMessage(
-                    content: "Handwriting Analysis Result:\n\(result)",
-                    isUser: false,
-                    model: "AI Assistant"
-                )
-                state.messages.append(message)
-            }
-        }
-    }
-
-    private func runContentGapAnalysis() {
-        guard let note = state.currentNote else { return }
-        
-        // Save the note before analysis
-        saveCurrentNote()
-        
-        // Get the latest saved note from storage (same pattern as export)
-        guard let latestNote = storageManager.notes.first(where: { $0.id == note.id }) else {
-            return
-        }
-
-        Task {
-            let result = await state.aiManager.quickAnalyzeContent(latestNote)
-
-            await MainActor.run {
-                let gapDescription = result.gaps.map { $0.description }.joined(separator: "\n• ")
-                let message = ChatMessage(
-                    content: "Content Gap Analysis:\n• \(gapDescription)",
-                    isUser: false,
-                    model: "AI Assistant"
-                )
-                state.messages.append(message)
-            }
-        }
-    }
-
-    private func findRelatedNotes() {
-        guard let note = state.currentNote else { return }
-
-        let relatedNotes = state.aiManager.findRelatedNotes(for: note, in: storageManager.notes)
-        let noteList = relatedNotes.map { "• \($0.title)" }.joined(separator: "\n")
-
-        let message = ChatMessage(
-            content: "Related Notes Found:\n\(noteList.isEmpty ? "No related notes found." : noteList)",
-            isUser: false,
-            model: "AI Assistant"
-        )
-        state.messages.append(message)
-    }
-
+    
     private func sendContextualMessage() {
         guard !state.userInput.isEmpty, let note = state.currentNote else { return }
         
@@ -1268,7 +960,8 @@ struct EnhancedAIAssistantView: View {
                 lowercaseInput.contains("page") ||
                 lowercaseInput.contains("drawing") ||
                 lowercaseInput.contains("this") ||
-                lowercaseInput.contains("my")
+                lowercaseInput.contains("my") ||
+                 lowercaseInput.contains("answer") 
             )
         }
         
@@ -1311,19 +1004,7 @@ struct EnhancedAIAssistantView: View {
                hasContentInquiry || hasNuancedPattern
     }
 
-    private func acceptSuggestion(_ suggestion: ParsedSuggestion) {
-        guard var note = state.currentNote else { return }
-
-        let success = state.aiManager.acceptSuggestion(suggestion, for: &note)
-        if success {
-            let updatedNote = storageManager.saveNote(note)
-            state.currentNote = updatedNote
-
-            // Update current mode to show results
-            state.currentMode = .suggestions
-        }
-    }
-    
+  
     private func removeMediaItem(_ item: MediaItem) {
         if let index = state.tempMediaItems.firstIndex(where: { $0.id == item.id }) {
             state.tempMediaItems.remove(at: index)
@@ -1381,53 +1062,4 @@ struct EnhancedAIAssistantView: View {
     }
 }
 
-struct CompactSuggestionCard: View {
-    let suggestion: ParsedSuggestion
-    let onAccept: () -> Void
-    let onDismiss: () -> Void
 
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: suggestion.type.icon)
-                .foregroundColor(suggestion.type.color)
-                .font(.body)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(suggestion.title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .lineLimit(2)
-
-                Text(suggestion.description)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .lineLimit(3)
-            }
-
-            Spacer()
-
-            VStack(spacing: 8) {
-                Button(action: onAccept) {
-                    Image(systemName: "checkmark")
-                        .foregroundColor(.white)
-                        .padding(6)
-                        .background(Color.green)
-                        .clipShape(Circle())
-                }
-
-                Button(action: onDismiss) {
-                    Image(systemName: "xmark")
-                        .foregroundColor(.white)
-                        .padding(6)
-                        .background(Color.red)
-                        .clipShape(Circle())
-                }
-            }
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.gray.opacity(0.05))
-        )
-    }
-}
