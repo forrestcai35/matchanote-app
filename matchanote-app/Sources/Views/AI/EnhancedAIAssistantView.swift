@@ -183,12 +183,29 @@ struct FormattedTextView: View {
                 segments.append(TextSegment(text: italicText, isBold: false, isItalic: true))
                 currentIndex = italicRange.end
             } else {
-                // No more formatting, add remaining text
-                let remainingText = String(text[currentIndex...])
-                if !remainingText.isEmpty {
-                    segments.append(TextSegment(text: remainingText, isBold: false, isItalic: false))
+                // Check for malformed patterns and clean them up
+                if let malformedRange = findMalformedPattern(text, from: currentIndex) {
+                    // Add text before malformed pattern
+                    if malformedRange.start > currentIndex {
+                        let beforeText = String(text[currentIndex..<malformedRange.start])
+                        if !beforeText.isEmpty {
+                            segments.append(TextSegment(text: beforeText, isBold: false, isItalic: false))
+                        }
+                    }
+                    
+                    // Add cleaned text (remove malformed markdown)
+                    let malformedText = String(text[malformedRange.start..<malformedRange.end])
+                    let cleanedText = cleanMalformedMarkdown(malformedText)
+                    segments.append(TextSegment(text: cleanedText, isBold: false, isItalic: false))
+                    currentIndex = malformedRange.end
+                } else {
+                    // No more formatting, add remaining text
+                    let remainingText = String(text[currentIndex...])
+                    if !remainingText.isEmpty {
+                        segments.append(TextSegment(text: remainingText, isBold: false, isItalic: false))
+                    }
+                    break
                 }
-                break
             }
         }
         
@@ -202,6 +219,59 @@ struct FormattedTextView: View {
         guard let closeRange = text.range(of: close, range: afterOpen..<text.endIndex) else { return nil }
         
         return (start: afterOpen, end: closeRange.lowerBound)
+    }
+    
+    private func findMalformedPattern(_ text: String, from startIndex: String.Index) -> (start: String.Index, end: String.Index)? {
+        // Look for patterns like "** text * *" or similar malformed markdown
+        let patterns = [
+            "** ",  // ** followed by space
+            " * *", // space * space *
+            "** *", // ** followed by *
+            "* *",  // * space *
+            "**\"", // ** followed by quote
+            "\"**", // quote followed by **
+        ]
+        
+        for pattern in patterns {
+            if let range = text.range(of: pattern, range: startIndex..<text.endIndex) {
+                // Find the end of this malformed section (until we hit a word boundary or end)
+                var endIndex = range.upperBound
+                while endIndex < text.endIndex {
+                    let char = text[endIndex]
+                    if char.isWhitespace || char == "*" || char == "\"" {
+                        endIndex = text.index(after: endIndex)
+                    } else {
+                        break
+                    }
+                }
+                return (start: range.lowerBound, end: endIndex)
+            }
+        }
+        
+        return nil
+    }
+    
+    private func cleanMalformedMarkdown(_ text: String) -> String {
+        var cleaned = text
+        
+        // Remove malformed patterns like "** text * *" -> "text"
+        cleaned = cleaned.replacingOccurrences(of: "** ", with: "")
+        cleaned = cleaned.replacingOccurrences(of: " * *", with: "")
+        cleaned = cleaned.replacingOccurrences(of: "** *", with: "")
+        cleaned = cleaned.replacingOccurrences(of: "* *", with: "")
+        
+        // Handle quotes inside bold formatting: **"text"** -> text
+        cleaned = cleaned.replacingOccurrences(of: "**\"", with: "")
+        cleaned = cleaned.replacingOccurrences(of: "\"**", with: "")
+        
+        // Clean up any remaining asterisks that are not part of proper markdown
+        cleaned = cleaned.replacingOccurrences(of: "**", with: "")
+        cleaned = cleaned.replacingOccurrences(of: "*", with: "")
+        
+        // Trim whitespace
+        cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        return cleaned
     }
 }
 
@@ -847,45 +917,36 @@ struct EnhancedAIAssistantView: View {
     
     private func saveCurrentNote() {
         guard let note = state.currentNote else { 
-            print("❌ No current note to save")
             return 
         }
         
-        print("💾 AI Analysis (Enhanced): Saving note with latest canvas data: \(note.title)")
-        print("📊 Before save - drawingDataByPage keys: \(note.drawingDataByPage.keys.sorted())")
-        
-        // CRITICAL: Save current canvas data - this collects from active canvases and saves to storage
-        if state.saveCanvasDataCallback != nil {
-            print("✅ Callback exists, calling saveCurrentCanvasData()...")
-            state.saveCanvasDataCallback?()
-        } else {
-            print("⚠️ WARNING: saveCanvasDataCallback is nil! Canvas data won't be saved!")
+        // Save current canvas data - this collects from active canvases and saves to storage
+        if let saveCanvasCallback = state.saveCanvasDataCallback {
+            saveCanvasCallback()
         }
         
         // Get the freshly saved note from storage (same as export flow)
         if let latestNote = storageManager.notes.first(where: { $0.id == note.id }) {
-            print("📊 After save - drawingDataByPage keys: \(latestNote.drawingDataByPage.keys.sorted())")
-            print("✅ Note updated with latest canvas data for AI analysis")
             state.currentNote = latestNote
-        } else {
-            print("❌ ERROR: Could not find note in storage after save!")
         }
     }
     
     // Public function for saving notes (useful for exporting)
     func saveNote() -> Note? {
-        guard var note = state.currentNote else { return nil }
+        guard let note = state.currentNote else { return nil }
         
-        // Update the modified date
-        note.dateModified = Date()
+        // Save canvas data first (same pattern as export feature)
+        if let saveCanvasCallback = state.saveCanvasDataCallback {
+            saveCanvasCallback()
+        }
         
-        // Save the note through StorageManager
-        let savedNote = storageManager.saveNote(note)
+        // Get the latest version of the note from storage after canvas data is saved
+        guard let latestNote = storageManager.notes.first(where: { $0.id == note.id }) else {
+            return nil
+        }
         
-        // Update the current note reference
-        state.currentNote = savedNote
-        
-        return savedNote
+        state.currentNote = latestNote
+        return latestNote
     }
 
     private func runFullAnalysis() {
@@ -893,9 +954,14 @@ struct EnhancedAIAssistantView: View {
         
         // Save the note before analysis to ensure AI has access to latest content
         saveCurrentNote()
+        
+        // Get the latest saved note from storage (same pattern as export)
+        guard let latestNote = storageManager.notes.first(where: { $0.id == note.id }) else {
+            return
+        }
 
         Task {
-            await state.aiManager.analyzeNote(note, with: storageManager)
+            await state.aiManager.analyzeNote(latestNote, with: storageManager)
         }
     }
 
@@ -904,9 +970,14 @@ struct EnhancedAIAssistantView: View {
         
         // Save the note before analysis
         saveCurrentNote()
+        
+        // Get the latest saved note from storage (same pattern as export)
+        guard let latestNote = storageManager.notes.first(where: { $0.id == note.id }) else {
+            return
+        }
 
         Task {
-            let result = await state.aiManager.quickAnalyzeHandwriting(note)
+            let result = await state.aiManager.quickAnalyzeHandwriting(latestNote)
 
             await MainActor.run {
                 let message = ChatMessage(
@@ -924,9 +995,14 @@ struct EnhancedAIAssistantView: View {
         
         // Save the note before analysis
         saveCurrentNote()
+        
+        // Get the latest saved note from storage (same pattern as export)
+        guard let latestNote = storageManager.notes.first(where: { $0.id == note.id }) else {
+            return
+        }
 
         Task {
-            let result = await state.aiManager.quickAnalyzeContent(note)
+            let result = await state.aiManager.quickAnalyzeContent(latestNote)
 
             await MainActor.run {
                 let gapDescription = result.gaps.map { $0.description }.joined(separator: "\n• ")
@@ -979,33 +1055,47 @@ struct EnhancedAIAssistantView: View {
         var contextualPrompt = input
         
         if needsAnalysis {
-            // Convert note to images for visual analysis
+            // Get the latest saved note from storage (same pattern as export)
+            guard let latestNote = storageManager.notes.first(where: { $0.id == note.id }) else {
+                state.errorMessage = "Could not find latest note data for analysis"
+                state.isLoading = false
+                return
+            }
+            
+            // Convert the latest saved note to images for visual analysis
             Task {
-                let noteImages = await convertNoteToImages(note)
+                let noteImages = await convertNoteToImages(latestNote)
                 
-                // Create rich context prompt with images
+                // Create rich context prompt with images using latest note data
                 contextualPrompt = """
                 User question: \(input)
                 
                 I've provided images of the note for visual analysis. Please examine the note content (both typed text and handwritten content) and answer the user's question based on what you can see in the note.
                 
                 Note details:
-                Title: \(note.title)
-                Subject: \(note.subject)
+                Title: \(latestNote.title)
+                Subject: \(latestNote.subject)
                 """
                 
                 sendMessageWithPromptAndImages(contextualPrompt, images: noteImages)
             }
             return
         } else {
-            // Simple contextual prompt without analysis
+            // Get the latest saved note from storage (same pattern as export)
+            guard let latestNote = storageManager.notes.first(where: { $0.id == note.id }) else {
+                state.errorMessage = "Could not find latest note data for context"
+                state.isLoading = false
+                return
+            }
+            
+            // Simple contextual prompt without analysis using latest note data
             contextualPrompt = """
             User question: \(input)
 
             Current note context:
-            Title: \(note.title)
-            Subject: \(note.subject)
-            Content: \(note.content)
+            Title: \(latestNote.title)
+            Subject: \(latestNote.subject)
+            Content: \(latestNote.content)
 
             Please answer the user's question in the context of this note.
             """

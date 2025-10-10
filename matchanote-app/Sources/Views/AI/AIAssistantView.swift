@@ -550,42 +550,36 @@ struct AIAssistantView: View {
     
     private func saveCurrentNote() {
         guard let note = state.currentNote else { 
-            print("❌ No current note to save")
             return 
         }
         
-        print("💾 Saving note: \(note.title)")
-        
-        // Get the latest version of the note from storage to ensure we have the most recent data
-        if let latestNote = storageManager.notes.first(where: { $0.id == note.id }) {
-            // Update the current note reference with the latest version
-            state.currentNote = latestNote
-            print("🔄 Updated note reference with latest data")
+        // Save canvas data first (same pattern as export feature)
+        if let saveCanvasCallback = state.saveCanvasDataCallback {
+            saveCanvasCallback()
         }
         
-        // Force save the current note to ensure all changes are persisted
-        let savedNote = storageManager.saveNote(note)
-        
-        // Update the current note reference with the saved version
-        state.currentNote = savedNote
-        
-        print("✅ Note saved successfully")
+        // Get the latest version of the note from storage after canvas data is saved
+        if let latestNote = storageManager.notes.first(where: { $0.id == note.id }) {
+            state.currentNote = latestNote
+        }
     }
     
     // Public function for saving notes (useful for exporting)
     func saveNote() -> Note? {
-        guard var note = state.currentNote else { return nil }
+        guard let note = state.currentNote else { return nil }
         
-        // Update the modified date
-        note.dateModified = Date()
+        // Save canvas data first (same pattern as export feature)
+        if let saveCanvasCallback = state.saveCanvasDataCallback {
+            saveCanvasCallback()
+        }
         
-        // Save the note through StorageManager
-        let savedNote = storageManager.saveNote(note)
+        // Get the latest version of the note from storage after canvas data is saved
+        guard let latestNote = storageManager.notes.first(where: { $0.id == note.id }) else {
+            return nil
+        }
         
-        // Update the current note reference
-        state.currentNote = savedNote
-        
-        return savedNote
+        state.currentNote = latestNote
+        return latestNote
     }
     
     private func sendIntelligentMessage() {
@@ -656,19 +650,28 @@ struct AIAssistantView: View {
                 
                 // If needed, analyze the note first to provide context
                 if needsAnalysis {
-                    // Convert note to images for visual analysis
-                    let noteImages = await convertNoteToImages(note)
+                    // Get the latest saved note from storage (same pattern as export)
+                    guard let latestNote = storageManager.notes.first(where: { $0.id == note.id }) else {
+                        await MainActor.run {
+                            state.errorMessage = "Could not find latest note data for analysis"
+                            state.isLoading = false
+                        }
+                        return
+                    }
+                    
+                    // Convert the latest saved note to images for visual analysis
+                    let noteImages = await convertNoteToImages(latestNote)
                     finalMediaItems.append(contentsOf: noteImages)
                     
-                    // Create rich context prompt
+                    // Create rich context prompt using the latest note data
                     contextualPrompt = """
                     User question: \(input)
                     
                     I've provided images of the note for visual analysis. Please examine the note content (both typed text and handwritten content) and answer the user's question based on what you can see in the note.
                     
                     Note details:
-                    Title: \(note.title)
-                    Subject: \(note.subject)
+                    Title: \(latestNote.title)
+                    Subject: \(latestNote.subject)
                     """
                 }
                 

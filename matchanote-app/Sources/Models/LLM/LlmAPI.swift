@@ -197,7 +197,7 @@ struct LlmAPI {
     let requestBody: [String: Any] = [
       "model": model,
       "messages": [
-        ["role": "system", "content": "You are a helpful AI assistant. Respond naturally and conversationally. You can use **bold text** for emphasis and *italic text* for subtle emphasis. Do not introduce yourself. Keep responses concise and avoid excessive line breaks. When quoting text, format it properly: use **bold** for emphasis within quotes, not raw markdown syntax."],
+        ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)],
         ["role": "user", "content": userContent],
       ],
       "temperature": 0.7,
@@ -260,7 +260,7 @@ struct LlmAPI {
     let requestBody: [String: Any] = [
       "model": model,
       "messages": [
-        ["role": "system", "content": "You are a helpful AI assistant. Respond naturally and conversationally. You can use **bold text** for emphasis and *italic text* for subtle emphasis. Do not introduce yourself. Keep responses concise and avoid excessive line breaks. When quoting text, format it properly: use **bold** for emphasis within quotes, not raw markdown syntax."],
+        ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)],
         ["role": "user", "content": userContent],
       ],
       "temperature": 0.7,
@@ -292,7 +292,7 @@ struct LlmAPI {
     request.addValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
     
     // Build user message content
-    var userContent: Any = "You are a helpful AI assistant. Respond naturally and conversationally. You can use **bold text** for emphasis and *italic text* for subtle emphasis. Do not introduce yourself. Keep responses concise and avoid excessive line breaks. When quoting text, format it properly: use **bold** for emphasis within quotes, not raw markdown syntax.\n\nUser: \(userMessage)"
+    var userContent: Any = "\(SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general))\n\nUser: \(userMessage)"
     
     // Add images if present
     if let mediaItems = mediaItems, !mediaItems.isEmpty {
@@ -301,7 +301,7 @@ struct LlmAPI {
       // Add text content
       contentArray.append([
         "type": "text",
-        "text": "You are a helpful AI assistant. Respond naturally and conversationally. You can use **bold text** for emphasis and *italic text* for subtle emphasis. Do not introduce yourself. Keep responses concise and avoid excessive line breaks. When quoting text, format it properly: use **bold** for emphasis within quotes, not raw markdown syntax.\n\nUser: \(userMessage)"
+        "text": "\(SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general))\n\nUser: \(userMessage)"
       ])
       
       // Add image content
@@ -385,7 +385,7 @@ struct LlmAPI {
     let requestBody: [String: Any] = [
       "model": model,
       "messages": [
-        ["role": "system", "content": "You are a helpful AI assistant. Respond naturally and conversationally. You can use **bold text** for emphasis and *italic text* for subtle emphasis. Do not introduce yourself. Keep responses concise and avoid excessive line breaks. When quoting text, format it properly: use **bold** for emphasis within quotes, not raw markdown syntax."],
+        ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)],
         ["role": "user", "content": userContent],
       ],
       "temperature": 0.7,
@@ -417,7 +417,7 @@ struct LlmAPI {
     
     // Build parts array
     var parts: [[String: Any]] = [
-      ["text": "You are a helpful AI assistant. Respond naturally and conversationally. You can use **bold text** for emphasis and *italic text* for subtle emphasis. Do not introduce yourself. Keep responses concise and avoid excessive line breaks. When quoting text, format it properly: use **bold** for emphasis within quotes, not raw markdown syntax.\n\nUser: \(userMessage)"]
+      ["text": "\(SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general))\n\nUser: \(userMessage)"]
     ]
     
     // Add images if present
@@ -502,7 +502,7 @@ struct LlmAPI {
     let requestBody: [String: Any] = [
       "model": model,
       "messages": [
-        ["role": "system", "content": "You are a helpful AI assistant. Respond naturally and conversationally. You can use **bold text** for emphasis and *italic text* for subtle emphasis. Do not introduce yourself. Keep responses concise and avoid excessive line breaks. When quoting text, format it properly: use **bold** for emphasis within quotes, not raw markdown syntax."],
+        ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)],
         ["role": "user", "content": userContent],
       ],
       "temperature": 0.7,
@@ -565,7 +565,7 @@ struct LlmAPI {
     let requestBody: [String: Any] = [
       "model": model,
       "messages": [
-        ["role": "system", "content": "You are a helpful AI assistant. Respond naturally and conversationally. You can use **bold text** for emphasis and *italic text* for subtle emphasis. Do not introduce yourself. Keep responses concise and avoid excessive line breaks. When quoting text, format it properly: use **bold** for emphasis within quotes, not raw markdown syntax."],
+        ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)],
         ["role": "user", "content": userContent],
       ],
       "temperature": 0.7,
