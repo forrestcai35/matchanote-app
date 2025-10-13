@@ -1,15 +1,9 @@
-//
-//  CanvasImageOverlay.swift
-//  MatchaNotes
-//
-//  Image overlay system for PencilKit canvas
-//
 
 import SwiftUI
 import UIKit
 import PencilKit
 
-// MARK: - Individual Image View
+// MARK: - Canvas Image View
 struct CanvasImageView: View {
     @ObservedObject var imageManager: CanvasImageManager
     let image: CanvasImage
@@ -83,7 +77,7 @@ struct CanvasImageView: View {
                     y: currentPosition.y
                 )
                 .zIndex(Double(image.zIndex + (isSelected ? 1000 : 0)))
-                // The highPriorityGesture above ensures the scroll view doesn't capture drags
+
                 
             }
         }

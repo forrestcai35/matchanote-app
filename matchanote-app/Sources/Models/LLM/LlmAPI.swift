@@ -136,7 +136,7 @@ struct LlmAPI {
     
     // Check for HTTP 429 status code in URLSession errors
     if let urlError = error as? URLError {
-      return urlError.code == .timedOut // This might need adjustment based on actual error codes
+      return urlError.code == .timedOut 
     }
     
     // Check error message for rate limit indicators

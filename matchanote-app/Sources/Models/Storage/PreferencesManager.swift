@@ -362,7 +362,7 @@ class PreferencesManager: ObservableObject {
     
     // MARK: - Constraint Helpers
     func canDisableModel(_ displayName: String) -> Bool {
-        // Get the actual enabled models that are available (not just all enabled models)
+        // Get the all enabled models 
         let orderedEnabled = getOrderedEnabledModels()
         let canDisable = orderedEnabled.count > 1 || !orderedEnabled.contains(displayName)
         print("🔍 canDisableModel('\(displayName)'): orderedEnabled=\(orderedEnabled), count=\(orderedEnabled.count), canDisable=\(canDisable)")

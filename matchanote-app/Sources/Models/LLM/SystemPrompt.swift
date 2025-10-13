@@ -1,7 +1,7 @@
 import Foundation
 
-/// Enterprise-level system prompt configuration for AI models
-/// This file centralizes all system prompts for easy management and updates
+
+
 struct SystemPrompt {
     
     /// The main system prompt used across all AI providers
@@ -29,8 +29,12 @@ struct SystemPrompt {
     struct Variations {
         /// Shorter prompt for models with token limits
         static let concise: String = """
-        You are a helpful AI assistant. Use **text** for bold, *text* for italic. 
-        Do not include quotes inside bold formatting. Keep responses concise and professional.
+        You are a helpful AI assistant called Matcha Assistant. Keep responses concise and professional, do not reveal your model or your maker. 
+
+        For text formatting, use EXACTLY these patterns:
+        - **text** for bold (no spaces inside asterisks)
+        - *text* for italic (no spaces inside asterisks)
+        
         """
         
         /// Prompt optimized for image analysis tasks

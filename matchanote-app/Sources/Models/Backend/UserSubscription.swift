@@ -4,30 +4,6 @@ import Supabase
 // Import the global supabase instance
 private let globalSupabase = supabase
 
-// MARK: - Simple User Profile for Testing
-struct SimpleUserProfile: Codable {
-    let createdAt: Date?
-    let userId: UUID
-    let premiumRequests: Int16
-    let normalRequests: Int64
-    let subscriptionTier: String
-    let subscriptionStartDate: Date?
-    let stripeCustomerId: String?
-    let stripeSubscriptionId: String?
-    let updatedAt: Date?
-
-    enum CodingKeys: String, CodingKey {
-        case createdAt = "created_at"
-        case userId = "user_id"
-        case premiumRequests = "premium_requests"
-        case normalRequests = "normal_requests"
-        case subscriptionTier = "subscription_tier"
-        case subscriptionStartDate = "subscription_start_date"
-        case stripeCustomerId = "stripe_customer_id"
-        case stripeSubscriptionId = "stripe_subscription_id"
-        case updatedAt = "updated_at"
-    }
-}
 
 // MARK: - User Profile Model
 struct UserProfile: Codable, Identifiable {
@@ -296,7 +272,7 @@ class SubscriptionManager: ObservableObject {
                 }
 
             case .normal:
-                // PRO users can always use free models and do not consume normal_requests
+                // Double check PRO users can always use free models and do not consume normal_requests
                 if profile.subscriptionTier == .pro {
                     break
                 }

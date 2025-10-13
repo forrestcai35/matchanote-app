@@ -1,9 +1,4 @@
-//
-//  DocumentHandler.swift
-//  matchanote-app
-//
-//  Created by Forrest Cai on 4/2/25.
-//
+
 
 import Foundation
 import SwiftUI

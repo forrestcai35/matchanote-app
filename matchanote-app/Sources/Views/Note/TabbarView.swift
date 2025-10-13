@@ -29,7 +29,6 @@ struct TabBarView: View {
 
   // Placement selection for add/upload actions
   @State private var selectedPlacement: PagePlacement = .after
-  // Dropdown popover states
   @State private var showAddPopover: Bool = false
   @State private var showSharePopover: Bool = false
   @State private var showMorePopover: Bool = false
@@ -58,7 +57,7 @@ struct TabBarView: View {
             TabItemView(tab: tab)
           }
         }
-        .padding(.horizontal, 4)  // Add some padding inside scroll view
+        .padding(.horizontal, 4)  
       }
 
       // Static Action Buttons (outside ScrollView)

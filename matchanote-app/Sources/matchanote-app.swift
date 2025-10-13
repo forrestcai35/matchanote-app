@@ -1,9 +1,3 @@
-//
-//  matchanote_appApp.swift
-//  matchanote-app
-//
-//  Created by Forrest Cai on 4/4/25.
-//
 
 import SwiftUI
 

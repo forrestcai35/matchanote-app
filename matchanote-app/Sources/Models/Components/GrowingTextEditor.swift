@@ -75,10 +75,9 @@ struct GrowingTextEditor: View {
   }
   
   private func calculateTextHeight(for text: String) {
-    // Use a more efficient height calculation
-    let lineHeight: CGFloat = 20 // Approximate line height
+    let lineHeight: CGFloat = 20 
     let lineCount = max(1, text.components(separatedBy: .newlines).count)
-    let estimatedHeight = CGFloat(lineCount) * lineHeight + 20 // Add padding
+    let estimatedHeight = CGFloat(lineCount) * lineHeight + 20 
     
     // Only update if the change is significant to avoid unnecessary redraws
     let newHeight = min(max(estimatedHeight, 60), maxHeight)

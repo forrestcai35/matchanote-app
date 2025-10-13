@@ -1,9 +1,4 @@
-//
-//  TrashView.swift
-//  MatchaNotes
-//
-//  Created by Forrest Cai on 9/23/25.
-//
+
 
 import SwiftUI
 

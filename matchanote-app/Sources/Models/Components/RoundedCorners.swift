@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Custom shape for rounded corners
+// Custom shape for rounded corners for Tabbarview
 struct RoundedCorners: Shape {
   var topLeft: CGFloat = 0
   var topRight: CGFloat = 0

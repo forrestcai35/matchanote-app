@@ -1,9 +1,4 @@
-//
-//  Folder.swift
-//  MatchaNotes
-//
-//  Created by Forrest Cai on 4/1/25.
-//
+
 
 import SwiftUI
 
@@ -104,13 +99,5 @@ struct Folder: Identifiable, Hashable {
     lhs.id == rhs.id
   }
 
-  static var samples: [Folder] {
-    [
-      Folder(name: "Documents", color: .blue),
-      Folder(name: "Projects", color: .blue),
-      Folder(name: "School", color: .blue),
-      Folder(name: "Work", color: .blue),
-      Folder(name: "Personal", color: .blue),
-    ]
-  }
+
 }

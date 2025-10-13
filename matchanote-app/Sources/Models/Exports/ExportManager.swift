@@ -1,9 +1,4 @@
-//
-//  ExportManager.swift
-//  MatchaNotes
-//
-//  Created by AI Assistant on 1/1/25.
-//
+
 
 import SwiftUI
 import PencilKit
@@ -77,7 +72,7 @@ class ExportManager {
                     }
 
                     // Draw paper pattern on top of background images
-                    drawPaperPattern(context: context.cgContext, paperStyle: noteToExport.paperStyle, size: bounds.size)
+                    PaperUtilities.drawPaperPattern(context: context.cgContext, paperStyle: noteToExport.paperStyle, size: bounds.size)
 
                     // Draw strokes next (under overlays to match UI layering)
                     if let drawing = drawingForPage(page, note: noteToExport) {
@@ -218,99 +213,7 @@ class ExportManager {
         return nil
     }
     
-    // MARK: - Paper Pattern Drawing
-    private func drawPaperPattern(context: CGContext, paperStyle: PaperStyle, size: CGSize) {
-        switch paperStyle {
-        case .blank:
-            return
-        case .grid:
-            drawGridPattern(context: context, size: size)
-        case .dotted:
-            drawDottedPattern(context: context, size: size)
-        case .lined:
-            drawLinedPattern(context: context, size: size)
-        }
-    }
+        
+  
     
-    private func drawGridPattern(context: CGContext, size: CGSize) {
-        // Match the UI exactly: 20px spacing, gray with 0.3 opacity, 0.75 line width
-        let gridSpacing: CGFloat = 20
-        let lineColor = UIColor.gray.withAlphaComponent(0.3)
-        
-        context.setStrokeColor(lineColor.cgColor)
-        context.setLineWidth(0.75)
-        
-        // Horizontal lines
-        for i in 0..<Int(size.height / gridSpacing + 1) {
-            let y = CGFloat(i) * gridSpacing
-            context.move(to: CGPoint(x: 0, y: y))
-            context.addLine(to: CGPoint(x: size.width, y: y))
-        }
-        
-        // Vertical lines
-        for i in 0..<Int(size.width / gridSpacing + 1) {
-            let x = CGFloat(i) * gridSpacing
-            context.move(to: CGPoint(x: x, y: 0))
-            context.addLine(to: CGPoint(x: x, y: size.height))
-        }
-        
-        context.strokePath()
-    }
-    
-    private func drawDottedPattern(context: CGContext, size: CGSize) {
-        // Match the UI exactly: 18px spacing, 1px radius, gray with 0.35 opacity, with margins
-        let baseSpacing: CGFloat = 18
-        let dotRadius: CGFloat = 1
-        let margin: CGFloat = baseSpacing
-        let dotColor = UIColor.gray.withAlphaComponent(0.35)
-        
-        context.setFillColor(dotColor.cgColor)
-        
-        // Calculate available space after margins
-        let availableWidth = size.width - 2 * margin
-        let availableHeight = size.height - 2 * margin
-        
-        // Calculate number of intervals that can fit
-        let horizontalIntervals = max(1, Int(availableWidth / baseSpacing))
-        let verticalIntervals = max(1, Int(availableHeight / baseSpacing))
-        
-        // Calculate dynamic spacing to fill available width
-        let horizontalSpacing = availableWidth / CGFloat(horizontalIntervals)
-        let verticalSpacing = availableHeight / CGFloat(verticalIntervals)
-        
-        // Draw dots within margins
-        for y in 0...verticalIntervals {
-            for x in 0...horizontalIntervals {
-                let xPos = margin + CGFloat(x) * horizontalSpacing
-                let yPos = margin + CGFloat(y) * verticalSpacing
-                
-                let dotRect = CGRect(
-                    x: xPos - dotRadius,
-                    y: yPos - dotRadius,
-                    width: dotRadius * 2,
-                    height: dotRadius * 2
-                )
-                context.fillEllipse(in: dotRect)
-            }
-        }
-    }
-    
-    private func drawLinedPattern(context: CGContext, size: CGSize) {
-        // Match the UI exactly: 24px spacing, 30px top margin, gray with 0.3 opacity, 0.75 line width
-        let lineSpacing: CGFloat = 24
-        let marginTop: CGFloat = 30
-        let lineColor = UIColor.gray.withAlphaComponent(0.3)
-        
-        context.setStrokeColor(lineColor.cgColor)
-        context.setLineWidth(0.75)
-        
-        // Horizontal lines only, starting from marginTop
-        for i in 0..<Int((size.height - marginTop) / lineSpacing + 1) {
-            let y = marginTop + CGFloat(i) * lineSpacing
-            context.move(to: CGPoint(x: 0, y: y))
-            context.addLine(to: CGPoint(x: size.width, y: y))
-        }
-        
-        context.strokePath()
-    }
 }
