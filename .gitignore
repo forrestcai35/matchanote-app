@@ -4,3 +4,7 @@
 /matchanote-app/.env
 .claude 
 .vscode
+.cursor/rules
+
+.DS_Store
+/matchanote-app/.DS_Store

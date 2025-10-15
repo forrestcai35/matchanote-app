@@ -1,9 +1,3 @@
-//
-//  MatchaMascot.swift
-//  MatchaNotes
-//
-//  Created by Forrest Cai on 4/1/25.
-//
 
 import SwiftUI
 

@@ -1,9 +1,4 @@
-//
-//  matchanote_appUITestsLaunchTests.swift
-//  matchanote-appUITests
-//
-//  Created by Forrest Cai on 4/4/25.
-//
+
 
 import XCTest
 

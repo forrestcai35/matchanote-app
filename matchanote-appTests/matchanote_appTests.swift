@@ -1,9 +1,4 @@
-//
-//  matchanote_appTests.swift
-//  matchanote-appTests
-//
-//  Created by Forrest Cai on 4/4/25.
-//
+
 
 import XCTest
 @testable import matchanote_app
