@@ -1020,12 +1020,6 @@ extension NoteView {
       return
     }
 
-    // CRITICAL FIX: In-note uploads should create canvas overlay images, not background images
-    // This is different from home page uploads which create background images
-
-    // CRITICAL FIX: Use the same logic as home page uploads for consistency and reliability
-    // Store uploaded images as background images in note.imageDataByPage
-
     var updatedNote = activeTab.note
 
     // Add image data to current page as background image (same as home page uploads)

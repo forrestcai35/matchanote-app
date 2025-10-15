@@ -33,7 +33,7 @@ public struct GridFolderItemView: View {
                     .frame(width: 175, height: 140)
                     .clipped()
                 
-                // Star indicator
+                // Star indicator for folders
                 Button(action: {
                     if let folderIndex = storageManager.folders.firstIndex(where: { $0.id == folder.id }) {
                         var updatedFolder = storageManager.folders[folderIndex]
@@ -47,7 +47,7 @@ public struct GridFolderItemView: View {
                 }
                 .buttonStyle(PlainButtonStyle())
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                .offset(x: 1, y: 24)
+                .offset(x: 1, y: 26)
                 
                 // Selection indicator - centered circle with checkmark
                 if isSelectionMode {

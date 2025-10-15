@@ -1249,6 +1249,9 @@ struct HomeView: View {
                 selectedNotes.removeAll()
                 selectedFolders.removeAll()
                 
+                // Exit selection mode
+                isSelectionMode = false
+                
                 // Hide progress
                 isDeleting = false
                 deletionProgress = 0.0
@@ -1281,6 +1284,9 @@ struct HomeView: View {
         // Clear selections
         selectedNotes.removeAll()
         selectedFolders.removeAll()
+        
+        // Exit selection mode
+        isSelectionMode = false
         
         // Refresh UI
         DispatchQueue.main.async {

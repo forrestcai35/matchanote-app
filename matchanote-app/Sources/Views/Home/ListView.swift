@@ -85,45 +85,6 @@ public struct ListItemView: View {
                         } 
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 6))
-                } else {
-                    // Text note preview
-                    if !note.content.isEmpty {
-                        VStack(alignment: .leading, spacing: 1) {
-                            ForEach(0..<min(5, note.content.components(separatedBy: .newlines).count), id: \.self) { lineIndex in
-                                let lines = note.content.components(separatedBy: .newlines)
-                                if lineIndex < lines.count && !lines[lineIndex].isEmpty {
-                                    HStack {
-                                        Text(lines[lineIndex])
-                                            .font(.system(size: 6))
-                                            .lineLimit(1)
-                                            .foregroundColor(
-                                                colorScheme == .dark ? Color.white.opacity(0.8) : Color.black.opacity(0.8)
-                                            )
-                                        Spacer()
-                                    }
-                                }
-                            }
-                            Spacer()
-                        }
-                        .padding(3)
-                        .frame(width: 32, height: 40)
-                        .background(
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(note.color)
-                        )
-                    } else {
-                        // Empty text note
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(note.color)
-                            .frame(width: 32, height: 40)
-                            .overlay(
-                                Image(systemName: "text.alignleft")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(
-                                        colorScheme == .dark ? Color.white.opacity(0.5) : Color.black.opacity(0.5)
-                                    )
-                            )
-                    }
                 }
             }
         }
@@ -208,7 +169,7 @@ public struct ListItemView: View {
 
                 Spacer()
 
-                // Star indicator
+                // Star indicator for notes
                 Button(action: {
                     var updatedNote = note
                     updatedNote.isFavorite.toggle()
@@ -348,17 +309,16 @@ public struct ListFolderItemView: View {
 
                 Spacer()
 
-                // Star indicator for folders
+                // Star indicator
                 Button(action: {
-                    if let folderIndex = storageManager.folders.firstIndex(where: { $0.id == folder.id }) {
-                        var updatedFolder = storageManager.folders[folderIndex]
-                        updatedFolder.toggleFavorite()
-                        _ = storageManager.saveFolder(updatedFolder)
-                    }
+                    var updatedFolder = folder
+                    updatedFolder.isFavorite.toggle()
+                    updatedFolder.dateModified = Date()
+                    _ = storageManager.saveFolder(updatedFolder)
                 }) {
                     Image(systemName: folder.isFavorite ? "star.fill" : "star")
                         .foregroundColor(folder.isFavorite ? .yellow : .gray)
-                        .font(.system(size: 16))
+                        .font(.caption)
                 }
                 .buttonStyle(PlainButtonStyle())
             }
