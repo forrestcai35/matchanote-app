@@ -154,8 +154,13 @@ struct PaperUtilities {
     }
     
     // Draw the drawing on top
+    // Force light mode for consistent preview appearance
     let fullPageBounds = CGRect(origin: .zero, size: paperSize)
-    let drawingImage = drawing.image(from: fullPageBounds, scale: effectiveScale)
+    let lightTraitCollection = UITraitCollection(userInterfaceStyle: .light)
+    var drawingImage: UIImage!
+    lightTraitCollection.performAsCurrent {
+      drawingImage = drawing.image(from: fullPageBounds, scale: effectiveScale)
+    }
     drawingImage.draw(in: CGRect(origin: .zero, size: thumbnailSize))
     
     return UIGraphicsGetImageFromCurrentImageContext() ?? UIImage()
