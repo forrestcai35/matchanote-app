@@ -35,6 +35,7 @@ struct LlmAPI {
   private static var googleAPIKey: String? = nil
   private static var xAPIKey: String? = nil
   private static var mistralAPIKey: String? = nil
+  private static var perplexityAPIKey: String? = nil
   
   // MARK: - Endpoints
   private static let openRouterEndpoint = "https://openrouter.ai/api/v1/chat/completions"
@@ -44,6 +45,7 @@ struct LlmAPI {
   private static let googleEndpoint = "https://generativelanguage.googleapis.com/v1beta/models"
   private static let xEndpoint = "https://api.x.ai/v1/chat/completions"
   private static let mistralEndpoint = "https://api.mistral.ai/v1/chat/completions"
+  private static let perplexityEndpoint = "https://api.perplexity.ai/chat/completions"
 
   // MARK: - Configuration
   static func configure(openRouterAPIKey: String? = nil, 
@@ -52,7 +54,8 @@ struct LlmAPI {
                        deepSeekAPIKey: String? = nil, 
                        googleAPIKey: String? = nil,
                        xAPIKey: String? = nil,
-                       mistralAPIKey: String? = nil) {
+                       mistralAPIKey: String? = nil,
+                       perplexityAPIKey: String? = nil) {
     self.openRouterAPIKey = openRouterAPIKey
     self.openAIAPIKey = openAIAPIKey
     self.anthropicAPIKey = anthropicAPIKey
@@ -60,6 +63,7 @@ struct LlmAPI {
     self.googleAPIKey = googleAPIKey
     self.xAPIKey = xAPIKey
     self.mistralAPIKey = mistralAPIKey
+    self.perplexityAPIKey = perplexityAPIKey
   }
 
   static func sendMessage(userMessage: String, model_string: String, mediaItems: [MediaItem]? = nil) async throws -> String {
@@ -120,6 +124,8 @@ struct LlmAPI {
       return try await sendXMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems)
     case .mistral:
       return try await sendMistralMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems)
+    case .perplexity:
+      return try await sendPerplexityMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems)
     }
   }
   
@@ -581,6 +587,69 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: MistralResponse.self)
   }
   
+  private static func sendPerplexityMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil) async throws -> String {
+    guard let apiKey = perplexityAPIKey else {
+      print("❌ Missing Perplexity API key")
+      throw LlmError.missingAPIKey
+    }
+
+    guard let url = URL(string: perplexityEndpoint) else {
+      throw LlmError.invalidURL
+    }
+
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+    request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+    request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+    
+    // Build user message content
+    var userContent: Any = userMessage
+    
+    // Add images if present
+    if let mediaItems = mediaItems, !mediaItems.isEmpty {
+      var contentArray: [[String: Any]] = []
+      
+      // Add text content
+      contentArray.append([
+        "type": "text",
+        "text": userMessage
+      ])
+      
+      // Add image content
+      for mediaItem in mediaItems {
+        if case .image = mediaItem.type {
+          let base64Image = mediaItem.data.base64EncodedString()
+          contentArray.append([
+            "type": "image_url",
+            "image_url": [
+              "url": "data:image/jpeg;base64,\(base64Image)"
+            ]
+          ])
+        }
+      }
+      
+      userContent = contentArray
+    }
+      
+    let requestBody: [String: Any] = [
+      "model": model,
+      "messages": [
+        ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)],
+        ["role": "user", "content": userContent],
+      ],
+      "temperature": 0.7,
+      "max_tokens": 8000,
+    ]
+
+    do {
+      request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+    } catch {
+      throw LlmError.requestFailed(error)
+    }
+
+    return try await performRequest(request: request, responseType: PerplexityResponse.self)
+  }
+  
   // MARK: - Generic Request Handler
   private static func performRequest<T: Decodable>(request: URLRequest, responseType: T.Type) async throws -> String {
     do {
@@ -661,7 +730,38 @@ struct LlmAPI {
       }
     }
     
+    if let perplexityResponse = response as? PerplexityResponse {
+      if let message = perplexityResponse.choices.first?.message.content {
+        return message
+      }
+    }
+    
     throw LlmError.invalidResponse
+  }
+}
+
+// MARK: - Perplexity Response
+struct PerplexityResponse: Decodable {
+  let id: String
+  let object: String
+  let created: Int
+  let model: String
+  let choices: [PerplexityChoice]
+
+  struct PerplexityChoice: Decodable {
+    let index: Int
+    let message: PerplexityMessage
+    let finishReason: String?
+
+    enum CodingKeys: String, CodingKey {
+      case index, message
+      case finishReason = "finish_reason"
+    }
+  }
+
+  struct PerplexityMessage: Decodable {
+    let role: String
+    let content: String
   }
 }
 

@@ -495,6 +495,7 @@ struct AIAssistantView: View {
         let googleKey = EnvironmentManager.shared.get("GEMINI_API_KEY")
         let xKey = EnvironmentManager.shared.get("X_API_KEY")
         let mistralKey = EnvironmentManager.shared.get("MISTRAL_API_KEY")
+        let perplexityKey = EnvironmentManager.shared.get("PERPLEXITY_API_KEY")
 
         
         // Configure with available keys (allow partial configuration)
@@ -505,7 +506,8 @@ struct AIAssistantView: View {
             deepSeekAPIKey: deepSeekKey,
             googleAPIKey: googleKey,
             xAPIKey: xKey,
-            mistralAPIKey: mistralKey
+            mistralAPIKey: mistralKey,
+            perplexityAPIKey: perplexityKey
         )
         
         Task {
