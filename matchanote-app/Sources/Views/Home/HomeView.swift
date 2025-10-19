@@ -43,6 +43,9 @@ struct HomeView: View {
     @State private var isDeleting = false
     @State private var deletionProgress: Double = 0.0
     @State private var deletionStatus = ""
+    
+    // Sidebar state for mobile/split view
+    @State private var isSidebarVisible = true
 
     private enum DragItemType {
         case folder
@@ -54,19 +57,50 @@ struct HomeView: View {
         SidebarItem(id: "favorites", title: "Favorites", icon: "star"),
     ]
     
-    // Dynamic sidebar width based on orientation
+    // Screen size detection
+    private var isCompactWidth: Bool {
+        return screenSize.width < 600 // Compact when width is less than 600
+    }
+    
+    private var isSmallScreen: Bool {
+        return screenSize.width < 800 // Small screen when width is less than 800
+    }
+    
+    // Dynamic sidebar width based on screen size
     private var sidebarWidth: CGFloat {
-        return screenSize.width > screenSize.height ? 350 : 300
+        if isCompactWidth {
+            return min(screenSize.width * 0.75, 280) // 75% of screen or max 280 on compact
+        } else if isSmallScreen {
+            return 260
+        } else {
+            return screenSize.width > screenSize.height ? 350 : 300
+        }
     }
     
-    // Dynamic grid spacing based on orientation - keep same as landscape
+    // Should sidebar overlay content on small screens
+    private var shouldOverlaySidebar: Bool {
+        return isCompactWidth || isSmallScreen
+    }
+    
+    // Dynamic grid spacing based on screen size
     private var gridSpacing: CGFloat {
-        return 20 // Same spacing for both orientations
+        return isCompactWidth ? 12 : 20
     }
     
-    // Dynamic grid item spacing based on orientation - keep same as landscape
+    // Dynamic grid item spacing based on screen size
     private var gridItemSpacing: CGFloat {
-        return 20 // Same spacing for both orientations
+        return isCompactWidth ? 12 : 20
+    }
+    
+    // Dynamic minimum grid item size based on screen size
+    private var gridItemMinSize: CGFloat {
+        if isCompactWidth {
+            return 140 // Smaller on compact screens
+        } else if isSmallScreen {
+            return 150
+        } else {
+            return 160
+        }
     }
     // Filtered notes based on search text and current folder
     var filteredNotes: [Note] {
@@ -128,119 +162,261 @@ struct HomeView: View {
                 .environmentObject(authManager)
         } else {
             GeometryReader { geometry in
-            HStack(spacing: 0) {
-            // Sidebar - Always visible
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 8) {
-                    Image("Logo")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(height: 24)
-
-                    Text("Matcha")
-                        .font(.system(.title, design: .serif))
-                        .fontWeight(.bold)
-                        .foregroundColor(
-                            colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
-
-                    Spacer()
-
-                    // Settings button in sidebar
-                    Button(action: {
-                        showingSettings = true
-                    }) {
-                        Image(systemName: "gear")
-                            .fontWeight(.medium)
-                            .foregroundStyle(
-                                colorScheme == .dark
-                                    ? Color.matchabrown_dark : Color.matchabrown_light)
+                if isCompactWidth {
+                    // Bottom tab view for compact screens
+                    VStack(spacing: 0) {
+                        contentViewWithHeader
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        
+                        bottomTabBar
+                    }
+                    .onAppear {
+                        screenSize = geometry.size
+                    }
+                    .onChange(of: geometry.size) { _, newSize in
+                        screenSize = newSize
+                    }
+                } else if shouldOverlaySidebar {
+                    // Overlay sidebar for medium screens
+                    ZStack(alignment: .leading) {
+                        // Main content area - full width
+                        contentViewWithHeader
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        
+                        // Overlay dimming when sidebar is open
+                        if isSidebarVisible {
+                            Color.black.opacity(0.3)
+                                .ignoresSafeArea()
+                                .onTapGesture {
+                                    withAnimation {
+                                        isSidebarVisible = false
+                                    }
+                                }
+                                .zIndex(1)
+                        }
+                        
+                        // Sidebar - overlays on medium screens
+                        if isSidebarVisible {
+                            sidebarView
+                                .frame(width: sidebarWidth)
+                                .frame(maxHeight: .infinity)
+                                .background(
+                                    (colorScheme == .dark
+                                        ? Color.matchabackground_dark
+                                        : Color.matchabackground_light)
+                                        .brightness(colorScheme == .dark ? -0.05 : 0.05)
+                                        .ignoresSafeArea(.container, edges: .top)
+                                )
+                                .offset(x: isSidebarVisible ? 0 : -sidebarWidth)
+                                .animation(.easeInOut(duration: 0.25), value: isSidebarVisible)
+                                .shadow(color: Color.black.opacity(0.2), radius: 8)
+                                .zIndex(2)
+                        }
+                    }
+                    .onAppear {
+                        screenSize = geometry.size
+                        isSidebarVisible = false
+                    }
+                    .onChange(of: geometry.size) { _, newSize in
+                        screenSize = newSize
+                        // Auto-hide sidebar when transitioning to overlay mode
+                        if shouldOverlaySidebar && isSidebarVisible {
+                            isSidebarVisible = false
+                        }
+                    }
+                } else {
+                    // Inline sidebar for large screens - use HStack
+                    HStack(spacing: 0) {
+                        sidebarView
+                            .frame(width: sidebarWidth)
+                            .frame(maxHeight: .infinity)
+                            .background(
+                                (colorScheme == .dark
+                                    ? Color.matchabackground_dark
+                                    : Color.matchabackground_light)
+                                    .brightness(colorScheme == .dark ? -0.05 : 0.05)
+                                    .ignoresSafeArea(.container, edges: .top)
+                            )
+                        
+                        contentViewWithHeader
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                    .onAppear {
+                        screenSize = geometry.size
+                        isSidebarVisible = true
+                    }
+                    .onChange(of: geometry.size) { _, newSize in
+                        screenSize = newSize
+                        // Auto-show sidebar on large screens
+                        if !shouldOverlaySidebar {
+                            isSidebarVisible = true
+                        }
                     }
                 }
-                .padding(.horizontal)
-                .padding(.top, 15)
-
-                // Settings sheet
-                .sheet(isPresented: $showingSettings) {
-                    SettingsView()
-                }
-
-                searchBar
-                sidebarList
-                
-                Spacer()
             }
-            .frame(width: sidebarWidth)
-            .frame(maxHeight: .infinity)
-            .background(
-                (colorScheme == .dark
-                    ? Color.matchabackground_dark
-                    : Color.matchabackground_light)
-                    .brightness(colorScheme == .dark ? -0.05 : 0.05)
-                    .ignoresSafeArea(.container, edges: .top)
-            )
-
-            // Main content area
-            contentView
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-            .onAppear {
-                screenSize = geometry.size
+            .task {
                 // Validate session on app appear
-                Task {
-                    await authManager.validateSession()
+                await authManager.validateSession()
+            }
+            .accentColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
+            }
+        }
+    }
+    
+    // MARK: - Sidebar View
+    private var sidebarView: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: isCompactWidth ? 4 : 8) {
+                Image("Logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: isCompactWidth ? 20 : 24)
+
+                Text("Matcha")
+                    .font(.system(isCompactWidth ? .title3 : .title, design: .serif))
+                    .fontWeight(.bold)
+                    .foregroundColor(
+                        colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+
+                Spacer()
+
+                // Settings button in sidebar
+                Button(action: {
+                    showingSettings = true
+                }) {
+                    Image(systemName: "gear")
+                        .fontWeight(.medium)
+                        .font(.system(size: isCompactWidth ? 14 : 16))
+                        .foregroundStyle(
+                            colorScheme == .dark
+                                ? Color.matchabrown_dark : Color.matchabrown_light)
                 }
             }
-            .onChange(of: geometry.size) { _, newSize in
-                screenSize = newSize
-            }
-        }
-        .accentColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
-        }
-    }
-
-    // MARK: - Component Views
-    private var searchBar: some View {
-        MatchaSearchBar(text: $searchText)
-            .padding(.horizontal)
+            .padding(.horizontal, isCompactWidth ? 12 : 16)
             .padding(.top, 15)
-    }
 
-    private var sidebarList: some View {
-        VStack(alignment: .leading, spacing: 4) {
+            searchBar
+            sidebarList
+            
+            Spacer()
+        }
+    }
+    
+    // MARK: - Bottom Tab Bar
+    private var bottomTabBar: some View {
+        HStack(spacing: 0) {
             ForEach(sidebarItems) { item in
-                MatchaSidebarItem(
-                    item: item,
-                    isSelected: selectedItem == item.id,
-                    onSelect: {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
                         selectedItem = item.id
                         if item.id == "documents" {
                             currentFolderID = nil
                             folderPath = []
                         }
                     }
-                )
+                }) {
+                    Image(systemName: item.icon)
+                        .font(.system(size: 22, weight: .medium))
+                        .foregroundColor(
+                            selectedItem == item.id
+                                ? (colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light)
+                                : Color.secondary
+                        )
+                        .frame(width: 50, height: 40)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(
+                                    selectedItem == item.id
+                                        ? (colorScheme == .dark 
+                                            ? Color.matchalight_dark.opacity(0.15) 
+                                            : Color.matchalight_light.opacity(0.15))
+                                        : Color.clear
+                                )
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(
+                                    selectedItem == item.id
+                                        ? (colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light)
+                                        : Color.clear,
+                                    lineWidth: 2
+                                )
+                        )
+                        .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(PlainButtonStyle())
             }
         }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .padding(.top, 16)
+        .padding(.horizontal, 16)
+        .padding(.top, 4)
+        .padding(.bottom, 4)
+        .background(
+            (colorScheme == .dark
+                ? Color.matchabackground_dark
+                : Color.matchabackground_light)
+                .brightness(colorScheme == .dark ? -0.03 : 0.03)
+                .shadow(color: Color.black.opacity(0.1), radius: 4, y: -2)
+                .ignoresSafeArea(edges: .bottom)
+        )
+        .overlay(
+            Rectangle()
+                .frame(height: 0.5)
+                .foregroundColor(Color.gray.opacity(0.3)),
+            alignment: .top
+        )
     }
-
-    @ViewBuilder
-    private var contentView: some View {
+    
+    // MARK: - Content View with Header
+    private var contentViewWithHeader: some View {
         VStack(spacing: 0) {
             // Header with title and controls
-            HStack {
+            HStack(spacing: isCompactWidth ? 8 : 12) {
+                // Hamburger menu button for small screens (not compact, only for overlay sidebar)
+                if shouldOverlaySidebar && !isCompactWidth {
+                    Button(action: {
+                        withAnimation {
+                            isSidebarVisible.toggle()
+                        }
+                    }) {
+                        Image(systemName: "line.3.horizontal")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundColor(
+                                colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+                            )
+                            .padding(8)
+                    }
+                }
+                
+                // Settings button for compact screens (replaces hamburger)
+                if isCompactWidth {
+                    Button(action: {
+                        showingSettings = true
+                    }) {
+                        Image(systemName: "gear")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundColor(
+                                colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+                            )
+                            .padding(8)
+                    }
+                }
+                
                 Text(currentViewTitle)
-                    .font(.system(.largeTitle, design: .serif))
+                    .font(.system(isCompactWidth ? .title2 : .largeTitle, design: .serif))
                     .bold()
                     .foregroundStyle(
                         colorScheme == .dark
                             ? Color.matchabrown_dark : Color.matchabrown_light)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
 
                 Spacer()
 
                 // Header controls
-                HStack(spacing: 12) {
+                HStack(spacing: isCompactWidth ? 6 : 12) {
                     if isSelectionMode && (selectedNotes.count > 0 || selectedFolders.count > 0) {
                         bulkActionButtons
                     }
@@ -250,8 +426,8 @@ struct HomeView: View {
                     }
                 }
             }
-            .padding(.horizontal)
-            .padding(.vertical, 12)
+            .padding(.horizontal, isCompactWidth ? 12 : 16)
+            .padding(.vertical, isCompactWidth ? 8 : 12)
             .background(
                 colorScheme == .dark
                     ? Color.matchabackground_dark : Color.matchabackground_light)
@@ -268,6 +444,39 @@ struct HomeView: View {
         .background(
             colorScheme == .dark
                 ? Color.matchabackground_dark : Color.matchabackground_light)
+    }
+
+    // MARK: - Component Views
+    private var searchBar: some View {
+        MatchaSearchBar(text: $searchText)
+            .padding(.horizontal, isCompactWidth ? 12 : 16)
+            .padding(.top, 15)
+    }
+
+    private var sidebarList: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(sidebarItems) { item in
+                MatchaSidebarItem(
+                    item: item,
+                    isSelected: selectedItem == item.id,
+                    onSelect: {
+                        selectedItem = item.id
+                        if item.id == "documents" {
+                            currentFolderID = nil
+                            folderPath = []
+                        }
+                        // Auto-close sidebar on small screens after selection
+                        if shouldOverlaySidebar {
+                            withAnimation {
+                                isSidebarVisible = false
+                            }
+                        }
+                    }
+                )
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .padding(.top, 16)
     }
 
     // Helper computed property for the current view title
@@ -444,7 +653,7 @@ struct HomeView: View {
     //        }
     //    }
     private var viewToggleButton: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: isCompactWidth ? 4 : 8) {
             // Grid/List toggle
             Button(action: { isGridView.toggle() }) {
                 Label(
@@ -452,11 +661,12 @@ struct HomeView: View {
                     systemImage: isGridView ? "square.grid.2x2" : "list.bullet"
                 )
                 .fontWeight(.medium)
+                .font(.system(size: isCompactWidth ? 14 : 16))
                 .foregroundColor(
                     colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
                 )
                 .labelStyle(.iconOnly)
-                .padding(8)
+                .padding(isCompactWidth ? 6 : 8)
                 .cornerRadius(8)
             }
             .help(isGridView ? "Switch to List View" : "Switch to Grid View")
@@ -474,12 +684,13 @@ struct HomeView: View {
             }) {
                 Image(systemName: isSelectionMode ? "checkmark.circle.fill" : "checkmark.circle")
                     .fontWeight(.medium)
+                    .font(.system(size: isCompactWidth ? 14 : 16))
                     .foregroundColor(
                         isSelectionMode 
                             ? (colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light)
                             : (colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                     )
-                    .padding(8)
+                    .padding(isCompactWidth ? 6 : 8)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
                             .fill(
@@ -669,16 +880,16 @@ struct HomeView: View {
     }
     private var gridView: some View {
         LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 160), spacing: gridItemSpacing)],
+            columns: [GridItem(.adaptive(minimum: gridItemMinSize), spacing: gridItemSpacing)],
             spacing: gridSpacing
         ) {
             // Break grid content into separate views
             foldersGridContent
             notesGridContent
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 16)
-        .padding(.bottom, 16)
+        .padding(.horizontal, isCompactWidth ? 12 : 16)
+        .padding(.top, isCompactWidth ? 12 : 16)
+        .padding(.bottom, isCompactWidth ? 12 : 16)
         .id(refreshID)
         // Simplify root drop target
         .onDrop(of: ["public.text"], isTargeted: nil) { _, _ in
@@ -837,11 +1048,11 @@ struct HomeView: View {
     }
 
     private var listView: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: isCompactWidth ? 8 : 12) {
             listContent
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 16)
+        .padding(.horizontal, isCompactWidth ? 12 : 16)
+        .padding(.vertical, isCompactWidth ? 12 : 16)
         .id(refreshID)
         .onDrop(of: ["public.text"], isTargeted: nil) { _, _ in
             guard currentFolderID == nil else { return false }
@@ -1802,8 +2013,8 @@ struct HomeView: View {
 
     private var recentsGridView: some View {
         LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 160), spacing: 20)],
-            spacing: 20
+            columns: [GridItem(.adaptive(minimum: gridItemMinSize), spacing: gridItemSpacing)],
+            spacing: gridSpacing
         ) {
             ForEach(recentNotes) { note in
                 let isSelected = selectedNotes.contains(note.id)
@@ -1832,9 +2043,9 @@ struct HomeView: View {
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 16)
-        .padding(.bottom, 16)
+        .padding(.horizontal, isCompactWidth ? 12 : 16)
+        .padding(.top, isCompactWidth ? 12 : 16)
+        .padding(.bottom, isCompactWidth ? 12 : 16)
         .id(refreshID)
     }
 
@@ -1867,15 +2078,15 @@ struct HomeView: View {
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 16)
+        .padding(.horizontal, isCompactWidth ? 12 : 16)
+        .padding(.vertical, isCompactWidth ? 12 : 16)
         .id(refreshID)
     }
 
     private var favoritesGridView: some View {
         LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 160), spacing: 20)],
-            spacing: 20
+            columns: [GridItem(.adaptive(minimum: gridItemMinSize), spacing: gridItemSpacing)],
+            spacing: gridSpacing
         ) {
             // Show favorite folders first
             ForEach(filteredFavoriteFolders) { folder in
@@ -1929,9 +2140,9 @@ struct HomeView: View {
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 16)
-        .padding(.bottom, 16)
+        .padding(.horizontal, isCompactWidth ? 12 : 16)
+        .padding(.top, isCompactWidth ? 12 : 16)
+        .padding(.bottom, isCompactWidth ? 12 : 16)
         .id(refreshID)
     }
 
@@ -1989,8 +2200,8 @@ struct HomeView: View {
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 16)
+        .padding(.horizontal, isCompactWidth ? 12 : 16)
+        .padding(.vertical, isCompactWidth ? 12 : 16)
         .id(refreshID)
     }
 
@@ -2023,7 +2234,8 @@ extension HomeView {
             }
 
         } label: {
-            HStack(spacing: 8) {
+            if isCompactWidth {
+                // Icon-only on compact screens
                 ZStack {
                     Circle()
                         .fill(
@@ -2033,28 +2245,49 @@ extension HomeView {
                                 endPoint: .bottomTrailing
                             )
                         )
-                        .frame(width: 28, height: 28)
+                        .frame(width: 32, height: 32)
+                        .aspectRatio(1, contentMode: .fit)
                     
                     Image(systemName: "plus")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.matchalight_light)
                 }
-                
-                Text("New")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.primary)
+                .frame(width: 32, height: 32)
+            } else {
+                // Full button on larger screens
+                HStack(spacing: 8) {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.matchalight_light.opacity(0.2), Color.matchalight_light.opacity(0.1)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 28, height: 28)
+                        
+                        Image(systemName: "plus")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.matchalight_light)
+                    }
+                    
+                    Text("New")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                }
+                .padding(.vertical, 8)
+                .padding(.horizontal, 16)
+                .background(
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(Color(.systemBackground))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 20)
+                                .stroke(Color(.systemGray5), lineWidth: 1)
+                        )
+                )
             }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 16)
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color(.systemBackground))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(Color(.systemGray5), lineWidth: 1)
-                    )
-            )
         }
         .buttonStyle(PlainButtonStyle())
         .sheet(isPresented: $showNewWrittenNoteView) {
