@@ -268,49 +268,24 @@ struct PageThumbnailView: View {
               )
           )
         
-        // Drawing preview - use simple logic like home view
+        // Drawing preview - use consolidated PreviewGenerator
         if let previewImage = previewImage {
           Image(uiImage: previewImage)
             .resizable()
             .aspectRatio(paperAspectRatio(for: pageIndex), contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 6))
-        } else if note.imageDataByPage[String(pageIndex)] != nil {
-          // Show uploaded background image directly (like home view)
-          if let imageDataArray = note.imageDataByPage[String(pageIndex)],
-             let firstImageData = imageDataArray.first,
-             let uiImage = UIImage(data: firstImageData) {
-            Image(uiImage: uiImage)
-              .resizable()
-              .aspectRatio(contentMode: .fit)
-              .aspectRatio(paperAspectRatio(for: pageIndex), contentMode: .fit)
-              .clipShape(RoundedRectangle(cornerRadius: 6))
-          }
-        } else if note.drawingDataByPage[String(pageIndex)] != nil {
-          // Show stored drawing data directly (like home view)
-          if let drawingData = note.drawingDataByPage[String(pageIndex)],
-             let pkDrawing = try? PKDrawing(data: drawingData) {
-            let paperSize = CGSize(
-              width: getPaperWidth(for: note.paperSize),
-              height: getPaperHeight(for: note.paperSize)
-            )
-            let backgroundImages = note.imageDataByPage[String(pageIndex)]
-            let overlayImages = PaperUtilities.extractCanvasImages(from: note.imageDataByPage, for: pageIndex)
-            let previewImage = PaperUtilities.generatePreviewWithBackground(
-              drawing: pkDrawing,
-              paperSize: paperSize,
-              paperColor: note.paperColor,
-              paperStyle: note.paperStyle,
-              scale: 0.5,
-              backgroundImages: backgroundImages,
-              overlayImages: overlayImages
-            )
-            
-            Image(uiImage: previewImage)
-              .resizable()
-              .aspectRatio(contentMode: .fit)
-              .aspectRatio(paperAspectRatio(for: pageIndex), contentMode: .fit)
-              .clipShape(RoundedRectangle(cornerRadius: 6))
-          }
+        } else if PreviewGenerator.hasContent(note: note, pageIndex: pageIndex) {
+          // Generate preview using consolidated logic
+          let thumbnailImage = PreviewGenerator.generatePreview(
+            for: note, 
+            pageIndex: pageIndex, 
+            size: .grid
+          )
+          Image(uiImage: thumbnailImage)
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .aspectRatio(paperAspectRatio(for: pageIndex), contentMode: .fit)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
         } else if (pageIndex < canvasViews.count && !canvasViews[pageIndex].drawing.strokes.isEmpty) {
           // Fallback while loading (drawing strokes)
           Rectangle()
@@ -322,11 +297,8 @@ struct PageThumbnailView: View {
             )
         }
         
-        // Paper pattern overlay (subtle) - only show if no preview image and no background images
-        if previewImage == nil &&
-           note.imageDataByPage[String(pageIndex)] == nil &&
-           note.drawingDataByPage[String(pageIndex)] == nil &&
-           (pageIndex >= canvasViews.count || canvasViews[pageIndex].drawing.strokes.isEmpty) {
+        // Paper pattern overlay (subtle) - only show if no preview and no content
+        if previewImage == nil && !PreviewGenerator.hasContent(note: note, pageIndex: pageIndex) {
           paperPatternOverlay()
             .opacity(0.3)
             .aspectRatio(paperAspectRatio, contentMode: .fit)
@@ -495,39 +467,19 @@ struct PageThumbnailView: View {
       return
     }
 
-    let canvas = canvasViews[pageIndex]
-
-    // Check for background images from uploads
-    let hasBackgroundImages = note.imageDataByPage[String(pageIndex)] != nil
-    let hasDrawing = !canvas.drawing.strokes.isEmpty
-
-    // Only generate preview if there are strokes OR background images
-    guard hasDrawing || hasBackgroundImages else {
+    // Only generate preview if there's content on this page
+    guard PreviewGenerator.hasContent(note: note, pageIndex: pageIndex) else {
       previewImage = nil
       return
     }
     
     DispatchQueue.main.async {
-      // Use PaperUtilities for consistent preview generation with overlay images
-      let paperSize = CGSize(
-        width: getPaperWidth(for: note.paperSize),
-        height: getPaperHeight(for: note.paperSize)
+      // Use consolidated PreviewGenerator for consistent preview generation
+      self.previewImage = PreviewGenerator.generatePreview(
+        for: self.note,
+        pageIndex: self.pageIndex,
+        size: .grid
       )
-      
-      let backgroundImages = note.imageDataByPage[String(pageIndex)]
-      let overlayImages = PaperUtilities.extractCanvasImages(from: note.imageDataByPage, for: pageIndex)
-      
-      let previewImage = PaperUtilities.generatePreviewWithBackground(
-        drawing: canvas.drawing,
-        paperSize: paperSize,
-        paperColor: note.paperColor,
-        paperStyle: note.paperStyle,
-        scale: 0.5,
-        backgroundImages: backgroundImages,
-        overlayImages: overlayImages
-      )
-      
-      self.previewImage = previewImage
     }
   }
   

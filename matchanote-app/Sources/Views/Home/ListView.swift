@@ -16,78 +16,17 @@ public struct ListItemView: View {
         self.isSelectionMode = isSelectionMode
     }
 
-    // Check if note has uploaded content to preview
-    private var hasUploadedContent: Bool {
-        return !note.imageDataByPage.isEmpty
-    }
-
-    // Small preview view for list items - using grid view aspect ratio
+    // Preview view using consolidated PreviewGenerator
     @ViewBuilder
     private var notePreview: some View {
-        ZStack {
-            // Content preview with vertical rectangle aspect ratio (same as grid)
-            if hasUploadedContent {
-                // Show uploaded content preview with drawing strokes
-                let paperSize = PaperUtilities.paperSize(for: note.paperSize)
-                let backgroundImages = note.imageDataByPage["0"]
-                let drawingData = note.drawingDataByPage["0"]
-                let pkDrawing = (drawingData != nil) ? (try? PKDrawing(data: drawingData!)) ?? PKDrawing() : PKDrawing()
-                
-                let overlayImages = PaperUtilities.extractCanvasImages(from: note.imageDataByPage, for: 0)
-                let previewImage = PaperUtilities.generatePreviewWithBackground(
-                    drawing: pkDrawing,
-                    paperSize: paperSize,
-                    paperColor: note.paperColor,
-                    paperStyle: note.paperStyle,
-                    scale: 0.3,
-                    backgroundImages: backgroundImages,
-                    overlayImages: overlayImages
-                )
-                
-                Image(uiImage: previewImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 32, height: 40)
-                    .clipped()
-                    .clipShape(RoundedRectangle(cornerRadius: note.noteType == .written ? 6 : 2))
-            } else {
-                // Show content preview for notes without uploaded content
-                if note.noteType == .written {
-                    ZStack {
-                        // Paper background
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(PaperUtilities.getPaperBackgroundColor(for: note.paperColor))
-                            .frame(width: 32, height: 40)
-                        
-                        // Show drawing preview if available
-                        if let drawingData = note.drawingDataByPage["0"],
-                           let pkDrawing = try? PKDrawing(data: drawingData),
-                           !pkDrawing.strokes.isEmpty {
-                            // Use PaperUtilities for consistent preview generation
-                            let paperSize = PaperUtilities.paperSize(for: note.paperSize)
-                            let backgroundImages = note.imageDataByPage["0"]
-                            let overlayImages = PaperUtilities.extractCanvasImages(from: note.imageDataByPage, for: 0)
-                            let previewImage = PaperUtilities.generatePreviewWithBackground(
-                                drawing: pkDrawing,
-                                paperSize: paperSize,
-                                paperColor: note.paperColor,
-                                paperStyle: note.paperStyle,
-                                scale: 0.3,
-                                backgroundImages: backgroundImages,
-                                overlayImages: overlayImages
-                            )
-
-                            Image(uiImage: previewImage)
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: 32, height: 40)
-                                .clipped()
-                        } 
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
-            }
-        }
+        let previewImage = PreviewGenerator.generateListPreview(for: note)
+        
+        Image(uiImage: previewImage)
+            .resizable()
+            .aspectRatio(contentMode: .fill)
+            .frame(width: 32, height: 40)
+            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: note.noteType == .written ? 6 : 2))
     }
 
     public var body: some View {

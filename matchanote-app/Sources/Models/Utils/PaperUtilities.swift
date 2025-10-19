@@ -38,9 +38,9 @@ struct PaperUtilities {
     case .white:
       return .white
     case .offwhite:
-      return Color(red: 0.98, green: 0.96, blue: 0.9)
+      return Color.paper_offwhite
     case .dark:
-      return Color(red: 0.15, green: 0.15, blue: 0.15)
+      return Color.paper_dark
     }
   }
   

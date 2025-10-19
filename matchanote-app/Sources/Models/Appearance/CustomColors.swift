@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 extension Color {
     // Light Matcha Colors
@@ -13,11 +14,19 @@ extension Color {
     static let matchadark_dark = Color(red: 0.816, green: 0.941, blue: 0.714) // #d0f0b6
     static let matchadark_light = Color(red: 0.267, green: 0.384, blue: 0.290) // #44624a
     
-    static let matchabackground_dark = Color(red: 0.089, green: 0.091, blue: 0.082)
-    static let matchabackground_light = Color(red: 0.9725, green: 0.9725, blue: 0.9725)
+    static let matchabackground_dark = Color(red: 0.089, green: 0.091, blue: 0.082) // #191817
+    static let matchabackground_light = Color(red: 0.9725, green: 0.9725, blue: 0.9725) // #f2f2f2
 
+    
     // Paper Colors
-    static let paper_offwhite = Color(red: 0.980, green: 0.972, blue: 0.950)
+    static let paper_offwhite =  Color(red: 0.98, green: 0.96, blue: 0.9) //
+    static let paper_dark = Color(red: 0.15, green: 0.15, blue: 0.15) // #3b3d38
+    
+    // Logo Color
+    static let matcha_logo_color = Color(red: 0.56, green: 0.76, blue: 0.24) // #8DBC3F
+    
+    
+
 
     
 }

@@ -304,7 +304,7 @@ struct PaperColorCard: View {
     case .offwhite:
       return Color.paper_offwhite
     case .dark:
-      return Color(.systemGray2)
+      return Color.paper_dark
     }
   }
 }

@@ -26,7 +26,7 @@ class ExportManager {
             .replacingOccurrences(of: "?", with: "")
     }
     
-    // MARK: - Universal Export Function
+    // MARK: - Export as PDF function    
     func exportNoteAsPDF(_ note: Note, selectedPages: [Int]? = nil) -> URL? {
         // If no specific pages selected, export all pages
         let pagesToExport = selectedPages ?? getAllPagesForNote(note)
@@ -101,7 +101,6 @@ class ExportManager {
     }
     
     // MARK: - Export with Save
-    /// Saves the note first, then exports it with the latest data
     func saveAndExportNote(_ note: Note, storageManager: StorageManager, selectedPages: [Int]? = nil, completion: @escaping (URL?) -> Void) {
         // Save note synchronously to ensure latest data is persisted
         storageManager.saveNoteSync(note) { savedNote in

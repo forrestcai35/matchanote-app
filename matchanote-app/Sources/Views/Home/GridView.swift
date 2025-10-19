@@ -156,75 +156,15 @@ public struct GridItemView: View {
         return colorScheme == .dark ? Color.white.opacity(0.4) : Color.black.opacity(0.2)
     }
 
-    // Check if note has uploaded content to preview
-    private var hasUploadedContent: Bool {
-        return !note.imageDataByPage.isEmpty
-    }
-
-    // Helper to get the drawing data for uploaded content preview
-    private var uploadedContentDrawing: PKDrawing {
-        if let drawingData = note.drawingDataByPage["0"],
-           let existingDrawing = try? PKDrawing(data: drawingData) {
-            return existingDrawing
-        } else {
-            return PKDrawing() // Empty drawing
-        }
-    }
-    
-    // Preview view for uploaded content
+    // Preview view using consolidated PreviewGenerator
     @ViewBuilder
-    private var uploadedContentPreview: some View {
-        // Use PaperUtilities to properly composite paper background, uploaded images, and drawing data
-        let paperSize = PaperUtilities.paperSize(for: note.paperSize)
-        let backgroundImages = note.imageDataByPage["0"]
-        let overlayImages = PaperUtilities.extractCanvasImages(from: note.imageDataByPage, for: 0)
-        let previewImage = PaperUtilities.generatePreviewWithBackground(
-            drawing: uploadedContentDrawing,
-            paperSize: paperSize,
-            paperColor: note.paperColor,
-            paperStyle: note.paperStyle,
-            scale: 0.5,
-            backgroundImages: backgroundImages,
-            overlayImages: overlayImages
-        )
+    private var notePreview: some View {
+        let previewImage = PreviewGenerator.generateGridPreview(for: note)
         
         Image(uiImage: previewImage)
             .resizable()
             .aspectRatio(contentMode: .fill)
             .clipped()
-    }
-
-    // Preview view for written notes (show drawing/content preview)
-    @ViewBuilder
-    private var writtenNotePreview: some View {
-        ZStack {
-            // Paper background
-            RoundedRectangle(cornerRadius: 10)
-                .fill(PaperUtilities.getPaperBackgroundColor(for: note.paperColor))
-
-            // Show drawing preview if available
-            if let drawingData = note.drawingDataByPage["0"],
-               let pkDrawing = try? PKDrawing(data: drawingData) {
-                // Use PaperUtilities for consistent preview generation with background images
-                let paperSize = PaperUtilities.paperSize(for: note.paperSize)
-                let backgroundImages = note.imageDataByPage["0"]
-                let overlayImages = PaperUtilities.extractCanvasImages(from: note.imageDataByPage, for: 0)
-                let previewImage = PaperUtilities.generatePreviewWithBackground(
-                    drawing: pkDrawing,
-                    paperSize: paperSize,
-                    paperColor: note.paperColor,
-                    paperStyle: note.paperStyle,
-                    scale: 0.5,
-                    backgroundImages: backgroundImages,
-                    overlayImages: overlayImages
-                )
-
-                Image(uiImage: previewImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .clipped()
-            } 
-        }
     }
 
     public var body: some View {
@@ -242,20 +182,10 @@ public struct GridItemView: View {
                         y: 2
                     )
 
-                // Content preview
-                if hasUploadedContent {
-                    // Show uploaded content preview
-                    uploadedContentPreview
-                        .frame(width: 160, height: 200)
-                        .clipShape(RoundedRectangle(cornerRadius: note.noteType == .written ? 10 : 0))
-                } else {
-                    // Show content previews for notes without uploaded content
-                    if note.noteType == .written {
-                        writtenNotePreview
-                            .frame(width: 160, height: 200)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                    }
-                }
+                // Content preview - using consolidated PreviewGenerator
+                notePreview
+                    .frame(width: 160, height: 200)
+                    .clipShape(RoundedRectangle(cornerRadius: note.noteType == .written ? 10 : 0))
 
                 Button(action: {
                     var updatedNote = note

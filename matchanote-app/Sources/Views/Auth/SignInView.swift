@@ -43,8 +43,8 @@ struct SignInView: View {
                   .foregroundStyle(
                     LinearGradient(
                       gradient: Gradient(colors: [
-                        colorScheme == .dark ? .matchalight_dark : .matchalight_light,
-                        colorScheme == .dark ? Color(red: 0.3, green: 0.7, blue: 0.4) : .matchadark_light
+                        colorScheme == .dark ? .matcha_logo_color : .matcha_logo_color,
+                        colorScheme == .dark ? .matchadark_dark : .matchadark_light
                       ]),
                       startPoint: .topLeading,
                       endPoint: .bottomTrailing
@@ -206,10 +206,17 @@ struct SignInView: View {
                     }
                   }) {
                     HStack(spacing: 12) {
-                      Image("google_logo")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 20, height: 20)
+                        if isLoading {
+                          ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                            .scaleEffect(0.8)
+                        } else {
+                            Image("google_logo")
+                              .resizable()
+                              .scaledToFit()
+                              .frame(width: 20, height: 20)
+
+                        }
 
                       Text("Continue with Google")
                         .font(.system(size: 16, weight: .semibold))
