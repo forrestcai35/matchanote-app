@@ -1,27 +1,27 @@
 import SwiftUI
 
 // TextBox model for managing text elements on the canvas
-struct TextBox: Identifiable, Codable {
-    let id: UUID
-    var text: String
-    var position: CGPoint
-    var size: CGSize
-    var fontSize: CGFloat
-    var fontFamily: String
-    var textColor: Color
-    var backgroundColor: Color
-    var textAlignment: TextAlignment
-    var isSelected: Bool
-    var rotation: Double
-    var opacity: Double
-    var cornerRadius: CGFloat
-    var borderWidth: CGFloat
-    var borderColor: Color
+public struct TextBox: Identifiable, Codable {
+    public let id: UUID
+    public var text: String
+    public var position: CGPoint
+    public var size: CGSize
+    public var fontSize: CGFloat
+    public var fontFamily: String
+    public var textColor: Color
+    public var backgroundColor: Color
+    public var textAlignment: TextAlignment
+    public var rotation: Double
+    public var opacity: Double
+    public var cornerRadius: CGFloat
+    public var borderWidth: CGFloat
+    public var borderColor: Color
+    public var zIndex: Int
 
     // Page index this textbox belongs to
-    var pageIndex: Int
+    public var pageIndex: Int
 
-    init(
+    public init(
         id: UUID = UUID(),
         text: String = "Text",
         position: CGPoint = .zero,
@@ -31,12 +31,12 @@ struct TextBox: Identifiable, Codable {
         textColor: Color = .black,
         backgroundColor: Color = .clear,
         textAlignment: TextAlignment = .leading,
-        isSelected: Bool = false,
         rotation: Double = 0,
         opacity: Double = 1.0,
         cornerRadius: CGFloat = 4,
         borderWidth: CGFloat = 0,
         borderColor: Color = .gray,
+        zIndex: Int = 0,
         pageIndex: Int = 0
     ) {
         self.id = id
@@ -48,23 +48,29 @@ struct TextBox: Identifiable, Codable {
         self.textColor = textColor
         self.backgroundColor = backgroundColor
         self.textAlignment = textAlignment
-        self.isSelected = isSelected
         self.rotation = rotation
         self.opacity = opacity
         self.cornerRadius = cornerRadius
         self.borderWidth = borderWidth
         self.borderColor = borderColor
+        self.zIndex = zIndex
         self.pageIndex = pageIndex
+    }
+
+    // Helper method to check if a point is inside the textbox
+    public func contains(point: CGPoint) -> Bool {
+        let frame = CGRect(origin: position, size: size)
+        return frame.contains(point)
     }
 }
 
 // Text alignment options
-enum TextAlignment: String, CaseIterable, Codable {
+public enum TextAlignment: String, CaseIterable, Codable {
     case leading = "leading"
     case center = "center"
     case trailing = "trailing"
 
-    var displayName: String {
+    public var displayName: String {
         switch self {
         case .leading: return "Left"
         case .center: return "Center"
@@ -72,7 +78,7 @@ enum TextAlignment: String, CaseIterable, Codable {
         }
     }
 
-    var alignment: Alignment {
+    public var alignment: Alignment {
         switch self {
         case .leading: return .leading
         case .center: return .center
@@ -80,7 +86,7 @@ enum TextAlignment: String, CaseIterable, Codable {
         }
     }
 
-    var textAlignment: SwiftUI.TextAlignment {
+    public var textAlignment: SwiftUI.TextAlignment {
         switch self {
         case .leading: return .leading
         case .center: return .center
@@ -90,15 +96,15 @@ enum TextAlignment: String, CaseIterable, Codable {
 }
 
 // TextBox Manager for handling textboxes across pages
-class TextBoxManager: ObservableObject {
-    @Published var textBoxesByPage: [Int: [TextBox]] = [:]
-    @Published var selectedTextBox: TextBox?
-    @Published var isEditingText: Bool = false
-    @Published var copiedTextBox: TextBox?
-    @Published var editingTextBoxId: UUID?
+public class TextBoxManager: ObservableObject {
+    @Published public var textBoxesByPage: [Int: [TextBox]] = [:]
+    @Published public var selectedTextBoxId: UUID?
+    @Published public var isEditingText: Bool = false
+    @Published public var copiedTextBox: TextBox?
+    @Published public var editingTextBoxId: UUID?
 
     // Available font families
-    let availableFonts = [
+    public let availableFonts = [
         "System",
         "Helvetica",
         "Helvetica Neue",
@@ -112,18 +118,16 @@ class TextBoxManager: ObservableObject {
     ]
 
     // Font size presets
-    let fontSizePresets: [CGFloat] = [12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 60, 72]
+    public let fontSizePresets: [CGFloat] = [12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 60, 72]
 
-    init() {}
+    public init() {}
 
     // Add a new textbox to a specific page
-    func addTextBox(to pageIndex: Int, at position: CGPoint = CGPoint(x: 100, y: 100)) {
+    public func addTextBox(to pageIndex: Int, at position: CGPoint = CGPoint(x: 100, y: 100)) {
         let newTextBox = TextBox(
             text: "Type here...",
             position: position,
-            isSelected: true,
             pageIndex: pageIndex
-
         )
 
         if textBoxesByPage[pageIndex] == nil {
@@ -132,72 +136,76 @@ class TextBoxManager: ObservableObject {
         textBoxesByPage[pageIndex]?.append(newTextBox)
 
         // Select the new textbox for immediate editing
-        selectedTextBox = newTextBox
+        selectedTextBoxId = newTextBox.id
+        editingTextBoxId = newTextBox.id
         isEditingText = true
     }
 
     // Get textboxes for a specific page
-    func textBoxes(for pageIndex: Int) -> [TextBox] {
+    public func textBoxes(for pageIndex: Int) -> [TextBox] {
         return textBoxesByPage[pageIndex] ?? []
     }
 
+    // Get a specific textbox by ID
+    public func getTextBox(withId id: UUID, onPage pageIndex: Int) -> TextBox? {
+        return textBoxesByPage[pageIndex]?.first { $0.id == id }
+    }
+
     // Update a textbox
-    func updateTextBox(_ updatedTextBox: TextBox) {
+    public func updateTextBox(_ updatedTextBox: TextBox) {
         guard let pageTextBoxes = textBoxesByPage[updatedTextBox.pageIndex] else { return }
 
         if let index = pageTextBoxes.firstIndex(where: { $0.id == updatedTextBox.id }) {
             textBoxesByPage[updatedTextBox.pageIndex]?[index] = updatedTextBox
-
-            // Update selected textbox if it matches
-            if selectedTextBox?.id == updatedTextBox.id {
-                selectedTextBox = updatedTextBox
-            }
         }
     }
 
     // Delete a textbox
-    func deleteTextBox(_ textBox: TextBox) {
-        guard let pageTextBoxes = textBoxesByPage[textBox.pageIndex] else { return }
+    public func deleteTextBox(withId id: UUID, fromPage pageIndex: Int) {
+        guard let pageTextBoxes = textBoxesByPage[pageIndex] else { return }
 
-        if let index = pageTextBoxes.firstIndex(where: { $0.id == textBox.id }) {
-            textBoxesByPage[textBox.pageIndex]?.remove(at: index)
+        if let index = pageTextBoxes.firstIndex(where: { $0.id == id }) {
+            textBoxesByPage[pageIndex]?.remove(at: index)
 
             // Clear selection if this was the selected textbox
-            if selectedTextBox?.id == textBox.id {
-                selectedTextBox = nil
+            if selectedTextBoxId == id {
+                selectedTextBoxId = nil
                 isEditingText = false
+                editingTextBoxId = nil
             }
         }
     }
 
     // Select a textbox
-    func selectTextBox(_ textBox: TextBox) {
-        // Deselect all textboxes
-        deselectAllTextBoxes()
-
-        // Select the specified textbox
-        var updatedTextBox = textBox
-        updatedTextBox.isSelected = true
-        updateTextBox(updatedTextBox)
-        selectedTextBox = updatedTextBox
+    public func selectTextBox(withId id: UUID?) {
+        selectedTextBoxId = id
     }
 
     // Deselect all textboxes
-    func deselectAllTextBoxes() {
-        for (pageIndex, textBoxes) in textBoxesByPage {
-            for (index, textBox) in textBoxes.enumerated() {
-                if textBox.isSelected {
-                    textBoxesByPage[pageIndex]?[index].isSelected = false
-                }
-            }
-        }
-        selectedTextBox = nil
+    public func deselectAllTextBoxes() {
+        selectedTextBoxId = nil
         isEditingText = false
         editingTextBoxId = nil
     }
 
+    // Check if there's a selected textbox
+    public var hasSelectedTextBox: Bool {
+        selectedTextBoxId != nil
+    }
+
+    // Get the currently selected textbox
+    public var selectedTextBox: TextBox? {
+        guard let id = selectedTextBoxId else { return nil }
+        for (_, textBoxes) in textBoxesByPage {
+            if let textBox = textBoxes.first(where: { $0.id == id }) {
+                return textBox
+            }
+        }
+        return nil
+    }
+
     // Move textboxes when pages are inserted/deleted
-    func moveTextBoxes(fromPage oldPageIndex: Int, toPage newPageIndex: Int) {
+    public func moveTextBoxes(fromPage oldPageIndex: Int, toPage newPageIndex: Int) {
         guard let textBoxes = textBoxesByPage[oldPageIndex] else { return }
 
         // Update page index for all textboxes
@@ -213,7 +221,7 @@ class TextBoxManager: ObservableObject {
     }
 
     // Handle page insertion - shift textboxes after insertion point
-    func handlePageInsertion(at insertIndex: Int) {
+    public func handlePageInsertion(at insertIndex: Int) {
         var newTextBoxesByPage: [Int: [TextBox]] = [:]
 
         for (pageIndex, textBoxes) in textBoxesByPage {
@@ -230,7 +238,7 @@ class TextBoxManager: ObservableObject {
     }
 
     // Handle page deletion - shift textboxes after deletion point
-    func handlePageDeletion(at deletedIndex: Int) {
+    public func handlePageDeletion(at deletedIndex: Int) {
         var newTextBoxesByPage: [Int: [TextBox]] = [:]
 
         for (pageIndex, textBoxes) in textBoxesByPage {
@@ -251,29 +259,40 @@ class TextBoxManager: ObservableObject {
         textBoxesByPage = newTextBoxesByPage
 
         // Clear selection if selected textbox was on deleted page
-        if let selected = selectedTextBox, selected.pageIndex == deletedIndex {
-            selectedTextBox = nil
-            isEditingText = false
+        if let selectedId = selectedTextBoxId {
+            // Check if the selected textbox was on the deleted page
+            var wasOnDeletedPage = false
+            if let textBoxes = textBoxesByPage[deletedIndex] {
+                wasOnDeletedPage = textBoxes.contains(where: { $0.id == selectedId })
+            }
+            if wasOnDeletedPage {
+                selectedTextBoxId = nil
+                isEditingText = false
+                editingTextBoxId = nil
+            }
         }
     }
-    
+
     // Clear all textboxes from a specific page
-    func clearAllTextBoxesFromPage(_ pageIndex: Int) {
+    public func clearAllTextBoxesFromPage(_ pageIndex: Int) {
         guard let textBoxes = textBoxesByPage[pageIndex], !textBoxes.isEmpty else { return }
-        
+
         // Clear all textboxes from the page
         textBoxesByPage[pageIndex] = []
-        
+
         // Clear selection if selected textbox was on this page
-        if let selected = selectedTextBox, selected.pageIndex == pageIndex {
-            selectedTextBox = nil
-            isEditingText = false
-            editingTextBoxId = nil
+        if let selectedId = selectedTextBoxId {
+            let wasOnPage = textBoxes.contains(where: { $0.id == selectedId })
+            if wasOnPage {
+                selectedTextBoxId = nil
+                isEditingText = false
+                editingTextBoxId = nil
+            }
         }
     }
 
     // Load textboxes data from storage
-    func loadTextBoxesData(_ data: [String: [Data]]) {
+    public func loadTextBoxesData(_ data: [String: [Data]]) {
         textBoxesByPage.removeAll()
 
         for (pageKey, dataArray) in data {
@@ -293,7 +312,7 @@ class TextBoxManager: ObservableObject {
     }
 
     // Get all textboxes data for storage
-    func getAllTextBoxesData() -> [String: [Data]] {
+    public func getAllTextBoxesData() -> [String: [Data]] {
         var result: [String: [Data]] = [:]
 
         for (pageIndex, textBoxes) in textBoxesByPage {
@@ -312,6 +331,15 @@ class TextBoxManager: ObservableObject {
         }
 
         return result
+    }
+
+    // Hit testing - find textbox at a point
+    public func textBoxAt(point: CGPoint, onPage pageIndex: Int) -> TextBox? {
+        let textBoxes = self.textBoxes(for: pageIndex)
+        // Return the topmost textbox (highest zIndex) that contains the point
+        return textBoxes
+            .filter { $0.contains(point: point) }
+            .max { $0.zIndex < $1.zIndex }
     }
 }
 

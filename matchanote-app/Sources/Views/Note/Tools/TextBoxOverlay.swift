@@ -4,44 +4,47 @@ struct TextBoxOverlay: View {
     @ObservedObject var textBoxManager: TextBoxManager
     let pageIndex: Int
     let canvasSize: CGSize
-    @State private var dragOffset: CGSize = .zero
-    @State private var tempPosition: CGPoint = .zero
 
     var body: some View {
         ZStack {
+            // Background tap to deselect - only intercept when there's a selection or editing
+            if textBoxManager.hasSelectedTextBox || textBoxManager.isEditingText {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        textBoxManager.deselectAllTextBoxes()
+                    }
+            }
+
             // Textboxes for this page
             ForEach(textBoxManager.textBoxes(for: pageIndex)) { textBox in
                 TextBoxView(
                     textBox: textBox,
                     textBoxManager: textBoxManager,
+                    pageIndex: pageIndex,
                     canvasSize: canvasSize
-                )
-                .position(
-                    x: textBox.position.x + textBox.size.width / 2,
-                    y: textBox.position.y + textBox.size.height / 2
                 )
             }
         }
         .frame(width: canvasSize.width, height: canvasSize.height)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            // Only deselect textboxes when textbox tool is active
-            // This allows other tools to work properly
-            // (The tool check should be done in the parent view)
-            textBoxManager.deselectAllTextBoxes()
-        }
-        .allowsHitTesting(true) // Allow hit testing but don't interfere with other tools
+        .allowsHitTesting(textBoxManager.textBoxes(for: pageIndex).count > 0)
     }
 }
 
 struct TextBoxView: View {
-    @State var textBox: TextBox
+    let textBox: TextBox
     @ObservedObject var textBoxManager: TextBoxManager
+    let pageIndex: Int
     let canvasSize: CGSize
+
     @State private var dragOffset: CGSize = .zero
     @State private var isEditing: Bool = false
     @State private var editingText: String = ""
-    @State private var resizeOffset: CGSize = .zero
+    @State private var currentSize: CGSize = .zero
+
+    var isSelected: Bool {
+        textBoxManager.selectedTextBoxId == textBox.id
+    }
 
     var body: some View {
         ZStack {
@@ -67,6 +70,7 @@ struct TextBoxView: View {
                         editingText = textBox.text
                     }
             } else {
+                // Non-interactive text display
                 Text(textBox.text.isEmpty ? "Tap to edit" : textBox.text)
                     .font(fontForTextBox(textBox))
                     .foregroundColor(textBox.text.isEmpty ? .gray : textBox.textColor)
@@ -75,86 +79,33 @@ struct TextBoxView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: textBox.textAlignment.alignment)
             }
 
-            // Selection border and resize handles
-            if textBox.isSelected && !isEditing {
-                // Selection border
-                RoundedRectangle(cornerRadius: textBox.cornerRadius)
-                    .stroke(Color.blue, lineWidth: 2)
-                    .background(Color.clear)
-
-                // Resize handles
-                HStack {
-                    Spacer()
-                    VStack {
-                        Spacer()
-                        // Bottom-right resize handle
-                        Circle()
-                            .fill(Color.blue)
-                            .frame(width: 12, height: 12)
-                            .offset(x: 6, y: 6)
-                            .gesture(
-                                DragGesture()
-                                    .onChanged { value in
-                                        resizeOffset = value.translation
-                                    }
-                                    .onEnded { value in
-                                        let newWidth = max(100, textBox.size.width + value.translation.width)
-                                        let newHeight = max(40, textBox.size.height + value.translation.height)
-
-                                        var updatedTextBox = textBox
-                                        updatedTextBox.size = CGSize(width: newWidth, height: newHeight)
-                                        textBoxManager.updateTextBox(updatedTextBox)
-                                        textBox = updatedTextBox
-                                        resizeOffset = .zero
-                                    }
-                            )
-                    }
-                }
-
-                // Right edge resize handle (horizontal only)
-                HStack {
-                    Spacer()
-                    Rectangle()
-                        .fill(Color.blue.opacity(0.3))
-                        .frame(width: 8)
-                        .gesture(
-                            DragGesture()
-                                .onChanged { value in
-                                    resizeOffset = CGSize(width: value.translation.width, height: 0)
-                                }
-                                .onEnded { value in
-                                    let newWidth = max(100, textBox.size.width + value.translation.width)
-
-                                    var updatedTextBox = textBox
-                                    updatedTextBox.size = CGSize(width: newWidth, height: textBox.size.height)
-                                    textBoxManager.updateTextBox(updatedTextBox)
-                                    textBox = updatedTextBox
-                                    resizeOffset = .zero
-                                }
-                        )
-                }
+            // Selection controls
+            if isSelected && !isEditing {
+                selectionControls()
             }
         }
-        .frame(width: textBox.size.width, height: textBox.size.height)
+        .frame(
+            width: currentSize.width > 0 ? currentSize.width : textBox.size.width,
+            height: currentSize.height > 0 ? currentSize.height : textBox.size.height
+        )
         .opacity(textBox.opacity)
         .rotationEffect(.degrees(textBox.rotation))
         .offset(dragOffset)
-        .onTapGesture {
-            if !textBox.isSelected {
-                textBoxManager.selectTextBox(textBox)
-            } else if textBox.isSelected && !isEditing {
-                startEditing()
-            }
-        }
+        .position(
+            x: textBox.position.x + (currentSize.width > 0 ? currentSize.width : textBox.size.width) / 2,
+            y: textBox.position.y + (currentSize.height > 0 ? currentSize.height : textBox.size.height) / 2
+        )
+        .zIndex(Double(textBox.zIndex + (isSelected ? 1000 : 0)))
+        .contentShape(Rectangle())
         .gesture(
             DragGesture()
                 .onChanged { value in
-                    if textBox.isSelected && !isEditing {
+                    if isSelected && !isEditing {
                         dragOffset = value.translation
                     }
                 }
                 .onEnded { value in
-                    if textBox.isSelected && !isEditing {
+                    if isSelected && !isEditing {
                         let newPosition = CGPoint(
                             x: max(0, min(canvasSize.width - textBox.size.width, textBox.position.x + value.translation.width)),
                             y: max(0, min(canvasSize.height - textBox.size.height, textBox.position.y + value.translation.height))
@@ -163,14 +114,30 @@ struct TextBoxView: View {
                         var updatedTextBox = textBox
                         updatedTextBox.position = newPosition
                         textBoxManager.updateTextBox(updatedTextBox)
-                        textBox = updatedTextBox
-                        dragOffset = .zero
                     }
+                    dragOffset = .zero
                 }
         )
+        .onTapGesture {
+            // Don't process tap if we just dragged
+            if dragOffset == .zero {
+                if !isSelected {
+                    textBoxManager.selectTextBox(withId: textBox.id)
+                } else if !isEditing {
+                    startEditing()
+                }
+            }
+        }
         .onChange(of: textBoxManager.editingTextBoxId) { _, newId in
             if newId == textBox.id && textBoxManager.isEditingText {
                 startEditing()
+            } else if newId != textBox.id && isEditing {
+                finishEditing()
+            }
+        }
+        .onChange(of: textBoxManager.selectedTextBoxId) { _, newId in
+            if newId != textBox.id && isEditing {
+                isEditing = false
             }
         }
         .contextMenu {
@@ -180,7 +147,7 @@ struct TextBoxView: View {
             Divider()
             Button("Cut") {
                 copyTextBox()
-                textBoxManager.deleteTextBox(textBox)
+                textBoxManager.deleteTextBox(withId: textBox.id, fromPage: pageIndex)
             }
             Button("Copy") {
                 copyTextBox()
@@ -194,7 +161,81 @@ struct TextBoxView: View {
                 duplicateTextBox()
             }
             Button("Delete", role: .destructive) {
-                textBoxManager.deleteTextBox(textBox)
+                textBoxManager.deleteTextBox(withId: textBox.id, fromPage: pageIndex)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func selectionControls() -> some View {
+        let boxWidth = currentSize.width > 0 ? currentSize.width : textBox.size.width
+        let boxHeight = currentSize.height > 0 ? currentSize.height : textBox.size.height
+
+        ZStack {
+            // Selection border
+            RoundedRectangle(cornerRadius: textBox.cornerRadius)
+                .stroke(Color.blue, lineWidth: 2)
+                .background(Color.clear)
+
+            // Delete button (top-right corner)
+            Button(action: {
+                textBoxManager.deleteTextBox(withId: textBox.id, fromPage: pageIndex)
+            }) {
+                ZStack {
+                    Circle()
+                        .stroke(Color.red, lineWidth: 2)
+                        .frame(width: 28, height: 28)
+
+                    Image(systemName: "trash")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.red)
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+            .frame(width: 64, height: 64)
+            .contentShape(Rectangle())
+            .offset(x: boxWidth/2 + 14, y: -boxHeight/2 - 14)
+            .allowsHitTesting(true)
+
+            // Corner handle - proportional scaling (bottom-right)
+            ProportionalResizeHandle(
+                startSize: currentSize.width > 0 ? currentSize : textBox.size,
+                onChanged: { newSize in
+                    currentSize = newSize
+                },
+                onEnd: {
+                    if currentSize.width > 0 && currentSize.height > 0 {
+                        var updatedTextBox = textBox
+                        updatedTextBox.size = currentSize
+                        textBoxManager.updateTextBox(updatedTextBox)
+                    }
+                    currentSize = .zero
+                }
+            )
+            .offset(x: boxWidth/2 + 14, y: boxHeight/2 + 14)
+            .allowsHitTesting(true)
+
+            // Right edge resize handle (horizontal only)
+            HStack {
+                Spacer()
+                Rectangle()
+                    .fill(Color.blue.opacity(0.3))
+                    .frame(width: 8)
+                    .gesture(
+                        DragGesture()
+                            .onChanged { value in
+                                let newWidth = max(100, textBox.size.width + value.translation.width)
+                                currentSize = CGSize(width: newWidth, height: textBox.size.height)
+                            }
+                            .onEnded { value in
+                                if currentSize.width > 0 {
+                                    var updatedTextBox = textBox
+                                    updatedTextBox.size = currentSize
+                                    textBoxManager.updateTextBox(updatedTextBox)
+                                }
+                                currentSize = .zero
+                            }
+                    )
             }
         }
     }
@@ -224,7 +265,6 @@ struct TextBoxView: View {
         var updatedTextBox = textBox
         updatedTextBox.text = editingText
         textBoxManager.updateTextBox(updatedTextBox)
-        textBox = updatedTextBox
     }
 
     private func duplicateTextBox() {
@@ -237,12 +277,12 @@ struct TextBoxView: View {
             textColor: textBox.textColor,
             backgroundColor: textBox.backgroundColor,
             textAlignment: textBox.textAlignment,
-            isSelected: false,
             rotation: textBox.rotation,
             opacity: textBox.opacity,
             cornerRadius: textBox.cornerRadius,
             borderWidth: textBox.borderWidth,
             borderColor: textBox.borderColor,
+            zIndex: textBox.zIndex,
             pageIndex: textBox.pageIndex
         )
 
@@ -268,12 +308,12 @@ struct TextBoxView: View {
             textColor: copiedTextBox.textColor,
             backgroundColor: copiedTextBox.backgroundColor,
             textAlignment: copiedTextBox.textAlignment,
-            isSelected: false,
             rotation: copiedTextBox.rotation,
             opacity: copiedTextBox.opacity,
             cornerRadius: copiedTextBox.cornerRadius,
             borderWidth: copiedTextBox.borderWidth,
             borderColor: copiedTextBox.borderColor,
+            zIndex: copiedTextBox.zIndex,
             pageIndex: textBox.pageIndex
         )
 

@@ -544,22 +544,18 @@ struct WrittenNoteView: View {
                         )
                         
                         // TextBox overlay for this page (on top of everything)
-                        // Only show when textbox tool is active or there are textboxes to display
-                        if currentTool == .textbox || !textBoxManager.textBoxes(for: pageIndex).isEmpty {
-                            TextBoxOverlay(
-                                textBoxManager: textBoxManager,
-                                pageIndex: pageIndex,
-                                canvasSize: CGSize(
-                                width: perPageSize(pageIndex).width,
-                                height: perPageSize(pageIndex).height
-                            )
-                            )
-                            .frame(
-                                width: perPageSize(pageIndex).width,
-                                height: perPageSize(pageIndex).height
-                            )
-                            .allowsHitTesting(currentTool == .textbox || textBoxManager.isEditingText)
-                        }
+                        TextBoxOverlay(
+                            textBoxManager: textBoxManager,
+                            pageIndex: pageIndex,
+                            canvasSize: CGSize(
+                            width: perPageSize(pageIndex).width,
+                            height: perPageSize(pageIndex).height
+                        )
+                        )
+                        .frame(
+                            width: perPageSize(pageIndex).width,
+                            height: perPageSize(pageIndex).height
+                        )
                     } else {
                         Text("Error: Canvas not available for page \(pageIndex + 1)")
                             .foregroundColor(.red)
