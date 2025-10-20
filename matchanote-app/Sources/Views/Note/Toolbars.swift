@@ -526,7 +526,7 @@ struct WrittenNoteToolbar: View {
                     // Fixed outer circle frame to prevent layout shifts
                     Circle()
                       .fill(Color.gray.opacity(0.1))
-                      .frame(width: 26, height: 26)
+                      .frame(width: 32, height: 32)
                     
                     // Inner circle that changes size based on tool width
                     Circle()
@@ -676,7 +676,7 @@ struct WrittenNoteToolbar: View {
                     // Fixed outer circle frame to prevent layout shifts
                     Circle()
                       .fill(Color.gray.opacity(0.1))
-                      .frame(width: 26, height: 26)
+                      .frame(width: 32, height: 32)
                     
                     // Inner circle that changes size based on tool width
                     Circle()
@@ -1013,7 +1013,7 @@ struct WrittenNoteToolbar: View {
                     // Fixed outer circle frame to prevent layout shifts
                     Circle()
                       .fill(Color.gray.opacity(0.1))
-                      .frame(width: 26, height: 26)
+                      .frame(width: 32, height: 32)
                     
                     // Inner circle that changes size based on tool width
                     Circle()
@@ -1218,8 +1218,8 @@ struct WrittenNoteToolbar: View {
 
   // Map a tool width to a visually distinct diameter for the preset dot
   private func dotDiameter(for width: CGFloat, maxRange: CGFloat) -> CGFloat {
-    let minDiam: CGFloat = 4
-    let maxDiam: CGFloat = 22
+    let minDiam: CGFloat = 6
+    let maxDiam: CGFloat = 26
     let clamped = max(0.5, min(width, maxRange))
     // Use linear scaling to better represent actual pen widths
     let fraction = clamped / maxRange
@@ -1228,8 +1228,8 @@ struct WrittenNoteToolbar: View {
   
   // Map a highlighter width to a visually distinct diameter for the preset dot
   private func highlighterDotDiameter(for width: CGFloat, maxRange: CGFloat) -> CGFloat {
-    let minDiam: CGFloat = 6
-    let maxDiam: CGFloat = 22
+    let minDiam: CGFloat = 8
+    let maxDiam: CGFloat = 26
     let clamped = max(0.5, min(width, maxRange))
     // Use square root scaling for highlighter to better show size differences
     let fraction = sqrt(clamped / maxRange)
@@ -1408,7 +1408,7 @@ struct WrittenNoteToolbar: View {
   // MARK: - Tool Buttons View
   @ViewBuilder
   private var toolButtonsView: some View {
-    HStack(spacing: 8) {
+    HStack(spacing: 16) {
       ForEach(preferencesManager.noteEditorToolsOrder, id: \.self) { id in
         if isToolEnabled(id) {
           renderToolButton(id)
