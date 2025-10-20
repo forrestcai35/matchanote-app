@@ -60,6 +60,7 @@ struct NewWrittenNoteView: View {
               ForEach(PaperStyle.allCases, id: \.self) { style in
                 PaperStyleCard(
                   style: style,
+                  paperColor: paperColor,
                   isSelected: paperStyle == style,
                   onTap: { paperStyle = style }
                 )
@@ -215,6 +216,7 @@ struct ModernTextFieldStyle: TextFieldStyle {
 
 struct PaperStyleCard: View {
   let style: PaperStyle
+  let paperColor: PaperColor
   let isSelected: Bool
   let onTap: () -> Void
   
@@ -223,7 +225,7 @@ struct PaperStyleCard: View {
       VStack(spacing: 8) {
         ZStack {
           RoundedRectangle(cornerRadius: 8)
-            .fill(paperColorForStyle(style))
+            .fill(colorForPaperColor(paperColor))
             .frame(height: 48)
             .overlay(
               paperPatternForStyle(style)
@@ -245,10 +247,14 @@ struct PaperStyleCard: View {
     .buttonStyle(PlainButtonStyle())
   }
   
-  private func paperColorForStyle(_ style: PaperStyle) -> Color {
-    switch style {
-    case .blank, .grid, .dotted, .lined:
+  private func colorForPaperColor(_ paperColor: PaperColor) -> Color {
+    switch paperColor {
+    case .white:
       return .white
+    case .offwhite:
+      return Color.paper_offwhite
+    case .dark:
+      return Color.paper_dark
     }
   }
   
