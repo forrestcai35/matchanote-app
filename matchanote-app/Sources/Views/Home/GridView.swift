@@ -201,13 +201,7 @@ public struct GridItemView: View {
                 .buttonStyle(PlainButtonStyle())
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
 
-                Image(systemName: noteTypeIcon(note.noteType))
-                    .foregroundColor(.white)
-                    .padding(6)
-                    .background(Color.black.opacity(0.3))
-                    .clipShape(Circle())
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    .padding(8)
+               
                 
                 // Selection indicator - centered circle with checkmark
                 if isSelectionMode {
@@ -296,8 +290,5 @@ public struct GridItemView: View {
 
     }
 
-    // Use the DocumentsView noteTypeIcon function
-    private func noteTypeIcon(_ type: NoteType) -> String {
-        return "pencil"
-    }
+ 
 }

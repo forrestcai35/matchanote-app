@@ -181,7 +181,7 @@ struct PaperUtilities {
   }
   
   private static func drawGridPattern(context: CGContext, size: CGSize) {
-    let gridSpacing: CGFloat = max(8, size.width / 30) // Adaptive spacing for thumbnail
+    let gridSpacing: CGFloat = max(8, size.width / 22) // Adaptive spacing for thumbnail
     let lineColor = UIColor.gray.withAlphaComponent(0.25)
     
     context.setStrokeColor(lineColor.cgColor)
@@ -205,7 +205,7 @@ struct PaperUtilities {
   }
   
   private static func drawDottedPattern(context: CGContext, size: CGSize) {
-    let baseSpacing: CGFloat = max(12, size.width / 20) // Adaptive spacing for thumbnail
+    let baseSpacing: CGFloat = max(12, size.width / 18) // Adaptive spacing for thumbnail
     let dotRadius: CGFloat = 1.0
     let dotColor = UIColor.gray.withAlphaComponent(0.5)
     
@@ -231,7 +231,7 @@ struct PaperUtilities {
   }
   
   private static func drawLinedPattern(context: CGContext, size: CGSize) {
-    let lineSpacing: CGFloat = max(10, size.height / 20) // Adaptive spacing for thumbnail
+    let lineSpacing: CGFloat = max(10, size.height / 24) // Adaptive spacing for thumbnail
     let lineColor = UIColor(red: 0.5, green: 0.5, blue: 0.5, alpha: 0.25) // More subtle gray
     
     context.setStrokeColor(lineColor.cgColor)

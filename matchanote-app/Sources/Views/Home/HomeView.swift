@@ -950,10 +950,6 @@ struct HomeView: View {
         return colorScheme == .dark ? Color.white.opacity(0.4) : Color.black.opacity(0.2)
     }
 
-    // Centralize note type icon logic
-    private func noteTypeIcon(_ type: NoteType) -> String {
-        return "pencil"
-    }
 
     // MARK: - Drag and Drop Handling
     // Generic drag preview function that works for both folders and notes
@@ -976,10 +972,6 @@ struct HomeView: View {
                         RoundedRectangle(cornerRadius: 10)
                             .fill(note.color)
                             .frame(width: width, height: height)
-
-                        Image(systemName: "pencil.tip")
-                            .font(.system(size: 30))
-                            .foregroundColor(Color.white.opacity(0.3))
                     }
                 }
                 .background(Color.clear)
