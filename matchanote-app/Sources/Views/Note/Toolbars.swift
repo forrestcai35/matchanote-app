@@ -359,13 +359,12 @@ struct WrittenNoteToolbar: View {
       Spacer()
 
       // Centered toolbar content
-      HStack(spacing: 12) {
+      HStack(spacing: 8) {
         // Tool buttons (icons only) - ordered by settings
         toolButtonsView
 
         Divider()
           .frame(height: 24)
-          .padding(.horizontal, 4)
 
         // Shape recognition toggle removed
 
@@ -508,12 +507,10 @@ struct WrittenNoteToolbar: View {
   private func toolOptionsPanel(for tool: PenTool) -> some View {
     switch tool {
     case .pen:
-      VStack(alignment: .leading, spacing: 6) {
-        HStack(spacing: 10) {
-          // Width presets with dropdown segmented control
-          VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
-              ForEach(0..<toolState.penWidthPresets.count, id: \.self) { i in
+      HStack(spacing: 8) {
+        // Width presets with dropdown segmented control
+        HStack(spacing: 8) {
+          ForEach(0..<toolState.penWidthPresets.count, id: \.self) { i in
                 Button {
                   if toolState.selectedPenPresetIndex != i {
                     toolState.selectedPenPresetIndex = i
@@ -573,17 +570,19 @@ struct WrittenNoteToolbar: View {
                   .padding(.vertical, 12)
                   .padding(.horizontal, 12)
                 }
-              }
-            }
           }
-
-          // Colors (with delete and add) - Scrollable with max width
+        }
+        
+        Divider()
+          .frame(height: 20)
+        
+        // Colors (with delete and add) - Scrollable with max width
           ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
               ForEach(Array(toolState.penPalette.enumerated()), id: \.offset) { index, color in
                 Circle()
                   .fill(color)
-                  .frame(width: 18, height: 18)
+                  .frame(width: 20, height: 20)
                   .overlay(
                     Circle()
                       .stroke(
@@ -610,6 +609,7 @@ struct WrittenNoteToolbar: View {
               } label: {
                 Image(systemName: "plus.circle.fill")
                   .foregroundColor(.matchalight_dark)
+                                    .font(.system(size: 20))
               }
               .popover(isPresented: $showPenColorPicker) {
                 VStack(spacing: 12) {
@@ -631,20 +631,35 @@ struct WrittenNoteToolbar: View {
                 .frame(minWidth: 260)
               }
             }
-            .padding(.horizontal, 4)
+            .padding(.horizontal, 8)
           }
-          .frame(maxWidth: 180) // Reduced to fit within fixed width
-        }
+          .frame(maxWidth: 180)
+          .mask(
+            HStack(spacing: 0) {
+              LinearGradient(
+                gradient: Gradient(colors: [.clear, .black]),
+                startPoint: .leading,
+                endPoint: .trailing
+              )
+              .frame(width: 8)
+              
+              Rectangle()
+                .fill(Color.black)
+              
+              LinearGradient(
+                gradient: Gradient(colors: [.black, .clear]),
+                startPoint: .leading,
+                endPoint: .trailing
+              )
+              .frame(width: 8)
+            }
+          )
       }
-      .padding(.horizontal, 8)
-      .padding(.vertical, 4)
 
     case .marker:
-      VStack(alignment: .leading, spacing: 6) {
-        HStack(spacing: 10) {
-          // Width presets with dropdown segmented control
-          VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
+      HStack(spacing: 8) {
+        // Width presets with dropdown segmented control
+        HStack(spacing: 8) {
               ForEach(0..<toolState.markerWidthPresets.count, id: \.self) { i in
                 Button {
                   if toolState.selectedMarkerPresetIndex != i {
@@ -705,17 +720,19 @@ struct WrittenNoteToolbar: View {
                   .padding(.vertical, 12)
                   .padding(.horizontal, 12)
                 }
-              }
-            }
           }
-
-          // Colors (with delete and add) - Scrollable with max width
+        }
+        
+        Divider()
+          .frame(height: 20)
+        
+        // Colors (with delete and add) - Scrollable with max width
           ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
               ForEach(Array(toolState.markerPalette.enumerated()), id: \.offset) { index, color in
                 Circle()
                   .fill(color)
-                  .frame(width: 18, height: 18)
+                  .frame(width: 20, height: 20)
                   .overlay(
                     Circle()
                       .stroke(
@@ -742,6 +759,7 @@ struct WrittenNoteToolbar: View {
               } label: {
                 Image(systemName: "plus.circle.fill")
                   .foregroundColor(.matchalight_dark)
+                                .font(.system(size: 20))
               }
               .popover(isPresented: $showMarkerColorPicker) {
                 VStack(spacing: 12) {
@@ -763,13 +781,30 @@ struct WrittenNoteToolbar: View {
                 .frame(minWidth: 260)
               }
             }
-            .padding(.horizontal, 4)
+            .padding(.horizontal, 8)
           }
-          .frame(maxWidth: 180) // Reduced to fit within fixed width
-        }
+          .frame(maxWidth: 180)
+          .mask(
+            HStack(spacing: 0) {
+              LinearGradient(
+                gradient: Gradient(colors: [.clear, .black]),
+                startPoint: .leading,
+                endPoint: .trailing
+              )
+              .frame(width: 8)
+              
+              Rectangle()
+                .fill(Color.black)
+              
+              LinearGradient(
+                gradient: Gradient(colors: [.black, .clear]),
+                startPoint: .leading,
+                endPoint: .trailing
+              )
+              .frame(width: 8)
+            }
+          )
       }
-      .padding(.horizontal, 8)
-      .padding(.vertical, 4)
 
     case .eraser:
       HStack(spacing: 16) {
@@ -872,10 +907,6 @@ struct WrittenNoteToolbar: View {
         }
         .frame(width: 200) // Fixed width to prevent toolbar movement
       }
-      
-      .padding(.horizontal, 8)
-      .clipped()
-      .padding(.vertical, 4)
 
 
     case .lasso:
@@ -937,42 +968,35 @@ struct WrittenNoteToolbar: View {
       .frame(maxWidth: .infinity)
       .padding(.horizontal, 8)
       .padding(.vertical, 4)
-
       .cornerRadius(8)
 
     case .textbox:
-      VStack(alignment: .leading, spacing: 6) {
-        HStack(spacing: 10) {
-          // Add textbox button
-          Button(action: {
-            addTextBoxToCurrentPage()
-          }) {
-            HStack(spacing: 4) {
-              Image(systemName: "plus")
-                .font(.system(size: 14))
-              Text("Add Text")
-                .font(.caption)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(Color.matchalight_dark)
-            .foregroundColor(.white)
-            .cornerRadius(6)
+      HStack(spacing: 8) {
+        // Add textbox button
+        Button(action: {
+          addTextBoxToCurrentPage()
+        }) {
+          HStack(spacing: 4) {
+            Image(systemName: "plus")
+              .font(.system(size: 14))
+            Text("Add Text")
+              .font(.caption)
           }
-
-          // Always show formatting controls when textbox tool is active
-          TextBoxFormattingControls(textBoxManager: textBoxManager)
+          .padding(.horizontal, 8)
+          .padding(.vertical, 4)
+          .background(Color.matchalight_dark)
+          .foregroundColor(.white)
+          .cornerRadius(6)
         }
+
+        // Always show formatting controls when textbox tool is active
+        TextBoxFormattingControls(textBoxManager: textBoxManager)
       }
-      .padding(.horizontal, 8)
-      .padding(.vertical, 4)
 
     case .shape:
-      VStack(alignment: .leading, spacing: 6) {
-        HStack(spacing: 10) {
-          // Width presets with dropdown segmented control (same as pen)
-          VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
+      HStack(spacing: 8) {
+        // Width presets with dropdown segmented control (same as pen)
+        HStack(spacing: 8) {
               ForEach(0..<toolState.penWidthPresets.count, id: \.self) { i in
                 Button {
                   if toolState.selectedPenPresetIndex != i {
@@ -1033,17 +1057,19 @@ struct WrittenNoteToolbar: View {
                   .padding(.vertical, 12)
                   .padding(.horizontal, 12)
                 }
-              }
-            }
           }
-
-          // Colors (same as pen)
+        }
+        
+        Divider()
+          .frame(height: 20)
+        
+        // Colors (same as pen)
           ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
               ForEach(Array(toolState.penPalette.enumerated()), id: \.offset) { index, color in
                 Circle()
                   .fill(color)
-                  .frame(width: 18, height: 18)
+                  .frame(width: 20, height: 20)
                   .overlay(
                     Circle()
                       .stroke(
@@ -1070,6 +1096,7 @@ struct WrittenNoteToolbar: View {
               } label: {
                 Image(systemName: "plus.circle.fill")
                   .foregroundColor(.matchalight_dark)
+                            .font(.system(size: 20))
               }
               .popover(isPresented: $showPenColorPicker) {
                 VStack(spacing: 12) {
@@ -1091,13 +1118,30 @@ struct WrittenNoteToolbar: View {
                 .frame(minWidth: 260)
               }
             }
-            .padding(.horizontal, 4)
+            .padding(.horizontal, 8)
           }
-          .frame(maxWidth: 180) // Reduced to fit within fixed width
-        }
+          .frame(maxWidth: 180)
+          .mask(
+            HStack(spacing: 0) {
+              LinearGradient(
+                gradient: Gradient(colors: [.clear, .black]),
+                startPoint: .leading,
+                endPoint: .trailing
+              )
+              .frame(width: 8)
+              
+              Rectangle()
+                .fill(Color.black)
+              
+              LinearGradient(
+                gradient: Gradient(colors: [.black, .clear]),
+                startPoint: .leading,
+                endPoint: .trailing
+              )
+              .frame(width: 8)
+            }
+          )
       }
-      .padding(.horizontal, 8)
-      .padding(.vertical, 4)
     }
   }
 
@@ -1364,7 +1408,7 @@ struct WrittenNoteToolbar: View {
   // MARK: - Tool Buttons View
   @ViewBuilder
   private var toolButtonsView: some View {
-    HStack(spacing: 12) {
+    HStack(spacing: 8) {
       ForEach(preferencesManager.noteEditorToolsOrder, id: \.self) { id in
         if isToolEnabled(id) {
           renderToolButton(id)
