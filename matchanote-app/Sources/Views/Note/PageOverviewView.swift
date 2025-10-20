@@ -66,10 +66,13 @@ struct PageOverviewView: View {
                   showingExportSheet = true
                 }
                 
-                Button("Delete") {
-                  showingDeleteAlert = true
+                // Only show delete button if there's more than one page
+                if totalPages > 1 {
+                  Button("Delete") {
+                    showingDeleteAlert = true
+                  }
+                  .foregroundColor(.red)
                 }
-                .foregroundColor(.red)
               }
             } else {
               Button("Select") {
@@ -156,6 +159,9 @@ struct PageOverviewView: View {
   
   private func deleteSelectedPages() {
     guard !selectedPages.isEmpty else { return }
+    
+    // Prevent deletion if there's only one page
+    guard totalPages > 1 else { return }
     
     // Create updated note with selected pages removed
     var updatedNote = note

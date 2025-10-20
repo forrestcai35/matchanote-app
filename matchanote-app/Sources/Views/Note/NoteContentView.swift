@@ -232,7 +232,33 @@ struct WrittenNoteView: View {
             saveDrawingDataForNote(noteId: currentId)
         }
     }
-    
+
+    // Helper function to filter out old canvas images from imageDataByPage
+    // Returns only background images (raw image data), removing encoded CanvasImage objects
+    private func filterBackgroundImages(from imageDataByPage: [String: [Data]]) -> [String: [Data]] {
+        var backgroundOnly: [String: [Data]] = [:]
+
+        for (pageKey, imageDataArray) in imageDataByPage {
+            // Filter to keep only raw image data (not JSON-encoded CanvasImage)
+            let filteredImages = imageDataArray.filter { imageData in
+                // Try to decode as CanvasImage - if it succeeds, it's a canvas image (skip it)
+                // If it fails, it's raw image data (keep it)
+                do {
+                    _ = try JSONDecoder().decode(CanvasImage.self, from: imageData)
+                    return false // Successfully decoded as CanvasImage, so skip it
+                } catch {
+                    return true // Failed to decode, so it's raw image data, keep it
+                }
+            }
+
+            if !filteredImages.isEmpty {
+                backgroundOnly[pageKey] = filteredImages
+            }
+        }
+
+        return backgroundOnly
+    }
+
     // Get the current note with latest drawing data without saving to storage
     // Useful for operations that need fresh data (like exports)
     func getCurrentNoteWithLatestData() -> Note? {
@@ -249,11 +275,12 @@ struct WrittenNoteView: View {
             newDrawingData[String(index)] = drawingData
         }
         
-        // Merge canvas images with background images
+        // FIX: Filter out old canvas images before merging to prevent duplicates
+        // This keeps background images while replacing old canvas images with new ones
         let canvasImageData = imageManager.getAllImagesData()
-        let backgroundImages = noteToUpdate.imageDataByPage
+        let backgroundImages = filterBackgroundImages(from: noteToUpdate.imageDataByPage)
         var finalImageData = backgroundImages
-        
+
         for (pageKey, canvasImages) in canvasImageData {
             if finalImageData[pageKey] == nil {
                 finalImageData[pageKey] = []
@@ -311,23 +338,23 @@ struct WrittenNoteView: View {
             }
         }
         
-        // CRITICAL FIX: Properly handle both image types without overwriting
+        // FIX: Filter out old canvas images before merging to prevent duplicates
         // 1. Background images (from home page uploads): stored as raw Data in note.imageDataByPage
         // 2. Canvas overlay images (from in-note uploads): stored as encoded CanvasImage objects
-        
+
         let canvasImageData = imageManager.getAllImagesData() // Encoded CanvasImage objects
-        let backgroundImages = noteToSave.imageDataByPage    // Raw image Data from uploads
-        
-        // Create a merged image data structure that preserves both types
-        var finalImageData = backgroundImages // Start with background images
-        
-        // Add canvas images (encoded CanvasImage objects) to the data structure
-        // These will be stored alongside background images but with different data formats
+        let backgroundImages = filterBackgroundImages(from: noteToSave.imageDataByPage) // Filter out old canvas images
+
+        // Create a merged image data structure that preserves background images
+        // and replaces old canvas images with current ones
+        var finalImageData = backgroundImages // Start with background images only
+
+        // Add current canvas images (encoded CanvasImage objects) to the data structure
         for (pageKey, canvasImages) in canvasImageData {
             if finalImageData[pageKey] == nil {
                 finalImageData[pageKey] = []
             }
-            // Append encoded canvas images to existing background images for this page
+            // Append current canvas images to background images for this page
             finalImageData[pageKey]?.append(contentsOf: canvasImages)
         }
         

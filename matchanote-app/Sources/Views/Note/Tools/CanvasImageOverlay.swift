@@ -52,18 +52,19 @@ struct CanvasImageView: View {
                             isSelected ?
                             DragGesture(minimumDistance: 0)
                                 .onChanged { value in
-                                    // Direct model update - most performant approach
+                                    // PERFORMANCE: Use debounced updates during drag
                                     let newPosition = CGPoint(
                                         x: image.position.x + value.translation.width,
                                         y: image.position.y + value.translation.height
                                     )
-                                    
+
                                     var updatedImage = image
                                     updatedImage.updatePosition(to: newPosition)
-                                    imageManager.updateImage(updatedImage)
+                                    imageManager.updateImage(updatedImage, isDragging: true)
                                 }
                                 .onEnded { _ in
-                                    // No additional work needed - position already updated
+                                    // Signal drag end for final undo registration
+                                    imageManager.endDragging()
                                 } : nil
                         )
                     
@@ -119,7 +120,8 @@ struct CanvasImageView: View {
                     if currentSize.width > 0 && currentSize.height > 0 {
                         var updatedImage = image
                         updatedImage.resize(to: currentSize)
-                        imageManager.updateImage(updatedImage)
+                        // PERFORMANCE: Use non-dragging update for resize completion
+                        imageManager.updateImage(updatedImage, isDragging: false)
                     }
                     currentSize = .zero
                 }
@@ -155,10 +157,10 @@ struct ProportionalResizeHandle: View {
                     // Calculate proportional scaling based on average movement
                     let scaleChange = (value.translation.width + value.translation.height) / 2
                     let aspectRatio = startSize.width / startSize.height
-                    
+
                     let newWidth = max(50, startSize.width + scaleChange)
                     let newHeight = max(50, newWidth / aspectRatio)
-                    
+
                     let newSize = CGSize(width: newWidth, height: newHeight)
                     onChanged(newSize)
                 }

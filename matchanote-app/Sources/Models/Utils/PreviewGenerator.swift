@@ -8,7 +8,7 @@ struct PreviewGenerator {
   
   // MARK: - Preview Types
   
-  enum PreviewSize {
+  enum PreviewSize: Equatable {
     case grid       // For grid view thumbnails (160x200)
     case list       // For list view thumbnails (32x40)
     case export     // For full-size exports

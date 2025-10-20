@@ -9,24 +9,31 @@ public struct ListItemView: View {
     let isSelectionMode: Bool
     @State private var showRenamePopover = false
     @State private var newTitle = ""
-    
+    @State private var previewImage: UIImage?
+    @State private var isLoadingPreview = false
+
     init(note: Note, isSelected: Bool = false, isSelectionMode: Bool = false) {
         self.note = note
         self.isSelected = isSelected
         self.isSelectionMode = isSelectionMode
     }
 
-    // Preview view using consolidated PreviewGenerator
+    // Optimized preview view with async loading and caching
     @ViewBuilder
     private var notePreview: some View {
-        let previewImage = PreviewGenerator.generateListPreview(for: note)
-        
-        Image(uiImage: previewImage)
-            .resizable()
-            .aspectRatio(contentMode: .fill)
-            .frame(width: 32, height: 40)
-            .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: note.noteType == .written ? 6 : 2))
+        if let preview = previewImage {
+            Image(uiImage: preview)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 32, height: 40)
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: note.noteType == .written ? 6 : 2))
+        } else {
+            // Placeholder while loading
+            RoundedRectangle(cornerRadius: note.noteType == .written ? 6 : 2)
+                .fill(note.color.opacity(0.3))
+                .frame(width: 32, height: 40)
+        }
     }
 
     public var body: some View {
@@ -43,7 +50,7 @@ public struct ListItemView: View {
                         .font(.title3)
                 }
                 
-                // Note preview with shadow
+                // Note preview with shadow and async loading
                 notePreview
                     .shadow(
                         color: colorScheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.15),
@@ -51,6 +58,17 @@ public struct ListItemView: View {
                         x: 0,
                         y: 1
                     )
+                    .task(id: note.dateModified) {
+                        // Load preview asynchronously when note changes
+                        // Check cache first for instant display
+                        if let cached = PreviewCache.shared.getCachedPreview(for: note, size: .list) {
+                            previewImage = cached
+                        } else {
+                            isLoadingPreview = true
+                            previewImage = await PreviewCache.shared.getPreview(for: note, size: .list)
+                            isLoadingPreview = false
+                        }
+                    }
 
                 // Note info
                 VStack(alignment: .leading, spacing: 3) {

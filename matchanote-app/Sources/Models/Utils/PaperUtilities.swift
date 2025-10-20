@@ -167,7 +167,7 @@ struct PaperUtilities {
   }
   
   // MARK: - Paper Pattern Drawing
-   static func drawPaperPattern(context: CGContext, paperStyle: PaperStyle, size: CGSize) {
+  public static func drawPaperPattern(context: CGContext, paperStyle: PaperStyle, size: CGSize) {
     switch paperStyle {
     case .blank:
       return

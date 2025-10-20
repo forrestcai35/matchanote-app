@@ -69,10 +69,15 @@ public struct CanvasImage: Identifiable, Codable {
 public class CanvasImageManager: ObservableObject {
     @Published public var imagesByPage: [Int: [CanvasImage]] = [:]
     @Published public var selectedImageId: UUID?
-    
+
     // Undo manager reference for integrating with PencilKit undo system
     public weak var undoManager: UndoManager?
-    
+
+    // PERFORMANCE: Debounce updates during drag operations
+    private var isDragging = false
+    private var pendingUpdate: CanvasImage?
+    private var updateWorkItem: DispatchWorkItem?
+
     public init() {}
     
     // MARK: - Undo Manager Setup
@@ -114,23 +119,65 @@ public class CanvasImageManager: ObservableObject {
         }
     }
     
-    public func updateImage(_ updatedImage: CanvasImage) {
+    public func updateImage(_ updatedImage: CanvasImage, isDragging: Bool = false) {
         guard var images = imagesByPage[updatedImage.pageIndex] else { return }
-        
+
         if let index = images.firstIndex(where: { $0.id == updatedImage.id }) {
             let previousImage = images[index]
-            
-            // Skip update if position hasn't changed (performance optimization)
-            guard previousImage.position != updatedImage.position else { return }
-            
-            // Register undo action before updating
-            undoManager?.registerUndo(withTarget: self) { manager in
-                manager.updateImage(previousImage)
+
+            // Skip update if nothing changed
+            guard previousImage.position != updatedImage.position ||
+                  previousImage.size != updatedImage.size ||
+                  previousImage.rotation != updatedImage.rotation else { return }
+
+            // PERFORMANCE: If dragging, debounce the published update
+            if isDragging {
+                // Update immediately in the array for smooth dragging
+                images[index] = updatedImage
+                imagesByPage[updatedImage.pageIndex] = images
+
+                // Cancel pending update
+                updateWorkItem?.cancel()
+
+                // Schedule debounced undo registration
+                pendingUpdate = updatedImage
+                let workItem = DispatchWorkItem { [weak self] in
+                    guard let self = self else { return }
+                    // Register undo only after drag stops
+                    self.undoManager?.registerUndo(withTarget: self) { manager in
+                        manager.updateImage(previousImage, isDragging: false)
+                    }
+                    self.undoManager?.setActionName("Move/Resize Image")
+                    self.pendingUpdate = nil
+                }
+                updateWorkItem = workItem
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: workItem)
+            } else {
+                // Not dragging - immediate update with undo
+                undoManager?.registerUndo(withTarget: self) { manager in
+                    manager.updateImage(previousImage, isDragging: false)
+                }
+                undoManager?.setActionName("Move/Resize Image")
+
+                images[index] = updatedImage
+                imagesByPage[updatedImage.pageIndex] = images
             }
-            undoManager?.setActionName("Move/Resize Image")
-            
-            images[index] = updatedImage
-            imagesByPage[updatedImage.pageIndex] = images
+        }
+    }
+
+    // Call this when drag begins
+    public func beginDragging() {
+        isDragging = true
+    }
+
+    // Call this when drag ends
+    public func endDragging() {
+        isDragging = false
+        // Force completion of any pending update
+        updateWorkItem?.cancel()
+        if pendingUpdate != nil {
+            // Final update already applied, just clear state
+            pendingUpdate = nil
         }
     }
     

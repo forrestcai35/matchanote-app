@@ -145,7 +145,9 @@ public struct GridItemView: View {
     @EnvironmentObject private var storageManager: StorageManager
     @State private var showRenamePopover = false
     @State private var newTitle = ""
-    
+    @State private var previewImage: UIImage?
+    @State private var isLoadingPreview = false
+
     init(note: Note, isSelected: Bool = false, isSelectionMode: Bool = false) {
         self.note = note
         self.isSelected = isSelected
@@ -156,15 +158,23 @@ public struct GridItemView: View {
         return colorScheme == .dark ? Color.white.opacity(0.4) : Color.black.opacity(0.2)
     }
 
-    // Preview view using consolidated PreviewGenerator
+    // Optimized preview view with async loading and caching
     @ViewBuilder
     private var notePreview: some View {
-        let previewImage = PreviewGenerator.generateGridPreview(for: note)
-        
-        Image(uiImage: previewImage)
-            .resizable()
-            .aspectRatio(contentMode: .fill)
-            .clipped()
+        if let preview = previewImage {
+            Image(uiImage: preview)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .clipped()
+        } else {
+            // Placeholder while loading
+            RoundedRectangle(cornerRadius: note.noteType == .written ? 10 : 0)
+                .fill(note.color.opacity(0.3))
+                .overlay(
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .gray))
+                )
+        }
     }
 
     public var body: some View {
@@ -182,10 +192,21 @@ public struct GridItemView: View {
                         y: 2
                     )
 
-                // Content preview - using consolidated PreviewGenerator
+                // Content preview - using cached async preview generation
                 notePreview
                     .frame(width: 160, height: 200)
                     .clipShape(RoundedRectangle(cornerRadius: note.noteType == .written ? 10 : 0))
+                    .task(id: note.dateModified) {
+                        // Load preview asynchronously when note changes
+                        // Check cache first for instant display
+                        if let cached = PreviewCache.shared.getCachedPreview(for: note, size: .grid) {
+                            previewImage = cached
+                        } else {
+                            isLoadingPreview = true
+                            previewImage = await PreviewCache.shared.getPreview(for: note, size: .grid)
+                            isLoadingPreview = false
+                        }
+                    }
 
                 Button(action: {
                     var updatedNote = note
