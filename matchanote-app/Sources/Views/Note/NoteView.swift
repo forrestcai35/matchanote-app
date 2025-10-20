@@ -220,6 +220,7 @@ struct NoteView: View {
   @State private var addPageCallback: ((PagePlacement) -> Void)?
   @State private var deletePageCallback: ((Int) -> Void)?
   @State private var writtenNoteView: WrittenNoteView?
+  @State private var showExportOptionsView: Bool = false
 
   init(note: Note) {
     self.note = note
@@ -315,8 +316,8 @@ struct NoteView: View {
             dismiss: dismiss,
             clearPageAction: clearCurrentPage,
             deletePageAction: { deletePageCallback?(currentPage) },
-            exportCurrentPageAction: { handleExport(pages: [currentPage]) },
-            exportAllPagesAction: { handleExport(pages: Array(0..<totalPages)) },
+            quickExportAction: { handleQuickExport() },
+            exportOptionsAction: { showExportOptionsView = true },
             printCurrentPageAction: { handlePrint(pages: [currentPage]) },
             printAllPagesAction: { handlePrint(pages: Array(0..<totalPages)) },
             onAddPage: { placement in
@@ -411,6 +412,15 @@ struct NoteView: View {
         }
       }
       .statusBar(hidden: noteEditorStatusBarHidden)
+      .sheet(isPresented: $showExportOptionsView) {
+        ExportOptionsView(
+          note: activeNote,
+          totalPages: totalPages,
+          onExport: { exportType, pages in
+            handleExportWithType(exportType: exportType, pages: pages)
+          }
+        )
+      }
       .onAppear {
         // PERFORMANCE OPTIMIZED: Immediate essential operations only
         openNoteInTab()
@@ -786,17 +796,16 @@ extension NoteView {
     return ExportManager.shared.exportNoteAsPDF(activeNote, selectedPages: pages)
   }
 
-  private func handleExport(pages: [Int]) {
-    // Save current canvas data to the note via canvas manager before exporting
+  private func handleQuickExport() {
+    // Quick export exports all pages as PDF
     saveCurrentCanvasData()
     
-    // Get the updated note from storage (it should have the latest data now)
     guard let latestNote = storageManager.notes.first(where: { $0.id == activeNote.id }) else {
       print("Could not find note to export")
       return
     }
     
-    guard let url = ExportManager.shared.exportNoteAsPDF(latestNote, selectedPages: pages) else {
+    guard let url = ExportManager.shared.exportNoteAsPDF(latestNote, selectedPages: nil) else {
       print("Failed to create PDF")
       return
     }
@@ -809,6 +818,36 @@ extension NoteView {
       }
     }
     topViewController()?.present(controller, animated: true)
+  }
+  
+  private func handleExportWithType(exportType: ExportType, pages: [Int]) {
+    // Save current canvas data to the note before exporting
+    saveCurrentCanvasData()
+    
+    // Get the updated note from storage (it should have the latest data now)
+    guard let latestNote = storageManager.notes.first(where: { $0.id == activeNote.id }) else {
+      print("Could not find note to export")
+      return
+    }
+    
+    guard let url = ExportManager.shared.exportNote(latestNote, selectedPages: pages, exportType: exportType) else {
+      print("Failed to create export file")
+      return
+    }
+    
+    let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+    if let popover = controller.popoverPresentationController {
+      if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+         let window = scene.windows.first(where: { $0.isKeyWindow }) {
+        popover.sourceView = window
+      }
+    }
+    topViewController()?.present(controller, animated: true)
+  }
+  
+  private func handleExport(pages: [Int]) {
+    // Legacy function for backwards compatibility
+    handleExportWithType(exportType: .pdf, pages: pages)
   }
 
   private func handlePrint(pages: [Int]) {
@@ -894,7 +933,7 @@ extension NoteView {
   }
   
   private func presentFilePicker() {
-    let documentPicker = UIDocumentPickerViewController(forOpeningContentTypes: [.pdf, .image], asCopy: true)
+    let documentPicker = UIDocumentPickerViewController(forOpeningContentTypes: [.pdf, .image, .matchaNote], asCopy: true)
     documentPicker.delegate = DocumentPickerCoordinator.shared
     documentPicker.allowsMultipleSelection = false
 
@@ -919,6 +958,8 @@ extension NoteView {
         try handlePDFImport(url: url)
       case "jpg", "jpeg", "png", "heic", "heif":
         try handleImageImport(url: url)
+      case "matcha":
+        try handleMatchaImport(url: url)
       default:
         print("Unsupported file type: \(fileExtension)")
       }
@@ -1045,6 +1086,113 @@ extension NoteView {
     // Add text content to note (this could be enhanced to create text annotations)
     print("Text imported successfully: \(url.lastPathComponent)")
     print("Content preview: \(String(textContent.prefix(100)))")
+  }
+  
+  private func handleMatchaImport(url: URL) throws {
+    guard url.startAccessingSecurityScopedResource() else {
+      throw ImportError.accessDenied
+    }
+    defer { url.stopAccessingSecurityScopedResource() }
+    
+    // Read the Matcha note data
+    let matchaData = try Data(contentsOf: url)
+    
+    // Decode the note from JSON with proper date decoding strategy
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+    let importedNote = try decoder.decode(Note.self, from: matchaData)
+    
+    guard let activeTab = tabManager.getActiveTab() else {
+      throw ImportError.unsupportedFileType
+    }
+    
+    var updatedNote = activeTab.note
+    
+    // Get the list of pages from the imported note
+    let importedPages = importedNote.drawingDataByPage.keys.compactMap { Int($0) }.sorted()
+    
+    if importedPages.isEmpty {
+      // If no pages in the imported note, just add the first page to current page
+      let pageKey = String(currentPage)
+      
+      // Add any images from the imported note's first page
+      if let imageData = importedNote.imageDataByPage["0"] {
+        if updatedNote.imageDataByPage[pageKey] == nil {
+          updatedNote.imageDataByPage[pageKey] = []
+        }
+        updatedNote.imageDataByPage[pageKey]?.append(contentsOf: imageData)
+      }
+      
+      print("Matcha note imported successfully: \(url.lastPathComponent)")
+    } else {
+      // Import each page from the matcha file
+      for (index, pageIndex) in importedPages.enumerated() {
+        let pageKey = String(pageIndex)
+        
+        if index == 0 {
+          // Add first page content to the current page
+          let currentPageKey = String(currentPage)
+          
+          // Merge drawing if exists
+          if let drawingData = importedNote.drawingDataByPage[pageKey] {
+            updatedNote.drawingDataByPage[currentPageKey] = drawingData
+          }
+          
+          // Merge images if exist
+          if let imageData = importedNote.imageDataByPage[pageKey] {
+            if updatedNote.imageDataByPage[currentPageKey] == nil {
+              updatedNote.imageDataByPage[currentPageKey] = []
+            }
+            updatedNote.imageDataByPage[currentPageKey]?.append(contentsOf: imageData)
+          }
+          
+          // Merge text boxes if exist
+          if let textBoxData = importedNote.textBoxDataByPage[pageKey] {
+            if updatedNote.textBoxDataByPage[currentPageKey] == nil {
+              updatedNote.textBoxDataByPage[currentPageKey] = []
+            }
+            updatedNote.textBoxDataByPage[currentPageKey]?.append(contentsOf: textBoxData)
+          }
+        } else {
+          // Add subsequent pages as new pages
+          addPageCallback?(.end)
+          
+          // Wait for page creation then add content
+          let delay = 0.2 * Double(index)
+          DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            let newPageIndex = self.canvasManager.canvasViews.count - 1
+            let newPageKey = String(newPageIndex)
+            
+            guard var currentNote = self.tabManager.getActiveTab()?.note else { return }
+            
+            // Add drawing
+            if let drawingData = importedNote.drawingDataByPage[pageKey] {
+              currentNote.drawingDataByPage[newPageKey] = drawingData
+            }
+            
+            // Add images
+            if let imageData = importedNote.imageDataByPage[pageKey] {
+              currentNote.imageDataByPage[newPageKey] = imageData
+            }
+            
+            // Add text boxes
+            if let textBoxData = importedNote.textBoxDataByPage[pageKey] {
+              currentNote.textBoxDataByPage[newPageKey] = textBoxData
+            }
+            
+            currentNote.dateModified = Date()
+            let savedNote = self.storageManager.saveNote(currentNote)
+            self.tabManager.updateNote(savedNote)
+          }
+        }
+      }
+      
+      print("Matcha note imported successfully: \(url.lastPathComponent) with \(importedPages.count) pages")
+    }
+    
+    updatedNote.dateModified = Date()
+    let savedNote = storageManager.saveNote(updatedNote)
+    tabManager.updateNote(savedNote)
   }
   
   

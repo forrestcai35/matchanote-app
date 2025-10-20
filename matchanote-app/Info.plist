@@ -90,8 +90,9 @@
 			<string>Matcha Note Document</string>
 			<key>UTTypeConformsTo</key>
 			<array>
+				<string>public.json</string>
 				<string>public.data</string>
-				<string>public.composite-content</string>
+				<string>public.content</string>
 			</array>
 			<key>UTTypeTagSpecification</key>
 			<dict>
@@ -100,13 +101,41 @@
 					<string>matcha</string>
 				</array>
 				<key>public.mime-type</key>
-				<string>application/x-matchanote</string>
+				<array>
+					<string>application/json</string>
+					<string>application/x-matchanote</string>
+				</array>
+			</dict>
+			<key>UTTypeIcons</key>
+			<dict/>
+		</dict>
+	</array>
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.matchanote.note</string>
+			<key>UTTypeDescription</key>
+			<string>Matcha Note Document</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.json</string>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>matcha</string>
+				</array>
 			</dict>
 		</dict>
 	</array>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
 	<key>UISupportsDocumentBrowser</key>
+	<true/>
+	<key>UIFileSharingEnabled</key>
 	<true/>
 </dict>
 </plist>

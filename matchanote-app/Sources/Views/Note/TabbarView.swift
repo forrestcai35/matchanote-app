@@ -20,8 +20,8 @@ struct TabBarView: View {
   var dismiss: DismissAction
   var clearPageAction: (() -> Void)?
   var deletePageAction: (() -> Void)?
-  var exportCurrentPageAction: (() -> Void)?
-  var exportAllPagesAction: (() -> Void)?
+  var quickExportAction: (() -> Void)?
+  var exportOptionsAction: (() -> Void)?
   var printCurrentPageAction: (() -> Void)?
   var printAllPagesAction: (() -> Void)?
   var onAddPage: ((PagePlacement) -> Void)?
@@ -30,7 +30,7 @@ struct TabBarView: View {
   // Placement selection for add/upload actions
   @State private var selectedPlacement: PagePlacement = .after
   @State private var showAddPopover: Bool = false
-  @State private var showSharePopover: Bool = false
+  @State private var showExportPopover: Bool = false
   @State private var showMorePopover: Bool = false
 
   var body: some View {
@@ -113,8 +113,8 @@ struct TabBarView: View {
           .frame(minWidth: 320)
         }
 
-        // Share popover
-        Button(action: { showSharePopover.toggle() }) {
+        // Export button with dropdown options
+        Button(action: { showExportPopover.toggle() }) {
           Image(systemName: "square.and.arrow.up")
             .foregroundColor(
               colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
@@ -124,22 +124,22 @@ struct TabBarView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
-        .popover(isPresented: $showSharePopover) {
+        .popover(isPresented: $showExportPopover) {
           VStack(alignment: .leading, spacing: 8) {
             Button(action: {
-              exportCurrentPageAction?()
-              showSharePopover = false
+              quickExportAction?()
+              showExportPopover = false
             }) {
-              Label("Export this page", systemImage: "doc")
+              Label("Quick Export (PDF)", systemImage: "doc.fill")
             }
             .foregroundColor(
               colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
             )
             Button(action: {
-              exportAllPagesAction?()
-              showSharePopover = false
+              exportOptionsAction?()
+              showExportPopover = false
             }) {
-              Label("Export all pages", systemImage: "doc.on.doc")
+              Label("Export Options", systemImage: "slider.horizontal.3")
             }
             .foregroundColor(
               colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
@@ -147,7 +147,7 @@ struct TabBarView: View {
             Divider()
             Button(action: {
               printCurrentPageAction?()
-              showSharePopover = false
+              showExportPopover = false
             }) {
               Label("Print this page", systemImage: "printer")
             }
@@ -156,7 +156,7 @@ struct TabBarView: View {
             )
             Button(action: {
               printAllPagesAction?()
-              showSharePopover = false
+              showExportPopover = false
             }) {
               Label("Print all pages", systemImage: "printer.fill")
             }

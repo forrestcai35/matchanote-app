@@ -3,6 +3,23 @@
 import SwiftUI
 import PencilKit
 
+// MARK: - Export Type Enum
+enum ExportType: String, CaseIterable, Identifiable {
+    case pdf = "PDF"
+    case matcha = "Matcha File"
+    case image = "Image (PNG)"
+    
+    var id: String { self.rawValue }
+    
+    var icon: String {
+        switch self {
+        case .pdf: return "doc.fill"
+        case .matcha: return "leaf.fill"
+        case .image: return "photo.fill"
+        }
+    }
+}
+
 class ExportManager {
     static let shared = ExportManager()
     
@@ -24,6 +41,124 @@ class ExportManager {
             .replacingOccurrences(of: ".", with: "")
             .replacingOccurrences(of: "!", with: "")
             .replacingOccurrences(of: "?", with: "")
+    }
+    
+    // MARK: - Main Export Function with Type Selection
+    func exportNote(_ note: Note, selectedPages: [Int]? = nil, exportType: ExportType = .pdf) -> URL? {
+        switch exportType {
+        case .pdf:
+            return exportNoteAsPDF(note, selectedPages: selectedPages)
+        case .matcha:
+            return exportNoteAsMatcha(note, selectedPages: selectedPages)
+        case .image:
+            return exportNoteAsImage(note, selectedPages: selectedPages)
+        }
+    }
+    
+    // MARK: - Export as Matcha File
+    func exportNoteAsMatcha(_ note: Note, selectedPages: [Int]? = nil) -> URL? {
+        do {
+            // Create a note with selected pages if specified
+            let noteToExport = selectedPages != nil ? createNoteWithSelectedPages(note, selectedPages: selectedPages!) : note
+            
+            // Encode the note as JSON
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            let noteData = try encoder.encode(noteToExport)
+            
+            // Create a temporary file with .matcha extension
+            let sanitizedTitle = ExportManager.sanitizeTitle(noteToExport.title)
+            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(sanitizedTitle).matcha")
+            
+            try noteData.write(to: tempURL)
+            return tempURL
+        } catch {
+            print("Failed to export Matcha note: \(error)")
+            return nil
+        }
+    }
+    
+    // MARK: - Export as Image (PNG)
+    func exportNoteAsImage(_ note: Note, selectedPages: [Int]? = nil) -> URL? {
+        // If no specific pages selected, export all pages
+        let pagesToExport = selectedPages ?? getAllPagesForNote(note)
+        
+        // Create a temporary note with only the selected pages if needed
+        let noteToExport = selectedPages != nil ? createNoteWithSelectedPages(note, selectedPages: selectedPages!) : note
+        
+        let sanitizedTitle = ExportManager.sanitizeTitle(noteToExport.title)
+        
+        // If exporting a single page, create a single PNG
+        if pagesToExport.count == 1 {
+            let page = pagesToExport[0]
+            let pageKey = String(page)
+            var size = PaperUtilities.paperSize(for: noteToExport.paperSize)
+            if let imageData = noteToExport.imageDataByPage[pageKey]?.first, let uiImage = UIImage(data: imageData) {
+                size = uiImage.size
+            }
+            
+            let bounds = CGRect(origin: .zero, size: size)
+            let renderer = UIGraphicsImageRenderer(bounds: bounds)
+            
+            let image = renderer.image { context in
+                // Fill background
+                UIColor(PaperUtilities.getPaperBackgroundColor(for: noteToExport.paperColor)).setFill()
+                UIRectFill(bounds)
+                
+                // Draw background images
+                var overlayCanvasImages: [CanvasImage] = []
+                if let imageDataArray = noteToExport.imageDataByPage[pageKey] {
+                    for data in imageDataArray {
+                        if let bg = UIImage(data: data) {
+                            bg.draw(in: bounds)
+                        } else if let canvasImage = try? JSONDecoder().decode(CanvasImage.self, from: data) {
+                            overlayCanvasImages.append(canvasImage)
+                        }
+                    }
+                }
+                
+                // Draw paper pattern
+                PaperUtilities.drawPaperPattern(context: context.cgContext, paperStyle: noteToExport.paperStyle, size: bounds.size)
+                
+                // Draw strokes
+                if let drawing = drawingForPage(page, note: noteToExport) {
+                    let drawingImage = drawing.image(from: bounds, scale: 2)
+                    drawingImage.draw(in: bounds)
+                }
+                
+                // Draw overlay canvas images
+                if !overlayCanvasImages.isEmpty {
+                    let sorted = overlayCanvasImages.sorted { $0.zIndex < $1.zIndex }
+                    for item in sorted {
+                        if let uiImage = ImageUtilities.dataToImage(item.imageData) {
+                            let rect = CGRect(origin: item.position, size: item.size)
+                            uiImage.draw(in: rect)
+                        }
+                    }
+                }
+            }
+            
+            // Save as PNG
+            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(sanitizedTitle)_page_\(page + 1).png")
+            if let pngData = image.pngData() {
+                do {
+                    try pngData.write(to: tempURL)
+                    return tempURL
+                } catch {
+                    print("Failed to write PNG: \(error)")
+                    return nil
+                }
+            }
+        } else {
+            // Export multiple pages as separate PNGs in a zip file
+            // For now, we'll export the first page as the representative image
+            // You could enhance this to create a zip file or combine pages
+            if let firstPage = pagesToExport.first {
+                return exportNoteAsImage(noteToExport, selectedPages: [firstPage])
+            }
+        }
+        
+        return nil
     }
     
     // MARK: - Export as PDF function    
@@ -110,7 +245,58 @@ class ExportManager {
         }
     }
     
-    // MARK: - Present Export Share Sheet
+    // MARK: - Present Export Share Sheet with Type
+    func presentExportShareSheet(for note: Note, selectedPages: [Int]? = nil, exportType: ExportType = .pdf) {
+        // Prevent multiple simultaneous presentations
+        guard !isPresenting else {
+            print("Export already in progress, skipping...")
+            return
+        }
+        
+        // Prevent rapid-fire export attempts (minimum 1 second between exports)
+        let timeSinceLastExport = Date().timeIntervalSince(lastExportTime)
+        guard timeSinceLastExport >= 1.0 else {
+            print("Export too soon after last export, skipping...")
+            return
+        }
+        
+        guard let url = exportNote(note, selectedPages: selectedPages, exportType: exportType) else { return }
+        
+        isPresenting = true
+        lastExportTime = Date()
+        
+        let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        
+        // Configure popover for iPad
+        if let popover = controller.popoverPresentationController {
+            if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let window = scene.windows.first(where: { $0.isKeyWindow }) {
+                popover.sourceView = window
+                popover.sourceRect = CGRect(x: window.bounds.midX, y: window.bounds.midY, width: 0, height: 0)
+                popover.permittedArrowDirections = []
+            }
+        }
+        
+        // Present the share sheet with completion handler
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first,
+           let rootViewController = window.rootViewController {
+            
+            // Find the topmost presented view controller
+            var topController = rootViewController
+            while let presented = topController.presentedViewController {
+                topController = presented
+            }
+            
+            topController.present(controller, animated: true) { [weak self] in
+                self?.isPresenting = false
+            }
+        } else {
+            isPresenting = false
+        }
+    }
+    
+    // MARK: - Present Export Share Sheet (Legacy PDF-only version)
     func presentExportShareSheet(for note: Note, selectedPages: [Int]? = nil) {
         // Prevent multiple simultaneous presentations
         guard !isPresenting else {

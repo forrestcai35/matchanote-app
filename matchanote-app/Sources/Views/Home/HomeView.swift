@@ -1589,7 +1589,7 @@ struct HomeView: View {
         }
         .fileImporter(
             isPresented: $showingFileImporter,
-            allowedContentTypes: [.pdf, .image],
+            allowedContentTypes: [.pdf, .image, .matchaNote],
             allowsMultipleSelection: true
         ) { result in
             do {
@@ -1645,11 +1645,13 @@ struct HomeView: View {
         let fileExtension = url.pathExtension.lowercased()
         let fileName = url.deletingPathExtension().lastPathComponent
 
-        // Check if it's a PDF or image file
+        // Check if it's a PDF, image, or matcha file
         if fileExtension == "pdf" {
             createNoteFromPDF(url: url, fileName: fileName)
         } else if ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "heic"].contains(fileExtension) {
             createNoteFromImage(url: url, fileName: fileName)
+        } else if fileExtension == "matcha" {
+            createNoteFromMatchaFile(url: url, fileName: fileName)
         } else {
             // Ignore unsupported file types for uploads
             print("Unsupported upload file type: \(fileExtension)")
@@ -1737,8 +1739,10 @@ struct HomeView: View {
             // Read the Matcha note data
             let matchaData = try Data(contentsOf: url)
             
-            // Decode the note from JSON
-            let importedNote = try JSONDecoder().decode(Note.self, from: matchaData)
+            // Decode the note from JSON with proper date decoding strategy
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let importedNote = try decoder.decode(Note.self, from: matchaData)
             
             // Create a new note with the imported data but with a new ID and current timestamp
             let newNote = Note(
@@ -1761,8 +1765,10 @@ struct HomeView: View {
             )
             
             saveAndOpenNote(newNote)
+            print("Success: Imported Matcha note '\(newNote.title)' from \(url.lastPathComponent)")
         } catch {
             print("Error: Could not load Matcha note from \(url): \(error)")
+            print("Error details: \(error.localizedDescription)")
         }
     }
 
@@ -2309,7 +2315,7 @@ extension HomeView {
         }
         .fileImporter(
             isPresented: $showingFileImporter,
-            allowedContentTypes: [.pdf, .image],
+            allowedContentTypes: [.pdf, .image, .matchaNote],
             allowsMultipleSelection: true
         ) { result in
             do {
