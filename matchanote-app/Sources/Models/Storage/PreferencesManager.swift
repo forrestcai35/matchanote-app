@@ -257,7 +257,7 @@ class PreferencesManager: ObservableObject {
     
     // MARK: - Public Methods
     func resetToDefaults() {
-        assistantDefaultOrientation = .left
+        assistantDefaultOrientation = .right
         theme = .system
         supabaseStorageEnabled = false
         enabledModelIds = Set(ModelConfiguration.allModels.map { $0.modelId })

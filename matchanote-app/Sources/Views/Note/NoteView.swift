@@ -376,6 +376,39 @@ struct NoteView: View {
             in: CGSize(width: geometry.size.width, height: geometry.size.height)
           )
         }
+        
+        // Chat history dropdown overlay (above all other overlays)
+        if assistantState.showingChatHistory && isAssistantVisible {
+          ZStack {
+            // Backdrop
+            Color.black.opacity(0.3)
+              .edgesIgnoringSafeArea(.all)
+              .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                  assistantState.showingChatHistory = false
+                }
+              }
+            
+            // Dropdown positioned at assistant side
+            VStack {
+              HStack {
+                if assistantOrientation == .left {
+                  ChatHistoryDropdown(assistantState: assistantState, chatStorage: assistantState.chatStorage)
+                    .padding(.top, 16)
+                    .padding(.leading, 16)
+                  Spacer()
+                } else {
+                  Spacer()
+                  ChatHistoryDropdown(assistantState: assistantState, chatStorage: assistantState.chatStorage)
+                    .padding(.top, 16)
+                    .padding(.trailing, 16)
+                }
+              }
+              Spacer()
+            }
+          }
+          .transition(.opacity)
+        }
       }
       .statusBar(hidden: noteEditorStatusBarHidden)
       .onAppear {
@@ -1087,5 +1120,3 @@ enum ImportError: Error {
   }
 
 }
-
-

@@ -136,7 +136,7 @@ struct SignInView: View {
                     .background(
                       email.isEmpty || password.isEmpty
                       ? Color.gray
-                      : (colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light)
+                      : (colorScheme == .dark ? Color.matchalight_dark : Color.matcha_logo_color)
                     )
                     .cornerRadius(12)
                     .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)

@@ -56,6 +56,8 @@ class AIAssistantState: ObservableObject {
     @Published var tempMediaItems: [MediaItem] = []
     @Published var availableModels: [String] = []
     @Published var subscriptionManager = SubscriptionManager()
+    @Published var chatStorage = ChatStorageManager.shared
+    @Published var showingChatHistory = false
 
     // AI capabilities
 
@@ -69,6 +71,23 @@ class AIAssistantState: ObservableObject {
     
     deinit {
         userInputDebounceTimer?.invalidate()
+    }
+    
+    // Load conversation from storage
+    func loadConversation(_ conversation: ChatConversation) {
+        messages = conversation.messages
+        chatStorage.selectConversation(conversation)
+    }
+    
+    // Start a new conversation
+    func startNewConversation() {
+        messages = []
+        chatStorage.createNewConversation(noteId: currentNote?.id)
+    }
+    
+    // Save current conversation
+    func saveCurrentConversation() {
+        chatStorage.updateCurrentConversation(with: messages)
     }
 }
 
@@ -111,6 +130,11 @@ struct AIAssistantView: View {
             // Set initial model immediately to avoid delay
             setInitialModel()
             refreshAvailableModels()
+            
+            // Start a new conversation if none exists
+            if state.chatStorage.currentConversation == nil && state.messages.isEmpty {
+                state.startNewConversation()
+            }
         }
         .onDisappear {
             removeKeyboardObservers()
@@ -147,6 +171,7 @@ struct AIAssistantView: View {
             }
         }
     }
+    
     
     private var chatHistorySection: some View {
         ScrollViewReader { proxy in
@@ -235,9 +260,10 @@ struct AIAssistantView: View {
     }
     
     private var inputSection: some View {
-        VStack(spacing: 8) {
-            // + icon and media items above text input
-            HStack {
+        VStack(spacing: 4) {
+            // Icons and media items above text input
+            HStack(alignment: .center, spacing: 8) {
+                // + icon for adding media with larger tap area
                 Menu {
                     Button {
                         showingImagePicker = true
@@ -262,15 +288,16 @@ struct AIAssistantView: View {
                     Image(systemName: "plus")
                         .foregroundColor(.gray)
                         .font(.caption)
-                        .padding(4)
+                        .padding(6)
                         .background(Color.gray.opacity(0.1))
                         .clipShape(Circle())
+                        .frame(width: 32, height: 32)
                 }
                 
                 // Media items display (smaller and inline)
                 if !state.tempMediaItems.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
+                        HStack(spacing: 6) {
                             ForEach(state.tempMediaItems) { item in
                                 ZStack(alignment: .topTrailing) {
                                     if case .image = item.type {
@@ -278,9 +305,9 @@ struct AIAssistantView: View {
                                         if let uiImage = UIImage(data: item.data) {
                                             Image(uiImage: uiImage)
                                                 .resizable()
-                                                .scaledToFit()
-                                                .frame(width: 32, height: 32)
-                                                .cornerRadius(4)
+                                                .scaledToFill()
+                                                .frame(width: 28, height: 28)
+                                                .clipShape(RoundedRectangle(cornerRadius: 4))
                                         }
 #endif
                                     } else if case .file(let name) = item.type {
@@ -294,7 +321,7 @@ struct AIAssistantView: View {
                                         .padding(4)
                                         .background(Color.gray.opacity(0.1))
                                         .cornerRadius(4)
-                                        .frame(height: 32)
+                                        .frame(height: 28)
                                     }
                                     
                                     Button(action: {
@@ -304,19 +331,57 @@ struct AIAssistantView: View {
                                             .foregroundColor(.red)
                                             .background(Color.white.opacity(0.8))
                                             .clipShape(Circle())
-                                            .font(.caption2)
+                                            .font(.system(size: 14))
                                     }
-                                    .offset(x: 2, y: -2)
+                                    .offset(x: 4, y: -4)
                                 }
-                                .frame(width: 40, height: 40) // Ensure enough space for the X button
+                                .frame(width: 32, height: 32)
                             }
                         }
-                        .padding(.horizontal, 8) // Increased padding to prevent clipping
-                        .padding(.vertical, 4) // Add vertical padding for the X button
+                        .padding(.horizontal, 4)
                     }
+                    .frame(height: 32)
                 }
                 
                 Spacer()
+                
+                HStack(spacing: 0) {
+                    // New chat button with larger tap area (only show if messages exist)
+                    if !state.messages.isEmpty {
+                        Button(action: {
+                            state.startNewConversation()
+                        }) {
+                            Image(systemName: "plus.message")
+                                .font(.system(size: 14))
+                                .foregroundColor(
+                                   .gray
+                                )
+                                .frame(width: 32, height: 32)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                    
+                    // Chat history dropdown button with larger tap area
+                    Button(action: {
+                        // Clean up expired conversations when opening
+                        if !state.showingChatHistory {
+                            state.chatStorage.cleanupExpiredConversations()
+                        }
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            state.showingChatHistory.toggle()
+                        }
+                    }) {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.system(size: 14))
+                            .foregroundColor(
+                               .gray
+                            )
+                            .frame(width: 32, height: 32)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
             }
             .padding(.horizontal)
             
@@ -653,7 +718,8 @@ struct AIAssistantView: View {
                 let response = try await LlmAPI.sendMessage(
                     userMessage: contextualPrompt,
                     model_string: selectedModel,
-                    mediaItems: finalMediaItems.isEmpty ? nil : finalMediaItems
+                    mediaItems: finalMediaItems.isEmpty ? nil : finalMediaItems,
+                    conversationHistory: state.messages
                 )
                 
                 await MainActor.run {
@@ -665,6 +731,9 @@ struct AIAssistantView: View {
                         )
                     )
                     state.isLoading = false
+                    
+                    // Save conversation after receiving response
+                    state.saveCurrentConversation()
                 }
                 
             } catch {
@@ -710,7 +779,8 @@ struct AIAssistantView: View {
                 let response = try await LlmAPI.sendMessage(
                     userMessage: input,
                     model_string: selectedModel,
-                    mediaItems: mediaItems.isEmpty ? nil : mediaItems
+                    mediaItems: mediaItems.isEmpty ? nil : mediaItems,
+                    conversationHistory: state.messages
                 )
                 
                 await MainActor.run {
@@ -722,6 +792,9 @@ struct AIAssistantView: View {
                         )
                     )
                     state.isLoading = false
+                    
+                    // Save conversation after receiving response
+                    state.saveCurrentConversation()
                 }
             } catch {
                 await MainActor.run {

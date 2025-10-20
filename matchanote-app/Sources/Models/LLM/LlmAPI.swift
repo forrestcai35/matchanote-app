@@ -66,7 +66,7 @@ struct LlmAPI {
     self.perplexityAPIKey = perplexityAPIKey
   }
 
-  static func sendMessage(userMessage: String, model_string: String, mediaItems: [MediaItem]? = nil) async throws -> String {
+  static func sendMessage(userMessage: String, model_string: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
     print("🤖 Sending message to model: \(model_string)")
     
     guard let modelConfig = ModelConfiguration.getModelConfig(for: model_string) else {
@@ -77,7 +77,7 @@ struct LlmAPI {
     print("🔧 Using provider: \(modelConfig.provider.displayName)")
     
     do {
-      return try await sendMessageWithProvider(userMessage: userMessage, modelConfig: modelConfig, mediaItems: mediaItems)
+      return try await sendMessageWithProvider(userMessage: userMessage, modelConfig: modelConfig, mediaItems: mediaItems, conversationHistory: conversationHistory)
     } catch {
       print("❌ Error with \(modelConfig.provider.displayName): \(error)")
       
@@ -87,19 +87,19 @@ struct LlmAPI {
         if mediaItems == nil || mediaItems?.isEmpty == true {
           print("🔄 Error with Matcha Assistant, trying Mistral 7B as first fallback (no media)")
           do {
-            return try await sendMistralMessage(userMessage: userMessage, model: "mistral-7b-instruct", mediaItems: mediaItems)
+            return try await sendMistralMessage(userMessage: userMessage, model: "mistral-7b-instruct", mediaItems: mediaItems, conversationHistory: conversationHistory)
           } catch {
             print("🔄 Mistral fallback also failed, trying Google Gemma 3 as final fallback")
-            return try await sendGoogleMessage(userMessage: userMessage, model: "gemma-3-27b-it", mediaItems: mediaItems)
+            return try await sendGoogleMessage(userMessage: userMessage, model: "gemma-3-27b-it", mediaItems: mediaItems, conversationHistory: conversationHistory)
           }
         } else {
           // If media items present, use Google first (better image processing)
           print("🔄 Error with Matcha Assistant, trying Google Gemma 3 as first fallback (with media)")
           do {
-            return try await sendGoogleMessage(userMessage: userMessage, model: "gemma-3-27b-it", mediaItems: mediaItems)
+            return try await sendGoogleMessage(userMessage: userMessage, model: "gemma-3-27b-it", mediaItems: mediaItems, conversationHistory: conversationHistory)
           } catch {
             print("🔄 Google fallback also failed, trying Mistral 7B as final fallback")
-            return try await sendMistralMessage(userMessage: userMessage, model: "mistral-7b-instruct", mediaItems: mediaItems)
+            return try await sendMistralMessage(userMessage: userMessage, model: "mistral-7b-instruct", mediaItems: mediaItems, conversationHistory: conversationHistory)
           }
         }
       }
@@ -108,24 +108,24 @@ struct LlmAPI {
     }
   }
   
-  private static func sendMessageWithProvider(userMessage: String, modelConfig: ModelConfiguration.Model, mediaItems: [MediaItem]? = nil) async throws -> String {
+  private static func sendMessageWithProvider(userMessage: String, modelConfig: ModelConfiguration.Model, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
     switch modelConfig.provider {
     case .openRouter:
-      return try await sendOpenRouterMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems)
+      return try await sendOpenRouterMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
     case .openai:
-      return try await sendOpenAIMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems)
+      return try await sendOpenAIMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
     case .anthropic:
-      return try await sendAnthropicMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems)
+      return try await sendAnthropicMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
     case .deepseek:
-      return try await sendDeepSeekMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems)
+      return try await sendDeepSeekMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
     case .google:
-      return try await sendGoogleMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems)
+      return try await sendGoogleMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
     case .x:
-      return try await sendXMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems)
+      return try await sendXMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
     case .mistral:
-      return try await sendMistralMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems)
+      return try await sendMistralMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
     case .perplexity:
-      return try await sendPerplexityMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems)
+      return try await sendPerplexityMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
     }
   }
   
@@ -155,7 +155,7 @@ struct LlmAPI {
   
   // MARK: - Provider-specific Methods
   
-  private static func sendOpenRouterMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil) async throws -> String {
+  private static func sendOpenRouterMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
     guard let apiKey = openRouterAPIKey else {
       print("❌ Missing OpenRouter API key")
       throw LlmError.missingAPIKey
@@ -171,7 +171,40 @@ struct LlmAPI {
     request.addValue("application/json", forHTTPHeaderField: "Content-Type")
     request.addValue("Matcha Note App", forHTTPHeaderField: "HTTP-Referer")
     
-    // Build user message content
+    // Build messages array starting with system message
+    var messages: [[String: Any]] = [
+      ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)]
+    ]
+    
+    // Add conversation history if present
+    if let history = conversationHistory {
+      for message in history {
+        let role = message.isUser ? "user" : "assistant"
+        var content: Any = message.content
+        
+        // If message has media items, format as content array
+        if let mediaItems = message.mediaItems, !mediaItems.isEmpty {
+          var contentArray: [[String: Any]] = [
+            ["type": "text", "text": message.content]
+          ]
+          
+          for mediaItem in mediaItems {
+            if case .image = mediaItem.type {
+              let base64Image = mediaItem.data.base64EncodedString()
+              contentArray.append([
+                "type": "image_url",
+                "image_url": ["url": "data:image/jpeg;base64,\(base64Image)"]
+              ])
+            }
+          }
+          content = contentArray
+        }
+        
+        messages.append(["role": role, "content": content])
+      }
+    }
+    
+    // Build current user message content
     var userContent: Any = userMessage
     
     // Add images if present
@@ -199,13 +232,13 @@ struct LlmAPI {
       
       userContent = contentArray
     }
+    
+    // Add current user message
+    messages.append(["role": "user", "content": userContent])
       
     let requestBody: [String: Any] = [
       "model": model,
-      "messages": [
-        ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)],
-        ["role": "user", "content": userContent],
-      ],
+      "messages": messages,
       "temperature": 0.7,
       "max_tokens": 8000,
     ]
@@ -219,7 +252,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: OpenRouterResponse.self)
   }
   
-  private static func sendOpenAIMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil) async throws -> String {
+  private static func sendOpenAIMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
     guard let apiKey = openAIAPIKey else {
       print("❌ Missing OpenAI API key")
       throw LlmError.missingAPIKey
@@ -234,6 +267,39 @@ struct LlmAPI {
     request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
     request.addValue("application/json", forHTTPHeaderField: "Content-Type")
     
+    // Build messages array starting with system message
+    var messages: [[String: Any]] = [
+      ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)]
+    ]
+    
+    // Add conversation history if present
+    if let history = conversationHistory {
+      for message in history {
+        let role = message.isUser ? "user" : "assistant"
+        var content: Any = message.content
+        
+        // If message has media items, format as content array
+        if let mediaItems = message.mediaItems, !mediaItems.isEmpty {
+          var contentArray: [[String: Any]] = [
+            ["type": "text", "text": message.content]
+          ]
+          
+          for mediaItem in mediaItems {
+            if case .image = mediaItem.type {
+              let base64Image = mediaItem.data.base64EncodedString()
+              contentArray.append([
+                "type": "image_url",
+                "image_url": ["url": "data:image/jpeg;base64,\(base64Image)"]
+              ])
+            }
+          }
+          content = contentArray
+        }
+        
+        messages.append(["role": role, "content": content])
+      }
+    }
+    
     // Build user message content
     var userContent: Any = userMessage
     
@@ -262,13 +328,13 @@ struct LlmAPI {
       
       userContent = contentArray
     }
+    
+    // Add current user message
+    messages.append(["role": "user", "content": userContent])
       
     let requestBody: [String: Any] = [
       "model": model,
-      "messages": [
-        ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)],
-        ["role": "user", "content": userContent],
-      ],
+      "messages": messages,
       "temperature": 0.7,
       "max_tokens": 8000,
     ]
@@ -282,7 +348,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: OpenAIResponse.self)
   }
   
-  private static func sendAnthropicMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil) async throws -> String {
+  private static func sendAnthropicMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
     guard let apiKey = anthropicAPIKey else {
       throw LlmError.missingAPIKey
     }
@@ -297,8 +363,43 @@ struct LlmAPI {
     request.addValue("application/json", forHTTPHeaderField: "Content-Type")
     request.addValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
     
+    // Build messages array
+    var messages: [[String: Any]] = []
+    
+    // Add conversation history if present
+    if let history = conversationHistory {
+      for message in history {
+        let role = message.isUser ? "user" : "assistant"
+        var content: Any = message.content
+        
+        // If message has media items, format as content array
+        if let mediaItems = message.mediaItems, !mediaItems.isEmpty {
+          var contentArray: [[String: Any]] = [
+            ["type": "text", "text": message.content]
+          ]
+          
+          for mediaItem in mediaItems {
+            if case .image = mediaItem.type {
+              let base64Image = mediaItem.data.base64EncodedString()
+              contentArray.append([
+                "type": "image",
+                "source": [
+                  "type": "base64",
+                  "media_type": "image/jpeg",
+                  "data": base64Image
+                ]
+              ])
+            }
+          }
+          content = contentArray
+        }
+        
+        messages.append(["role": role, "content": content])
+      }
+    }
+    
     // Build user message content
-    var userContent: Any = "\(SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general))\n\nUser: \(userMessage)"
+    var userContent: Any = userMessage
     
     // Add images if present
     if let mediaItems = mediaItems, !mediaItems.isEmpty {
@@ -307,7 +408,7 @@ struct LlmAPI {
       // Add text content
       contentArray.append([
         "type": "text",
-        "text": "\(SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general))\n\nUser: \(userMessage)"
+        "text": userMessage
       ])
       
       // Add image content
@@ -327,13 +428,15 @@ struct LlmAPI {
       
       userContent = contentArray
     }
+    
+    // Add current user message
+    messages.append(["role": "user", "content": userContent])
       
     let requestBody: [String: Any] = [
       "model": model,
       "max_tokens": 8000,
-      "messages": [
-        ["role": "user", "content": userContent]
-      ]
+      "system": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general),
+      "messages": messages
     ]
 
     do {
@@ -345,7 +448,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: AnthropicResponse.self)
   }
   
-  private static func sendDeepSeekMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil) async throws -> String {
+  private static func sendDeepSeekMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
     guard let apiKey = deepSeekAPIKey else {
       throw LlmError.missingAPIKey
     }
@@ -358,6 +461,39 @@ struct LlmAPI {
     request.httpMethod = "POST"
     request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
     request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+    
+    // Build messages array starting with system message
+    var messages: [[String: Any]] = [
+      ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)]
+    ]
+    
+    // Add conversation history if present
+    if let history = conversationHistory {
+      for message in history {
+        let role = message.isUser ? "user" : "assistant"
+        var content: Any = message.content
+        
+        // If message has media items, format as content array
+        if let mediaItems = message.mediaItems, !mediaItems.isEmpty {
+          var contentArray: [[String: Any]] = [
+            ["type": "text", "text": message.content]
+          ]
+          
+          for mediaItem in mediaItems {
+            if case .image = mediaItem.type {
+              let base64Image = mediaItem.data.base64EncodedString()
+              contentArray.append([
+                "type": "image_url",
+                "image_url": ["url": "data:image/jpeg;base64,\(base64Image)"]
+              ])
+            }
+          }
+          content = contentArray
+        }
+        
+        messages.append(["role": role, "content": content])
+      }
+    }
     
     // Build user message content
     var userContent: Any = userMessage
@@ -387,13 +523,13 @@ struct LlmAPI {
       
       userContent = contentArray
     }
+    
+    // Add current user message
+    messages.append(["role": "user", "content": userContent])
       
     let requestBody: [String: Any] = [
       "model": model,
-      "messages": [
-        ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)],
-        ["role": "user", "content": userContent],
-      ],
+      "messages": messages,
       "temperature": 0.7,
       "max_tokens": 8000,
     ]
@@ -407,7 +543,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: DeepSeekResponse.self)
   }
   
-  private static func sendGoogleMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil) async throws -> String {
+  private static func sendGoogleMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
     guard let apiKey = googleAPIKey else {
       print("❌ Missing Google API key")
       throw LlmError.missingAPIKey
@@ -421,9 +557,53 @@ struct LlmAPI {
     request.httpMethod = "POST"
     request.addValue("application/json", forHTTPHeaderField: "Content-Type")
     
-    // Build parts array
-    var parts: [[String: Any]] = [
-      ["text": "\(SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general))\n\nUser: \(userMessage)"]
+    // Build contents array
+    var contents: [[String: Any]] = []
+    
+    // Add system prompt as first user message for Google
+    contents.append([
+      "role": "user",
+      "parts": [
+        ["text": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)]
+      ]
+    ])
+    contents.append([
+      "role": "model",
+      "parts": [
+        ["text": "Understood. I'll follow these guidelines."]
+      ]
+    ])
+    
+    // Add conversation history if present
+    if let history = conversationHistory {
+      for message in history {
+        let role = message.isUser ? "user" : "model"
+        var parts: [[String: Any]] = [
+          ["text": message.content]
+        ]
+        
+        // Add images if present in history
+        if let mediaItems = message.mediaItems, !mediaItems.isEmpty {
+          for mediaItem in mediaItems {
+            if case .image = mediaItem.type {
+              let base64Image = mediaItem.data.base64EncodedString()
+              parts.append([
+                "inline_data": [
+                  "mime_type": "image/jpeg",
+                  "data": base64Image
+                ]
+              ])
+            }
+          }
+        }
+        
+        contents.append(["role": role, "parts": parts])
+      }
+    }
+    
+    // Build current message parts
+    var currentParts: [[String: Any]] = [
+      ["text": userMessage]
     ]
     
     // Add images if present
@@ -431,7 +611,7 @@ struct LlmAPI {
       for mediaItem in mediaItems {
         if case .image = mediaItem.type {
           let base64Image = mediaItem.data.base64EncodedString()
-          parts.append([
+          currentParts.append([
             "inline_data": [
               "mime_type": "image/jpeg",
               "data": base64Image
@@ -440,13 +620,15 @@ struct LlmAPI {
         }
       }
     }
+    
+    // Add current user message
+    contents.append([
+      "role": "user",
+      "parts": currentParts
+    ])
       
     let requestBody: [String: Any] = [
-      "contents": [
-        [
-          "parts": parts
-        ]
-      ],
+      "contents": contents,
       "generationConfig": [
         "temperature": 0.7,
         "maxOutputTokens": 8000
@@ -462,7 +644,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: GoogleResponse.self)
   }
   
-  private static func sendXMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil) async throws -> String {
+  private static func sendXMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
     guard let apiKey = xAPIKey else {
       throw LlmError.missingAPIKey
     }
@@ -475,6 +657,39 @@ struct LlmAPI {
     request.httpMethod = "POST"
     request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
     request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+    
+    // Build messages array starting with system message
+    var messages: [[String: Any]] = [
+      ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)]
+    ]
+    
+    // Add conversation history if present
+    if let history = conversationHistory {
+      for message in history {
+        let role = message.isUser ? "user" : "assistant"
+        var content: Any = message.content
+        
+        // If message has media items, format as content array
+        if let mediaItems = message.mediaItems, !mediaItems.isEmpty {
+          var contentArray: [[String: Any]] = [
+            ["type": "text", "text": message.content]
+          ]
+          
+          for mediaItem in mediaItems {
+            if case .image = mediaItem.type {
+              let base64Image = mediaItem.data.base64EncodedString()
+              contentArray.append([
+                "type": "image_url",
+                "image_url": ["url": "data:image/jpeg;base64,\(base64Image)"]
+              ])
+            }
+          }
+          content = contentArray
+        }
+        
+        messages.append(["role": role, "content": content])
+      }
+    }
     
     // Build user message content
     var userContent: Any = userMessage
@@ -504,13 +719,13 @@ struct LlmAPI {
       
       userContent = contentArray
     }
+    
+    // Add current user message
+    messages.append(["role": "user", "content": userContent])
       
     let requestBody: [String: Any] = [
       "model": model,
-      "messages": [
-        ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)],
-        ["role": "user", "content": userContent],
-      ],
+      "messages": messages,
       "temperature": 0.7,
       "max_tokens": 8000,
     ]
@@ -524,7 +739,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: XResponse.self)
   }
   
-  private static func sendMistralMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil) async throws -> String {
+  private static func sendMistralMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
     guard let apiKey = mistralAPIKey else {
       print("❌ Missing Mistral API key")
       throw LlmError.missingAPIKey
@@ -539,6 +754,39 @@ struct LlmAPI {
     request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
     request.addValue("application/json", forHTTPHeaderField: "Content-Type")
     
+    // Build messages array starting with system message
+    var messages: [[String: Any]] = [
+      ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)]
+    ]
+    
+    // Add conversation history if present
+    if let history = conversationHistory {
+      for message in history {
+        let role = message.isUser ? "user" : "assistant"
+        var content: Any = message.content
+        
+        // If message has media items, format as content array
+        if let mediaItems = message.mediaItems, !mediaItems.isEmpty {
+          var contentArray: [[String: Any]] = [
+            ["type": "text", "text": message.content]
+          ]
+          
+          for mediaItem in mediaItems {
+            if case .image = mediaItem.type {
+              let base64Image = mediaItem.data.base64EncodedString()
+              contentArray.append([
+                "type": "image_url",
+                "image_url": ["url": "data:image/jpeg;base64,\(base64Image)"]
+              ])
+            }
+          }
+          content = contentArray
+        }
+        
+        messages.append(["role": role, "content": content])
+      }
+    }
+    
     // Build user message content
     var userContent: Any = userMessage
     
@@ -567,13 +815,13 @@ struct LlmAPI {
       
       userContent = contentArray
     }
+    
+    // Add current user message
+    messages.append(["role": "user", "content": userContent])
       
     let requestBody: [String: Any] = [
       "model": model,
-      "messages": [
-        ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)],
-        ["role": "user", "content": userContent],
-      ],
+      "messages": messages,
       "temperature": 0.7,
       "max_tokens": 8000,
     ]
@@ -587,7 +835,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: MistralResponse.self)
   }
   
-  private static func sendPerplexityMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil) async throws -> String {
+  private static func sendPerplexityMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
     guard let apiKey = perplexityAPIKey else {
       print("❌ Missing Perplexity API key")
       throw LlmError.missingAPIKey
@@ -602,6 +850,39 @@ struct LlmAPI {
     request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
     request.addValue("application/json", forHTTPHeaderField: "Content-Type")
     
+    // Build messages array starting with system message
+    var messages: [[String: Any]] = [
+      ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)]
+    ]
+    
+    // Add conversation history if present
+    if let history = conversationHistory {
+      for message in history {
+        let role = message.isUser ? "user" : "assistant"
+        var content: Any = message.content
+        
+        // If message has media items, format as content array
+        if let mediaItems = message.mediaItems, !mediaItems.isEmpty {
+          var contentArray: [[String: Any]] = [
+            ["type": "text", "text": message.content]
+          ]
+          
+          for mediaItem in mediaItems {
+            if case .image = mediaItem.type {
+              let base64Image = mediaItem.data.base64EncodedString()
+              contentArray.append([
+                "type": "image_url",
+                "image_url": ["url": "data:image/jpeg;base64,\(base64Image)"]
+              ])
+            }
+          }
+          content = contentArray
+        }
+        
+        messages.append(["role": role, "content": content])
+      }
+    }
+    
     // Build user message content
     var userContent: Any = userMessage
     
@@ -630,13 +911,13 @@ struct LlmAPI {
       
       userContent = contentArray
     }
+    
+    // Add current user message
+    messages.append(["role": "user", "content": userContent])
       
     let requestBody: [String: Any] = [
       "model": model,
-      "messages": [
-        ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)],
-        ["role": "user", "content": userContent],
-      ],
+      "messages": messages,
       "temperature": 0.7,
       "max_tokens": 8000,
     ]
@@ -740,217 +1021,4 @@ struct LlmAPI {
   }
 }
 
-// MARK: - Perplexity Response
-struct PerplexityResponse: Decodable {
-  let id: String
-  let object: String
-  let created: Int
-  let model: String
-  let choices: [PerplexityChoice]
 
-  struct PerplexityChoice: Decodable {
-    let index: Int
-    let message: PerplexityMessage
-    let finishReason: String?
-
-    enum CodingKeys: String, CodingKey {
-      case index, message
-      case finishReason = "finish_reason"
-    }
-  }
-
-  struct PerplexityMessage: Decodable {
-    let role: String
-    let content: String
-  }
-}
-
-// MARK: - Response Models
-struct OpenRouterResponse: Decodable {
-  let id: String
-  let object: String
-  let created: Int
-  let model: String
-  let choices: [Choice]
-
-  struct Choice: Decodable {
-    let index: Int
-    let message: Message
-    let finishReason: String?
-
-    enum CodingKeys: String, CodingKey {
-      case index, message
-      case finishReason = "finish_reason"
-    }
-  }
-
-  struct Message: Decodable {
-    let role: String
-    let content: String
-  }
-}
-
-// MARK: - OpenAI Response
-struct OpenAIResponse: Decodable {
-  let id: String
-  let object: String
-  let created: Int
-  let model: String
-  let choices: [OpenAIChoice]
-
-  struct OpenAIChoice: Decodable {
-    let index: Int
-    let message: OpenAIMessage
-    let finishReason: String?
-
-    enum CodingKeys: String, CodingKey {
-      case index, message
-      case finishReason = "finish_reason"
-    }
-  }
-
-  struct OpenAIMessage: Decodable {
-    let role: String
-    let content: String
-  }
-}
-
-// MARK: - Anthropic Response
-struct AnthropicResponse: Decodable {
-  let id: String
-  let type: String
-  let role: String
-  let content: [AnthropicContent]
-  let model: String
-  let stopReason: String?
-  let stopSequence: String?
-  let usage: AnthropicUsage
-
-  enum CodingKeys: String, CodingKey {
-    case id, type, role, content, model, usage
-    case stopReason = "stop_reason"
-    case stopSequence = "stop_sequence"
-  }
-  
-  struct AnthropicContent: Decodable {
-    let type: String
-    let text: String
-  }
-  
-  struct AnthropicUsage: Decodable {
-    let inputTokens: Int
-    let outputTokens: Int
-    
-    enum CodingKeys: String, CodingKey {
-      case inputTokens = "input_tokens"
-      case outputTokens = "output_tokens"
-    }
-  }
-}
-
-// MARK: - DeepSeek Response
-struct DeepSeekResponse: Decodable {
-  let id: String
-  let object: String
-  let created: Int
-  let model: String
-  let choices: [DeepSeekChoice]
-
-  struct DeepSeekChoice: Decodable {
-    let index: Int
-    let message: DeepSeekMessage
-    let finishReason: String?
-
-    enum CodingKeys: String, CodingKey {
-      case index, message
-      case finishReason = "finish_reason"
-    }
-  }
-
-  struct DeepSeekMessage: Decodable {
-    let role: String
-    let content: String
-  }
-}
-
-// MARK: - Google Response
-struct GoogleResponse: Decodable {
-  let candidates: [GoogleCandidate]
-  
-  struct GoogleCandidate: Decodable {
-    let content: GoogleContent
-    let finishReason: String?
-    let index: Int
-    let safetyRatings: [GoogleSafetyRating]?
-    
-    enum CodingKeys: String, CodingKey {
-      case content, index
-      case finishReason = "finishReason"
-      case safetyRatings = "safetyRatings"
-    }
-  }
-  
-  struct GoogleContent: Decodable {
-    let parts: [GooglePart]
-    let role: String
-  }
-  
-  struct GooglePart: Decodable {
-    let text: String
-  }
-  
-  struct GoogleSafetyRating: Decodable {
-    let category: String
-    let probability: String
-  }
-}
-
-// MARK: - X (Grok) Response
-struct XResponse: Decodable {
-  let id: String
-  let object: String
-  let created: Int
-  let model: String
-  let choices: [XChoice]
-
-  struct XChoice: Decodable {
-    let index: Int
-    let message: XMessage
-    let finishReason: String?
-
-    enum CodingKeys: String, CodingKey {
-      case index, message
-      case finishReason = "finish_reason"
-    }
-  }
-
-  struct XMessage: Decodable {
-    let role: String
-    let content: String
-  }
-}
-
-// MARK: - Mistral Response
-struct MistralResponse: Decodable {
-  let id: String
-  let object: String
-  let created: Int
-  let model: String
-  let choices: [MistralChoice]
-
-  struct MistralChoice: Decodable {
-    let index: Int
-    let message: MistralMessage
-    let finishReason: String?
-
-    enum CodingKeys: String, CodingKey {
-      case index, message
-      case finishReason = "finish_reason"
-    }
-  }
-
-  struct MistralMessage: Decodable {
-    let role: String
-    let content: String
-  }
-}
