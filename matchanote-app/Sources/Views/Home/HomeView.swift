@@ -1008,6 +1008,8 @@ struct HomeView: View {
                 handleDrop(onto: folder)
             }
         )
+        .scaleEffect(1.0)
+        .animation(.none, value: isSelectionMode)
     }
 
     // Helper function to create a note grid item
@@ -1029,6 +1031,8 @@ struct HomeView: View {
             GridItemView(note: note, isSelected: isSelected, isSelectionMode: isSelectionMode)
         }
         .buttonStyle(PlainButtonStyle())
+        .scaleEffect(1.0)
+        .animation(.none, value: isSelectionMode)
         .contextMenu {
             noteContextMenu(note)
         }
@@ -2031,6 +2035,8 @@ struct HomeView: View {
                     GridItemView(note: note, isSelected: isSelected, isSelectionMode: isSelectionMode)
                 }
                 .buttonStyle(PlainButtonStyle())
+                .scaleEffect(1.0)
+                .animation(.none, value: isSelectionMode)
                 .contextMenu {
                     noteContextMenu(note)
                 }
@@ -2100,6 +2106,8 @@ struct HomeView: View {
                     GridFolderItemView(folder: folder, isSelected: isSelected, isSelectionMode: isSelectionMode)
                 }
                 .buttonStyle(PlainButtonStyle())
+                .scaleEffect(1.0)
+                .animation(.none, value: isSelectionMode)
                 .contextMenu {
                     folderContextMenu(folder)
                 }
@@ -2128,6 +2136,8 @@ struct HomeView: View {
                     GridItemView(note: note, isSelected: isSelected, isSelectionMode: isSelectionMode)
                 }
                 .buttonStyle(PlainButtonStyle())
+                .scaleEffect(1.0)
+                .animation(.none, value: isSelectionMode)
                 .contextMenu {
                     noteContextMenu(note)
                 }
