@@ -85,6 +85,9 @@ enum ToolWidth: CGFloat, CaseIterable {
 
 // Tool state management
 class ToolState: ObservableObject {
+  // Flag to prevent saving during initial load
+  private var isLoadingFromDefaults = false
+  
   // MARK: - Persistence Keys
   private enum DefaultsKeys {
     static let penWidthPresets = "tool.penWidthPresets"
@@ -97,18 +100,30 @@ class ToolState: ObservableObject {
     static let autoStrokeRecognitionEnabled = "tool.autoStrokeRecognitionEnabled"
     static let autoStrokeRecognitionLongPressThreshold = "tool.autoStrokeRecognitionLongPressThreshold"
     static let autoStrokeRecognitionSensitivity = "tool.autoStrokeRecognitionSensitivity"
+    static let penPalette = "tool.penPalette"
+    static let penColor = "tool.penColor"
+    static let markerPalette = "tool.markerPalette"
+    static let markerColor = "tool.markerColor"
   }
 
-  @Published var penColor: Color = .black
-  @Published var markerColor: Color = .yellow
+  @Published var penColor: Color = .black {
+    didSet { savePenColor() }
+  }
+  @Published var markerColor: Color = .yellow {
+    didSet { saveMarkerColor() }
+  }
 
   // Dynamic palettes
   @Published var penPalette: [Color] = [
     .black, .blue, .red, .green, .purple, .orange, .brown, .pink,
-  ]
+  ] {
+    didSet { savePenPalette() }
+  }
   @Published var markerPalette: [Color] = [
     .yellow, .pink, .green, .blue, .orange, .purple, .red, .cyan,
-  ]
+  ] {
+    didSet { saveMarkerPalette() }
+  }
 
   // Width presets (3 each) and selected index
   @Published var penWidthPresets: [CGFloat] = [1.0, 3.0, 6.0] {
@@ -177,6 +192,9 @@ class ToolState: ObservableObject {
 
   // MARK: - Persistence Helpers
   private func loadFromDefaults() {
+    isLoadingFromDefaults = true
+    defer { isLoadingFromDefaults = false }
+    
     let defaults = UserDefaults.standard
 
     if let penArray = defaults.array(forKey: DefaultsKeys.penWidthPresets) as? [Double] {
@@ -211,6 +229,22 @@ class ToolState: ObservableObject {
     isAutoStrokeRecognitionEnabled = defaults.object(forKey: DefaultsKeys.autoStrokeRecognitionEnabled) as? Bool ?? true
     longPressThreshold = defaults.object(forKey: DefaultsKeys.autoStrokeRecognitionLongPressThreshold) as? Double ?? 1.5
     strokeRecognitionSensitivity = defaults.object(forKey: DefaultsKeys.autoStrokeRecognitionSensitivity) as? Float ?? 0.7
+
+    // Load pen palette and color
+    if let loadedPalette = ColorPersistence.loadColorPalette(forKey: DefaultsKeys.penPalette) {
+      penPalette = loadedPalette
+    }
+    if let loadedColor = ColorPersistence.loadColor(forKey: DefaultsKeys.penColor) {
+      penColor = loadedColor
+    }
+
+    // Load marker palette and color
+    if let loadedPalette = ColorPersistence.loadColorPalette(forKey: DefaultsKeys.markerPalette) {
+      markerPalette = loadedPalette
+    }
+    if let loadedColor = ColorPersistence.loadColor(forKey: DefaultsKeys.markerColor) {
+      markerColor = loadedColor
+    }
   }
 
   private func savePenPresets() {
@@ -226,6 +260,26 @@ class ToolState: ObservableObject {
   private func saveEraserAreaPresets() {
     UserDefaults.standard.set(
       eraserAreaWidthPresets.map { Double($0) }, forKey: DefaultsKeys.eraserAreaWidthPresets)
+  }
+
+  private func savePenPalette() {
+    guard !isLoadingFromDefaults else { return }
+    ColorPersistence.saveColorPalette(penPalette, forKey: DefaultsKeys.penPalette)
+  }
+
+  private func savePenColor() {
+    guard !isLoadingFromDefaults else { return }
+    ColorPersistence.saveColor(penColor, forKey: DefaultsKeys.penColor)
+  }
+
+  private func saveMarkerPalette() {
+    guard !isLoadingFromDefaults else { return }
+    ColorPersistence.saveColorPalette(markerPalette, forKey: DefaultsKeys.markerPalette)
+  }
+
+  private func saveMarkerColor() {
+    guard !isLoadingFromDefaults else { return }
+    ColorPersistence.saveColor(markerColor, forKey: DefaultsKeys.markerColor)
   }
 }
 
