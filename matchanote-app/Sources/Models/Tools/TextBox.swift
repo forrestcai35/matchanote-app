@@ -9,18 +9,34 @@ public struct TextBox: Identifiable, Codable {
     public var size: CGSize
     public var fontSize: CGFloat
     public var fontFamily: String
-    public var textColor: Color
-    public var backgroundColor: Color
+    private var _textColor: CodableColor
+    private var _backgroundColor: CodableColor
     public var textAlignment: TextAlignment
     public var rotation: Double
     public var opacity: Double
     public var cornerRadius: CGFloat
     public var borderWidth: CGFloat
-    public var borderColor: Color
+    private var _borderColor: CodableColor
     public var zIndex: Int
 
     // Page index this textbox belongs to
     public var pageIndex: Int
+
+    // Computed properties for Color access
+    public var textColor: Color {
+        get { _textColor.color }
+        set { _textColor = CodableColor(newValue) }
+    }
+
+    public var backgroundColor: Color {
+        get { _backgroundColor.color }
+        set { _backgroundColor = CodableColor(newValue) }
+    }
+
+    public var borderColor: Color {
+        get { _borderColor.color }
+        set { _borderColor = CodableColor(newValue) }
+    }
 
     public init(
         id: UUID = UUID(),
@@ -46,14 +62,14 @@ public struct TextBox: Identifiable, Codable {
         self.size = size
         self.fontSize = fontSize
         self.fontFamily = fontFamily
-        self.textColor = textColor
-        self.backgroundColor = backgroundColor
+        self._textColor = CodableColor(textColor)
+        self._backgroundColor = CodableColor(backgroundColor)
         self.textAlignment = textAlignment
         self.rotation = rotation
         self.opacity = opacity
         self.cornerRadius = cornerRadius
         self.borderWidth = borderWidth
-        self.borderColor = borderColor
+        self._borderColor = CodableColor(borderColor)
         self.zIndex = zIndex
         self.pageIndex = pageIndex
     }
@@ -407,8 +423,8 @@ public class TextBoxManager: ObservableObject {
     }
 }
 
-// Make Color conform to Codable for TextBox storage
-extension Color: Codable {
+// Wrapper type to make Color Codable without extending the imported type
+public struct CodableColor: Codable {
     private struct ColorComponents: Codable {
         let red: Double
         let green: Double
@@ -416,20 +432,26 @@ extension Color: Codable {
         let alpha: Double
     }
 
+    public let color: Color
+
+    public init(_ color: Color) {
+        self.color = color
+    }
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let components = try container.decode(ColorComponents.self)
-        self = Color(.sRGB, red: components.red, green: components.green, blue: components.blue, opacity: components.alpha)
+        self.color = Color(.sRGB, red: components.red, green: components.green, blue: components.blue, opacity: components.alpha)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
 
         #if os(macOS)
-        let nsColor = NSColor(self)
+        let nsColor = NSColor(color)
         let ciColor = CIColor(color: nsColor) ?? CIColor(red: 0, green: 0, blue: 0, alpha: 1)
         #else
-        let uiColor = UIColor(self)
+        let uiColor = UIColor(color)
         let ciColor = CIColor(color: uiColor)
         #endif
 
