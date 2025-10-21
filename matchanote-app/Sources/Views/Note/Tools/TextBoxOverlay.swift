@@ -6,17 +6,23 @@ struct TextBoxOverlay: View {
     let canvasSize: CGSize
 
     var body: some View {
+        let _ = print("🟦 TextBoxOverlay body render - hasSelected: \(textBoxManager.hasSelectedTextBox), isEditing: \(textBoxManager.isEditingText)")
+        let shouldInterceptBackground = textBoxManager.hasSelectedTextBox || textBoxManager.isEditingText
+        let _ = print(shouldInterceptBackground ? "🟨 Background overlay IS ACTIVE" : "🟩 Background overlay is NOT active")
+        
         ZStack {
-            // Background tap to deselect - only intercept when there's a selection or editing
-            if textBoxManager.hasSelectedTextBox || textBoxManager.isEditingText {
+            // Background tap layer - BEHIND textboxes
+            if shouldInterceptBackground {
                 Color.clear
                     .contentShape(Rectangle())
                     .onTapGesture {
+                        print("🔴 BACKGROUND TAP - Deselecting all. Current state - selected: \(String(describing: textBoxManager.selectedTextBoxId)), editing: \(textBoxManager.isEditingText)")
                         textBoxManager.deselectAllTextBoxes()
+                        print("🔴 AFTER DESELECT - selected: \(String(describing: textBoxManager.selectedTextBoxId)), editing: \(textBoxManager.isEditingText)")
                     }
             }
-
-            // Textboxes for this page
+            
+            // Textboxes for this page - ON TOP of background
             ForEach(textBoxManager.textBoxes(for: pageIndex)) { textBox in
                 TextBoxView(
                     textBox: textBox,
@@ -27,7 +33,7 @@ struct TextBoxOverlay: View {
             }
         }
         .frame(width: canvasSize.width, height: canvasSize.height)
-        .allowsHitTesting(textBoxManager.textBoxes(for: pageIndex).count > 0)
+        .allowsHitTesting(true)
     }
 }
 
@@ -38,12 +44,15 @@ struct TextBoxView: View {
     let canvasSize: CGSize
 
     @State private var dragOffset: CGSize = .zero
-    @State private var isEditing: Bool = false
     @State private var editingText: String = ""
     @State private var currentSize: CGSize = .zero
 
     var isSelected: Bool {
         textBoxManager.selectedTextBoxId == textBox.id
+    }
+    
+    var isEditing: Bool {
+        textBoxManager.editingTextBoxId == textBox.id && textBoxManager.isEditingText
     }
 
     var body: some View {
@@ -79,8 +88,8 @@ struct TextBoxView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: textBox.textAlignment.alignment)
             }
 
-            // Selection controls
-            if isSelected && !isEditing {
+            // Selection controls - show whenever selected (even during editing)
+            if isSelected {
                 selectionControls()
             }
         }
@@ -98,14 +107,14 @@ struct TextBoxView: View {
         .zIndex(Double(textBox.zIndex + (isSelected ? 1000 : 0)))
         .contentShape(Rectangle())
         .gesture(
-            DragGesture()
+            DragGesture(minimumDistance: 5) // Small distance to avoid conflicting with text selection
                 .onChanged { value in
-                    if isSelected && !isEditing {
+                    if isSelected {
                         dragOffset = value.translation
                     }
                 }
                 .onEnded { value in
-                    if isSelected && !isEditing {
+                    if isSelected {
                         let newPosition = CGPoint(
                             x: max(0, min(canvasSize.width - textBox.size.width, textBox.position.x + value.translation.width)),
                             y: max(0, min(canvasSize.height - textBox.size.height, textBox.position.y + value.translation.height))
@@ -122,22 +131,25 @@ struct TextBoxView: View {
             // Don't process tap if we just dragged
             if dragOffset == .zero {
                 if !isSelected {
+                    print("📦 Tapping to SELECT textbox. Current state - selected: \(String(describing: textBoxManager.selectedTextBoxId)), editing: \(textBoxManager.isEditingText)")
                     textBoxManager.selectTextBox(withId: textBox.id)
+                    print("📦 After SELECT - selected: \(String(describing: textBoxManager.selectedTextBoxId)), editing: \(textBoxManager.isEditingText)")
                 } else if !isEditing {
+                    print("📝 Tapping to START EDITING")
                     startEditing()
                 }
             }
         }
-        .onChange(of: textBoxManager.editingTextBoxId) { _, newId in
-            if newId == textBox.id && textBoxManager.isEditingText {
-                startEditing()
-            } else if newId != textBox.id && isEditing {
-                finishEditing()
-            }
-        }
-        .onChange(of: textBoxManager.selectedTextBoxId) { _, newId in
-            if newId != textBox.id && isEditing {
-                isEditing = false
+        .onChange(of: isEditing) { wasEditing, nowEditing in
+            print("⚡️ isEditing changed from \(wasEditing) to \(nowEditing) for textbox \(textBox.id)")
+            if nowEditing && !wasEditing {
+                // Started editing - initialize text
+                editingText = textBox.text
+            } else if !nowEditing && wasEditing {
+                // Stopped editing - save text
+                var updatedTextBox = textBox
+                updatedTextBox.text = editingText
+                textBoxManager.updateTextBox(updatedTextBox)
             }
         }
         .contextMenu {
@@ -251,20 +263,20 @@ struct TextBoxView: View {
     }
 
     private func startEditing() {
-        isEditing = true
+        print("🚨 START EDITING CALLED for textbox \(textBox.id)")
         editingText = textBox.text
         textBoxManager.isEditingText = true
         textBoxManager.editingTextBoxId = textBox.id
     }
 
     private func finishEditing() {
-        isEditing = false
-        textBoxManager.isEditingText = false
-        textBoxManager.editingTextBoxId = nil
-
+        // Save the text before clearing editing state
         var updatedTextBox = textBox
         updatedTextBox.text = editingText
         textBoxManager.updateTextBox(updatedTextBox)
+        
+        textBoxManager.isEditingText = false
+        textBoxManager.editingTextBoxId = nil
     }
 
     private func duplicateTextBox() {
