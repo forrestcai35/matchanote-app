@@ -176,6 +176,7 @@ struct CanvasImageOverlay: View {
     @ObservedObject var imageManager: CanvasImageManager
     let pageIndex: Int
     let canvasSize: CGSize
+    var isTextBoxToolActive: Bool = false
     @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
@@ -200,7 +201,7 @@ struct CanvasImageOverlay: View {
             }
         }
         .clipped()
-        .allowsHitTesting(imageManager.getImagesForPage(pageIndex).count > 0)
+        .allowsHitTesting(!isTextBoxToolActive && imageManager.getImagesForPage(pageIndex).count > 0)
     }
 }
 

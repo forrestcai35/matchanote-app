@@ -967,18 +967,18 @@ struct WrittenNoteToolbar: View {
 
     case .textbox:
       HStack(spacing: 12) {
-        // Add textbox button - more compact
-        Button(action: {
-          addTextBoxToCurrentPage()
-        }) {
-          Image(systemName: "plus.square")
-            .font(.system(size: 18))
-            .foregroundColor(.matchalight_dark)
+        // Hint text for user
+        Text("Tap anywhere to create a text box")
+          .font(.caption)
+          .foregroundColor(.gray)
+          .padding(.horizontal, 8)
+
+        // Show formatting controls when a textbox is selected
+        if textBoxManager.hasSelectedTextBox {
+          Divider()
+            .frame(height: 20)
+          TextBoxFormattingControls(textBoxManager: textBoxManager)
         }
-
-
-        // Always show formatting controls when textbox tool is active
-        TextBoxFormattingControls(textBoxManager: textBoxManager)
       }
 
     case .shape:
@@ -1311,22 +1311,7 @@ struct WrittenNoteToolbar: View {
   }
 
   // MARK: - TextBox Handling Methods
-
-  private func addTextBoxToCurrentPage() {
-    // Calculate center position for the textbox on the current page
-    let paperSize = CGSize(
-      width: PaperUtilities.getPaperWidth(for: note.paperSize),
-      height: PaperUtilities.getPaperHeight(for: note.paperSize)
-    )
-
-    let centerPosition = CGPoint(
-      x: paperSize.width / 2 - 100,  // Offset by half of textbox width
-      y: paperSize.height / 2 - 30  // Offset by half of textbox height
-    )
-
-    // Add textbox to the current page
-    textBoxManager.addTextBox(to: currentPage, at: centerPosition)
-  }
+  // TextBox creation is now handled by tapping on the canvas when textbox tool is active
 
   // Determine first enabled tool based on user preferences
   private func firstEnabledTool() -> PenTool? {

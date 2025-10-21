@@ -4,21 +4,30 @@ struct TextBoxOverlay: View {
     @ObservedObject var textBoxManager: TextBoxManager
     let pageIndex: Int
     let canvasSize: CGSize
+    var isTextBoxToolActive: Bool = false
 
     var body: some View {
         let hasTextBoxes = !textBoxManager.textBoxes(for: pageIndex).isEmpty
-        let shouldInterceptBackground = textBoxManager.hasSelectedTextBox || textBoxManager.isEditingText
-        let _ = print("🟦 TextBoxOverlay render: page=\(pageIndex), hasTextBoxes=\(hasTextBoxes), shouldInterceptBg=\(shouldInterceptBackground)")
+        let shouldInterceptBackground = textBoxManager.hasSelectedTextBox || textBoxManager.isEditingText || isTextBoxToolActive
+        let _ = print("🟦 TextBoxOverlay render: page=\(pageIndex), hasTextBoxes=\(hasTextBoxes), shouldInterceptBg=\(shouldInterceptBackground), isTextBoxToolActive=\(isTextBoxToolActive)")
         
         ZStack {
-            // Background tap layer - only intercepts when something is selected
+            // Background tap layer - intercepts when something is selected OR textbox tool is active
             if shouldInterceptBackground {
                 Color.clear
                     .frame(width: canvasSize.width, height: canvasSize.height)
                     .contentShape(Rectangle())
-                    .onTapGesture {
-                        print("🟢 BACKGROUND TAP - deselecting")
-                        textBoxManager.deselectAllTextBoxes()
+                    .onTapGesture { location in
+                        print("🟢 BACKGROUND TAP - location: \(location)")
+                        if isTextBoxToolActive && !textBoxManager.hasSelectedTextBox {
+                            // Create new textbox at tap location
+                            print("🟢 Creating textbox at \(location)")
+                            textBoxManager.addTextBox(to: pageIndex, at: location)
+                        } else {
+                            // Deselect existing selection
+                            print("🟢 Deselecting")
+                            textBoxManager.deselectAllTextBoxes()
+                        }
                     }
             }
             

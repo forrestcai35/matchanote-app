@@ -124,9 +124,16 @@ public class TextBoxManager: ObservableObject {
 
     // Add a new textbox to a specific page
     public func addTextBox(to pageIndex: Int, at position: CGPoint = CGPoint(x: 100, y: 100)) {
+        let defaultSize = CGSize(width: 200, height: 60)
+        // Center the textbox at the tap position
+        let centeredPosition = CGPoint(
+            x: position.x - defaultSize.width / 2,
+            y: position.y - defaultSize.height / 2
+        )
+        
         let newTextBox = TextBox(
             text: "Type here...",
-            position: position,
+            position: centeredPosition,
             pageIndex: pageIndex
         )
 

@@ -540,7 +540,8 @@ struct WrittenNoteView: View {
                             canvasSize: CGSize(
                                 width: perPageSize(pageIndex).width,
                                 height: perPageSize(pageIndex).height
-                            )
+                            ),
+                            isTextBoxToolActive: currentTool == .textbox
                         )
                         .frame(
                             width: perPageSize(pageIndex).width,
@@ -554,7 +555,8 @@ struct WrittenNoteView: View {
                             canvasSize: CGSize(
                             width: perPageSize(pageIndex).width,
                             height: perPageSize(pageIndex).height
-                        )
+                        ),
+                            isTextBoxToolActive: currentTool == .textbox
                         )
                         .frame(
                             width: perPageSize(pageIndex).width,
@@ -1081,7 +1083,8 @@ struct WrittenNoteView: View {
         }
         
         func updateUIView(_ uiView: PKCanvasView, context: Context) {
-            // No custom policy updates needed
+            // Disable user interaction when textbox tool is active
+            uiView.isUserInteractionEnabled = (currentTool != .textbox)
             context.coordinator.parent = self
         }
 
