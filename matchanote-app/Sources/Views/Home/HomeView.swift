@@ -1950,21 +1950,24 @@ struct HomeView: View {
         }
         .buttonStyle(PlainButtonStyle())
         .sheet(isPresented: $showNewWrittenNoteView) {
-            NewWrittenNoteView(onSave: { newNote in
-                // Add to current folder if we're in one
-                if let currentFolderID = currentFolderID,
-                    let folderIndex = storageManager.folders.firstIndex(where: {
-                        $0.id == currentFolderID
-                    })
-                {
-                    var updatedFolder = storageManager.folders[folderIndex]
-                    updatedFolder.addNote(noteID: newNote.id)
-                    _ = storageManager.saveFolder(updatedFolder)
-                }
-                let savedNote = storageManager.saveNote(newNote)
-                TabManager.shared.openTab(note: savedNote)
-                selectedNote = savedNote
-            })
+            NewWrittenNoteView(
+                onSave: { newNote in
+                    // Add to current folder if we're in one
+                    if let currentFolderID = currentFolderID,
+                        let folderIndex = storageManager.folders.firstIndex(where: {
+                            $0.id == currentFolderID
+                        })
+                    {
+                        var updatedFolder = storageManager.folders[folderIndex]
+                        updatedFolder.addNote(noteID: newNote.id)
+                        _ = storageManager.saveFolder(updatedFolder)
+                    }
+                    let savedNote = storageManager.saveNote(newNote)
+                    TabManager.shared.openTab(note: savedNote)
+                    selectedNote = savedNote
+                },
+                subject: selectedSubject
+            )
         }
         .sheet(isPresented: $showNewFolderView) {
             NewFolderView(
@@ -2081,6 +2084,7 @@ struct HomeView: View {
 
         let newNote = Note(
             title: noteTitle,
+            subject: selectedSubject ?? "",
             color: .matchalight_light,
             dateCreated: Date(),
             dateModified: Date(),
@@ -2108,6 +2112,7 @@ struct HomeView: View {
 
         let newNote = Note(
             title: noteTitle,
+            subject: selectedSubject ?? "",
             color: .matchalight_light,
             dateCreated: Date(),
             dateModified: Date(),
@@ -2132,9 +2137,12 @@ struct HomeView: View {
             let importedNote = try decoder.decode(Note.self, from: matchaData)
             
             // Create a new note with the imported data but with a new ID and current timestamp
+            // Use the imported subject if it exists, otherwise use the current subject context
+            let noteSubject = importedNote.subject.isEmpty ? (selectedSubject ?? "") : importedNote.subject
+            
             let newNote = Note(
                 title: importedNote.title,
-                subject: importedNote.subject,
+                subject: noteSubject,
                 color: importedNote.color,
                 dateCreated: Date(),
                 dateModified: Date(),
@@ -2162,6 +2170,7 @@ struct HomeView: View {
     private func createTextNoteFromFile(url: URL, fileName: String) {
         let newNote = Note(
             title: fileName,
+            subject: selectedSubject ?? "",
             color: .matchalight_light,
             dateCreated: Date(),
             dateModified: Date(),
@@ -2609,7 +2618,10 @@ struct HomeView: View {
     private var subjectContent: some View {
         ScrollView {
             if filteredSubjectNotes.isEmpty && filteredSubjectFolders.isEmpty {
-                EmptySubjectView()
+                EmptySubjectView(
+                    showNewWrittenNoteView: $showNewWrittenNoteView,
+                    subject: selectedSubject
+                )
             } else if isGridView {
                 subjectGridView
             } else {
@@ -2877,21 +2889,24 @@ extension HomeView {
         }
         .buttonStyle(PlainButtonStyle())
         .sheet(isPresented: $showNewWrittenNoteView) {
-            NewWrittenNoteView(onSave: { newNote in
-                // Add to current folder if we're in one
-                if let currentFolderID = currentFolderID,
-                    let folderIndex = storageManager.folders.firstIndex(where: {
-                        $0.id == currentFolderID
-                    })
-                {
-                    var updatedFolder = storageManager.folders[folderIndex]
-                    updatedFolder.addNote(noteID: newNote.id)
-                    _ = storageManager.saveFolder(updatedFolder)
-                }
-                let savedNote = storageManager.saveNote(newNote)
-                TabManager.shared.openTab(note: savedNote)
-                selectedNote = savedNote
-            })
+            NewWrittenNoteView(
+                onSave: { newNote in
+                    // Add to current folder if we're in one
+                    if let currentFolderID = currentFolderID,
+                        let folderIndex = storageManager.folders.firstIndex(where: {
+                            $0.id == currentFolderID
+                        })
+                    {
+                        var updatedFolder = storageManager.folders[folderIndex]
+                        updatedFolder.addNote(noteID: newNote.id)
+                        _ = storageManager.saveFolder(updatedFolder)
+                    }
+                    let savedNote = storageManager.saveNote(newNote)
+                    TabManager.shared.openTab(note: savedNote)
+                    selectedNote = savedNote
+                },
+                subject: selectedSubject
+            )
         }
         .sheet(isPresented: $showNewFolderView) {
             NewFolderView(

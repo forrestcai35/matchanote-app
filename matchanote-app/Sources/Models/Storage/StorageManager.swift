@@ -576,11 +576,13 @@ class StorageManager: ObservableObject {
   }
 
   private func saveNoteLocally(_ note: Note) {
-    // PERFORMANCE FIX: Update UI state immediately, defer heavy JSON ops
-    if let existingIndex = notes.firstIndex(where: { $0.id == note.id }) {
-      notes[existingIndex] = note
-    } else {
-      notes.append(note)
+    // PERFORMANCE FIX: Update UI state immediately on main thread, defer heavy JSON ops
+    DispatchQueue.main.async {
+      if let existingIndex = self.notes.firstIndex(where: { $0.id == note.id }) {
+        self.notes[existingIndex] = note
+      } else {
+        self.notes.append(note)
+      }
     }
 
     // Move JSON encoding to background thread

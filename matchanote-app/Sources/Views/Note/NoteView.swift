@@ -655,7 +655,7 @@ struct NoteView: View {
   // Resizable handle overlay (transparent, does not consume width)
   @ViewBuilder
   private func resizeHandleOverlay(for orientation: AssistantOrientation) -> some View {
-    let hitWidth: CGFloat = 28
+    let hitWidth: CGFloat = 32
     // Use a clear overlay for large hit target; optionally add a 1pt separator if desired
     ZStack(alignment: orientation == .right ? .trailing : .leading) {
       Color.clear
@@ -681,7 +681,7 @@ struct NoteView: View {
   // Extracted assistant panel view
   @ViewBuilder
   private func assistantPanelView() -> some View {
-    AIAssistantView()
+    AIAssistantView(assistantOrientation: assistantOrientation)
       .environmentObject(assistantState)
       .frame(width: assistantWidth)
       .contentShape(Rectangle())

@@ -93,6 +93,8 @@ struct EmptyRecentsView: View {
 
 struct EmptySubjectView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Binding var showNewWrittenNoteView: Bool
+    var subject: String?
 
     var body: some View {
         VStack(spacing: 20) {
@@ -103,9 +105,11 @@ struct EmptySubjectView: View {
                 emotion: .happy,
                 size: .large,
                 title: "No Items in This Subject",
-                subtitle: "Tag notes or folders with this subject to see them here",
-                actionTitle: nil,
-                action: nil
+                subtitle: "Create your first note for this subject or tag existing notes",
+                actionTitle: "Create Note",
+                action: {
+                    showNewWrittenNoteView = true
+                }
             )
 
             Spacer()

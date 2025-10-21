@@ -8,6 +8,17 @@ import PencilKit
   import AppKit
 #endif
 
+// MARK: - Assistant Mode Types
+enum AssistantMode {
+    case chat
+    case study
+}
+
+enum StudySubMode {
+    case quiz
+    case flashcards
+}
+
 // Shared types
 struct ChatMessage: Identifiable {
   let id = UUID()
@@ -62,13 +73,22 @@ class AIAssistantState: ObservableObject {
     // AI capabilities
 
     @Published var currentNote: Note?
-    
+
+    // Study Mode properties
+    @Published var currentMode: AssistantMode = .chat
+    @Published var studySubMode: StudySubMode = .quiz
+    @Published var studySession: StudySession?
+    @Published var isAnalyzingContent = false
+    @Published var canEnableStudyMode = false
+    @Published var studyModeMessage: String?
+    @Published var studyStorage = StudyStorageManager.shared
+
     // Callback for saving canvas data before AI analysis
     var saveCanvasDataCallback: (() -> Void)?
-    
+
     // Performance optimization
     private var userInputDebounceTimer: Timer?
-    
+
     deinit {
         userInputDebounceTimer?.invalidate()
     }
@@ -89,6 +109,386 @@ class AIAssistantState: ObservableObject {
     func saveCurrentConversation() {
         chatStorage.updateCurrentConversation(with: messages)
     }
+
+    // MARK: - Study Mode Functions
+
+    /// Analyze note content to determine if study mode can be enabled
+    func analyzeNoteForStudy(note: Note, storageManager: StorageManager, saveCanvasCallback: @escaping () -> Void) async {
+        await MainActor.run {
+            isAnalyzingContent = true
+            canEnableStudyMode = false
+            studyModeMessage = nil
+        }
+
+        // Save canvas data first
+        saveCanvasCallback()
+
+        // Get latest note
+        guard let latestNote = storageManager.notes.first(where: { $0.id == note.id }) else {
+            await MainActor.run {
+                isAnalyzingContent = false
+                canEnableStudyMode = false
+                studyModeMessage = "Note not found"
+            }
+            return
+        }
+
+        // Check cache first
+        if studyStorage.isCacheValid(for: latestNote) {
+            await MainActor.run {
+                canEnableStudyMode = true
+                isAnalyzingContent = false
+                studySession = studyStorage.loadSession(for: latestNote.id)
+            }
+            return
+        }
+
+        // Build content string for analysis
+        var contentString = latestNote.title + "\n" + latestNote.subject + "\n" + latestNote.content
+
+        // Add text from text boxes
+        for (_, textBoxes) in latestNote.textBoxDataByPage {
+            for textBoxData in textBoxes {
+                if let textBox = try? JSONDecoder().decode(TextBox.self, from: textBoxData) {
+                    contentString += "\n" + textBox.text
+                }
+            }
+        }
+
+        // Convert note pages to images for visual analysis
+        var noteImages: [MediaItem] = []
+        let pageKeys = Array(latestNote.drawingDataByPage.keys).sorted { key1, key2 in
+            guard let page1 = Int(key1), let page2 = Int(key2) else { return key1 < key2 }
+            return page1 < page2
+        }
+
+        for pageKey in pageKeys {
+            guard let pageIndex = Int(pageKey),
+                  let drawingData = latestNote.drawingDataByPage[pageKey],
+                  let drawing = try? PKDrawing(data: drawingData) else { continue }
+
+            let paperSize = PaperUtilities.paperSize(for: latestNote.paperSize)
+            let backgroundImages = latestNote.imageDataByPage[pageKey] ?? []
+            let overlayImages = PaperUtilities.extractCanvasImages(from: latestNote.imageDataByPage, for: pageIndex)
+
+            let previewImage = PaperUtilities.generatePreviewWithBackground(
+                drawing: drawing,
+                paperSize: paperSize,
+                paperColor: latestNote.paperColor,
+                paperStyle: latestNote.paperStyle,
+                scale: 0.5,
+                backgroundImages: backgroundImages,
+                overlayImages: overlayImages
+            )
+
+            if let imageData = previewImage.jpegData(compressionQuality: 0.8) {
+                noteImages.append(MediaItem(data: imageData, type: .image))
+            }
+        }
+
+        // Use LLM with contentAnalysis prompt to analyze if content is educational
+        do {
+            let response = try await LlmAPI.sendMessage(
+                userMessage: contentString.isEmpty
+                    ? "Analyze the provided note images to determine if they contain educational content suitable for generating quizzes and flashcards."
+                    : "Analyze this note content and images:\n\n\(contentString)",
+                model_string: selectedModel.isEmpty ? "Matcha Assistant" : selectedModel,
+                mediaItems: noteImages.isEmpty ? nil : noteImages,
+                conversationHistory: nil,
+                systemPrompt: .contentAnalysis
+            )
+
+            // Better response parsing - look for YES/NO anywhere in first line
+            let firstLine = response.components(separatedBy: .newlines).first?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() ?? ""
+            let isEducational = firstLine.contains("YES")
+
+            await MainActor.run {
+                canEnableStudyMode = isEducational
+                isAnalyzingContent = false
+
+                if !isEducational {
+                    // Extract reason from response if available
+                    let lines = response.components(separatedBy: .newlines)
+                    if lines.count > 1 {
+                        studyModeMessage = lines[1...].joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+                    } else {
+                        studyModeMessage = "Add more educational content to unlock Study Mode"
+                    }
+                } else {
+                    // Create new session
+                    studySession = studyStorage.getOrCreateSession(for: latestNote)
+                }
+            }
+        } catch {
+            await MainActor.run {
+                isAnalyzingContent = false
+                canEnableStudyMode = false
+                studyModeMessage = "Could not analyze content: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    /// Generate quiz questions for current note
+    func generateQuizQuestions(note: Note, storageManager: StorageManager, count: Int = 10) async throws {
+        // Get latest note
+        guard let latestNote = storageManager.notes.first(where: { $0.id == note.id }) else {
+            throw NSError(domain: "StudyMode", code: 1, userInfo: [NSLocalizedDescriptionKey: "Note not found"])
+        }
+
+        // Build content string
+        var contentString = latestNote.title + "\n" + latestNote.subject + "\n" + latestNote.content
+
+        for (_, textBoxes) in latestNote.textBoxDataByPage {
+            for textBoxData in textBoxes {
+                if let textBox = try? JSONDecoder().decode(TextBox.self, from: textBoxData) {
+                    contentString += "\n" + textBox.text
+                }
+            }
+        }
+
+        // Convert note pages to images for visual analysis
+        var noteImages: [MediaItem] = []
+        let pageKeys = Array(latestNote.drawingDataByPage.keys).sorted { key1, key2 in
+            guard let page1 = Int(key1), let page2 = Int(key2) else { return key1 < key2 }
+            return page1 < page2
+        }
+
+        for pageKey in pageKeys {
+            guard let pageIndex = Int(pageKey),
+                  let drawingData = latestNote.drawingDataByPage[pageKey],
+                  let drawing = try? PKDrawing(data: drawingData) else { continue }
+
+            let paperSize = PaperUtilities.paperSize(for: latestNote.paperSize)
+            let backgroundImages = latestNote.imageDataByPage[pageKey] ?? []
+            let overlayImages = PaperUtilities.extractCanvasImages(from: latestNote.imageDataByPage, for: pageIndex)
+
+            let previewImage = PaperUtilities.generatePreviewWithBackground(
+                drawing: drawing,
+                paperSize: paperSize,
+                paperColor: latestNote.paperColor,
+                paperStyle: latestNote.paperStyle,
+                scale: 0.5,
+                backgroundImages: backgroundImages,
+                overlayImages: overlayImages
+            )
+
+            if let imageData = previewImage.jpegData(compressionQuality: 0.8) {
+                noteImages.append(MediaItem(data: imageData, type: .image))
+            }
+        }
+
+        await MainActor.run {
+            isLoading = true
+            errorMessage = nil
+        }
+
+        do {
+            let response = try await LlmAPI.sendMessage(
+                userMessage: contentString.isEmpty
+                    ? "Generate \(count) quiz questions from the provided note images."
+                    : "Generate \(count) quiz questions from this content and images:\n\n\(contentString)",
+                model_string: selectedModel.isEmpty ? "Matcha Assistant" : selectedModel,
+                mediaItems: noteImages.isEmpty ? nil : noteImages,
+                conversationHistory: nil,
+                systemPrompt: .quizGeneration
+            )
+
+            // Extract JSON from response (handle markdown code blocks)
+            let jsonString = extractJSON(from: response)
+            print("📋 Extracted JSON string (first 200 chars): \(String(jsonString.prefix(200)))")
+
+            // Parse JSON response
+            guard let jsonData = jsonString.data(using: .utf8) else {
+                print("❌ Failed to convert extracted string to data")
+                throw NSError(domain: "StudyMode", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to convert JSON string to data"])
+            }
+            
+            do {
+                let decoded = try JSONDecoder().decode([String: [QuizQuestion]].self, from: jsonData)
+                guard let questions = decoded["questions"] else {
+                    print("❌ JSON decoded but 'questions' key not found")
+                    throw NSError(domain: "StudyMode", code: 2, userInfo: [NSLocalizedDescriptionKey: "Questions array not found in response"])
+                }
+                
+                print("✅ Successfully decoded \(questions.count) quiz questions")
+                
+                await MainActor.run {
+                    if var session = studySession {
+                        session.addQuizQuestions(questions)
+                        studySession = session
+                        studyStorage.saveSession(session)
+                    }
+                    isLoading = false
+                }
+            } catch {
+                print("❌ JSON decoding error: \(error)")
+                if let decodingError = error as? DecodingError {
+                    print("📝 Detailed decoding error: \(decodingError)")
+                }
+                print("📄 Extracted JSON: \(jsonString)")
+                throw NSError(domain: "StudyMode", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to parse quiz questions: \(error.localizedDescription)"])
+            }
+        } catch {
+            await MainActor.run {
+                errorMessage = "Failed to generate quiz: \(error.localizedDescription)"
+                isLoading = false
+            }
+            throw error
+        }
+    }
+
+    /// Generate flashcards for current note
+    func generateFlashcards(note: Note, storageManager: StorageManager, count: Int = 15) async throws {
+        // Get latest note
+        guard let latestNote = storageManager.notes.first(where: { $0.id == note.id }) else {
+            throw NSError(domain: "StudyMode", code: 1, userInfo: [NSLocalizedDescriptionKey: "Note not found"])
+        }
+
+        // Build content string
+        var contentString = latestNote.title + "\n" + latestNote.subject + "\n" + latestNote.content
+
+        for (_, textBoxes) in latestNote.textBoxDataByPage {
+            for textBoxData in textBoxes {
+                if let textBox = try? JSONDecoder().decode(TextBox.self, from: textBoxData) {
+                    contentString += "\n" + textBox.text
+                }
+            }
+        }
+
+        // Convert note pages to images for visual analysis
+        var noteImages: [MediaItem] = []
+        let pageKeys = Array(latestNote.drawingDataByPage.keys).sorted { key1, key2 in
+            guard let page1 = Int(key1), let page2 = Int(key2) else { return key1 < key2 }
+            return page1 < page2
+        }
+
+        for pageKey in pageKeys {
+            guard let pageIndex = Int(pageKey),
+                  let drawingData = latestNote.drawingDataByPage[pageKey],
+                  let drawing = try? PKDrawing(data: drawingData) else { continue }
+
+            let paperSize = PaperUtilities.paperSize(for: latestNote.paperSize)
+            let backgroundImages = latestNote.imageDataByPage[pageKey] ?? []
+            let overlayImages = PaperUtilities.extractCanvasImages(from: latestNote.imageDataByPage, for: pageIndex)
+
+            let previewImage = PaperUtilities.generatePreviewWithBackground(
+                drawing: drawing,
+                paperSize: paperSize,
+                paperColor: latestNote.paperColor,
+                paperStyle: latestNote.paperStyle,
+                scale: 0.5,
+                backgroundImages: backgroundImages,
+                overlayImages: overlayImages
+            )
+
+            if let imageData = previewImage.jpegData(compressionQuality: 0.8) {
+                noteImages.append(MediaItem(data: imageData, type: .image))
+            }
+        }
+
+        await MainActor.run {
+            isLoading = true
+            errorMessage = nil
+        }
+
+        do {
+            let response = try await LlmAPI.sendMessage(
+                userMessage: contentString.isEmpty
+                    ? "Generate \(count) flashcards from the provided note images."
+                    : "Generate \(count) flashcards from this content and images:\n\n\(contentString)",
+                model_string: selectedModel.isEmpty ? "Matcha Assistant" : selectedModel,
+                mediaItems: noteImages.isEmpty ? nil : noteImages,
+                conversationHistory: nil,
+                systemPrompt: .flashcardGeneration
+            )
+
+            // Extract JSON from response (handle markdown code blocks)
+            let jsonString = extractJSON(from: response)
+            print("📋 Extracted JSON string (first 200 chars): \(String(jsonString.prefix(200)))")
+
+            // Parse JSON response
+            guard let jsonData = jsonString.data(using: .utf8) else {
+                print("❌ Failed to convert extracted string to data")
+                throw NSError(domain: "StudyMode", code: 3, userInfo: [NSLocalizedDescriptionKey: "Failed to convert JSON string to data"])
+            }
+            
+            do {
+                let decoded = try JSONDecoder().decode([String: [Flashcard]].self, from: jsonData)
+                guard let flashcards = decoded["flashcards"] else {
+                    print("❌ JSON decoded but 'flashcards' key not found")
+                    throw NSError(domain: "StudyMode", code: 3, userInfo: [NSLocalizedDescriptionKey: "Flashcards array not found in response"])
+                }
+                
+                print("✅ Successfully decoded \(flashcards.count) flashcards")
+                
+                await MainActor.run {
+                    if var session = studySession {
+                        session.addFlashcards(flashcards)
+                        studySession = session
+                        studyStorage.saveSession(session)
+                    }
+                    isLoading = false
+                }
+            } catch {
+                print("❌ JSON decoding error: \(error)")
+                if let decodingError = error as? DecodingError {
+                    print("📝 Detailed decoding error: \(decodingError)")
+                }
+                print("📄 Extracted JSON: \(jsonString)")
+                throw NSError(domain: "StudyMode", code: 3, userInfo: [NSLocalizedDescriptionKey: "Failed to parse flashcards: \(error.localizedDescription)"])
+            }
+        } catch {
+            await MainActor.run {
+                errorMessage = "Failed to generate flashcards: \(error.localizedDescription)"
+                isLoading = false
+            }
+            throw error
+        }
+    }
+
+    /// Helper function to extract JSON from LLM response (handles markdown code blocks)
+    private func extractJSON(from response: String) -> String {
+        print("📝 Extracting JSON from response (length: \(response.count))")
+
+        // Method 1: Split by triple backticks
+        let components = response.components(separatedBy: "```")
+        if components.count >= 3 {
+            // Get the content between first and second ```
+            var jsonContent = components[1]
+
+            // Remove "json" language identifier if present
+            if jsonContent.hasPrefix("json") {
+                jsonContent = String(jsonContent.dropFirst(4))
+            }
+
+            let trimmed = jsonContent.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                print("✅ Extracted from markdown code block (length: \(trimmed.count))")
+                return trimmed
+            }
+        }
+
+        // Method 2: Find JSON by braces
+        if let startIndex = response.firstIndex(of: "{"),
+           let endIndex = response.lastIndex(of: "}"),
+           startIndex < endIndex {
+            let extracted = String(response[startIndex...endIndex])
+            print("✅ Extracted by brace matching (length: \(extracted.count))")
+            return extracted
+        }
+
+        // Method 3: Find JSON array
+        if let startIndex = response.firstIndex(of: "["),
+           let endIndex = response.lastIndex(of: "]"),
+           startIndex < endIndex {
+            let extracted = String(response[startIndex...endIndex])
+            print("✅ Extracted by bracket matching (length: \(extracted.count))")
+            return extracted
+        }
+
+        print("⚠️ No extraction worked, returning trimmed original")
+        return response.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 }
 
 struct AIAssistantView: View {
@@ -104,7 +504,36 @@ struct AIAssistantView: View {
     @State private var userScrollTrigger: Int = 0
     @State private var shouldScrollToUserMessage = false
     
-    var body: some View {
+    // Assistant orientation (passed from parent)
+    var assistantOrientation: AssistantOrientation = .right
+
+    // MARK: - Mode Toggle Button
+    private var modeToggleButton: some View {
+        Button(action: { 
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { 
+                state.currentMode = state.currentMode == .chat ? .study : .chat
+            }
+        }) {
+            HStack(spacing: 5) {
+                Image(systemName: state.currentMode == .study ? "brain.head.profile" : "bubble.left.and.bubble.right")
+                    .font(.caption)
+                Text(state.currentMode == .study ? "Study" : "Chat")
+                    .font(.caption)
+                    .fontWeight(.medium)
+            }
+            .foregroundStyle(LinearGradient.premiumGradient)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(LinearGradient.premiumGradientBackground)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    // MARK: - Chat Mode Content
+    private var chatModeContent: some View {
         VStack(spacing: 0) {
             if state.messages.isEmpty {
                 inputSection
@@ -115,7 +544,33 @@ struct AIAssistantView: View {
                 chatHistorySection
                     .padding(.bottom, max(0, keyboardHeight.isFinite ? keyboardHeight : 0))
                 inputSection
-                    .padding(.top, 12) // Add some top padding when at bottom
+                    .padding(.top, 12)
+            }
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Mode toggle button - position based on assistant orientation
+            HStack {
+                if assistantOrientation == .right {
+                    Spacer()
+                }
+                modeToggleButton
+                if assistantOrientation == .left {
+                    Spacer()
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top, 8)
+            .padding(.bottom, 6)
+
+            // Conditional content based on mode
+            if state.currentMode == .chat {
+                chatModeContent
+            } else {
+                StudyModeView()
+                    .transition(.opacity)
             }
         }
         .background(

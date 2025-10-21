@@ -18,17 +18,7 @@ struct ModelNameLabel: View {
     private func premiumStyled(_ text: Text, isPremium: Bool) -> some View {
         if isPremium {
             text
-                .foregroundColor(.primary)
-                .overlay(
-                    LinearGradient(
-                        gradient: Gradient(colors: [Color.purple, Color.pink, Color.orange]),
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .mask(
-                    text
-                )
+                .foregroundStyle(LinearGradient.premiumGradient)
         } else {
             text
                 .foregroundColor(.primary)

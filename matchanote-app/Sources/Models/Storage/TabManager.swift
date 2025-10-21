@@ -80,9 +80,11 @@ class TabManager: ObservableObject {
   
   func updateNote(_ updatedNote: Note) {
     // Update the note in any tabs that contain it
-    for i in 0..<tabs.count {
-      if tabs[i].note.id == updatedNote.id {
-        tabs[i].note = updatedNote
+    DispatchQueue.main.async {
+      for i in 0..<self.tabs.count {
+        if self.tabs[i].note.id == updatedNote.id {
+          self.tabs[i].note = updatedNote
+        }
       }
     }
   }

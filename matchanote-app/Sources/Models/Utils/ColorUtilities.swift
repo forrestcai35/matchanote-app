@@ -1,6 +1,56 @@
 import SwiftUI
 
+// MARK: - Premium Gradients
+extension LinearGradient {
+    /// Premium gradient used for Chat/Study toggle and premium model names
+    static let premiumGradient = LinearGradient(
+        colors: [
+            Color(red: 0.4, green: 0.7, blue: 0.3),  // Matcha green
+            Color(red: 0.3, green: 0.6, blue: 0.9)   // Premium blue
+        ],
+        startPoint: .leading,
+        endPoint: .trailing
+    )
+    
+    /// Premium gradient background (with opacity for backgrounds)
+    static let premiumGradientBackground = LinearGradient(
+        colors: [
+            Color(red: 0.4, green: 0.7, blue: 0.3).opacity(0.15),
+            Color(red: 0.3, green: 0.6, blue: 0.9).opacity(0.15)
+        ],
+        startPoint: .leading,
+        endPoint: .trailing
+    )
+    
+    /// Quiz option gradient (green variant)
+    static let quizGradient = LinearGradient(
+        colors: [
+            Color(red: 0.4, green: 0.7, blue: 0.3),   // Matcha green
+            Color(red: 0.35, green: 0.65, blue: 0.28) // Darker green
+        ],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+    
+    /// Flashcards option gradient (blue variant)
+    static let flashcardsGradient = LinearGradient(
+        colors: [
+            Color(red: 0.3, green: 0.6, blue: 0.9),   // Premium blue
+            Color(red: 0.25, green: 0.55, blue: 0.85) // Darker blue
+        ],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+}
 
+// MARK: - Premium Colors
+extension Color {
+    /// Matcha green color used in gradients
+    static let matchaGreen = Color(red: 0.4, green: 0.7, blue: 0.3)
+    
+    /// Premium blue color used in gradients
+    static let premiumBlue = Color(red: 0.3, green: 0.6, blue: 0.9)
+}
 
 // MARK: - Color Conversion Helpers
 

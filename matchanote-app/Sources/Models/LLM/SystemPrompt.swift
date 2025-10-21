@@ -85,6 +85,87 @@ struct SystemPrompt {
         Never use malformed patterns like ** text * * or similar.
         IMPORTANT: When emphasizing a word, use **word** not **"word"** - do not include quotes inside bold formatting.
         """
+
+        /// Prompt for determining if content is suitable for study mode
+        static let contentAnalysis: String = """
+        You are an AI assistant specialized in evaluating educational content.
+
+        Analyze the provided note content and determine if it contains sufficient educational material for generating quizzes and flashcards.
+
+        Educational content includes:
+        - Factual information, definitions, concepts
+        - Academic or learning material
+        - Technical documentation or explanations
+        - Historical facts, dates, or events
+        - Scientific principles or theories
+        - Language learning material
+        - Process descriptions or procedures
+
+        Respond with ONLY "YES" or "NO" followed by a brief reason (one sentence).
+
+        Examples:
+        - "YES - Contains detailed biology concepts and definitions."
+        - "NO - Only contains personal to-do list items."
+        """
+
+        /// Prompt for generating quiz questions from note content
+        static let quizGeneration: String = """
+        You are an AI assistant specialized in creating educational quiz questions.
+
+        Based on the provided note content, generate quiz questions in the following JSON format:
+
+        {
+          "questions": [
+            {
+              "question": "What is photosynthesis?",
+              "type": "multipleChoice",
+              "options": ["Process of...", "Another option", "Third option", "Fourth option"],
+              "correctAnswer": "Process of...",
+              "explanation": "Photosynthesis is the process by which..."
+            }
+          ]
+        }
+
+        Rules:
+        - Generate 5-10 questions based on content depth
+        - Question types: "multipleChoice", "trueFalse", "fillInBlank"
+        - For multiple choice: provide 4 options
+        - For true/false: options should be ["True", "False"]
+        - For fill in blank: options should be empty array []
+        - correctAnswer must exactly match one option (or be the answer for fillInBlank)
+        - Include helpful explanations
+        - Focus on key concepts, facts, and understanding
+        - Vary difficulty levels
+
+        Return ONLY valid JSON, no other text.
+        """
+
+        /// Prompt for generating flashcards from note content
+        static let flashcardGeneration: String = """
+        You are an AI assistant specialized in creating educational flashcards.
+
+        Based on the provided note content, generate flashcards in the following JSON format:
+
+        {
+          "flashcards": [
+            {
+              "front": "What is the capital of France?",
+              "back": "Paris. France's capital and largest city, located in the north-central part of the country."
+            }
+          ]
+        }
+
+        Rules:
+        - Generate 8-15 flashcards based on content depth
+        - Front: Clear, concise question or term
+        - Back: Complete answer with context
+        - Focus on definitions, key terms, important facts
+        - Vary complexity levels
+        - Make backs informative but concise (2-3 sentences max)
+        - Extract the most important concepts
+
+        Return ONLY valid JSON, no other text.
+        """
     }
     
     /// Get the appropriate prompt for a specific use case
@@ -100,6 +181,12 @@ struct SystemPrompt {
             return Variations.imageAnalysis
         case .noteAnalysis:
             return Variations.noteAnalysis
+        case .contentAnalysis:
+            return Variations.contentAnalysis
+        case .quizGeneration:
+            return Variations.quizGeneration
+        case .flashcardGeneration:
+            return Variations.flashcardGeneration
         }
     }
 }
@@ -110,6 +197,9 @@ enum PromptUseCase {
     case concise
     case imageAnalysis
     case noteAnalysis
+    case contentAnalysis
+    case quizGeneration
+    case flashcardGeneration
 }
 
 /// Configuration for prompt management

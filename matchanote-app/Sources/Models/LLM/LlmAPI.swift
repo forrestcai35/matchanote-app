@@ -70,12 +70,12 @@ struct LlmAPI {
     self.groqAPIKey = groqAPIKey
   }
 
-  static func sendMessage(userMessage: String, model_string: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
+  static func sendMessage(userMessage: String, model_string: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil, systemPrompt: PromptUseCase? = nil) async throws -> String {
     print("🤖 Sending message to model: \(model_string)")
 
     // Special handling for Matcha Assistant - use load balancer
     if model_string == "Matcha Assistant" {
-      return try await sendWithLoadBalancer(userMessage: userMessage, mediaItems: mediaItems, conversationHistory: conversationHistory)
+      return try await sendWithLoadBalancer(userMessage: userMessage, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: systemPrompt)
     }
 
     guard let modelConfig = ModelConfiguration.getModelConfig(for: model_string) else {
@@ -86,7 +86,7 @@ struct LlmAPI {
     print("🔧 Using provider: \(modelConfig.provider.displayName)")
 
     do {
-      return try await sendMessageWithProvider(userMessage: userMessage, modelConfig: modelConfig, mediaItems: mediaItems, conversationHistory: conversationHistory)
+      return try await sendMessageWithProvider(userMessage: userMessage, modelConfig: modelConfig, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: systemPrompt)
     } catch {
       print("❌ Error with \(modelConfig.provider.displayName): \(error)")
 
@@ -113,8 +113,16 @@ struct LlmAPI {
 
   // MARK: - Load Balancer Integration
 
+  // MARK: - Helper to determine system prompt
+  private static func getSystemPromptText(for model: String, customPrompt: PromptUseCase?) -> String {
+    if let customPrompt = customPrompt {
+      return SystemPrompt.getPrompt(for: customPrompt)
+    }
+    return SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)
+  }
+
   /// Send message using the load balancer (for Matcha Assistant)
-  private static func sendWithLoadBalancer(userMessage: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
+  private static func sendWithLoadBalancer(userMessage: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil, systemPrompt: PromptUseCase? = nil) async throws -> String {
     let hasMedia = mediaItems != nil && !(mediaItems?.isEmpty ?? true)
 
     // Estimate token count for intelligent model selection
@@ -132,13 +140,13 @@ struct LlmAPI {
       // Try the selected model
       switch selectedModel.provider {
       case .openRouter:
-        return try await sendOpenRouterMessage(userMessage: userMessage, model: selectedModel.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
+        return try await sendOpenRouterMessage(userMessage: userMessage, model: selectedModel.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: systemPrompt)
       case .google:
-        return try await sendGoogleMessage(userMessage: userMessage, model: selectedModel.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
+        return try await sendGoogleMessage(userMessage: userMessage, model: selectedModel.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: systemPrompt)
       case .mistral:
-        return try await sendMistralMessage(userMessage: userMessage, model: selectedModel.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
+        return try await sendMistralMessage(userMessage: userMessage, model: selectedModel.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: systemPrompt)
       case .groq:
-        return try await sendGroqMessage(userMessage: userMessage, model: selectedModel.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
+        return try await sendGroqMessage(userMessage: userMessage, model: selectedModel.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: systemPrompt)
       default:
         throw LlmError.invalidResponse
       }
@@ -161,26 +169,26 @@ struct LlmAPI {
     }
   }
   
-  private static func sendMessageWithProvider(userMessage: String, modelConfig: ModelConfiguration.Model, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
+  private static func sendMessageWithProvider(userMessage: String, modelConfig: ModelConfiguration.Model, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil, systemPrompt: PromptUseCase? = nil) async throws -> String {
     switch modelConfig.provider {
     case .openRouter:
-      return try await sendOpenRouterMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
+      return try await sendOpenRouterMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: systemPrompt)
     case .openai:
-      return try await sendOpenAIMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
+      return try await sendOpenAIMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: systemPrompt)
     case .anthropic:
-      return try await sendAnthropicMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
+      return try await sendAnthropicMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: systemPrompt)
     case .deepseek:
-      return try await sendDeepSeekMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
+      return try await sendDeepSeekMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: systemPrompt)
     case .google:
-      return try await sendGoogleMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
+      return try await sendGoogleMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: systemPrompt)
     case .x:
-      return try await sendXMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
+      return try await sendXMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: systemPrompt)
     case .mistral:
-      return try await sendMistralMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
+      return try await sendMistralMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: systemPrompt)
     case .perplexity:
-      return try await sendPerplexityMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
+      return try await sendPerplexityMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: systemPrompt)
     case .groq:
-      return try await sendGroqMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
+      return try await sendGroqMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: systemPrompt)
     }
   }
   
@@ -210,7 +218,7 @@ struct LlmAPI {
   
   // MARK: - Provider-specific Methods
 
-  internal static func sendOpenRouterMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
+  internal static func sendOpenRouterMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil, systemPrompt: PromptUseCase? = nil) async throws -> String {
     guard let apiKey = openRouterAPIKey else {
       print("❌ Missing OpenRouter API key")
       throw LlmError.missingAPIKey
@@ -225,10 +233,10 @@ struct LlmAPI {
     request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
     request.addValue("application/json", forHTTPHeaderField: "Content-Type")
     request.addValue("Matcha Note App", forHTTPHeaderField: "HTTP-Referer")
-    
+
     // Build messages array starting with system message
     var messages: [[String: Any]] = [
-      ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)]
+      ["role": "system", "content": getSystemPromptText(for: model, customPrompt: systemPrompt)]
     ]
     
     // Add conversation history if present
@@ -307,7 +315,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: OpenRouterResponse.self)
   }
   
-  internal static func sendOpenAIMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
+  internal static func sendOpenAIMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil, systemPrompt: PromptUseCase? = nil) async throws -> String {
     guard let apiKey = openAIAPIKey else {
       print("❌ Missing OpenAI API key")
       throw LlmError.missingAPIKey
@@ -324,7 +332,7 @@ struct LlmAPI {
     
     // Build messages array starting with system message
     var messages: [[String: Any]] = [
-      ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)]
+      ["role": "system", "content": getSystemPromptText(for: model, customPrompt: systemPrompt)]
     ]
     
     // Add conversation history if present
@@ -408,7 +416,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: OpenAIResponse.self)
   }
   
-  internal static func sendAnthropicMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
+  internal static func sendAnthropicMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil, systemPrompt: PromptUseCase? = nil) async throws -> String {
     guard let apiKey = anthropicAPIKey else {
       throw LlmError.missingAPIKey
     }
@@ -495,7 +503,7 @@ struct LlmAPI {
     let requestBody: [String: Any] = [
       "model": model,
       "max_tokens": 8000,
-      "system": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general),
+      "system": getSystemPromptText(for: model, customPrompt: systemPrompt),
       "messages": messages
     ]
 
@@ -508,7 +516,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: AnthropicResponse.self)
   }
   
-  internal static func sendDeepSeekMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
+  internal static func sendDeepSeekMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil, systemPrompt: PromptUseCase? = nil) async throws -> String {
     guard let apiKey = deepSeekAPIKey else {
       throw LlmError.missingAPIKey
     }
@@ -524,7 +532,7 @@ struct LlmAPI {
     
     // Build messages array starting with system message
     var messages: [[String: Any]] = [
-      ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)]
+      ["role": "system", "content": getSystemPromptText(for: model, customPrompt: systemPrompt)]
     ]
     
     // Add conversation history if present
@@ -603,7 +611,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: DeepSeekResponse.self)
   }
   
-  internal static func sendGoogleMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
+  internal static func sendGoogleMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil, systemPrompt: PromptUseCase? = nil) async throws -> String {
     guard let apiKey = googleAPIKey else {
       print("❌ Missing Google API key")
       throw LlmError.missingAPIKey
@@ -616,15 +624,15 @@ struct LlmAPI {
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
     request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-    
+
     // Build contents array
     var contents: [[String: Any]] = []
-    
+
     // Add system prompt as first user message for Google
     contents.append([
       "role": "user",
       "parts": [
-        ["text": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)]
+        ["text": getSystemPromptText(for: model, customPrompt: systemPrompt)]
       ]
     ])
     contents.append([
@@ -704,7 +712,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: GoogleResponse.self)
   }
   
-  internal static func sendXMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
+  internal static func sendXMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil, systemPrompt: PromptUseCase? = nil) async throws -> String {
     guard let apiKey = xAPIKey else {
       throw LlmError.missingAPIKey
     }
@@ -720,7 +728,7 @@ struct LlmAPI {
     
     // Build messages array starting with system message
     var messages: [[String: Any]] = [
-      ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)]
+      ["role": "system", "content": getSystemPromptText(for: model, customPrompt: systemPrompt)]
     ]
     
     // Add conversation history if present
@@ -799,7 +807,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: XResponse.self)
   }
   
-  internal static func sendMistralMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
+  internal static func sendMistralMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil, systemPrompt: PromptUseCase? = nil) async throws -> String {
     guard let apiKey = mistralAPIKey else {
       print("❌ Missing Mistral API key")
       throw LlmError.missingAPIKey
@@ -816,7 +824,7 @@ struct LlmAPI {
     
     // Build messages array starting with system message
     var messages: [[String: Any]] = [
-      ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)]
+      ["role": "system", "content": getSystemPromptText(for: model, customPrompt: systemPrompt)]
     ]
     
     // Add conversation history if present
@@ -895,7 +903,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: MistralResponse.self)
   }
   
-  internal static func sendPerplexityMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
+  internal static func sendPerplexityMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil, systemPrompt: PromptUseCase? = nil) async throws -> String {
     guard let apiKey = perplexityAPIKey else {
       print("❌ Missing Perplexity API key")
       throw LlmError.missingAPIKey
@@ -912,7 +920,7 @@ struct LlmAPI {
     
     // Build messages array starting with system message
     var messages: [[String: Any]] = [
-      ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)]
+      ["role": "system", "content": getSystemPromptText(for: model, customPrompt: systemPrompt)]
     ]
     
     // Add conversation history if present - Perplexity requires strict alternation
@@ -1008,7 +1016,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: PerplexityResponse.self)
   }
 
-  internal static func sendGroqMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
+  internal static func sendGroqMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil, systemPrompt: PromptUseCase? = nil) async throws -> String{
     guard let apiKey = groqAPIKey else {
       print("❌ Missing Groq API key")
       throw LlmError.missingAPIKey
@@ -1025,7 +1033,7 @@ struct LlmAPI {
 
     // Build messages array starting with system message
     var messages: [[String: Any]] = [
-      ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)]
+      ["role": "system", "content": getSystemPromptText(for: model, customPrompt: systemPrompt)]
     ]
 
     // Add conversation history if present

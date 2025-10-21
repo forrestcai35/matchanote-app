@@ -10,6 +10,7 @@ struct NewWrittenNoteView: View {
   @State private var noteColor: Color = .matchalight_light
 
   var onSave: (Note) -> Void
+  var subject: String? = nil
 
   var body: some View {
     NavigationStack {
@@ -171,6 +172,7 @@ struct NewWrittenNoteView: View {
   private func createNote() {
     let newNote = Note(
       title: title,
+      subject: subject ?? "",
       color: noteColor,
       dateCreated: Date(),
       dateModified: Date(),
