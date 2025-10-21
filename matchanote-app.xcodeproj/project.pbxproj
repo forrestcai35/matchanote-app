@@ -74,20 +74,6 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		A87B81CE2EA7C9950078A023 /* Exceptions for "MatchanoteActionExtension" folder in "MatchanoteActionExtension" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = A87B81BA2EA7C9950078A023 /* MatchanoteActionExtension */;
-		};
-		A87B81E12EA7C9A30078A023 /* Exceptions for "MatchanoteShareExtension" folder in "MatchanoteShareExtension" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = A87B81D22EA7C9A30078A023 /* MatchanoteShareExtension */;
-		};
 		A8AB3C192DB228950009CBF5 /* Exceptions for "matchanote-app" folder in "matchanote-app" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -114,22 +100,6 @@
 		A871553E2D9FC9EC005FA72A /* matchanote-appUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "matchanote-appUITests";
-			sourceTree = "<group>";
-		};
-		A87B81BF2EA7C9950078A023 /* MatchanoteActionExtension */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				A87B81CE2EA7C9950078A023 /* Exceptions for "MatchanoteActionExtension" folder in "MatchanoteActionExtension" target */,
-			);
-			path = MatchanoteActionExtension;
-			sourceTree = "<group>";
-		};
-		A87B81D42EA7C9A30078A023 /* MatchanoteShareExtension */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				A87B81E12EA7C9A30078A023 /* Exceptions for "MatchanoteShareExtension" folder in "MatchanoteShareExtension" target */,
-			);
-			path = MatchanoteShareExtension;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -186,8 +156,6 @@
 				A87155232D9FC9EA005FA72A /* matchanote-app */,
 				A87155342D9FC9EC005FA72A /* matchanote-appTests */,
 				A871553E2D9FC9EC005FA72A /* matchanote-appUITests */,
-				A87B81BF2EA7C9950078A023 /* MatchanoteActionExtension */,
-				A87B81D42EA7C9A30078A023 /* MatchanoteShareExtension */,
 				A87B81BC2EA7C9950078A023 /* Frameworks */,
 				A87155222D9FC9EA005FA72A /* Products */,
 			);
@@ -305,9 +273,6 @@
 			);
 			dependencies = (
 			);
-			fileSystemSynchronizedGroups = (
-				A87B81BF2EA7C9950078A023 /* MatchanoteActionExtension */,
-			);
 			name = MatchanoteActionExtension;
 			packageProductDependencies = (
 			);
@@ -326,9 +291,6 @@
 			buildRules = (
 			);
 			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				A87B81D42EA7C9A30078A023 /* MatchanoteShareExtension */,
 			);
 			name = MatchanoteShareExtension;
 			packageProductDependencies = (

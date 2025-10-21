@@ -496,13 +496,18 @@ struct WrittenNoteView: View {
     private func pageContent(pageIndex: Int, isInfinite: Bool) -> some View {
         // Wrap Canvas in a GeometryReader to get parent size for centering and safe area insets
         GeometryReader { geometry in
-            // Use static zoom caps for consistent behavior across orientations
-            let staticMinScale: CGFloat = 0.75
-            let staticMaxScale: CGFloat = 5.0
+            // Calculate dynamic zoom scales based on content size to ensure consistent behavior
+            let contentSize = perPageSize(pageIndex)
+            let viewportSize = geometry.size
+            let fitScale = min(viewportSize.width / max(contentSize.width, 1), viewportSize.height / max(contentSize.height, 1))
+            
+            // Allow zooming from 75% of fit scale to 5x of fit scale for consistent zoom range
+            let dynamicMinScale: CGFloat = fitScale * 0.75
+            let dynamicMaxScale: CGFloat = fitScale * 5.0
             
             ZoomableScrollView(
-                minScale: staticMinScale,
-                maxScale: staticMaxScale,
+                minScale: dynamicMinScale,
+                maxScale: dynamicMaxScale,
                 resetOnDoubleTap: true,
                 currentScale: $unifiedZoomScale,
                 contentOffset: $unifiedContentOffset,
@@ -596,21 +601,28 @@ struct WrittenNoteView: View {
             .onAppear {
                 // Auto-fit to screen on first appearance of the content after loading a note
                 if !didApplyInitialFit {
-                    // Calculate fit scale for initial display but don't use it as minimum
+                    // Set initial zoom to fit scale for consistent display
                     let contentSize = perPageSize(pageIndex)
                     let viewportSize = geometry.size
                     let fitScale = min(viewportSize.width / max(contentSize.width, 1), viewportSize.height / max(contentSize.height, 1))
-                    let initialScale = max(staticMinScale, min(fitScale * 0.999, 1.0))
-                    unifiedZoomScale = initialScale
+                    // Use fit scale directly with a small adjustment to ensure content is visible
+                    unifiedZoomScale = fitScale * 0.95
                     unifiedContentOffset = .zero
                     didApplyInitialFit = true
                 }
             }
-            .onChange(of: geometry.size) { _, _ in
-                clampScaleIfNeeded(staticMinScale)
+            .onChange(of: geometry.size) { oldSize, newSize in
+                // Handle orientation changes gracefully by refitting content to new viewport
+                handleOrientationChange(
+                    pageIndex: pageIndex,
+                    oldSize: oldSize,
+                    newSize: newSize,
+                    fitScale: fitScale,
+                    dynamicMinScale: dynamicMinScale
+                )
             }
             .onChange(of: currentPage) { _, _ in
-                clampScaleIfNeeded(staticMinScale)
+                clampScaleIfNeeded(dynamicMinScale)
             }
             .coordinateSpace(name: "scroll")
             .edgesIgnoringSafeArea(.bottom)
@@ -621,6 +633,41 @@ struct WrittenNoteView: View {
     private func clampScaleIfNeeded(_ minScale: CGFloat) {
         if unifiedZoomScale < minScale {
             unifiedZoomScale = minScale
+        }
+    }
+    
+    // Handle orientation changes by adjusting zoom and offset to fit new viewport
+    private func handleOrientationChange(pageIndex: Int, oldSize: CGSize, newSize: CGSize, fitScale: CGFloat, dynamicMinScale: CGFloat) {
+        // Skip if sizes are essentially the same (avoid unnecessary updates)
+        guard abs(oldSize.width - newSize.width) > 1 || abs(oldSize.height - newSize.height) > 1 else {
+            return
+        }
+        
+        // Calculate old fit scale to understand the scale change
+        let contentSize = perPageSize(pageIndex)
+        let oldFitScale = min(oldSize.width / max(contentSize.width, 1), oldSize.height / max(contentSize.height, 1))
+        
+        // If the old scale was close to the fit scale, adjust to new fit scale
+        let wasNearFitScale = abs(unifiedZoomScale - oldFitScale) < 0.1
+        
+        if wasNearFitScale {
+            // Reset to fit the new orientation nicely
+            unifiedZoomScale = fitScale * 0.95
+            unifiedContentOffset = .zero
+        } else {
+            // Scale proportionally to maintain relative zoom level
+            let scaleRatio = fitScale / max(oldFitScale, 0.01)
+            let newScale = unifiedZoomScale * scaleRatio
+            
+            // Clamp to new dynamic bounds
+            unifiedZoomScale = max(dynamicMinScale, min(newScale, fitScale * 5.0))
+            
+            // Adjust content offset proportionally to prevent content from being cut off
+            let offsetRatio = newSize.width / max(oldSize.width, 1)
+            unifiedContentOffset = CGPoint(
+                x: unifiedContentOffset.x * offsetRatio,
+                y: unifiedContentOffset.y * offsetRatio
+            )
         }
     }
     
