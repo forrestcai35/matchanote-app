@@ -10,6 +10,7 @@ enum APIProvider: String, CaseIterable {
     case x = "x"
     case mistral = "mistral"
     case perplexity = "perplexity"
+    case groq = "groq"
     
     var displayName: String {
         switch self {
@@ -21,6 +22,7 @@ enum APIProvider: String, CaseIterable {
         case .x: return "X (Grok)"
         case .mistral: return "Mistral"
         case .perplexity: return "Perplexity"
+        case .groq: return "Groq"
         }
     }
 }

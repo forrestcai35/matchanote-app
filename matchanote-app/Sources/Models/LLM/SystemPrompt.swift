@@ -121,7 +121,11 @@ struct PromptConfiguration {
     static let tokenLimitedModels = [
         "google/gemini-2.0-flash-exp:free",  // Matcha Assistant primary model
         "mistral-7b-instruct",                // Matcha Assistant fallback
-        "gemma-3-27b-it"                      // Matcha Assistant fallback
+        "gemma-3-27b-it",                     // Matcha Assistant fallback
+        "llama-3.3-70b-versatile",            // Groq fallback
+        "llama-3.1-70b-versatile",            // Groq fallback
+        "llama-3.2-11b-vision-preview",       // Groq fallback (with vision)
+        "mixtral-8x7b-32768"                  // Groq fallback
     ]
     
     /// Check if a model should use the concise prompt (with identity protection)

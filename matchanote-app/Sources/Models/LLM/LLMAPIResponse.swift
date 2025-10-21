@@ -212,3 +212,28 @@ struct MistralResponse: Decodable {
     let content: String
   }
 }
+
+// MARK: - Groq Response
+struct GroqResponse: Decodable {
+  let id: String
+  let object: String
+  let created: Int
+  let model: String
+  let choices: [GroqChoice]
+
+  struct GroqChoice: Decodable {
+    let index: Int
+    let message: GroqMessage
+    let finishReason: String?
+
+    enum CodingKeys: String, CodingKey {
+      case index, message
+      case finishReason = "finish_reason"
+    }
+  }
+
+  struct GroqMessage: Decodable {
+    let role: String
+    let content: String
+  }
+}

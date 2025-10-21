@@ -36,7 +36,8 @@ struct LlmAPI {
   private static var xAPIKey: String? = nil
   private static var mistralAPIKey: String? = nil
   private static var perplexityAPIKey: String? = nil
-  
+  private static var groqAPIKey: String? = nil
+
   // MARK: - Endpoints
   private static let openRouterEndpoint = "https://openrouter.ai/api/v1/chat/completions"
   private static let openAIEndpoint = "https://api.openai.com/v1/chat/completions"
@@ -46,16 +47,18 @@ struct LlmAPI {
   private static let xEndpoint = "https://api.x.ai/v1/chat/completions"
   private static let mistralEndpoint = "https://api.mistral.ai/v1/chat/completions"
   private static let perplexityEndpoint = "https://api.perplexity.ai/chat/completions"
+  private static let groqEndpoint = "https://api.groq.com/openai/v1/chat/completions"
 
   // MARK: - Configuration
-  static func configure(openRouterAPIKey: String? = nil, 
-                       openAIAPIKey: String? = nil, 
-                       anthropicAPIKey: String? = nil, 
-                       deepSeekAPIKey: String? = nil, 
+  static func configure(openRouterAPIKey: String? = nil,
+                       openAIAPIKey: String? = nil,
+                       anthropicAPIKey: String? = nil,
+                       deepSeekAPIKey: String? = nil,
                        googleAPIKey: String? = nil,
                        xAPIKey: String? = nil,
                        mistralAPIKey: String? = nil,
-                       perplexityAPIKey: String? = nil) {
+                       perplexityAPIKey: String? = nil,
+                       groqAPIKey: String? = nil) {
     self.openRouterAPIKey = openRouterAPIKey
     self.openAIAPIKey = openAIAPIKey
     self.anthropicAPIKey = anthropicAPIKey
@@ -64,47 +67,97 @@ struct LlmAPI {
     self.xAPIKey = xAPIKey
     self.mistralAPIKey = mistralAPIKey
     self.perplexityAPIKey = perplexityAPIKey
+    self.groqAPIKey = groqAPIKey
   }
 
   static func sendMessage(userMessage: String, model_string: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
     print("🤖 Sending message to model: \(model_string)")
-    
+
+    // Special handling for Matcha Assistant - use load balancer
+    if model_string == "Matcha Assistant" {
+      return try await sendWithLoadBalancer(userMessage: userMessage, mediaItems: mediaItems, conversationHistory: conversationHistory)
+    }
+
     guard let modelConfig = ModelConfiguration.getModelConfig(for: model_string) else {
       print("❌ Model not found: \(model_string)")
       throw LlmError.invalidResponse
     }
-    
+
     print("🔧 Using provider: \(modelConfig.provider.displayName)")
-    
+
     do {
       return try await sendMessageWithProvider(userMessage: userMessage, modelConfig: modelConfig, mediaItems: mediaItems, conversationHistory: conversationHistory)
     } catch {
       print("❌ Error with \(modelConfig.provider.displayName): \(error)")
-      
-      // If the primary model is "Matcha Assistant" (free model) and we hit any error, try fallback chain
-      if model_string == "Matcha Assistant" {
-        // If no media items, prefer Mistral as first fallback (better text processing)
-        if mediaItems == nil || mediaItems?.isEmpty == true {
-          print("🔄 Error with Matcha Assistant, trying Mistral 7B as first fallback (no media)")
-          do {
-            return try await sendMistralMessage(userMessage: userMessage, model: "mistral-7b-instruct", mediaItems: mediaItems, conversationHistory: conversationHistory)
-          } catch {
-            print("🔄 Mistral fallback also failed, trying Google Gemma 3 as final fallback")
-            return try await sendGoogleMessage(userMessage: userMessage, model: "gemma-3-27b-it", mediaItems: mediaItems, conversationHistory: conversationHistory)
-          }
-        } else {
-          // If media items present, use Google first (better image processing)
-          print("🔄 Error with Matcha Assistant, trying Google Gemma 3 as first fallback (with media)")
-          do {
-            return try await sendGoogleMessage(userMessage: userMessage, model: "gemma-3-27b-it", mediaItems: mediaItems, conversationHistory: conversationHistory)
-          } catch {
-            print("🔄 Google fallback also failed, trying Mistral 7B as final fallback")
-            return try await sendMistralMessage(userMessage: userMessage, model: "mistral-7b-instruct", mediaItems: mediaItems, conversationHistory: conversationHistory)
-          }
-        }
+
+      // Mark as rate limited if applicable
+      if isRateLimitError(error) {
+        ModelLoadBalancer.markRateLimited(modelConfig.modelId)
       }
-      
-      throw error
+
+      // Try universal fallback for all models
+      do {
+        return try await UniversalFallback.sendMessage(
+          userMessage: userMessage,
+          mediaItems: mediaItems,
+          conversationHistory: conversationHistory,
+          originalError: error,
+          excludeModels: [modelConfig.modelId]
+        )
+      } catch let fallbackError {
+        print("❌ Universal fallback also failed: \(fallbackError)")
+        throw fallbackError
+      }
+    }
+  }
+
+  // MARK: - Load Balancer Integration
+
+  /// Send message using the load balancer (for Matcha Assistant)
+  private static func sendWithLoadBalancer(userMessage: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
+    let hasMedia = mediaItems != nil && !(mediaItems?.isEmpty ?? true)
+
+    // Estimate token count for intelligent model selection
+    let estimatedTokens = TokenEstimator.estimateTokens(userMessage: userMessage, conversationHistory: conversationHistory)
+
+    // Select best model using load balancer with token awareness
+    guard let selectedModel = ModelLoadBalancer.selectBestModel(hasMediaItems: hasMedia, estimatedTokens: estimatedTokens) else {
+      print("❌ Load Balancer: No models available")
+      throw LlmError.invalidResponse
+    }
+
+    print("🔧 Load Balancer: Using \(selectedModel.name)")
+
+    do {
+      // Try the selected model
+      switch selectedModel.provider {
+      case .openRouter:
+        return try await sendOpenRouterMessage(userMessage: userMessage, model: selectedModel.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
+      case .google:
+        return try await sendGoogleMessage(userMessage: userMessage, model: selectedModel.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
+      case .mistral:
+        return try await sendMistralMessage(userMessage: userMessage, model: selectedModel.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
+      case .groq:
+        return try await sendGroqMessage(userMessage: userMessage, model: selectedModel.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
+      default:
+        throw LlmError.invalidResponse
+      }
+    } catch {
+      print("❌ Load Balancer: Selected model failed: \(error)")
+
+      // Mark as rate limited if applicable
+      if isRateLimitError(error) {
+        ModelLoadBalancer.markRateLimited(selectedModel.modelId)
+      }
+
+      // Try universal fallback, excluding the model that just failed
+      return try await UniversalFallback.sendMessage(
+        userMessage: userMessage,
+        mediaItems: mediaItems,
+        conversationHistory: conversationHistory,
+        originalError: error,
+        excludeModels: [selectedModel.modelId]
+      )
     }
   }
   
@@ -126,6 +179,8 @@ struct LlmAPI {
       return try await sendMistralMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
     case .perplexity:
       return try await sendPerplexityMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
+    case .groq:
+      return try await sendGroqMessage(userMessage: userMessage, model: modelConfig.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory)
     }
   }
   
@@ -154,8 +209,8 @@ struct LlmAPI {
   }
   
   // MARK: - Provider-specific Methods
-  
-  private static func sendOpenRouterMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
+
+  internal static func sendOpenRouterMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
     guard let apiKey = openRouterAPIKey else {
       print("❌ Missing OpenRouter API key")
       throw LlmError.missingAPIKey
@@ -252,7 +307,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: OpenRouterResponse.self)
   }
   
-  private static func sendOpenAIMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
+  internal static func sendOpenAIMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
     guard let apiKey = openAIAPIKey else {
       print("❌ Missing OpenAI API key")
       throw LlmError.missingAPIKey
@@ -353,7 +408,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: OpenAIResponse.self)
   }
   
-  private static func sendAnthropicMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
+  internal static func sendAnthropicMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
     guard let apiKey = anthropicAPIKey else {
       throw LlmError.missingAPIKey
     }
@@ -453,7 +508,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: AnthropicResponse.self)
   }
   
-  private static func sendDeepSeekMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
+  internal static func sendDeepSeekMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
     guard let apiKey = deepSeekAPIKey else {
       throw LlmError.missingAPIKey
     }
@@ -548,7 +603,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: DeepSeekResponse.self)
   }
   
-  private static func sendGoogleMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
+  internal static func sendGoogleMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
     guard let apiKey = googleAPIKey else {
       print("❌ Missing Google API key")
       throw LlmError.missingAPIKey
@@ -649,7 +704,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: GoogleResponse.self)
   }
   
-  private static func sendXMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
+  internal static func sendXMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
     guard let apiKey = xAPIKey else {
       throw LlmError.missingAPIKey
     }
@@ -744,7 +799,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: XResponse.self)
   }
   
-  private static func sendMistralMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
+  internal static func sendMistralMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
     guard let apiKey = mistralAPIKey else {
       print("❌ Missing Mistral API key")
       throw LlmError.missingAPIKey
@@ -840,7 +895,7 @@ struct LlmAPI {
     return try await performRequest(request: request, responseType: MistralResponse.self)
   }
   
-  private static func sendPerplexityMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
+  internal static func sendPerplexityMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
     guard let apiKey = perplexityAPIKey else {
       print("❌ Missing Perplexity API key")
       throw LlmError.missingAPIKey
@@ -952,7 +1007,103 @@ struct LlmAPI {
 
     return try await performRequest(request: request, responseType: PerplexityResponse.self)
   }
-  
+
+  internal static func sendGroqMessage(userMessage: String, model: String, mediaItems: [MediaItem]? = nil, conversationHistory: [ChatMessage]? = nil) async throws -> String {
+    guard let apiKey = groqAPIKey else {
+      print("❌ Missing Groq API key")
+      throw LlmError.missingAPIKey
+    }
+
+    guard let url = URL(string: groqEndpoint) else {
+      throw LlmError.invalidURL
+    }
+
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+    request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+    request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+
+    // Build messages array starting with system message
+    var messages: [[String: Any]] = [
+      ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)]
+    ]
+
+    // Add conversation history if present
+    if let history = conversationHistory {
+      for message in history {
+        let role = message.isUser ? "user" : "assistant"
+        var content: Any = message.content
+
+        // If message has media items, format as content array
+        if let mediaItems = message.mediaItems, !mediaItems.isEmpty {
+          var contentArray: [[String: Any]] = [
+            ["type": "text", "text": message.content]
+          ]
+
+          for mediaItem in mediaItems {
+            if case .image = mediaItem.type {
+              let base64Image = mediaItem.data.base64EncodedString()
+              contentArray.append([
+                "type": "image_url",
+                "image_url": ["url": "data:image/jpeg;base64,\(base64Image)"]
+              ])
+            }
+          }
+          content = contentArray
+        }
+
+        messages.append(["role": role, "content": content])
+      }
+    }
+
+    // Build user message content
+    var userContent: Any = userMessage
+
+    // Add images if present
+    if let mediaItems = mediaItems, !mediaItems.isEmpty {
+      var contentArray: [[String: Any]] = []
+
+      // Add text content
+      contentArray.append([
+        "type": "text",
+        "text": userMessage
+      ])
+
+      // Add image content
+      for mediaItem in mediaItems {
+        if case .image = mediaItem.type {
+          let base64Image = mediaItem.data.base64EncodedString()
+          contentArray.append([
+            "type": "image_url",
+            "image_url": [
+              "url": "data:image/jpeg;base64,\(base64Image)"
+            ]
+          ])
+        }
+      }
+
+      userContent = contentArray
+    }
+
+    // Add current user message
+    messages.append(["role": "user", "content": userContent])
+
+    let requestBody: [String: Any] = [
+      "model": model,
+      "messages": messages,
+      "temperature": 0.7,
+      "max_tokens": 8000,
+    ]
+
+    do {
+      request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+    } catch {
+      throw LlmError.requestFailed(error)
+    }
+
+    return try await performRequest(request: request, responseType: GroqResponse.self)
+  }
+
   // MARK: - Generic Request Handler
   private static func performRequest<T: Decodable>(request: URLRequest, responseType: T.Type) async throws -> String {
     do {
@@ -1038,7 +1189,13 @@ struct LlmAPI {
         return message
       }
     }
-    
+
+    if let groqResponse = response as? GroqResponse {
+      if let message = groqResponse.choices.first?.message.content {
+        return message
+      }
+    }
+
     throw LlmError.invalidResponse
   }
 }

@@ -116,8 +116,18 @@
             isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable
-            key = "MISTRAP_API_KEY"
+            key = "MISTRAL_API_KEY"
             value = "i0wZWioWMdsLXAIu8702FSJiYclsEDX4"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "PERPLEXITY_API_KEY"
+            value = "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"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "GROQ_API_KEY"
+            value = "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"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>
