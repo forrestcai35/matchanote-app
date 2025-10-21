@@ -358,11 +358,10 @@ struct WrittenNoteToolbar: View {
       // Flexible spacer to center the main toolbar content
       Spacer()
 
-      // Centered toolbar content
-      HStack(spacing: 8) {
+      // Centered toolbar content - two equal-width sections
+      HStack(spacing: 12) {
         // Tool buttons (icons only) - ordered by settings
         toolButtonsView
-
         Divider()
           .frame(height: 24)
 
@@ -371,7 +370,7 @@ struct WrittenNoteToolbar: View {
         // Options panel for the current tool - fixed width to prevent movement
         if let activeTool = currentTool {
           toolOptionsPanel(for: activeTool)
-            .frame(width: 300) // Fixed width to prevent toolbar movement
+            .frame(width: 320) // Fixed width to match tool buttons section
             .clipped()
         }
       }
@@ -507,9 +506,9 @@ struct WrittenNoteToolbar: View {
   private func toolOptionsPanel(for tool: PenTool) -> some View {
     switch tool {
     case .pen:
-      HStack(spacing: 8) {
+      HStack(spacing: 12) {
         // Width presets with dropdown segmented control
-        HStack(spacing: 8) {
+        HStack(spacing: 12) {
           ForEach(0..<toolState.penWidthPresets.count, id: \.self) { i in
                 Button {
                   if toolState.selectedPenPresetIndex != i {
@@ -631,9 +630,9 @@ struct WrittenNoteToolbar: View {
                 .frame(minWidth: 260)
               }
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 4)
           }
-          .frame(maxWidth: 180)
+          .frame(maxWidth: 240)
           .mask(
             HStack(spacing: 0) {
               LinearGradient(
@@ -657,9 +656,9 @@ struct WrittenNoteToolbar: View {
       }
 
     case .marker:
-      HStack(spacing: 8) {
+      HStack(spacing: 12) {
         // Width presets with dropdown segmented control
-        HStack(spacing: 8) {
+        HStack(spacing: 12) {
               ForEach(0..<toolState.markerWidthPresets.count, id: \.self) { i in
                 Button {
                   if toolState.selectedMarkerPresetIndex != i {
@@ -781,9 +780,9 @@ struct WrittenNoteToolbar: View {
                 .frame(minWidth: 260)
               }
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 4)
           }
-          .frame(maxWidth: 180)
+          .frame(maxWidth: 220)
           .mask(
             HStack(spacing: 0) {
               LinearGradient(
@@ -807,7 +806,7 @@ struct WrittenNoteToolbar: View {
       }
 
     case .eraser:
-      HStack(spacing: 16) {
+      HStack(spacing: 12) {
         // Eraser type select
         HStack(spacing: 6) {
           ForEach(EraserType.allCases, id: \.self) { type in
@@ -831,7 +830,7 @@ struct WrittenNoteToolbar: View {
         HStack(spacing: 12) {
           if toolState.eraserType == .area {
             // Area eraser: three quick presets with dropdown slider (capped)
-            HStack(spacing: 16) {
+            HStack(spacing: 12) {
               ForEach(0..<toolState.eraserAreaWidthPresets.count, id: \.self) { i in
                 Button {
                   if toolState.selectedEraserAreaPresetIndex != i {
@@ -905,7 +904,7 @@ struct WrittenNoteToolbar: View {
             .cornerRadius(8)
           }
         }
-        .frame(width: 200) // Fixed width to prevent toolbar movement
+        .frame(width: 250) // Fixed width to prevent toolbar movement
       }
 
 
@@ -923,80 +922,69 @@ struct WrittenNoteToolbar: View {
       .cornerRadius(8)
 
     case .photo:
-      HStack(spacing: 16) {
-        // Camera button with label
+      HStack(spacing: 12) {
+        // Camera button
         Button(action: {
           imagePickerSourceType = .camera
           pickerID = UUID()
           showImagePicker = true
         }) {
-          HStack(spacing: 6) {
+          HStack(spacing: 4) {
             Image(systemName: "camera")
               .font(.system(size: 16))
             Text("Camera")
               .font(.caption)
           }
-          .padding(.horizontal, 12)
-          .padding(.vertical, 6)
-
+          .padding(.horizontal, 10)
+          .padding(.vertical, 5)
           .foregroundColor(.white)
           .background(Color.matchalight_dark)
           .cornerRadius(6)
         }
 
-        // Gallery button with label
+        // Gallery button
         Button(action: {
           imagePickerSourceType = .photoLibrary
           pickerID = UUID()
           showImagePicker = true
         }) {
-          HStack(spacing: 6) {
+          HStack(spacing: 4) {
             Image(systemName: "photo.on.rectangle")
               .font(.system(size: 16))
             Text("Gallery")
               .font(.caption)
           }
-          .padding(.horizontal, 12)
-          .padding(.vertical, 6)
+          .padding(.horizontal, 10)
+          .padding(.vertical, 5)
           .background(Color.matchalight_dark)
           .foregroundColor(.white)
           .cornerRadius(6)
         }
-
-        Spacer()
       }
       .frame(maxWidth: .infinity)
       .padding(.horizontal, 8)
       .padding(.vertical, 4)
-      .cornerRadius(8)
 
     case .textbox:
-      HStack(spacing: 8) {
-        // Add textbox button
+      HStack(spacing: 12) {
+        // Add textbox button - more compact
         Button(action: {
           addTextBoxToCurrentPage()
         }) {
-          HStack(spacing: 4) {
-            Image(systemName: "plus")
-              .font(.system(size: 14))
-            Text("Add Text")
-              .font(.caption)
-          }
-          .padding(.horizontal, 8)
-          .padding(.vertical, 4)
-          .background(Color.matchalight_dark)
-          .foregroundColor(.white)
-          .cornerRadius(6)
+          Image(systemName: "plus.square")
+            .font(.system(size: 18))
+            .foregroundColor(.matchalight_dark)
         }
+
 
         // Always show formatting controls when textbox tool is active
         TextBoxFormattingControls(textBoxManager: textBoxManager)
       }
 
     case .shape:
-      HStack(spacing: 8) {
+      HStack(spacing: 12) {
         // Width presets with dropdown segmented control (same as pen)
-        HStack(spacing: 8) {
+        HStack(spacing: 12) {
               ForEach(0..<toolState.penWidthPresets.count, id: \.self) { i in
                 Button {
                   if toolState.selectedPenPresetIndex != i {
@@ -1118,9 +1106,9 @@ struct WrittenNoteToolbar: View {
                 .frame(minWidth: 260)
               }
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 4)
           }
-          .frame(maxWidth: 180)
+          .frame(maxWidth: 220)
           .mask(
             HStack(spacing: 0) {
               LinearGradient(
@@ -1408,7 +1396,7 @@ struct WrittenNoteToolbar: View {
   // MARK: - Tool Buttons View
   @ViewBuilder
   private var toolButtonsView: some View {
-    HStack(spacing: 16) {
+    HStack(spacing: 20) {
       ForEach(preferencesManager.noteEditorToolsOrder, id: \.self) { id in
         if isToolEnabled(id) {
           renderToolButton(id)

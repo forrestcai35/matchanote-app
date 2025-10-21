@@ -338,129 +338,113 @@ struct TextBoxFormattingControls: View {
     @State private var newTextColor: Color = .black
 
     var body: some View {
-        guard let selectedTextBox = textBoxManager.selectedTextBox else {
-            return AnyView(Text("Select a textbox to edit").font(.caption).foregroundColor(.gray))
-        }
-
-        return AnyView(
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 12) {
-                    // Edit text button
-                    Button(action: {
-                        if let selectedTextBox = textBoxManager.selectedTextBox {
-                            textBoxManager.editingTextBoxId = selectedTextBox.id
-                            textBoxManager.isEditingText = true
+        let selectedTextBox = textBoxManager.selectedTextBox
+        let hasSelection = selectedTextBox != nil
+        
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                // Font family dropdown
+                Menu {
+                    ForEach(textBoxManager.availableFonts, id: \.self) { font in
+                        Button(font) {
+                            updateTextBoxFont(font)
                         }
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "pencil")
-                                .font(.caption)
-                            Text("Edit")
-                                .font(.caption)
-                        }
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(4)
                     }
-
-                    // Font family dropdown
-                    Menu {
-                        ForEach(textBoxManager.availableFonts, id: \.self) { font in
-                            Button(font) {
-                                updateTextBoxFont(font)
-                            }
-                        }
-                    } label: {
-                        HStack {
-                            Text(selectedTextBox.fontFamily)
-                                .font(.caption)
-                            Image(systemName: "chevron.down")
-                                .font(.caption2)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.gray.opacity(0.2))
-                        .cornerRadius(4)
-                    }
-
-                    // Font size controls
-                    HStack(spacing: 4) {
-                        Button(action: { adjustFontSize(-2) }) {
-                            Image(systemName: "minus")
-                                .font(.caption)
-                        }
-                        .disabled(selectedTextBox.fontSize <= 8)
-
-                        Text("\(Int(selectedTextBox.fontSize))")
+                } label: {
+                    HStack {
+                        Text(selectedTextBox?.fontFamily ?? "System")
                             .font(.caption)
-                            .frame(width: 24)
+                        Image(systemName: "chevron.down")
+                            .font(.caption2)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.gray.opacity(0.2))
+                    .cornerRadius(4)
+                }
+                .disabled(!hasSelection)
+                .opacity(hasSelection ? 1.0 : 0.5)
 
-                        Button(action: { adjustFontSize(2) }) {
-                            Image(systemName: "plus")
+                // Font size controls
+                HStack(spacing: 4) {
+                    Button(action: { adjustFontSize(-2) }) {
+                        Image(systemName: "minus")
+                            .font(.caption)
+                    }
+                    .disabled(!hasSelection || (selectedTextBox?.fontSize ?? 8) <= 8)
+
+                    Text("\(Int(selectedTextBox?.fontSize ?? 16))")
+                        .font(.caption)
+                        .frame(width: 24)
+
+                    Button(action: { adjustFontSize(2) }) {
+                        Image(systemName: "plus")
+                            .font(.caption)
+                    }
+                    .disabled(!hasSelection || (selectedTextBox?.fontSize ?? 16) >= 72)
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.gray.opacity(0.2))
+                .cornerRadius(4)
+                .opacity(hasSelection ? 1.0 : 0.5)
+
+                // Text alignment buttons
+                HStack(spacing: 2) {
+                    ForEach(TextAlignment.allCases, id: \.self) { alignment in
+                        Button(action: { updateTextAlignment(alignment) }) {
+                            Image(systemName: alignmentIcon(for: alignment))
                                 .font(.caption)
+                                .foregroundColor((selectedTextBox?.textAlignment == alignment && hasSelection) ? .blue : .primary)
                         }
-                        .disabled(selectedTextBox.fontSize >= 72)
-                    }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(4)
-
-                    // Text alignment buttons
-                    HStack(spacing: 2) {
-                        ForEach(TextAlignment.allCases, id: \.self) { alignment in
-                            Button(action: { updateTextAlignment(alignment) }) {
-                                Image(systemName: alignmentIcon(for: alignment))
-                                    .font(.caption)
-                                    .foregroundColor(selectedTextBox.textAlignment == alignment ? .blue : .primary)
-                            }
-                            .frame(width: 24, height: 20)
-                        }
-                    }
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 2)
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(4)
-
-                    // Text color
-                    Button(action: { showColorPicker = true }) {
-                        Circle()
-                            .fill(selectedTextBox.textColor)
-                            .frame(width: 20, height: 20)
-                            .overlay(
-                                Circle().stroke(Color.gray, lineWidth: 1)
-                            )
-                    }
-                    .popover(isPresented: $showColorPicker) {
-                        VStack(spacing: 12) {
-                            ColorPicker("Text Color", selection: $newTextColor)
-                                .padding(.horizontal)
-                            Divider()
-                            HStack {
-                                Button("Cancel") {
-                                    showColorPicker = false
-                                }
-                                .foregroundColor(.red)
-                                Spacer()
-                                Button("Apply") {
-                                    updateTextColor(newTextColor)
-                                    showColorPicker = false
-                                }
-                            }
-                            .padding(.horizontal)
-                        }
-                        .padding(.vertical, 12)
-                        .frame(minWidth: 200)
+                        .frame(width: 24, height: 20)
+                        .disabled(!hasSelection)
                     }
                 }
+                .padding(.horizontal, 4)
+                .padding(.vertical, 2)
+                .background(Color.gray.opacity(0.2))
+                .cornerRadius(4)
+                .opacity(hasSelection ? 1.0 : 0.5)
+
+                // Text color
+                Button(action: { showColorPicker = true }) {
+                    Circle()
+                        .fill(selectedTextBox?.textColor ?? .black)
+                        .frame(width: 20, height: 20)
+                        .overlay(
+                            Circle().stroke(Color.gray, lineWidth: 1)
+                        )
+                }
+                .disabled(!hasSelection)
+                .opacity(hasSelection ? 1.0 : 0.5)
+                .popover(isPresented: $showColorPicker) {
+                    VStack(spacing: 12) {
+                        ColorPicker("Text Color", selection: $newTextColor)
+                            .padding(.horizontal)
+                        Divider()
+                        HStack {
+                            Button("Cancel") {
+                                showColorPicker = false
+                            }
+                            .foregroundColor(.red)
+                            Spacer()
+                            Button("Apply") {
+                                updateTextColor(newTextColor)
+                                showColorPicker = false
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                    .padding(.vertical, 12)
+                    .frame(minWidth: 200)
+                }
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(Color.matchalight_dark.opacity(0.1))
-            .cornerRadius(8)
-        )
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color.matchalight_dark.opacity(0.1))
+        .cornerRadius(8)
     }
 
     private func updateTextBoxFont(_ fontFamily: String) {
