@@ -6,23 +6,23 @@ struct TextBoxOverlay: View {
     let canvasSize: CGSize
 
     var body: some View {
-        let _ = print("🟦 TextBoxOverlay body render - hasSelected: \(textBoxManager.hasSelectedTextBox), isEditing: \(textBoxManager.isEditingText)")
+        let hasTextBoxes = !textBoxManager.textBoxes(for: pageIndex).isEmpty
         let shouldInterceptBackground = textBoxManager.hasSelectedTextBox || textBoxManager.isEditingText
-        let _ = print(shouldInterceptBackground ? "🟨 Background overlay IS ACTIVE" : "🟩 Background overlay is NOT active")
+        let _ = print("🟦 TextBoxOverlay render: page=\(pageIndex), hasTextBoxes=\(hasTextBoxes), shouldInterceptBg=\(shouldInterceptBackground)")
         
         ZStack {
-            // Background tap layer - BEHIND textboxes
+            // Background tap layer - only intercepts when something is selected
             if shouldInterceptBackground {
                 Color.clear
+                    .frame(width: canvasSize.width, height: canvasSize.height)
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        print("🔴 BACKGROUND TAP - Deselecting all. Current state - selected: \(String(describing: textBoxManager.selectedTextBoxId)), editing: \(textBoxManager.isEditingText)")
+                        print("🟢 BACKGROUND TAP - deselecting")
                         textBoxManager.deselectAllTextBoxes()
-                        print("🔴 AFTER DESELECT - selected: \(String(describing: textBoxManager.selectedTextBoxId)), editing: \(textBoxManager.isEditingText)")
                     }
             }
             
-            // Textboxes for this page - ON TOP of background
+            // Textboxes for this page (rendered on top, will intercept their own taps)
             ForEach(textBoxManager.textBoxes(for: pageIndex)) { textBox in
                 TextBoxView(
                     textBox: textBox,
@@ -33,7 +33,8 @@ struct TextBoxOverlay: View {
             }
         }
         .frame(width: canvasSize.width, height: canvasSize.height)
-        .allowsHitTesting(true)
+        // Allow hit testing when there are textboxes OR when we need to intercept background taps
+        .allowsHitTesting(hasTextBoxes || shouldInterceptBackground)
     }
 }
 
@@ -56,17 +57,21 @@ struct TextBoxView: View {
     }
 
     var body: some View {
+        let _ = print("📦 TextBoxView render: id=\(textBox.id), pos=\(textBox.position), size=\(textBox.size), isSelected=\(isSelected), isEditing=\(isEditing)")
+        
         ZStack {
-            // Background
-            RoundedRectangle(cornerRadius: textBox.cornerRadius)
-                .fill(textBox.backgroundColor)
-                .overlay(
-                    RoundedRectangle(cornerRadius: textBox.cornerRadius)
-                        .stroke(textBox.borderColor, lineWidth: textBox.borderWidth)
-                )
+            // Content area (text + background) - this defines the main hit area
+            ZStack {
+                // Background
+                RoundedRectangle(cornerRadius: textBox.cornerRadius)
+                    .fill(textBox.backgroundColor)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: textBox.cornerRadius)
+                            .stroke(textBox.borderColor, lineWidth: textBox.borderWidth)
+                    )
 
-            // Text content
-            if isEditing {
+                // Text content
+                if isEditing {
                 TextField("Enter text", text: $editingText, axis: .vertical)
                     .font(fontForTextBox(textBox))
                     .foregroundColor(textBox.textColor)
@@ -87,8 +92,11 @@ struct TextBoxView: View {
                     .padding(8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: textBox.textAlignment.alignment)
             }
-
+            }
+            .contentShape(Rectangle()) // Limit hit area to content frame only
+            
             // Selection controls - show whenever selected (even during editing)
+            // These are outside the contentShape so they can be hit outside the frame
             if isSelected {
                 selectionControls()
             }
@@ -105,15 +113,18 @@ struct TextBoxView: View {
             y: textBox.position.y + (currentSize.height > 0 ? currentSize.height : textBox.size.height) / 2
         )
         .zIndex(Double(textBox.zIndex + (isSelected ? 1000 : 0)))
-        .contentShape(Rectangle())
         .gesture(
             DragGesture(minimumDistance: 5) // Small distance to avoid conflicting with text selection
                 .onChanged { value in
                     if isSelected {
+                        print("🔵 DRAG DETECTED on textbox \(textBox.id), translation: \(value.translation)")
                         dragOffset = value.translation
+                    } else {
+                        print("🔵 DRAG IGNORED - textbox not selected")
                     }
                 }
                 .onEnded { value in
+                    print("🔵 DRAG ENDED on textbox \(textBox.id), isSelected: \(isSelected)")
                     if isSelected {
                         let newPosition = CGPoint(
                             x: max(0, min(canvasSize.width - textBox.size.width, textBox.position.x + value.translation.width)),
@@ -128,20 +139,18 @@ struct TextBoxView: View {
                 }
         )
         .onTapGesture {
-            // Don't process tap if we just dragged
-            if dragOffset == .zero {
-                if !isSelected {
-                    print("📦 Tapping to SELECT textbox. Current state - selected: \(String(describing: textBoxManager.selectedTextBoxId)), editing: \(textBoxManager.isEditingText)")
-                    textBoxManager.selectTextBox(withId: textBox.id)
-                    print("📦 After SELECT - selected: \(String(describing: textBoxManager.selectedTextBoxId)), editing: \(textBoxManager.isEditingText)")
-                } else if !isEditing {
-                    print("📝 Tapping to START EDITING")
-                    startEditing()
-                }
+            print("👆 TAP on textbox \(textBox.id), isSelected: \(isSelected), isEditing: \(isEditing)")
+            if !isSelected {
+                print("  → Selecting textbox")
+                textBoxManager.selectTextBox(withId: textBox.id)
+            } else if !isEditing {
+                print("  → Starting edit mode")
+                startEditing()
+            } else {
+                print("  → Already editing, ignoring")
             }
         }
         .onChange(of: isEditing) { wasEditing, nowEditing in
-            print("⚡️ isEditing changed from \(wasEditing) to \(nowEditing) for textbox \(textBox.id)")
             if nowEditing && !wasEditing {
                 // Started editing - initialize text
                 editingText = textBox.text
@@ -263,7 +272,6 @@ struct TextBoxView: View {
     }
 
     private func startEditing() {
-        print("🚨 START EDITING CALLED for textbox \(textBox.id)")
         editingText = textBox.text
         textBoxManager.isEditingText = true
         textBoxManager.editingTextBoxId = textBox.id

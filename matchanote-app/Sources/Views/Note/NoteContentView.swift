@@ -91,6 +91,10 @@ struct WrittenNoteView: View {
         }
         .onChange(of: currentTool) { _, newTool in
             updateCanvasTool()
+            // Deselect textboxes when switching away from textbox tool
+            if newTool != .textbox {
+                textBoxManager.deselectAllTextBoxes()
+            }
         }
         .onChange(of: isEdited) { _, newValue in
             if newValue {
