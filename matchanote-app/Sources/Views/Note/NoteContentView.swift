@@ -1253,7 +1253,15 @@ struct WrittenNoteView: View {
             scrollView.zoomScale = initialScale
             
             // Add the SwiftUI content
-            let hostedView = UIHostingController(rootView: content).view!
+            let hostingController = UIHostingController(rootView: content)
+            // CRITICAL: Disable safe area insets on hosting controller to prevent content size expansion
+            // This fixes the landscape bottom margin issue where content would grow by ~12pts
+            hostingController.view.insetsLayoutMarginsFromSafeArea = false
+            
+            // Store reference in coordinator for updates
+            context.coordinator.hostingController = hostingController
+            
+            let hostedView = hostingController.view!
             hostedView.translatesAutoresizingMaskIntoConstraints = false
             hostedView.backgroundColor = .clear
 
@@ -1300,9 +1308,7 @@ struct WrittenNoteView: View {
             uiView.panGestureRecognizer.isEnabled = isPanEnabled
             
             // Update the hosting controller's rootView
-            if let hostedView = uiView.subviews.first,
-               let hostingController = hostedView.findViewController() as? UIHostingController<Content>
-            {
+            if let hostingController = context.coordinator.hostingController {
                 hostingController.rootView = content
             }
             
@@ -1337,6 +1343,7 @@ struct WrittenNoteView: View {
         class Coordinator: NSObject, UIScrollViewDelegate {
             var parent: ZoomableScrollView
             var isUserInteracting = false
+            var hostingController: UIHostingController<Content>?
             
             init(_ parent: ZoomableScrollView) {
                 self.parent = parent
