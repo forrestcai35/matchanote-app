@@ -81,7 +81,7 @@ struct TextBoxView: View {
 
                 // Text content
                 if isEditing {
-                TextField("Enter text", text: $editingText, axis: .vertical)
+                TextField("Type here...", text: $editingText, axis: .vertical)
                     .font(fontForTextBox(textBox))
                     .foregroundColor(textBox.textColor)
                     .multilineTextAlignment(textBox.textAlignment.textAlignment)
@@ -92,11 +92,15 @@ struct TextBoxView: View {
                     .onAppear {
                         editingText = textBox.text
                     }
+                    .onChange(of: editingText) { _, newValue in
+                        // Sync with manager so deletion check works
+                        textBoxManager.currentEditingText = newValue
+                    }
             } else {
                 // Non-interactive text display
-                Text(textBox.text.isEmpty ? "Tap to edit" : textBox.text)
+                Text(textBox.text.isEmpty ? "Type here..." : textBox.text)
                     .font(fontForTextBox(textBox))
-                    .foregroundColor(textBox.text.isEmpty ? .gray : textBox.textColor)
+                    .foregroundColor(textBox.text.isEmpty ? .gray.opacity(0.5) : textBox.textColor)
                     .multilineTextAlignment(textBox.textAlignment.textAlignment)
                     .padding(8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: textBox.textAlignment.alignment)
@@ -244,29 +248,6 @@ struct TextBoxView: View {
             )
             .offset(x: boxWidth/2 + 14, y: boxHeight/2 + 14)
             .allowsHitTesting(true)
-
-            // Right edge resize handle (horizontal only)
-            HStack {
-                Spacer()
-                Rectangle()
-                    .fill(Color.blue.opacity(0.3))
-                    .frame(width: 8)
-                    .gesture(
-                        DragGesture()
-                            .onChanged { value in
-                                let newWidth = max(100, textBox.size.width + value.translation.width)
-                                currentSize = CGSize(width: newWidth, height: textBox.size.height)
-                            }
-                            .onEnded { value in
-                                if currentSize.width > 0 {
-                                    var updatedTextBox = textBox
-                                    updatedTextBox.size = currentSize
-                                    textBoxManager.updateTextBox(updatedTextBox)
-                                }
-                                currentSize = .zero
-                            }
-                    )
-            }
         }
     }
 
@@ -282,6 +263,7 @@ struct TextBoxView: View {
 
     private func startEditing() {
         editingText = textBox.text
+        textBoxManager.currentEditingText = textBox.text
         textBoxManager.isEditingText = true
         textBoxManager.editingTextBoxId = textBox.id
     }

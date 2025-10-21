@@ -967,20 +967,21 @@ struct WrittenNoteToolbar: View {
 
     case .textbox:
       HStack(spacing: 12) {
-        // Hint text for user
+
+
+        // Show formatting controls when a textbox is selected
+        if textBoxManager.hasSelectedTextBox {
+    
+          TextBoxFormattingControls(textBoxManager: textBoxManager)
+        }
+        else {
+                  // Hint text for user
         Text("Tap anywhere to create a text box")
           .font(.caption)
           .foregroundColor(.gray)
           .padding(.horizontal, 8)
-
-        // Show formatting controls when a textbox is selected
-        if textBoxManager.hasSelectedTextBox {
-          Divider()
-            .frame(height: 20)
-          TextBoxFormattingControls(textBoxManager: textBoxManager)
         }
       }
-
     case .shape:
       HStack(spacing: 12) {
         // Width presets with dropdown segmented control (same as pen)

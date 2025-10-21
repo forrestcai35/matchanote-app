@@ -102,6 +102,7 @@ public class TextBoxManager: ObservableObject {
     @Published public var isEditingText: Bool = false
     @Published public var copiedTextBox: TextBox?
     @Published public var editingTextBoxId: UUID?
+    @Published public var currentEditingText: String = "" // Track current text being edited
 
     // Available font families
     public let availableFonts = [
@@ -132,7 +133,7 @@ public class TextBoxManager: ObservableObject {
         )
         
         let newTextBox = TextBox(
-            text: "Type here...",
+            text: "",
             position: centeredPosition,
             pageIndex: pageIndex
         )
@@ -190,9 +191,24 @@ public class TextBoxManager: ObservableObject {
 
     // Deselect all textboxes
     public func deselectAllTextBoxes() {
+        // Before deselecting, check if the currently selected textbox has any text
+        if let selectedId = selectedTextBoxId, let selectedBox = selectedTextBox {
+            // Use currentEditingText if actively editing, otherwise use saved text
+            let textToCheck = isEditingText ? currentEditingText : selectedBox.text
+            
+            // Delete if text is empty or only whitespace
+            let hasNoText = textToCheck.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            
+            if hasNoText {
+                // Remove the empty textbox
+                deleteTextBox(withId: selectedId, fromPage: selectedBox.pageIndex)
+            }
+        }
+        
         selectedTextBoxId = nil
         isEditingText = false
         editingTextBoxId = nil
+        currentEditingText = ""
     }
 
     // Check if there's a selected textbox
