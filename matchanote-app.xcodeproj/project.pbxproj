@@ -13,6 +13,9 @@
 		A82C61A42DA59F290091B96C /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = A82C61A32DA59F290091B96C /* Realtime */; };
 		A82C61A62DA59F290091B96C /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = A82C61A52DA59F290091B96C /* Storage */; };
 		A82C61A82DA59F290091B96C /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = A82C61A72DA59F290091B96C /* Supabase */; };
+		A87B81BE2EA7C9950078A023 /* UniformTypeIdentifiers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A87B81BD2EA7C9950078A023 /* UniformTypeIdentifiers.framework */; };
+		A87B81C92EA7C9950078A023 /* MatchanoteActionExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A87B81BB2EA7C9950078A023 /* MatchanoteActionExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A87B81DD2EA7C9A30078A023 /* MatchanoteShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A87B81D32EA7C9A30078A023 /* MatchanoteShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -30,15 +33,61 @@
 			remoteGlobalIDString = A87155202D9FC9EA005FA72A;
 			remoteInfo = "matchanote-app";
 		};
+		A87B81C72EA7C9950078A023 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A87155192D9FC9EA005FA72A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A87B81BA2EA7C9950078A023;
+			remoteInfo = MatchanoteActionExtension;
+		};
+		A87B81DB2EA7C9A30078A023 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A87155192D9FC9EA005FA72A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A87B81D22EA7C9A30078A023;
+			remoteInfo = MatchanoteShareExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A87B81CA2EA7C9950078A023 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A87B81DD2EA7C9A30078A023 /* MatchanoteShareExtension.appex in Embed Foundation Extensions */,
+				A87B81C92EA7C9950078A023 /* MatchanoteActionExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		A87155212D9FC9EA005FA72A /* Matcha.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Matcha.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A87155312D9FC9EC005FA72A /* matchanote-appTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "matchanote-appTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A871553B2D9FC9EC005FA72A /* matchanote-appUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "matchanote-appUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A87B81BB2EA7C9950078A023 /* MatchanoteActionExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MatchanoteActionExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A87B81BD2EA7C9950078A023 /* UniformTypeIdentifiers.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UniformTypeIdentifiers.framework; path = System/Library/Frameworks/UniformTypeIdentifiers.framework; sourceTree = SDKROOT; };
+		A87B81D32EA7C9A30078A023 /* MatchanoteShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MatchanoteShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A87B81CE2EA7C9950078A023 /* Exceptions for "MatchanoteActionExtension" folder in "MatchanoteActionExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = A87B81BA2EA7C9950078A023 /* MatchanoteActionExtension */;
+		};
+		A87B81E12EA7C9A30078A023 /* Exceptions for "MatchanoteShareExtension" folder in "MatchanoteShareExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = A87B81D22EA7C9A30078A023 /* MatchanoteShareExtension */;
+		};
 		A8AB3C192DB228950009CBF5 /* Exceptions for "matchanote-app" folder in "matchanote-app" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -65,6 +114,22 @@
 		A871553E2D9FC9EC005FA72A /* matchanote-appUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "matchanote-appUITests";
+			sourceTree = "<group>";
+		};
+		A87B81BF2EA7C9950078A023 /* MatchanoteActionExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A87B81CE2EA7C9950078A023 /* Exceptions for "MatchanoteActionExtension" folder in "MatchanoteActionExtension" target */,
+			);
+			path = MatchanoteActionExtension;
+			sourceTree = "<group>";
+		};
+		A87B81D42EA7C9A30078A023 /* MatchanoteShareExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A87B81E12EA7C9A30078A023 /* Exceptions for "MatchanoteShareExtension" folder in "MatchanoteShareExtension" target */,
+			);
+			path = MatchanoteShareExtension;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -97,6 +162,21 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A87B81B82EA7C9950078A023 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A87B81BE2EA7C9950078A023 /* UniformTypeIdentifiers.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A87B81D02EA7C9A30078A023 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -106,6 +186,9 @@
 				A87155232D9FC9EA005FA72A /* matchanote-app */,
 				A87155342D9FC9EC005FA72A /* matchanote-appTests */,
 				A871553E2D9FC9EC005FA72A /* matchanote-appUITests */,
+				A87B81BF2EA7C9950078A023 /* MatchanoteActionExtension */,
+				A87B81D42EA7C9A30078A023 /* MatchanoteShareExtension */,
+				A87B81BC2EA7C9950078A023 /* Frameworks */,
 				A87155222D9FC9EA005FA72A /* Products */,
 			);
 			sourceTree = "<group>";
@@ -116,8 +199,18 @@
 				A87155212D9FC9EA005FA72A /* Matcha.app */,
 				A87155312D9FC9EC005FA72A /* matchanote-appTests.xctest */,
 				A871553B2D9FC9EC005FA72A /* matchanote-appUITests.xctest */,
+				A87B81BB2EA7C9950078A023 /* MatchanoteActionExtension.appex */,
+				A87B81D32EA7C9A30078A023 /* MatchanoteShareExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A87B81BC2EA7C9950078A023 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				A87B81BD2EA7C9950078A023 /* UniformTypeIdentifiers.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -130,10 +223,13 @@
 				A871551D2D9FC9EA005FA72A /* Sources */,
 				A871551E2D9FC9EA005FA72A /* Frameworks */,
 				A871551F2D9FC9EA005FA72A /* Resources */,
+				A87B81CA2EA7C9950078A023 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				A87B81C82EA7C9950078A023 /* PBXTargetDependency */,
+				A87B81DC2EA7C9A30078A023 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				A87155232D9FC9EA005FA72A /* matchanote-app */,
@@ -197,6 +293,50 @@
 			productReference = A871553B2D9FC9EC005FA72A /* matchanote-appUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		A87B81BA2EA7C9950078A023 /* MatchanoteActionExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A87B81CD2EA7C9950078A023 /* Build configuration list for PBXNativeTarget "MatchanoteActionExtension" */;
+			buildPhases = (
+				A87B81B72EA7C9950078A023 /* Sources */,
+				A87B81B82EA7C9950078A023 /* Frameworks */,
+				A87B81B92EA7C9950078A023 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A87B81BF2EA7C9950078A023 /* MatchanoteActionExtension */,
+			);
+			name = MatchanoteActionExtension;
+			packageProductDependencies = (
+			);
+			productName = MatchanoteActionExtension;
+			productReference = A87B81BB2EA7C9950078A023 /* MatchanoteActionExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		A87B81D22EA7C9A30078A023 /* MatchanoteShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A87B81DE2EA7C9A30078A023 /* Build configuration list for PBXNativeTarget "MatchanoteShareExtension" */;
+			buildPhases = (
+				A87B81CF2EA7C9A30078A023 /* Sources */,
+				A87B81D02EA7C9A30078A023 /* Frameworks */,
+				A87B81D12EA7C9A30078A023 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A87B81D42EA7C9A30078A023 /* MatchanoteShareExtension */,
+			);
+			name = MatchanoteShareExtension;
+			packageProductDependencies = (
+			);
+			productName = MatchanoteShareExtension;
+			productReference = A87B81D32EA7C9A30078A023 /* MatchanoteShareExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -217,6 +357,12 @@
 					A871553A2D9FC9EC005FA72A = {
 						CreatedOnToolsVersion = 16.2;
 						TestTargetID = A87155202D9FC9EA005FA72A;
+					};
+					A87B81BA2EA7C9950078A023 = {
+						CreatedOnToolsVersion = 16.2;
+					};
+					A87B81D22EA7C9A30078A023 = {
+						CreatedOnToolsVersion = 16.2;
 					};
 				};
 			};
@@ -240,6 +386,8 @@
 				A87155202D9FC9EA005FA72A /* matchanote-app */,
 				A87155302D9FC9EC005FA72A /* matchanote-appTests */,
 				A871553A2D9FC9EC005FA72A /* matchanote-appUITests */,
+				A87B81BA2EA7C9950078A023 /* MatchanoteActionExtension */,
+				A87B81D22EA7C9A30078A023 /* MatchanoteShareExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -260,6 +408,20 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A87155392D9FC9EC005FA72A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A87B81B92EA7C9950078A023 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A87B81D12EA7C9A30078A023 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -290,6 +452,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A87B81B72EA7C9950078A023 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A87B81CF2EA7C9A30078A023 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -302,6 +478,16 @@
 			isa = PBXTargetDependency;
 			target = A87155202D9FC9EA005FA72A /* matchanote-app */;
 			targetProxy = A871553C2D9FC9EC005FA72A /* PBXContainerItemProxy */;
+		};
+		A87B81C82EA7C9950078A023 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A87B81BA2EA7C9950078A023 /* MatchanoteActionExtension */;
+			targetProxy = A87B81C72EA7C9950078A023 /* PBXContainerItemProxy */;
+		};
+		A87B81DC2EA7C9A30078A023 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A87B81D22EA7C9A30078A023 /* MatchanoteShareExtension */;
+			targetProxy = A87B81DB2EA7C9A30078A023 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -571,6 +757,110 @@
 			};
 			name = Release;
 		};
+		A87B81CB2EA7C9950078A023 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = K8YH7D6KN9;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MatchanoteActionExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = MatchanoteActionExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.matchanote.mobile.MatchanoteActionExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A87B81CC2EA7C9950078A023 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = K8YH7D6KN9;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MatchanoteActionExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = MatchanoteActionExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.matchanote.mobile.MatchanoteActionExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A87B81DF2EA7C9A30078A023 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = K8YH7D6KN9;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MatchanoteShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = MatchanoteShareExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.matchanote.mobile.MatchanoteShareExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A87B81E02EA7C9A30078A023 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = K8YH7D6KN9;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MatchanoteShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = MatchanoteShareExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.matchanote.mobile.MatchanoteShareExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -606,6 +896,24 @@
 			buildConfigurations = (
 				A871554C2D9FC9EC005FA72A /* Debug */,
 				A871554D2D9FC9EC005FA72A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A87B81CD2EA7C9950078A023 /* Build configuration list for PBXNativeTarget "MatchanoteActionExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A87B81CB2EA7C9950078A023 /* Debug */,
+				A87B81CC2EA7C9950078A023 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A87B81DE2EA7C9A30078A023 /* Build configuration list for PBXNativeTarget "MatchanoteShareExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A87B81DF2EA7C9A30078A023 /* Debug */,
+				A87B81E02EA7C9A30078A023 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -101,6 +101,7 @@ struct StorageNote: Codable {
 struct StorageFolder: Codable {
   var id: UUID
   var name: String
+  var subject: String
   var colorString: String
   var dateCreated: Date
   var dateModified: Date
@@ -112,6 +113,7 @@ struct StorageFolder: Codable {
   init(from folder: Folder) {
     self.id = folder.id
     self.name = folder.name
+    self.subject = folder.subject
     self.colorString = colorToString(folder.color)
     self.dateCreated = folder.dateCreated
     self.dateModified = folder.dateModified
@@ -130,6 +132,7 @@ struct StorageFolder: Codable {
 
     )
     folder.id = id
+    folder.subject = subject
     folder.dateModified = dateModified
     folder.noteIDs = noteIDs
     return folder
@@ -185,11 +188,13 @@ func stringToColor(_ string: String) -> Color {
 class StorageManager: ObservableObject {
   @Published var folders: [Folder] = []
   @Published var notes: [Note] = []
+  @Published var subjects: [Subject] = []
 
   private let localStorageURL: URL
 
   private let notesFileName = "notes.json"
   private let foldersFileName = "folders.json"
+  private let subjectsFileName = "subjects.json"
 
   init() {
 
@@ -327,7 +332,7 @@ class StorageManager: ObservableObject {
     // Ensure unique name before saving
     var folderToSave = folder
     folderToSave.name = generateUniqueFolderName(for: folderToSave.name, parentID: folderToSave.parentID, excludingFolderId: folderToSave.id)
-    
+
     // Save to local storage first (for offline support)
     saveFolderLocally(folderToSave)
 
@@ -337,8 +342,73 @@ class StorageManager: ObservableObject {
         await saveFolderToSupabase(folderToSave)
       }
     }
-    
+
     return folderToSave
+  }
+
+  func saveSubject(_ subject: Subject) -> Subject {
+    // Save to local storage
+    if let existingIndex = subjects.firstIndex(where: { $0.id == subject.id }) {
+      subjects[existingIndex] = subject
+    } else {
+      subjects.append(subject)
+    }
+
+    // Save to file
+    let subjectsURL = localStorageURL.appendingPathComponent(subjectsFileName)
+    Task.detached(priority: .utility) { [subjects = subjects] in
+      do {
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(subjects)
+        try data.write(to: subjectsURL)
+      } catch {
+        await MainActor.run {
+          print("Error saving subjects: \(error)")
+        }
+      }
+    }
+
+    return subject
+  }
+
+  func deleteSubject(withID id: UUID) {
+    subjects.removeAll(where: { $0.id == id })
+
+    // Clear subject from all notes and folders
+    for i in 0..<notes.count {
+      if notes[i].subject != "" {
+        // Check if the note's subject matches any existing subject
+        if !subjects.contains(where: { $0.name == notes[i].subject }) {
+          notes[i].subject = ""
+        }
+      }
+    }
+
+    for i in 0..<folders.count {
+      if folders[i].subject != "" {
+        // Check if the folder's subject matches any existing subject
+        if !subjects.contains(where: { $0.name == folders[i].subject }) {
+          folders[i].subject = ""
+        }
+      }
+    }
+
+    // Save to file
+    let subjectsURL = localStorageURL.appendingPathComponent(subjectsFileName)
+    Task.detached(priority: .utility) { [subjects = subjects] in
+      do {
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(subjects)
+        try data.write(to: subjectsURL)
+      } catch {
+        await MainActor.run {
+          print("Error saving subjects after deletion: \(error)")
+        }
+      }
+    }
+
+    // Update storage files for notes and folders
+    updateStorageFiles()
   }
 
   // Update a folder's name while ensuring uniqueness
@@ -412,6 +482,7 @@ class StorageManager: ObservableObject {
   private func loadLocalData() {
     loadNotesFromLocal()
     loadFoldersFromLocal()
+    loadSubjectsFromLocal()
 
     // After loading notes and folders, resolve folder hierarchy
     resolveFolderHierarchy()
@@ -465,6 +536,22 @@ class StorageManager: ObservableObject {
       self.folders = Array(tempFolders.values)
     } catch {
       print("Error loading folders: \(error)")
+    }
+  }
+
+  private func loadSubjectsFromLocal() {
+    let subjectsURL = localStorageURL.appendingPathComponent(subjectsFileName)
+
+    guard FileManager.default.fileExists(atPath: subjectsURL.path) else {
+      return
+    }
+
+    do {
+      let data = try Data(contentsOf: subjectsURL)
+      let decoder = JSONDecoder()
+      self.subjects = try decoder.decode([Subject].self, from: data)
+    } catch {
+      print("Error loading subjects: \(error)")
     }
   }
 

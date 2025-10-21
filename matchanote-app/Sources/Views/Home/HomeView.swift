@@ -32,6 +32,15 @@ struct HomeView: View {
     @State private var showMoveSheet = false
     @State private var notePendingMove: Note? = nil
     @State private var selectedDestinationFolderID: UUID? = nil
+
+
+    // Subject state
+    @State private var selectedSubject: String? = nil
+    @State private var editingSubjectID: UUID? = nil
+    @State private var editingSubjectName: String = ""
+    @State private var isNewSubject: Bool = false
+    @State private var showDuplicateSubjectAlert: Bool = false
+    @FocusState private var subjectNameFieldFocused: Bool
     
     // Selection state
     @State private var isSelectionMode = false
@@ -164,12 +173,15 @@ struct HomeView: View {
             GeometryReader { geometry in
                 if isCompactWidth {
                     // Bottom tab view for compact screens
-                    VStack(spacing: 0) {
-                        contentViewWithHeader
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        
-                        bottomTabBar
+                    ZStack {
+                        VStack(spacing: 0) {
+                            contentViewWithHeader
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                            bottomTabBar
+                        }
                     }
+                    .ignoresSafeArea(.keyboard)
                     .onAppear {
                         screenSize = geometry.size
                     }
@@ -213,6 +225,7 @@ struct HomeView: View {
                                 .zIndex(2)
                         }
                     }
+                    .ignoresSafeArea(.keyboard)
                     .onAppear {
                         screenSize = geometry.size
                         isSidebarVisible = false
@@ -237,10 +250,11 @@ struct HomeView: View {
                                     .brightness(colorScheme == .dark ? -0.05 : 0.05)
                                     .ignoresSafeArea(.container, edges: .top)
                             )
-                        
+
                         contentViewWithHeader
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
+                    .ignoresSafeArea(.keyboard)
                     .onAppear {
                         screenSize = geometry.size
                         isSidebarVisible = true
@@ -299,7 +313,8 @@ struct HomeView: View {
 
             searchBar
             sidebarList
-            
+            subjectsList
+
             Spacer()
         }
     }
@@ -433,7 +448,9 @@ struct HomeView: View {
                     ? Color.matchabackground_dark : Color.matchabackground_light)
 
             // Main content
-            if selectedItem == "documents" {
+            if selectedSubject != nil {
+                subjectView
+            } else if selectedItem == "documents" {
                 documentsView
             } else if selectedItem == "recents" {
                 recentsView
@@ -461,6 +478,7 @@ struct HomeView: View {
                     isSelected: selectedItem == item.id,
                     onSelect: {
                         selectedItem = item.id
+                        selectedSubject = nil
                         if item.id == "documents" {
                             currentFolderID = nil
                             folderPath = []
@@ -479,8 +497,293 @@ struct HomeView: View {
         .padding(.top, 16)
     }
 
+    private var subjectsList: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Header with "Subject" label and plus button
+            HStack {
+                Text("Subjects")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.secondary)
+                    .textCase(.uppercase)
+                    .padding(.leading, 18)
+
+                Spacer()
+
+                Button(action: createNewSubject) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(
+                            colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+                        )
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(PlainButtonStyle())
+                .padding(.trailing, 10)
+            }
+            .padding(.top, 16)
+
+            // Subjects list
+            if !storageManager.subjects.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(storageManager.subjects.filter { !$0.name.isEmpty || $0.id == editingSubjectID }.sorted(by: { $0.dateCreated > $1.dateCreated })) { subject in
+                        if editingSubjectID == subject.id {
+                            // Edit mode - show text field with strong visual indicator
+                            HStack(spacing: 12) {
+                                Circle()
+                                    .fill(subject.color)
+                                    .frame(width: 8, height: 8)
+
+                                TextField("Subject name", text: $editingSubjectName)
+                                    .font(.system(size: 14, weight: .medium))
+                                    .textFieldStyle(PlainTextFieldStyle())
+                                    .focused($subjectNameFieldFocused)
+                                    .onAppear {
+                                        editingSubjectName = subject.name
+                                        subjectNameFieldFocused = true
+                                    }
+                                    .onSubmit {
+                                        saveSubjectEdit(subject)
+                                    }
+                                    .onChange(of: subjectNameFieldFocused) { _, isFocused in
+                                        // When focus is lost, save or delete
+                                        if !isFocused && editingSubjectID == subject.id {
+                                            saveSubjectEdit(subject)
+                                        }
+                                    }
+
+                                Spacer()
+                            }
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(
+                                        colorScheme == .dark
+                                            ? Color.matchalight_dark.opacity(0.1)
+                                            : Color.matchalight_light.opacity(0.1)
+                                    )
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(
+                                        colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light,
+                                        lineWidth: 2
+                                    )
+                            )
+                            .padding(.horizontal, 18)
+                        } else {
+                            // Normal mode - clickable to view
+                            Button(action: {
+                                selectedItem = ""
+                                selectedSubject = subject.name
+                                // Auto-close sidebar on small screens after selection
+                                if shouldOverlaySidebar {
+                                    withAnimation {
+                                        isSidebarVisible = false
+                                    }
+                                }
+                            }) {
+                                HStack(spacing: 12) {
+                                    Circle()
+                                        .fill(subject.color)
+                                        .frame(width: 8, height: 8)
+
+                                    Text(subject.name)
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(
+                                            selectedSubject == subject.name
+                                                ? (colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+                                                : (colorScheme == .dark ? Color.matchabrown_dark.opacity(0.8) : Color.matchabrown_light.opacity(0.8))
+                                        )
+
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 18)
+                                .padding(.vertical, 8)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(
+                                            selectedSubject == subject.name
+                                                ? subject.color.opacity(0.15)
+                                                : Color.clear
+                                        )
+                                )
+                                .padding(.horizontal, 18)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .contextMenu {
+                                Button(action: {
+                                    editingSubjectID = subject.id
+                                    editingSubjectName = subject.name
+                                    isNewSubject = false  // This is a rename, not new
+                                    // Focus will be set by onAppear
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        subjectNameFieldFocused = true
+                                    }
+                                }) {
+                                    Label("Rename", systemImage: "pencil")
+                                }
+
+                                Menu {
+                                    ForEach([Color.blue, Color.red, Color.green, Color.yellow, Color.orange, Color.purple, Color.pink], id: \.self) { color in
+                                        Button(action: {
+                                            var updatedSubject = subject
+                                            updatedSubject.color = color
+                                            _ = storageManager.saveSubject(updatedSubject)
+                                        }) {
+                                            HStack {
+                                                Circle()
+                                                    .fill(color)
+                                                    .frame(width: 12, height: 12)
+                                                Text(colorName(for: color))
+                                            }
+                                        }
+                                    }
+                                } label: {
+                                    Label("Change Color", systemImage: "paintpalette")
+                                }
+
+                                Divider()
+
+                                Button(role: .destructive, action: {
+                                    storageManager.deleteSubject(withID: subject.id)
+                                }) {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .alert("Duplicate Subject Name", isPresented: $showDuplicateSubjectAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("A subject with this name already exists. Please choose a different name.")
+        }
+    }
+
+    private func createNewSubject() {
+        let colors: [Color] = [.blue, .red, .green, .yellow, .orange, .purple, .pink]
+        let randomColor = colors.randomElement() ?? .blue
+
+        let newSubject = Subject(
+            name: "",  // Start with empty name
+            color: randomColor,
+            dateCreated: Date()
+        )
+        let saved = storageManager.saveSubject(newSubject)
+
+        // Automatically enter edit mode for the new subject
+        editingSubjectID = saved.id
+        editingSubjectName = ""  // Empty text for new subjects
+        isNewSubject = true  // Mark as new
+
+        // Focus the text field
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            subjectNameFieldFocused = true
+        }
+    }
+
+    private func saveSubjectEdit(_ subject: Subject) {
+        let trimmedName = editingSubjectName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Check if name is empty
+        if trimmedName.isEmpty {
+            // If it's a new subject with empty name, delete it
+            if isNewSubject {
+                storageManager.deleteSubject(withID: subject.id)
+            }
+            // If renaming to empty, just revert (don't save)
+            editingSubjectID = nil
+            editingSubjectName = ""
+            subjectNameFieldFocused = false
+            isNewSubject = false
+            return
+        }
+
+        // Check for duplicate names (case-insensitive)
+        let isDuplicate = storageManager.subjects.contains { existingSubject in
+            existingSubject.id != subject.id &&
+            existingSubject.name.lowercased() == trimmedName.lowercased()
+        }
+
+        if isDuplicate {
+            // Show alert about duplicate
+            showDuplicateSubjectAlert = true
+
+            // If it's a new subject, delete it
+            if isNewSubject {
+                storageManager.deleteSubject(withID: subject.id)
+                editingSubjectID = nil
+                editingSubjectName = ""
+                subjectNameFieldFocused = false
+                isNewSubject = false
+            } else {
+                // For rename, just keep them in edit mode so they can try again
+                // Reset to empty to let them type a new name
+                editingSubjectName = ""
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    subjectNameFieldFocused = true
+                }
+            }
+            return
+        }
+
+        if trimmedName != subject.name {
+            // Update all notes and folders that have this subject
+            for i in 0..<storageManager.notes.count {
+                if storageManager.notes[i].subject == subject.name {
+                    storageManager.notes[i].subject = trimmedName
+                    _ = storageManager.saveNote(storageManager.notes[i])
+                }
+            }
+
+            for i in 0..<storageManager.folders.count {
+                if storageManager.folders[i].subject == subject.name {
+                    storageManager.folders[i].subject = trimmedName
+                    _ = storageManager.saveFolder(storageManager.folders[i])
+                }
+            }
+
+            var updatedSubject = subject
+            updatedSubject.name = trimmedName
+            _ = storageManager.saveSubject(updatedSubject)
+
+            // Update selected subject if it was selected
+            if selectedSubject == subject.name {
+                selectedSubject = trimmedName
+            }
+        }
+
+        editingSubjectID = nil
+        editingSubjectName = ""
+        subjectNameFieldFocused = false
+        isNewSubject = false
+    }
+
+    private func colorName(for color: Color) -> String {
+        switch color {
+        case .blue: return "Blue"
+        case .red: return "Red"
+        case .green: return "Green"
+        case .yellow: return "Yellow"
+        case .orange: return "Orange"
+        case .purple: return "Purple"
+        case .pink: return "Pink"
+        default: return "Color"
+        }
+    }
+
     // Helper computed property for the current view title
     private var currentViewTitle: String {
+        if let subject = selectedSubject {
+            return subject
+        }
+
         switch selectedItem {
         case "documents":
             return currentFolderID == nil ? "Documents" : folderPath.last?.name ?? "Documents"
@@ -1315,6 +1618,45 @@ struct HomeView: View {
 
     private func folderContextMenu(_ folder: Folder) -> some View {
         Group {
+            // Subject tagging menu
+            Menu {
+                if !folder.subject.isEmpty {
+                    Button(action: {
+                        var updatedFolder = folder
+                        updatedFolder.subject = ""
+                        _ = storageManager.saveFolder(updatedFolder)
+                    }) {
+                        Label("Clear Subject", systemImage: "xmark.circle")
+                    }
+
+                    Divider()
+                }
+
+                ForEach(storageManager.subjects.filter { !$0.name.isEmpty }.sorted(by: { $0.name < $1.name })) { subject in
+                    Button(action: {
+                        var updatedFolder = folder
+                        updatedFolder.subject = subject.name
+                        _ = storageManager.saveFolder(updatedFolder)
+                    }) {
+                        HStack {
+                            Circle()
+                                .fill(subject.color)
+                                .frame(width: 12, height: 12)
+                            Text(subject.name)
+                            if folder.subject == subject.name {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            } label: {
+                if !folder.subject.isEmpty {
+                    Label("Subject: \(folder.subject)", systemImage: "tag.fill")
+                } else {
+                    Label("Add Subject", systemImage: "tag")
+                }
+            }
+
             Button(action: {
                 // Toggle favorite
                 var updatedFolder = folder
@@ -1349,6 +1691,47 @@ struct HomeView: View {
                 showMoveSheet = true
             }) {
                 Label("Move to...", systemImage: "folder")
+            }
+
+            // Subject tagging menu
+            Menu {
+                if !note.subject.isEmpty {
+                    Button(action: {
+                        var updatedNote = note
+                        updatedNote.subject = ""
+                        let savedNote = storageManager.saveNote(updatedNote)
+                        TabManager.shared.updateNote(savedNote)
+                    }) {
+                        Label("Clear Subject", systemImage: "xmark.circle")
+                    }
+
+                    Divider()
+                }
+
+                ForEach(storageManager.subjects.filter { !$0.name.isEmpty }.sorted(by: { $0.name < $1.name })) { subject in
+                    Button(action: {
+                        var updatedNote = note
+                        updatedNote.subject = subject.name
+                        let savedNote = storageManager.saveNote(updatedNote)
+                        TabManager.shared.updateNote(savedNote)
+                    }) {
+                        HStack {
+                            Circle()
+                                .fill(subject.color)
+                                .frame(width: 12, height: 12)
+                            Text(subject.name)
+                            if note.subject == subject.name {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            } label: {
+                if !note.subject.isEmpty {
+                    Label("Subject: \(note.subject)", systemImage: "tag.fill")
+                } else {
+                    Label("Add Subject", systemImage: "tag")
+                }
             }
 
             Button(action: {
@@ -2211,6 +2594,201 @@ struct HomeView: View {
         .padding(.horizontal, isCompactWidth ? 12 : 16)
         .padding(.vertical, isCompactWidth ? 12 : 16)
         .id(refreshID)
+    }
+
+    // MARK: - Subject view
+    private var subjectView: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            subjectContent
+        }
+        .fullScreenCover(item: $selectedNote) { note in
+            NoteView(note: note)
+        }
+    }
+
+    private var subjectContent: some View {
+        ScrollView {
+            if filteredSubjectNotes.isEmpty && filteredSubjectFolders.isEmpty {
+                EmptySubjectView()
+            } else if isGridView {
+                subjectGridView
+            } else {
+                subjectListView
+            }
+        }
+    }
+
+    var filteredSubjectNotes: [Note] {
+        guard let subject = selectedSubject else { return [] }
+        let subjectNotes = storageManager.notes.filter { $0.subject == subject }
+        if searchText.isEmpty {
+            return subjectNotes
+        } else {
+            return subjectNotes.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
+        }
+    }
+
+    var filteredSubjectFolders: [Folder] {
+        guard let subject = selectedSubject else { return [] }
+        let subjectFolders = storageManager.folders.filter { $0.subject == subject }
+        if searchText.isEmpty {
+            return subjectFolders
+        } else {
+            return subjectFolders.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+        }
+    }
+
+    private var subjectGridView: some View {
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: gridItemMinSize), spacing: gridItemSpacing)],
+            spacing: gridSpacing
+        ) {
+            // Show folders first
+            ForEach(filteredSubjectFolders) { folder in
+                let isSelected = selectedFolders.contains(folder.id)
+                Button(action: {
+                    if isSelectionMode {
+                        toggleFolderSelection(folder.id)
+                    } else {
+                        // Navigate to folder from subject
+                        navigateToFolderFromSubject(folder)
+                    }
+                }) {
+                    GridFolderItemView(folder: folder, isSelected: isSelected, isSelectionMode: isSelectionMode)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .scaleEffect(1.0)
+                .animation(.none, value: isSelectionMode)
+                .contextMenu {
+                    folderContextMenu(folder)
+                }
+                .onDrag {
+                    startDragging(folder: folder)
+                } preview: {
+                    dragPreview(for: folder)
+                }
+            }
+
+            // Then show notes
+            ForEach(filteredSubjectNotes) { note in
+                let isSelected = selectedNotes.contains(note.id)
+                Button(action: {
+                    if isSelectionMode {
+                        toggleNoteSelection(note.id)
+                    } else {
+                        var opened = note
+                        opened.lastOpenedAt = Date()
+                        let saved = storageManager.saveNote(opened)
+                        TabManager.shared.updateNote(saved)
+                        TabManager.shared.openTab(note: saved)
+                        selectedNote = saved
+                    }
+                }) {
+                    GridItemView(note: note, isSelected: isSelected, isSelectionMode: isSelectionMode)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .scaleEffect(1.0)
+                .animation(.none, value: isSelectionMode)
+                .contextMenu {
+                    noteContextMenu(note)
+                }
+                .onDrag {
+                    startDragging(note: note)
+                } preview: {
+                    dragPreview(for: note)
+                }
+            }
+        }
+        .padding(.horizontal, isCompactWidth ? 12 : 16)
+        .padding(.top, isCompactWidth ? 12 : 16)
+        .padding(.bottom, isCompactWidth ? 12 : 16)
+        .id(refreshID)
+    }
+
+    private var subjectListView: some View {
+        LazyVStack(spacing: 8) {
+            // Show folders first
+            ForEach(filteredSubjectFolders) { folder in
+                let isSelected = selectedFolders.contains(folder.id)
+                Button(action: {
+                    if isSelectionMode {
+                        toggleFolderSelection(folder.id)
+                    } else {
+                        // Navigate to folder from subject
+                        navigateToFolderFromSubject(folder)
+                    }
+                }) {
+                    ListFolderItemView(folder: folder, isSelected: isSelected, isSelectionMode: isSelectionMode)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .contextMenu {
+                    folderContextMenu(folder)
+                }
+                .onDrag {
+                    startDragging(folder: folder)
+                } preview: {
+                    dragPreview(for: folder)
+                }
+            }
+
+            // Then show notes
+            ForEach(filteredSubjectNotes) { note in
+                let isSelected = selectedNotes.contains(note.id)
+                Button(action: {
+                    if isSelectionMode {
+                        toggleNoteSelection(note.id)
+                    } else {
+                        var opened = note
+                        opened.lastOpenedAt = Date()
+                        let saved = storageManager.saveNote(opened)
+                        TabManager.shared.updateNote(saved)
+                        TabManager.shared.openTab(note: saved)
+                        selectedNote = saved
+                    }
+                }) {
+                    ListItemView(note: note, isSelected: isSelected, isSelectionMode: isSelectionMode)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .contextMenu {
+                    noteContextMenu(note)
+                }
+                .onDrag {
+                    startDragging(note: note)
+                } preview: {
+                    dragPreview(for: note)
+                }
+            }
+        }
+        .padding(.horizontal, isCompactWidth ? 12 : 16)
+        .padding(.vertical, isCompactWidth ? 12 : 16)
+        .id(refreshID)
+    }
+
+    // Helper function to navigate to a folder from subject
+    private func navigateToFolderFromSubject(_ folder: Folder) {
+        // Switch to documents view
+        selectedItem = "documents"
+        selectedSubject = nil
+
+        // Build the folder path from the folder up to the root
+        var path: [Folder] = []
+        var currentFolder: Folder? = folder
+
+        // Traverse up to build the path
+        while let folder = currentFolder {
+            path.insert(folder, at: 0)
+
+            // Find parent folder if it exists
+            if let parentID = folder.parentID {
+                currentFolder = storageManager.folders.first(where: { $0.id == parentID })
+            } else {
+                currentFolder = nil
+            }
+        }
+
+        // Set the current folder and path
+        folderPath = path
+        currentFolderID = folder.id
     }
 
 }

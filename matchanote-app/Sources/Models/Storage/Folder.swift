@@ -5,6 +5,7 @@ import SwiftUI
 struct Folder: Identifiable, Hashable {
   var id = UUID()
   var name: String
+  var subject: String = ""
   var color: Color
   var dateCreated: Date
   var dateModified: Date

@@ -66,7 +66,6 @@ struct EmptyRecentsView: View {
     @Binding var selectedItem: String
     @Binding var currentFolderID: UUID?
     @Binding var folderPath: [Folder]
-    
     var body: some View {
         VStack(spacing: 20) {
             Spacer()
@@ -83,6 +82,30 @@ struct EmptyRecentsView: View {
                     currentFolderID = nil
                     folderPath = []
                 }
+            )
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 40)
+    }
+}
+
+struct EmptySubjectView: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Spacer()
+
+            // Mascot with context
+            MatchaMascotWithContext(
+                emotion: .happy,
+                size: .large,
+                title: "No Items in This Subject",
+                subtitle: "Tag notes or folders with this subject to see them here",
+                actionTitle: nil,
+                action: nil
             )
 
             Spacer()

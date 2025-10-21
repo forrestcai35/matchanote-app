@@ -739,31 +739,15 @@ struct WrittenNoteView: View {
     @ViewBuilder
     private var controlsOverlay: some View {
         Button {
-            // Preserve current zoom scale and scroll position during page addition
-            let currentZoom = unifiedZoomScale
-            let currentOffset = unifiedContentOffset
-            
-            // CRITICAL FIX: Create canvas FIRST, before updating page identifiers
-            // This prevents the race condition where TabView tries to access a non-existent canvas
-            let newPageIndex = pageCount
-            ensureCanvasExists(for: newPageIndex)
-            
-            // NOW it's safe to update page identifiers and count - canvas is guaranteed to exist
-            pageCount += 1
-            pageIdentifiers.append(UUID())
-            
-            // Restore zoom scale and scroll position to prevent view jumping
-            DispatchQueue.main.async {
-                unifiedZoomScale = currentZoom
-                unifiedContentOffset = currentOffset
-            }
+            // Add page after the current page using the consolidated logic
+            addPageAtPosition(.after)
         } label: {
             VStack(spacing: 8) {
                 HStack {
                     Text("\(currentPage + 1)/\(pageCount)")
                         .font(.caption)
                         .foregroundColor(.gray)
-                    
+
                 }
                 Image(systemName: "plus.circle.fill")
                     .font(.caption)
