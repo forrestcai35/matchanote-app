@@ -23,8 +23,8 @@ struct WrittenNoteView: View {
     @ObservedObject private var tabManager = TabManager.shared
     @State private var currentNoteId: UUID?
     
-    // Persist a unified zoom scale across pages
-    @State private var unifiedZoomScale: CGFloat = 1.0
+    // Persist a relative zoom level across pages (1.0 = fit to screen, 2.0 = 2x fit size)
+    @State private var relativeZoomLevel: CGFloat = 1.0
     // Persist content offset across pages
     @State private var unifiedContentOffset: CGPoint = .zero
     
@@ -55,6 +55,7 @@ struct WrittenNoteView: View {
             .shadow(color: Color.black.opacity(0.3), radius: 3, x: 0, y: 1)
             .tabViewStyle(.page(indexDisplayMode: .never))
             .clipped()
+            .ignoresSafeArea(.all, edges: .bottom)
             .overlay(alignment: .bottomTrailing) {
                 controlsOverlay
             }
@@ -176,8 +177,8 @@ struct WrittenNoteView: View {
         // Reset current page to 0 when loading new note
         currentPage = 0
         
-        // Reset unified zoom scale and content offset to center the canvas for new note
-        unifiedZoomScale = 1.0
+        // Reset relative zoom level and content offset to center the canvas for new note
+        relativeZoomLevel = 1.0  // 1.0 = fit to screen
         unifiedContentOffset = .zero
         didApplyInitialFit = false
         
@@ -496,15 +497,39 @@ struct WrittenNoteView: View {
     private func pageContent(pageIndex: Int, isInfinite: Bool) -> some View {
         // Wrap Canvas in a GeometryReader to get parent size for centering and safe area insets
         GeometryReader { geometry in
-            // Use static zoom caps for consistent behavior across orientations
-            let staticMinScale: CGFloat = 0.75
-            let staticMaxScale: CGFloat = 5.0
+            // Calculate fit scale for this page dynamically based on content size vs viewport
+            let contentSize = perPageSize(pageIndex)
+            let viewportSize = geometry.size
+            let fitScale = min(
+                viewportSize.width / max(contentSize.width, 1),
+                viewportSize.height / max(contentSize.height, 1)
+            )
+            
+            // Define relative zoom limits (relative to fit-to-screen scale)
+            let relativeMinZoom: CGFloat = 0.75  // Can zoom out to 75% of fit
+            let relativeMaxZoom: CGFloat = 5.0   // Can zoom in to 5x fit
+            
+            // Convert relative zoom limits to absolute scales for this specific page
+            let absoluteMinScale = fitScale * relativeMinZoom
+            let absoluteMaxScale = fitScale * relativeMaxZoom
+            
+            // Create binding that converts between relative zoom and absolute scale
+            let absoluteScaleBinding = Binding<CGFloat>(
+                get: {
+                    // Convert relative zoom to absolute scale for this page
+                    return relativeZoomLevel * fitScale
+                },
+                set: { newAbsoluteScale in
+                    // Convert absolute scale back to relative zoom
+                    relativeZoomLevel = newAbsoluteScale / fitScale
+                }
+            )
             
             ZoomableScrollView(
-                minScale: staticMinScale,
-                maxScale: staticMaxScale,
+                minScale: absoluteMinScale,
+                maxScale: absoluteMaxScale,
                 resetOnDoubleTap: true,
-                currentScale: $unifiedZoomScale,
+                currentScale: absoluteScaleBinding,
                 contentOffset: $unifiedContentOffset,
                 isPanEnabled: .constant(true)
             ) {
@@ -596,31 +621,38 @@ struct WrittenNoteView: View {
             .onAppear {
                 // Auto-fit to screen on first appearance of the content after loading a note
                 if !didApplyInitialFit {
-                    // Calculate fit scale for initial display but don't use it as minimum
-                    let contentSize = perPageSize(pageIndex)
-                    let viewportSize = geometry.size
-                    let fitScale = min(viewportSize.width / max(contentSize.width, 1), viewportSize.height / max(contentSize.height, 1))
-                    let initialScale = max(staticMinScale, min(fitScale * 0.999, 1.0))
-                    unifiedZoomScale = initialScale
+                    // Set initial relative zoom to slightly less than perfect fit (95% of fit-to-screen)
+                    relativeZoomLevel = 0.95
                     unifiedContentOffset = .zero
                     didApplyInitialFit = true
                 }
             }
-            .onChange(of: geometry.size) { _, _ in
-                clampScaleIfNeeded(staticMinScale)
+            .onChange(of: geometry.size) { oldSize, newSize in
+                // Clamp relative zoom to stay within valid bounds
+                clampRelativeZoomIfNeeded()
+                // Reset content offset on significant geometry changes (rotation) to prevent invalid scroll positions
+                if oldSize != .zero && abs(oldSize.width - newSize.width) > 100 {
+                    unifiedContentOffset = .zero
+                }
             }
             .onChange(of: currentPage) { _, _ in
-                clampScaleIfNeeded(staticMinScale)
+                // Clamp relative zoom to stay within valid bounds
+                clampRelativeZoomIfNeeded()
             }
             .coordinateSpace(name: "scroll")
             .edgesIgnoringSafeArea(.bottom)
         }
     }
     
-    // Ensure current scale is not below the static minimum when page or geometry changes
-    private func clampScaleIfNeeded(_ minScale: CGFloat) {
-        if unifiedZoomScale < minScale {
-            unifiedZoomScale = minScale
+    // Ensure relative zoom stays within valid bounds when page or geometry changes
+    private func clampRelativeZoomIfNeeded() {
+        let relativeMinZoom: CGFloat = 0.75
+        let relativeMaxZoom: CGFloat = 5.0
+        
+        if relativeZoomLevel < relativeMinZoom {
+            relativeZoomLevel = relativeMinZoom
+        } else if relativeZoomLevel > relativeMaxZoom {
+            relativeZoomLevel = relativeMaxZoom
         }
     }
     
@@ -800,8 +832,8 @@ struct WrittenNoteView: View {
         // MARK: - Page Management Functions
         
         func addPageAtPosition(_ position: PagePlacement) {
-            // Preserve current zoom scale and scroll position during page addition
-            let currentZoom = unifiedZoomScale
+            // Preserve current relative zoom level and scroll position during page addition
+            let currentZoom = relativeZoomLevel
             let currentOffset = unifiedContentOffset
             
             var insertIndex: Int
@@ -852,9 +884,9 @@ struct WrittenNoteView: View {
             // Update active canvas after page change
             updateActiveCanvas()
             
-            // Restore zoom scale and scroll position to prevent view jumping
+            // Restore relative zoom level and scroll position to prevent view jumping
             DispatchQueue.main.async {
-                unifiedZoomScale = currentZoom
+                relativeZoomLevel = currentZoom
                 unifiedContentOffset = currentOffset
             }
         }
@@ -1281,14 +1313,19 @@ struct WrittenNoteView: View {
                 uiView.setZoomScale(clampedScale, animated: false)
             }
             
-            // Only update content offset for significant changes and when not interacting
-            if !context.coordinator.isUserInteracting && contentOffset != .zero {
-                let currentOffset = uiView.contentOffset
-                let targetOffset = contentOffset
-                let offsetDistance = sqrt(pow(currentOffset.x - targetOffset.x, 2) + pow(currentOffset.y - targetOffset.y, 2))
-                // Use a larger threshold to reduce unwanted offset adjustments
-                if offsetDistance > 20.0 {
-                    uiView.contentOffset = targetOffset
+            // Handle content offset updates when not interacting
+            if !context.coordinator.isUserInteracting {
+                if contentOffset != .zero {
+                    // Apply non-zero offsets if significantly different
+                    let currentOffset = uiView.contentOffset
+                    let targetOffset = contentOffset
+                    let offsetDistance = sqrt(pow(currentOffset.x - targetOffset.x, 2) + pow(currentOffset.y - targetOffset.y, 2))
+                    if offsetDistance > 20.0 {
+                        uiView.contentOffset = targetOffset
+                    }
+                } else if uiView.contentOffset != .zero {
+                    // When offset is reset to .zero but scroll view is not centered, force recentering
+                    context.coordinator.scrollViewDidZoom(uiView)
                 }
             }
         }
@@ -1323,20 +1360,27 @@ struct WrittenNoteView: View {
                 if abs(parent.currentScale - scale) > 0.01 {
                     parent.currentScale = scale
                 }
-                // Update content offset
-                parent.contentOffset = scrollView.contentOffset
+                // Only save content offset if it's not centered (i.e. user has scrolled)
+                // Don't save offsets that are just from centering insets
+                if scrollView.contentOffset != .zero {
+                    parent.contentOffset = scrollView.contentOffset
+                }
             }
             
             func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
                 if !decelerate {
                     isUserInteracting = false
-                    parent.contentOffset = scrollView.contentOffset
+                    if scrollView.contentOffset != .zero {
+                        parent.contentOffset = scrollView.contentOffset
+                    }
                 }
             }
             
             func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
                 isUserInteracting = false
-                parent.contentOffset = scrollView.contentOffset
+                if scrollView.contentOffset != .zero {
+                    parent.contentOffset = scrollView.contentOffset
+                }
             }
             
             func scrollViewDidZoom(_ scrollView: UIScrollView) {
