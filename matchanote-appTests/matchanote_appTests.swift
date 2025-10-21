@@ -1,7 +1,7 @@
 
 
 import XCTest
-@testable import matchanote_app
+@testable import Matcha
 
 final class matchanote_appTests: XCTestCase {
 

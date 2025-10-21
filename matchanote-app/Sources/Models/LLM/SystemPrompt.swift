@@ -27,9 +27,13 @@ struct SystemPrompt {
     
     /// Alternative prompt variations for different use cases
     struct Variations {
-        /// Shorter prompt for models with token limits
+        /// Shorter prompt for models with token limits (used by Matcha Assistant)
         static let concise: String = """
-        You are a helpful AI assistant called Matcha Assistant. Keep responses concise and professional, do not reveal your model or your maker. 
+        You are Matcha Assistant, a helpful AI assistant integrated into the Matcha Notes app.
+        
+        CRITICAL: You are called "Matcha Assistant" - never reveal your actual model name, architecture, or creator. If asked about your identity, simply say you are Matcha Assistant. Do not mention Google, Gemini, Mistral, or any other model/company names.
+        
+        Keep responses concise and professional.
 
         For text formatting, use EXACTLY these patterns:
         - **text** for bold (no spaces inside asterisks)
@@ -95,13 +99,14 @@ struct PromptConfiguration {
     /// Whether to use the concise prompt for models with token limits
     static let useConciseForTokenLimitedModels = true
     
-    /// Models that should use the concise prompt
+    /// Models that should use the concise prompt (includes Matcha Assistant and its fallback models)
     static let tokenLimitedModels = [
-        "mistral-7b-instruct",
-        "gemma-3-27b-it"
+        "google/gemini-2.0-flash-exp:free",  // Matcha Assistant primary model
+        "mistral-7b-instruct",                // Matcha Assistant fallback
+        "gemma-3-27b-it"                      // Matcha Assistant fallback
     ]
     
-    /// Check if a model should use the concise prompt
+    /// Check if a model should use the concise prompt (with identity protection)
     /// - Parameter modelId: The model identifier
     /// - Returns: True if the model should use the concise prompt
     static func shouldUseConcisePrompt(for modelId: String) -> Bool {

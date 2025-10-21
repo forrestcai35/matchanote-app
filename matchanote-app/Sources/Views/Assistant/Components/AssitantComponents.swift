@@ -124,32 +124,134 @@ struct FormattedTextView: View {
     let text: String
     
     var body: some View {
-        let formattedText = parseFormattedText(text)
+        let blocks = parseTextBlocks(text)
         
-        VStack(alignment: .leading, spacing: 4) {
-            ForEach(Array(formattedText.enumerated()), id: \.offset) { index, segment in
-                if segment.isBold && segment.isItalic {
-                    Text(segment.text)
-                        .font(.system(size: 15))
-                        .fontWeight(.bold)
-                        .italic()
-                } else if segment.isBold {
-                    Text(segment.text)
-                        .font(.system(size: 15))
-                        .fontWeight(.bold)
-                } else if segment.isItalic {
-                    Text(segment.text)
-                        .font(.system(size: 15))
-                        .italic()
-                } else {
-                    Text(segment.text)
-                        .font(.system(size: 15))
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(Array(blocks.enumerated()), id: \.offset) { index, block in
+                switch block {
+                case .paragraph(let content):
+                    createFormattedText(content, isHeading: false)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                case .heading(let content):
+                    createFormattedText(content, isHeading: true)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, index == 0 ? 0 : 4)
+                    
+                case .listItem(let content, let isNumbered, let number):
+                    HStack(alignment: .top, spacing: 8) {
+                        Text(isNumbered ? "\(number)." : "•")
+                            .font(.system(size: 15))
+                            .foregroundColor(.primary)
+                            .frame(width: 20, alignment: .leading)
+                        
+                        createFormattedText(content, isHeading: false)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    
+                case .empty:
+                    EmptyView()
                 }
             }
         }
     }
     
-    private func parseFormattedText(_ text: String) -> [TextSegment] {
+    // Creates formatted text with inline bold/italic
+    private func createFormattedText(_ content: String, isHeading: Bool) -> Text {
+        let segments = parseInlineFormatting(content)
+        
+        var result = Text("")
+        for segment in segments {
+            var segmentText = Text(segment.text)
+            
+            if segment.isBold && segment.isItalic {
+                segmentText = segmentText.bold().italic()
+            } else if segment.isBold {
+                segmentText = segmentText.bold()
+            } else if segment.isItalic {
+                segmentText = segmentText.italic()
+            }
+            
+            result = result + segmentText
+        }
+        
+        if isHeading {
+            return result
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(.primary)
+        } else {
+            return result
+                .font(.system(size: 15))
+                .foregroundColor(.primary)
+        }
+    }
+    
+    // Parse text into blocks (paragraphs, headings, lists)
+    private func parseTextBlocks(_ text: String) -> [TextBlock] {
+        var blocks: [TextBlock] = []
+        let lines = text.components(separatedBy: .newlines)
+        
+        var currentListNumber = 1
+        var inList = false
+        var lastWasEmpty = false
+        
+        for line in lines {
+            let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+            
+            // Empty line - only add spacing if previous wasn't empty (avoid multiple blank lines)
+            if trimmedLine.isEmpty {
+                if !lastWasEmpty && !blocks.isEmpty {
+                    blocks.append(.empty)
+                }
+                lastWasEmpty = true
+                inList = false
+                currentListNumber = 1
+                continue
+            }
+            
+            lastWasEmpty = false
+            
+            // Heading (## or ###)
+            if trimmedLine.hasPrefix("##") {
+                let content = trimmedLine.replacingOccurrences(of: "^#+\\s*", with: "", options: .regularExpression)
+                blocks.append(.heading(content))
+                inList = false
+                currentListNumber = 1
+                continue
+            }
+            
+            // Numbered list (1., 2., 3., etc.)
+            if let match = trimmedLine.range(of: "^\\d+\\.\\s", options: .regularExpression) {
+                let content = String(trimmedLine[match.upperBound...])
+                blocks.append(.listItem(content, isNumbered: true, number: currentListNumber))
+                currentListNumber += 1
+                inList = true
+                continue
+            }
+            
+            // Bulleted list (-, •, *)
+            if trimmedLine.hasPrefix("- ") || trimmedLine.hasPrefix("• ") {
+                let content = String(trimmedLine.dropFirst(2))
+                blocks.append(.listItem(content, isNumbered: false, number: 0))
+                inList = true
+                continue
+            }
+            
+            // Regular paragraph
+            blocks.append(.paragraph(trimmedLine))
+            if !inList {
+                currentListNumber = 1
+            }
+        }
+        
+        return blocks
+    }
+    
+    // Parse inline formatting (bold, italic) - strips markdown syntax
+    private func parseInlineFormatting(_ text: String) -> [TextSegment] {
         var segments: [TextSegment] = []
         var currentIndex = text.startIndex
         
@@ -157,30 +259,30 @@ struct FormattedTextView: View {
             // Look for **bold** patterns first (longer pattern takes precedence)
             if let boldRange = findPattern(text, from: currentIndex, open: "**", close: "**") {
                 // Add text before bold
-                if boldRange.start > currentIndex {
-                    let beforeText = String(text[currentIndex..<boldRange.start])
+                if boldRange.contentStart > currentIndex {
+                    let beforeText = String(text[currentIndex..<boldRange.openStart])
                     if !beforeText.isEmpty {
                         segments.append(TextSegment(text: beforeText, isBold: false, isItalic: false))
                     }
                 }
                 
-                // Add bold text
-                let boldText = String(text[boldRange.start..<boldRange.end])
+                // Add bold text (without the ** markers)
+                let boldText = String(text[boldRange.contentStart..<boldRange.contentEnd])
                 segments.append(TextSegment(text: boldText, isBold: true, isItalic: false))
-                currentIndex = boldRange.end
+                currentIndex = boldRange.closeEnd
             } else if let italicRange = findPattern(text, from: currentIndex, open: "*", close: "*") {
                 // Add text before italic
-                if italicRange.start > currentIndex {
-                    let beforeText = String(text[currentIndex..<italicRange.start])
+                if italicRange.contentStart > currentIndex {
+                    let beforeText = String(text[currentIndex..<italicRange.openStart])
                     if !beforeText.isEmpty {
                         segments.append(TextSegment(text: beforeText, isBold: false, isItalic: false))
                     }
                 }
                 
-                // Add italic text
-                let italicText = String(text[italicRange.start..<italicRange.end])
+                // Add italic text (without the * markers)
+                let italicText = String(text[italicRange.contentStart..<italicRange.contentEnd])
                 segments.append(TextSegment(text: italicText, isBold: false, isItalic: true))
-                currentIndex = italicRange.end
+                currentIndex = italicRange.closeEnd
             } else {
                 // Check for malformed patterns and clean them up
                 if let malformedRange = findMalformedPattern(text, from: currentIndex) {
@@ -211,13 +313,25 @@ struct FormattedTextView: View {
         return segments.isEmpty ? [TextSegment(text: text, isBold: false, isItalic: false)] : segments
     }
     
-    private func findPattern(_ text: String, from startIndex: String.Index, open: String, close: String) -> (start: String.Index, end: String.Index)? {
+    private struct PatternRange {
+        let openStart: String.Index
+        let contentStart: String.Index
+        let contentEnd: String.Index
+        let closeEnd: String.Index
+    }
+    
+    private func findPattern(_ text: String, from startIndex: String.Index, open: String, close: String) -> PatternRange? {
         guard let openRange = text.range(of: open, range: startIndex..<text.endIndex) else { return nil }
         let afterOpen = openRange.upperBound
         
         guard let closeRange = text.range(of: close, range: afterOpen..<text.endIndex) else { return nil }
         
-        return (start: afterOpen, end: closeRange.lowerBound)
+        return PatternRange(
+            openStart: openRange.lowerBound,
+            contentStart: afterOpen,
+            contentEnd: closeRange.lowerBound,
+            closeEnd: closeRange.upperBound
+        )
     }
     
     private func findMalformedPattern(_ text: String, from startIndex: String.Index) -> (start: String.Index, end: String.Index)? {
@@ -280,6 +394,14 @@ struct TextSegment {
     let isItalic: Bool
 }
 
+enum TextBlock {
+    case paragraph(String)
+    case heading(String)
+    case listItem(String, isNumbered: Bool, number: Int)
+    case empty
+}
+
+
 // Enhanced AI Assistant State that includes our new capabilities
 class EnhancedAIAssistantState: ObservableObject {
     @Published var messages: [ChatMessage] = []
@@ -323,3 +445,4 @@ class EnhancedAIAssistantState: ObservableObject {
         userInputDebounceTimer?.invalidate()
     }
 }
+

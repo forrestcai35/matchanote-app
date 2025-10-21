@@ -12,7 +12,6 @@ struct WrittenNoteView: View {
     @Binding var currentTool: PenTool?
     @ObservedObject var imageManager: CanvasImageManager
     @ObservedObject var textBoxManager: TextBoxManager
-    // Shape recognition removed
     
     // Callback to expose add page functionality
     var onAddPageCallback: ((@escaping (PagePlacement) -> Void) -> Void)?

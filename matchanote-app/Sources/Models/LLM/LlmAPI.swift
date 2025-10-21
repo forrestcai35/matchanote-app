@@ -332,12 +332,17 @@ struct LlmAPI {
     // Add current user message
     messages.append(["role": "user", "content": userContent])
       
-    let requestBody: [String: Any] = [
+    // Build request body - GPT-5 models only support default temperature (1.0)
+    var requestBody: [String: Any] = [
       "model": model,
       "messages": messages,
-      "temperature": 0.7,
-      "max_tokens": 8000,
+      "max_completion_tokens": 8000,
     ]
+    
+    // Only add temperature for non-GPT-5 models
+    if !model.hasPrefix("gpt-5") {
+      requestBody["temperature"] = 0.7
+    }
 
     do {
       request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
@@ -855,10 +860,18 @@ struct LlmAPI {
       ["role": "system", "content": SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)]
     ]
     
-    // Add conversation history if present
+    // Add conversation history if present - Perplexity requires strict alternation
     if let history = conversationHistory {
+      var lastRole: String? = "system"
+      
       for message in history {
         let role = message.isUser ? "user" : "assistant"
+        
+        // Skip consecutive messages with the same role to maintain alternation
+        if role == lastRole {
+          continue
+        }
+        
         var content: Any = message.content
         
         // If message has media items, format as content array
@@ -880,6 +893,7 @@ struct LlmAPI {
         }
         
         messages.append(["role": role, "content": content])
+        lastRole = role
       }
     }
     
@@ -910,6 +924,14 @@ struct LlmAPI {
       }
       
       userContent = contentArray
+    }
+    
+    // Ensure last message in history is assistant if we have history, to maintain alternation
+    let lastHistoryRole = conversationHistory?.last?.isUser == false ? "assistant" : (conversationHistory?.last?.isUser == true ? "user" : nil)
+    if lastHistoryRole == "user" {
+      // If last history message was user, we need to add a placeholder assistant message
+      // to maintain alternation before adding the new user message
+      messages.append(["role": "assistant", "content": "..."])
     }
     
     // Add current user message
