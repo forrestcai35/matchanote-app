@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // TextBox model for managing text elements on the canvas
 public struct TextBox: Identifiable, Codable {
@@ -124,17 +125,27 @@ public class TextBoxManager: ObservableObject {
     public init() {}
 
     // Add a new textbox to a specific page
-    public func addTextBox(to pageIndex: Int, at position: CGPoint = CGPoint(x: 100, y: 100)) {
-        let defaultSize = CGSize(width: 200, height: 60)
+    public func addTextBox(to pageIndex: Int, at position: CGPoint = CGPoint(x: 100, y: 100), withText text: String = "") {
+        // Calculate size based on text content
+        let boxSize: CGSize
+        if text.isEmpty {
+            // Default size for empty textbox
+            boxSize = CGSize(width: 200, height: 60)
+        } else {
+            // Calculate size to fit the text content
+            boxSize = calculateTextBoxSize(for: text, fontSize: 16, maxWidth: 400)
+        }
+
         // Center the textbox at the tap position
         let centeredPosition = CGPoint(
-            x: position.x - defaultSize.width / 2,
-            y: position.y - defaultSize.height / 2
+            x: position.x - boxSize.width / 2,
+            y: position.y - boxSize.height / 2
         )
-        
+
         let newTextBox = TextBox(
-            text: "",
+            text: text,
             position: centeredPosition,
+            size: boxSize,
             pageIndex: pageIndex
         )
 
@@ -143,10 +154,40 @@ public class TextBoxManager: ObservableObject {
         }
         textBoxesByPage[pageIndex]?.append(newTextBox)
 
-        // Select the new textbox for immediate editing
-        selectedTextBoxId = newTextBox.id
-        editingTextBoxId = newTextBox.id
-        isEditingText = true
+        // Only select for editing if text is empty (user is creating from scratch)
+        if text.isEmpty {
+            selectedTextBoxId = newTextBox.id
+            editingTextBoxId = newTextBox.id
+            isEditingText = true
+        } else {
+            // Just select it but don't enter edit mode for dragged content
+            selectedTextBoxId = newTextBox.id
+        }
+    }
+
+    // Calculate the size needed for a textbox to fit the given text
+    private func calculateTextBoxSize(for text: String, fontSize: CGFloat, maxWidth: CGFloat) -> CGSize {
+        let padding: CGFloat = 16 // 8pt padding on each side
+        let maxTextWidth = maxWidth - padding
+
+        // Create attributed string with the font to measure
+        let font = UIFont.systemFont(ofSize: fontSize)
+        let attributes: [NSAttributedString.Key: Any] = [.font: font]
+
+        // Calculate bounding rect with maximum width constraint
+        let constraintSize = CGSize(width: maxTextWidth, height: .greatestFiniteMagnitude)
+        let boundingRect = (text as NSString).boundingRect(
+            with: constraintSize,
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: attributes,
+            context: nil
+        )
+
+        // Add padding and ensure minimum dimensions
+        let width = min(max(boundingRect.width + padding, 120), maxWidth)
+        let height = max(boundingRect.height + padding, 40)
+
+        return CGSize(width: ceil(width), height: ceil(height))
     }
 
     // Get textboxes for a specific page

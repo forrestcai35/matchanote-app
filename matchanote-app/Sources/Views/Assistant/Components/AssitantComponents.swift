@@ -1,5 +1,6 @@
 import SwiftUI
 import PencilKit
+import UniformTypeIdentifiers
 // Message View Components (shared with AIAssistantView)
 struct UserMessageView: View {
     let message: ChatMessage
@@ -120,6 +121,72 @@ struct AssistantMessageView: View {
     }
 }
 
+// Draggable Text Block View - displays content wrapped in """ with drag capability
+struct DraggableTextBlockView: View {
+    let content: String
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isDragging = false
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            // Drag indicator icon
+            Image(systemName: "hand.draw")
+                .font(.caption)
+                .foregroundColor(.blue.opacity(0.7))
+                .padding(.top, 4)
+
+            // Content text (plain, no markdown rendering)
+            Text(stripMarkdown(content))
+                .font(.system(size: 15))
+                .foregroundColor(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.blue.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(
+                            style: StrokeStyle(lineWidth: 2, dash: [5, 3])
+                        )
+                        .foregroundColor(.blue.opacity(isDragging ? 0.8 : 0.4))
+                )
+        )
+        .onDrag {
+            isDragging = true
+            // Return plain text without markdown formatting
+            let plainText = stripMarkdown(content)
+            return NSItemProvider(object: plainText as NSString)
+        }
+        .onChange(of: isDragging) { _, newValue in
+            if newValue {
+                // Reset after a short delay
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    isDragging = false
+                }
+            }
+        }
+    }
+
+    // Strip markdown formatting to get plain text
+    private func stripMarkdown(_ text: String) -> String {
+        var result = text
+
+        // Remove bold (**text**)
+        result = result.replacingOccurrences(of: "\\*\\*(.+?)\\*\\*", with: "$1", options: .regularExpression)
+
+        // Remove italic (*text*)
+        result = result.replacingOccurrences(of: "(?<!\\*)\\*(?!\\*)(.+?)\\*(?!\\*)", with: "$1", options: .regularExpression)
+
+        // Remove headings (## or ###)
+        result = result.replacingOccurrences(of: "^#+\\s*", with: "", options: .regularExpression)
+
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
 struct FormattedTextView: View {
     let text: String
     
@@ -133,25 +200,29 @@ struct FormattedTextView: View {
                     createFormattedText(content, isHeading: false)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    
+
                 case .heading(let content):
                     createFormattedText(content, isHeading: true)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.top, index == 0 ? 0 : 4)
-                    
+
                 case .listItem(let content, let isNumbered, let number):
                     HStack(alignment: .top, spacing: 8) {
                         Text(isNumbered ? "\(number)." : "•")
                             .font(.system(size: 15))
                             .foregroundColor(.primary)
                             .frame(width: 20, alignment: .leading)
-                        
+
                         createFormattedText(content, isHeading: false)
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    
+
+                case .draggableBlock(let content):
+                    DraggableTextBlockView(content: content)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
                 case .empty:
                     EmptyView()
                 }
@@ -193,14 +264,43 @@ struct FormattedTextView: View {
     private func parseTextBlocks(_ text: String) -> [TextBlock] {
         var blocks: [TextBlock] = []
         let lines = text.components(separatedBy: .newlines)
-        
+
         var currentListNumber = 1
         var inList = false
         var lastWasEmpty = false
-        
+        var inDraggableBlock = false
+        var draggableContent: [String] = []
+
         for line in lines {
             let trimmedLine = line.trimmingCharacters(in: .whitespaces)
-            
+
+            // Check for draggable block delimiter (""")
+            if trimmedLine == "\"\"\"" {
+                if inDraggableBlock {
+                    // End of draggable block - create the block with collected content
+                    let content = draggableContent.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !content.isEmpty {
+                        blocks.append(.draggableBlock(content))
+                    }
+                    draggableContent = []
+                    inDraggableBlock = false
+                } else {
+                    // Start of draggable block
+                    inDraggableBlock = true
+                    draggableContent = []
+                }
+                inList = false
+                currentListNumber = 1
+                lastWasEmpty = false
+                continue
+            }
+
+            // If we're inside a draggable block, collect the line
+            if inDraggableBlock {
+                draggableContent.append(line)
+                continue
+            }
+
             // Empty line - only add spacing if previous wasn't empty (avoid multiple blank lines)
             if trimmedLine.isEmpty {
                 if !lastWasEmpty && !blocks.isEmpty {
@@ -211,9 +311,9 @@ struct FormattedTextView: View {
                 currentListNumber = 1
                 continue
             }
-            
+
             lastWasEmpty = false
-            
+
             // Heading (## or ###)
             if trimmedLine.hasPrefix("##") {
                 let content = trimmedLine.replacingOccurrences(of: "^#+\\s*", with: "", options: .regularExpression)
@@ -222,7 +322,7 @@ struct FormattedTextView: View {
                 currentListNumber = 1
                 continue
             }
-            
+
             // Numbered list (1., 2., 3., etc.)
             if let match = trimmedLine.range(of: "^\\d+\\.\\s", options: .regularExpression) {
                 let content = String(trimmedLine[match.upperBound...])
@@ -231,7 +331,7 @@ struct FormattedTextView: View {
                 inList = true
                 continue
             }
-            
+
             // Bulleted list (-, •, *)
             if trimmedLine.hasPrefix("- ") || trimmedLine.hasPrefix("• ") {
                 let content = String(trimmedLine.dropFirst(2))
@@ -239,14 +339,14 @@ struct FormattedTextView: View {
                 inList = true
                 continue
             }
-            
+
             // Regular paragraph
             blocks.append(.paragraph(trimmedLine))
             if !inList {
                 currentListNumber = 1
             }
         }
-        
+
         return blocks
     }
     
@@ -398,6 +498,7 @@ enum TextBlock {
     case paragraph(String)
     case heading(String)
     case listItem(String, isNumbered: Bool, number: Int)
+    case draggableBlock(String)
     case empty
 }
 

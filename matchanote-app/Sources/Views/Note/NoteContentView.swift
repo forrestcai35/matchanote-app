@@ -514,10 +514,10 @@ struct WrittenNoteView: View {
                 ZStack {
                     paperBackground(pageIndex: pageIndex)
 
-                    
+
                     // Background images for this page (behind the canvas)
                     backgroundImagesView(pageIndex: pageIndex)
-                    
+
                     if pageIndex < canvasViews.count {
                         PencilKitCanvasView(
                             canvasView: canvasViews[pageIndex],
@@ -532,7 +532,7 @@ struct WrittenNoteView: View {
                         .onChange(of: canvasViews[pageIndex].drawing) { _, _ in
                             isEdited = true
                         }
-                        
+
                         // Image overlay for this page (on top of canvas for user-added images)
                         CanvasImageOverlay(
                             imageManager: imageManager,
@@ -547,7 +547,7 @@ struct WrittenNoteView: View {
                             width: perPageSize(pageIndex).width,
                             height: perPageSize(pageIndex).height
                         )
-                        
+
                         // TextBox overlay for this page (on top of everything)
                         TextBoxOverlay(
                             textBoxManager: textBoxManager,
@@ -570,6 +570,27 @@ struct WrittenNoteView: View {
                                 height: perPageSize(pageIndex).height
                             )
                     }
+                }
+                .onDrop(of: [.plainText], isTargeted: nil) { providers, location in
+                    // Handle dropped text from AI assistant
+                    guard let provider = providers.first else { return false }
+
+                    provider.loadObject(ofClass: NSString.self) { text, error in
+                        guard let droppedText = text as? String, error == nil else { return }
+
+                        DispatchQueue.main.async {
+                            // Create a textbox at the drop location with the AI-generated text
+                            textBoxManager.addTextBox(
+                                to: pageIndex,
+                                at: location,
+                                withText: droppedText
+                            )
+                            // Mark as edited so changes are saved
+                            isEdited = true
+                        }
+                    }
+
+                    return true
                 }
             }
             .onAppear {
