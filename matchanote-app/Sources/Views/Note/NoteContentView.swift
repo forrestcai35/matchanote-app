@@ -44,12 +44,7 @@ struct WrittenNoteView: View {
                     if index < pageCount {
                         pageContent(pageIndex: index, isInfinite: false)
                             .tag(index)
-                            .id(currentTool == .textbox ? "\(pageId)-textbox" : "\(pageId)")
-                            .transaction { transaction in
-                                // Disable animation during textbox tool transitions to reduce flash
-                                transaction.animation = nil
-                            }
-                            .transition(.identity)
+                            .id(pageId)
                     }
                 }
             }

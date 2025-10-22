@@ -42,8 +42,9 @@ struct TextBoxOverlay: View {
             }
         }
         .frame(width: canvasSize.width, height: canvasSize.height)
-        // Allow hit testing when there are textboxes OR when we need to intercept background taps
-        .allowsHitTesting(hasTextBoxes || shouldInterceptBackground)
+        // IMPORTANT: Only allow hit testing when we need to intercept background taps
+        // This prevents blocking canvas touches when textbox tool is not active
+        .allowsHitTesting(shouldInterceptBackground)
     }
 }
 
