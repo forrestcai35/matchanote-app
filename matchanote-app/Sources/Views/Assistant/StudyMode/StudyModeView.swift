@@ -25,7 +25,7 @@ struct StudyModeView: View {
                     actionTitle: "Analyze Again",
                     action: analyzeContent
                 )
-            } else if state.isLoading {
+            } else if state.isLoading && shouldShowLoading {
                 StudyLoadingView(message: state.studySubMode == .quiz ? "Generating quiz questions..." : "Generating flashcards...")
             } else {
                 // Show appropriate view based on sub-mode
@@ -51,6 +51,18 @@ struct StudyModeView: View {
             }
         }
     }
+    
+    // Only show loading screen if content doesn't exist for the current mode
+    private var shouldShowLoading: Bool {
+        guard let session = state.studySession else { return true }
+        
+        switch state.studySubMode {
+        case .quiz:
+            return session.quizQuestions.isEmpty
+        case .flashcards:
+            return session.flashcards.isEmpty
+        }
+    }
 
     private func analyzeContent() {
         guard let note = state.currentNote,
@@ -67,8 +79,8 @@ struct StudyModeView: View {
             if state.canEnableStudyMode {
                 await MainActor.run {
                     if let session = state.studySession {
-                        // Generate quiz if empty
-                        if session.quizQuestions.isEmpty && state.studySubMode == .quiz {
+                        // Generate quiz if empty (always generate on first open)
+                        if session.quizQuestions.isEmpty {
                             Task {
                                 do {
                                     try await state.generateQuizQuestions(note: note, storageManager: storageManager)
@@ -78,8 +90,8 @@ struct StudyModeView: View {
                             }
                         }
 
-                        // Generate flashcards if empty
-                        if session.flashcards.isEmpty && state.studySubMode == .flashcards {
+                        // Generate flashcards if empty (always generate on first open)
+                        if session.flashcards.isEmpty {
                             Task {
                                 do {
                                     try await state.generateFlashcards(note: note, storageManager: storageManager)

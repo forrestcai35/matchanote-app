@@ -102,7 +102,8 @@ struct LlmAPI {
           mediaItems: mediaItems,
           conversationHistory: conversationHistory,
           originalError: error,
-          excludeModels: [modelConfig.modelId]
+          excludeModels: [modelConfig.modelId],
+          systemPrompt: systemPrompt
         )
       } catch let fallbackError {
         print("❌ Universal fallback also failed: \(fallbackError)")
@@ -164,7 +165,8 @@ struct LlmAPI {
         mediaItems: mediaItems,
         conversationHistory: conversationHistory,
         originalError: error,
-        excludeModels: [selectedModel.modelId]
+        excludeModels: [selectedModel.modelId],
+        systemPrompt: systemPrompt
       )
     }
   }

@@ -462,32 +462,93 @@ class AIAssistantState: ObservableObject {
             }
 
             let trimmed = jsonContent.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty {
+            if !trimmed.isEmpty && isValidJSONStart(trimmed) {
                 print("✅ Extracted from markdown code block (length: \(trimmed.count))")
                 return trimmed
             }
         }
 
-        // Method 2: Find JSON by braces
-        if let startIndex = response.firstIndex(of: "{"),
-           let endIndex = response.lastIndex(of: "}"),
-           startIndex < endIndex {
-            let extracted = String(response[startIndex...endIndex])
+        // Method 2: Find JSON object by braces (look for proper JSON structure)
+        if let extracted = extractJSONByBraces(from: response) {
             print("✅ Extracted by brace matching (length: \(extracted.count))")
             return extracted
         }
 
-        // Method 3: Find JSON array
-        if let startIndex = response.firstIndex(of: "["),
-           let endIndex = response.lastIndex(of: "]"),
-           startIndex < endIndex {
-            let extracted = String(response[startIndex...endIndex])
+        // Method 3: Find JSON array (look for proper array structure)
+        if let extracted = extractJSONArray(from: response) {
             print("✅ Extracted by bracket matching (length: \(extracted.count))")
             return extracted
         }
 
         print("⚠️ No extraction worked, returning trimmed original")
         return response.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
+    /// Check if string starts with valid JSON structure
+    private func isValidJSONStart(_ string: String) -> Bool {
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.hasPrefix("{") || trimmed.hasPrefix("[")
+    }
+    
+    /// Extract JSON object by finding matching braces
+    private func extractJSONByBraces(from text: String) -> String? {
+        guard let startIndex = text.firstIndex(of: "{") else { return nil }
+        
+        var braceCount = 0
+        var currentIndex = startIndex
+        
+        while currentIndex < text.endIndex {
+            let char = text[currentIndex]
+            if char == "{" {
+                braceCount += 1
+            } else if char == "}" {
+                braceCount -= 1
+                if braceCount == 0 {
+                    return String(text[startIndex...currentIndex])
+                }
+            }
+            currentIndex = text.index(after: currentIndex)
+        }
+        
+        return nil
+    }
+    
+    /// Extract JSON array by finding matching brackets (with validation)
+    private func extractJSONArray(from text: String) -> String? {
+        guard let startIndex = text.firstIndex(of: "[") else { return nil }
+        
+        // Check if this looks like a real JSON array (next few chars should be {, ", or whitespace)
+        let checkIndex = text.index(after: startIndex)
+        if checkIndex < text.endIndex {
+            let nextChar = text[checkIndex]
+            // If next character is a letter (like 'X' in [X]), it's probably not JSON
+            if nextChar.isLetter {
+                // Look for another [ that might be the actual JSON array
+                let remainingText = String(text[text.index(after: startIndex)...])
+                if let recursiveResult = extractJSONArray(from: remainingText) {
+                    return recursiveResult
+                }
+                return nil
+            }
+        }
+        
+        var bracketCount = 0
+        var currentIndex = startIndex
+        
+        while currentIndex < text.endIndex {
+            let char = text[currentIndex]
+            if char == "[" {
+                bracketCount += 1
+            } else if char == "]" {
+                bracketCount -= 1
+                if bracketCount == 0 {
+                    return String(text[startIndex...currentIndex])
+                }
+            }
+            currentIndex = text.index(after: currentIndex)
+        }
+        
+        return nil
     }
 }
 

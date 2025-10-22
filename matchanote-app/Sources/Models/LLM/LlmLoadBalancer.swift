@@ -14,7 +14,7 @@ struct FreeModel {
   let isGoodForHighTokens: Bool // Good for requests with many tokens
   let isGoodForHighVolume: Bool // Good for many requests
 
-  /// All available free models from OpenRouter, Google, and Groq
+  /// All available free models from OpenRouter, Google, Groq, and Mistral
   static let availableFreeModels: [FreeModel] = [
     // OpenRouter Free Models - Best for high token usage (no per-model token limits)
     FreeModel(
@@ -85,17 +85,6 @@ struct FreeModel {
       isGoodForHighTokens: true,
       isGoodForHighVolume: true
     ),
-    FreeModel(
-      name: "Gemma 3 27B",
-      modelId: "gemma-3-27b-it",
-      provider: .google,
-      supportsImages: true,
-      tokensPerMinute: 15000,
-      requestsPerDay: 14400, // Excellent for high volume!
-      requestsPerMinute: 30,
-      isGoodForHighTokens: false,
-      isGoodForHighVolume: true // Best for many simple requests
-    ),
 
     // Groq Models - Fast inference, varying limits
     FreeModel(
@@ -118,6 +107,30 @@ struct FreeModel {
       requestsPerDay: 1000,
       requestsPerMinute: 20,
       isGoodForHighTokens: false,
+      isGoodForHighVolume: false
+    ),
+    
+    // Mistral Models - Good balance and instruction following
+    FreeModel(
+      name: "Mistral 7B",
+      modelId: "mistral-7b-instruct",
+      provider: .mistral,
+      supportsImages: false,
+      tokensPerMinute: 999999, // No enforced limit on free tier
+      requestsPerDay: 1000,
+      requestsPerMinute: 10,
+      isGoodForHighTokens: true,
+      isGoodForHighVolume: false
+    ),
+    FreeModel(
+      name: "Mistral Small",
+      modelId: "mistral-small-latest",
+      provider: .mistral,
+      supportsImages: false,
+      tokensPerMinute: 999999,
+      requestsPerDay: 1000,
+      requestsPerMinute: 10,
+      isGoodForHighTokens: true,
       isGoodForHighVolume: false
     ),
   ]
@@ -292,7 +305,8 @@ class UniversalFallback {
     mediaItems: [MediaItem]? = nil,
     conversationHistory: [ChatMessage]? = nil,
     originalError: Error,
-    excludeModels: Set<String> = []
+    excludeModels: Set<String> = [],
+    systemPrompt: PromptUseCase? = nil
   ) async throws -> String {
     print("🔄 Universal Fallback: Activating (original error: \(originalError.localizedDescription))")
 
@@ -316,7 +330,8 @@ class UniversalFallback {
           freeModel,
           userMessage: userMessage,
           mediaItems: mediaItems,
-          conversationHistory: conversationHistory
+          conversationHistory: conversationHistory,
+          systemPrompt: systemPrompt
         )
         print("✅ Universal Fallback: Succeeded with \(freeModel.name)")
         return result
@@ -340,7 +355,8 @@ class UniversalFallback {
     _ freeModel: FreeModel,
     userMessage: String,
     mediaItems: [MediaItem]? = nil,
-    conversationHistory: [ChatMessage]? = nil
+    conversationHistory: [ChatMessage]? = nil,
+    systemPrompt: PromptUseCase? = nil
   ) async throws -> String {
     switch freeModel.provider {
     case .openRouter:
@@ -348,28 +364,32 @@ class UniversalFallback {
         userMessage: userMessage,
         model: freeModel.modelId,
         mediaItems: mediaItems,
-        conversationHistory: conversationHistory
+        conversationHistory: conversationHistory,
+        systemPrompt: systemPrompt
       )
     case .google:
       return try await LlmAPI.sendGoogleMessage(
         userMessage: userMessage,
         model: freeModel.modelId,
         mediaItems: mediaItems,
-        conversationHistory: conversationHistory
+        conversationHistory: conversationHistory,
+        systemPrompt: systemPrompt
       )
     case .mistral:
       return try await LlmAPI.sendMistralMessage(
         userMessage: userMessage,
         model: freeModel.modelId,
         mediaItems: mediaItems,
-        conversationHistory: conversationHistory
+        conversationHistory: conversationHistory,
+        systemPrompt: systemPrompt
       )
     case .groq:
       return try await LlmAPI.sendGroqMessage(
         userMessage: userMessage,
         model: freeModel.modelId,
         mediaItems: mediaItems,
-        conversationHistory: conversationHistory
+        conversationHistory: conversationHistory,
+        systemPrompt: systemPrompt
       )
     default:
       throw LlmError.invalidResponse

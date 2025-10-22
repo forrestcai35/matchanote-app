@@ -112,16 +112,25 @@ struct SystemPrompt {
         static let quizGeneration: String = """
         You are an AI assistant specialized in creating educational quiz questions.
 
-        Based on the provided note content, generate quiz questions in the following JSON format:
+        CRITICAL: You MUST respond with ONLY valid JSON. Do NOT use markdown, do NOT add any explanatory text, do NOT format as code blocks with ```. Your entire response must be parseable JSON.
+
+        Based on the provided note content, generate quiz questions in EXACTLY this JSON format:
 
         {
           "questions": [
             {
               "question": "What is photosynthesis?",
               "type": "multipleChoice",
-              "options": ["Process of...", "Another option", "Third option", "Fourth option"],
-              "correctAnswer": "Process of...",
-              "explanation": "Photosynthesis is the process by which..."
+              "options": ["Process of converting light energy into chemical energy", "Process of cell division", "Process of protein synthesis", "Process of DNA replication"],
+              "correctAnswer": "Process of converting light energy into chemical energy",
+              "explanation": "Photosynthesis is the process by which plants convert sunlight, water, and carbon dioxide into glucose and oxygen."
+            },
+            {
+              "question": "Photosynthesis occurs in which organelle?",
+              "type": "multipleChoice",
+              "options": ["Chloroplast", "Mitochondria", "Nucleus", "Ribosome"],
+              "correctAnswer": "Chloroplast",
+              "explanation": "Chloroplasts contain chlorophyll and are the site of photosynthesis in plant cells."
             }
           ]
         }
@@ -129,42 +138,54 @@ struct SystemPrompt {
         Rules:
         - Generate 5-10 questions based on content depth
         - Question types: "multipleChoice", "trueFalse", "fillInBlank"
-        - For multiple choice: provide 4 options
-        - For true/false: options should be ["True", "False"]
-        - For fill in blank: options should be empty array []
-        - correctAnswer must exactly match one option (or be the answer for fillInBlank)
-        - Include helpful explanations
-        - Focus on key concepts, facts, and understanding
-        - Vary difficulty levels
+        - For multiple choice: provide exactly 4 distinct options
+        - For true/false: options must be ["True", "False"]
+        - For fill in blank: options must be empty array []
+        - correctAnswer must EXACTLY match one option (case-sensitive for fillInBlank)
+        - Include clear, educational explanations
+        - Focus on key concepts, facts, definitions, and understanding
+        - Vary difficulty levels from basic recall to application
+        - Make questions clear and unambiguous
 
-        Return ONLY valid JSON, no other text.
+        REMEMBER: Your response must start with { and end with }. No markdown formatting. No code blocks. No explanatory text. ONLY JSON.
         """
 
         /// Prompt for generating flashcards from note content
         static let flashcardGeneration: String = """
         You are an AI assistant specialized in creating educational flashcards.
 
-        Based on the provided note content, generate flashcards in the following JSON format:
+        CRITICAL: You MUST respond with ONLY valid JSON. Do NOT use markdown, do NOT add any explanatory text, do NOT format as code blocks with ```, do NOT use triple-quote delimiters around answers. Your entire response must be parseable JSON.
+
+        Based on the provided note content, generate flashcards in EXACTLY this JSON format:
 
         {
           "flashcards": [
             {
               "front": "What is the capital of France?",
-              "back": "Paris. France's capital and largest city, located in the north-central part of the country."
+              "back": "Paris. France's capital and largest city, located in the north-central part of the country on the Seine River."
+            },
+            {
+              "front": "Define photosynthesis",
+              "back": "The process by which plants and other organisms convert light energy into chemical energy stored in glucose. Requires sunlight, water, and carbon dioxide."
+            },
+            {
+              "front": "What is the formula for the area of a circle?",
+              "back": "A = πr² where r is the radius of the circle."
             }
           ]
         }
 
         Rules:
         - Generate 8-15 flashcards based on content depth
-        - Front: Clear, concise question or term
-        - Back: Complete answer with context
-        - Focus on definitions, key terms, important facts
-        - Vary complexity levels
-        - Make backs informative but concise (2-3 sentences max)
-        - Extract the most important concepts
+        - Front: Clear, concise question or term (10-15 words max)
+        - Back: Complete answer with context (2-3 sentences, concise but informative)
+        - Focus on definitions, key terms, formulas, important facts, and core concepts
+        - Vary complexity levels from basic definitions to applications
+        - Make each flashcard test a single, focused concept
+        - Ensure answers are accurate and self-contained
+        - Extract the most important and testable concepts from the content
 
-        Return ONLY valid JSON, no other text.
+        REMEMBER: Your response must start with { and end with }. No markdown formatting. No code blocks. No triple-quote delimiters. No explanatory text. ONLY JSON.
         """
     }
     
@@ -211,7 +232,6 @@ struct PromptConfiguration {
     static let tokenLimitedModels = [
         "google/gemini-2.0-flash-exp:free",  // Matcha Assistant primary model
         "mistral-7b-instruct",                // Matcha Assistant fallback
-        "gemma-3-27b-it",                     // Matcha Assistant fallback
         "llama-3.3-70b-versatile",            // Groq fallback
         "llama-3.1-70b-versatile",            // Groq fallback
         "llama-3.2-11b-vision-preview",       // Groq fallback (with vision)
