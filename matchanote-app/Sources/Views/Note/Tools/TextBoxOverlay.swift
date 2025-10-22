@@ -231,8 +231,8 @@ struct TextBoxView: View {
             .offset(x: boxWidth/2 + 14, y: -boxHeight/2 - 14)
             .allowsHitTesting(true)
 
-            // Corner handle - proportional scaling (bottom-right)
-            ProportionalResizeHandle(
+            // Corner handle - free horizontal and vertical resizing (bottom-right)
+            FreeResizeHandle(
                 startSize: currentSize.width > 0 ? currentSize : textBox.size,
                 onChanged: { newSize in
                     currentSize = newSize
@@ -488,5 +488,41 @@ struct TextBoxFormattingControls: View {
         case .center: return "text.aligncenter"
         case .trailing: return "text.alignright"
         }
+    }
+}
+
+// MARK: - Free Resize Handle
+struct FreeResizeHandle: View {
+    let startSize: CGSize
+    let onChanged: (CGSize) -> Void
+    let onEnd: () -> Void
+    
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.blue, lineWidth: 2)
+                .frame(width: 24, height: 24)
+            
+            Image(systemName: "arrow.up.left.and.down.right.and.arrow.up.right.and.down.left")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.blue)
+        }
+        .frame(width: 64, height: 64) // Large hit area for easier interaction
+        .contentShape(Rectangle())
+        .allowsHitTesting(true)
+        .gesture(
+            DragGesture()
+                .onChanged { value in
+                    // Allow independent horizontal and vertical resizing
+                    let newWidth = max(50, startSize.width + value.translation.width)
+                    let newHeight = max(50, startSize.height + value.translation.height)
+                    
+                    let newSize = CGSize(width: newWidth, height: newHeight)
+                    onChanged(newSize)
+                }
+                .onEnded { _ in
+                    onEnd()
+                }
+        )
     }
 }
