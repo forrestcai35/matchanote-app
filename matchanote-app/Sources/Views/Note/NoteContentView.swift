@@ -1022,6 +1022,7 @@ struct WrittenNoteView: View {
         func makeUIView(context: Context) -> PKCanvasView {
             // Enable native scrolling and zooming
             canvasView.contentSize = contentSize
+            canvasView.isScrollEnabled = true
             canvasView.minimumZoomScale = minScale
             canvasView.maximumZoomScale = maxScale
             canvasView.zoomScale = currentScale
