@@ -21,6 +21,7 @@ struct WrittenNoteView: View {
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var storageManager: StorageManager
     @ObservedObject private var tabManager = TabManager.shared
+    @ObservedObject private var preferencesManager = PreferencesManager.shared
     @State private var currentNoteId: UUID?
     
     // Persist a relative zoom level across pages (1.0 = fit to screen, 2.0 = 2x fit size)
@@ -525,6 +526,7 @@ struct WrittenNoteView: View {
                     currentScale: absoluteScaleBinding,
                     contentOffset: $unifiedContentOffset,
                     currentTool: $currentTool,
+                    snapToCenter: preferencesManager.noteEditorSnapToCenter,
                     onDrawingChange: { isEdited = true }
                 )
                 .background {
@@ -1017,6 +1019,7 @@ struct WrittenNoteView: View {
         @Binding var currentScale: CGFloat
         @Binding var contentOffset: CGPoint
         @Binding var currentTool: PenTool?
+        let snapToCenter: Bool
         let onDrawingChange: () -> Void
 
         func makeUIView(context: Context) -> PKCanvasView {
@@ -1028,6 +1031,8 @@ struct WrittenNoteView: View {
             canvasView.zoomScale = currentScale
             canvasView.contentOffset = contentOffset
             canvasView.delegate = context.coordinator
+            
+            print("📐 Canvas setup - contentSize: \(contentSize), frame: \(canvasView.frame)")
             canvasView.showsVerticalScrollIndicator = false
             canvasView.showsHorizontalScrollIndicator = false
             canvasView.backgroundColor = .clear
@@ -1052,9 +1057,11 @@ struct WrittenNoteView: View {
             context.coordinator.canvasView = canvasView
             context.coordinator.setupDrawingObservation()
             
-            // Apply initial centering
+            // Apply initial centering 
             DispatchQueue.main.async {
-                context.coordinator.centerContentIfNeeded(canvasView)
+       
+                    context.coordinator.centerContentIfNeeded(canvasView)
+            
             }
 
             return canvasView
@@ -1092,7 +1099,12 @@ struct WrittenNoteView: View {
             }
 
             func scrollViewDidZoom(_ scrollView: UIScrollView) {
-                centerContentIfNeeded(scrollView)
+                print("🔍 Zoom - contentSize: \(scrollView.contentSize), bounds: \(scrollView.bounds), offset: \(scrollView.contentOffset), insets: \(scrollView.contentInset)")
+                
+                // Conditionally center based on user preference
+                if parent.snapToCenter {
+                    centerContentIfNeeded(scrollView)
+                } 
                 updateZoomOffset(scrollView)
             }
             
