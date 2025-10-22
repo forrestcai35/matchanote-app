@@ -446,18 +446,11 @@ struct WrittenNoteView: View {
                     }
                 )
                 .background {
-                    GeometryReader { geo in
-                        let contentSize = perPageSize(pageIndex)
-                        let viewportSize = geo.size
-
-                        // Calculate centering offset when content is smaller than viewport
-                        let centeringOffsetX = (contentSize.width - viewportSize.width) / 2
-                        let centeringOffsetY = (contentSize.height - viewportSize.height) / 2
-
+                    GeometryReader { _ in
                         ZStack(alignment: .topLeading) {
                             // Paper background + overlays
                             paperBackground(pageIndex: pageIndex)
-                                .frame(width: contentSize.width, height: contentSize.height)
+                                .frame(width: perPageSize(pageIndex).width, height: perPageSize(pageIndex).height)
 
                             // Background image if present
                             backgroundImagesView(pageIndex: pageIndex)
@@ -466,24 +459,21 @@ struct WrittenNoteView: View {
                             CanvasImageOverlay(
                                 imageManager: imageManager,
                                 pageIndex: pageIndex,
-                                canvasSize: contentSize
+                                canvasSize: perPageSize(pageIndex)
                             )
 
                             if currentTool == .textbox || !textBoxManager.textBoxes(for: pageIndex).isEmpty {
                                 TextBoxOverlay(
                                     textBoxManager: textBoxManager,
                                     pageIndex: pageIndex,
-                                    canvasSize: contentSize
+                                    canvasSize: perPageSize(pageIndex)
                                 )
                                 .allowsHitTesting(currentTool == .textbox || textBoxManager.isEditingText)
                             }
                         }
-                        .frame(width: contentSize.width, height: contentSize.height)
+                        .frame(width: perPageSize(pageIndex).width, height: perPageSize(pageIndex).height)
                         .scaleEffect(unifiedZoomScale, anchor: .topLeading)
-                        .offset(
-                            x: centeringOffsetX - unifiedContentOffset.x,
-                            y: centeringOffsetY - unifiedContentOffset.y
-                        )
+                        .offset(x: -unifiedContentOffset.x, y: -unifiedContentOffset.y)
                     }
                 }
                 .onAppear {
