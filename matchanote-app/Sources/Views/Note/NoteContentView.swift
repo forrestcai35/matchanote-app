@@ -1032,6 +1032,11 @@ struct WrittenNoteView: View {
             canvasView.showsHorizontalScrollIndicator = false
             canvasView.backgroundColor = .clear
 
+            // Disable automatic content inset adjustment to prevent auto-centering
+            canvasView.contentInsetAdjustmentBehavior = .never
+            canvasView.bouncesZoom = false
+            canvasView.bounces = false
+
             // Configure for high-resolution
             canvasView.contentScaleFactor = UIScreen.main.scale * 2
             canvasView.layer.contentsScale = UIScreen.main.scale * 2
@@ -1117,10 +1122,10 @@ struct WrittenNoteView: View {
             }
 
             private func updateZoomOffset(_ scrollView: UIScrollView) {
-                DispatchQueue.main.async {
+
                     self.parent.contentOffset = scrollView.contentOffset
                     self.parent.currentScale = scrollView.zoomScale
-                }
+                
             }
 
             // MARK: - UIPencilInteractionDelegate
