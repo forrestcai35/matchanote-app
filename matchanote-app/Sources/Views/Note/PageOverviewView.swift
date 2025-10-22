@@ -20,57 +20,35 @@ struct PageOverviewView: View {
   
   var body: some View {
     NavigationView {
-      ScrollView {
-        LazyVGrid(columns: columns, spacing: 20) {
-          ForEach(0..<totalPages, id: \.self) { pageIndex in
-            PageThumbnailView(
-              pageIndex: pageIndex,
-              note: note,
-              canvasViews: canvasViews,
-              isCurrentPage: pageIndex == currentPage,
-              isBookmarked: note.bookmarkedPages.contains(pageIndex),
-              isSelectionMode: isSelectionMode,
-              isSelected: selectedPages.contains(pageIndex),
-              onTap: {
-                if isSelectionMode {
-                  togglePageSelection(pageIndex)
-                } else {
-                  navigateToPage(pageIndex)
-                }
-              },
-              onBookmarkToggle: {
-                toggleBookmark(for: pageIndex)
-              }
-            )
-          }
-        }
-        .padding(16)
-      }
-      .navigationTitle("Pages Overview")
-      .navigationBarTitleDisplayMode(.large)
-      .toolbar {
-        ToolbarItem(placement: .navigationBarLeading) {
-          if isSelectionMode {
-            Button("Cancel") {
-              exitSelectionMode()
-            }
-          }
-        }
-        
-        ToolbarItem(placement: .navigationBarTrailing) {
-          HStack {
+      VStack(alignment: .leading, spacing: 0) {
+        // Header
+        HStack {
+          Text("Pages Overview")
+            .font(.system(.largeTitle, design: .serif))
+            .bold()
+            .foregroundStyle(
+              colorScheme == .dark
+                ? Color.matchabrown_dark : Color.matchabrown_light)
+          
+          Spacer()
+          
+          // Toolbar buttons in header
+          HStack(spacing: 12) {
             if isSelectionMode {
               // Selection mode controls
               if !selectedPages.isEmpty {
                 Button("Export") {
                   showingExportSheet = true
                 }
+                .font(.subheadline)
+                .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                 
                 // Only show delete button if there's more than one page
                 if totalPages > 1 {
                   Button("Delete") {
                     showingDeleteAlert = true
                   }
+                  .font(.subheadline)
                   .foregroundColor(.red)
                 }
               }
@@ -78,16 +56,69 @@ struct PageOverviewView: View {
               Button("Select") {
                 enterSelectionMode()
               }
+              .font(.subheadline)
+              .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
             }
-            
+          }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 12)
+        .background(
+          colorScheme == .dark
+            ? Color.matchabackground_dark : Color.matchabackground_light)
+        
+        // Pages grid content
+        ScrollView {
+          LazyVGrid(columns: columns, spacing: 20) {
+            ForEach(0..<totalPages, id: \.self) { pageIndex in
+              PageThumbnailView(
+                pageIndex: pageIndex,
+                note: note,
+                canvasViews: canvasViews,
+                isCurrentPage: pageIndex == currentPage,
+                isBookmarked: note.bookmarkedPages.contains(pageIndex),
+                isSelectionMode: isSelectionMode,
+                isSelected: selectedPages.contains(pageIndex),
+                onTap: {
+                  if isSelectionMode {
+                    togglePageSelection(pageIndex)
+                  } else {
+                    navigateToPage(pageIndex)
+                  }
+                },
+                onBookmarkToggle: {
+                  toggleBookmark(for: pageIndex)
+                }
+              )
+            }
+          }
+          .padding(.horizontal, 16)
+          .padding(.top, 8)
+          .padding(.bottom, 16)
+        }
+      }
+      .background(
+        colorScheme == .dark
+          ? Color.matchabackground_dark : Color.matchabackground_light)
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar {
+        ToolbarItem(placement: .navigationBarLeading) {
+          if isSelectionMode {
+            Button("Cancel") {
+              exitSelectionMode()
+            }
+            .foregroundColor(
+              colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+          } else {
             Button("Done") {
               isPresented = false
             }
+            .foregroundColor(
+              colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
           }
         }
       }
     }
-    .background(colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
     .alert("Delete Pages", isPresented: $showingDeleteAlert) {
       Button("Cancel", role: .cancel) { }
       Button("Delete", role: .destructive) {
