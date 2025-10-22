@@ -495,152 +495,89 @@ struct WrittenNoteView: View {
     // Extracted Page Content View Builder
     @ViewBuilder
     private func pageContent(pageIndex: Int, isInfinite: Bool) -> some View {
-        // Wrap Canvas in a GeometryReader to get parent size for centering and safe area insets
         GeometryReader { geometry in
-            // Calculate fit scale for this page dynamically based on content size vs viewport
+            // Calculate fit scale for this page dynamically
             let contentSize = perPageSize(pageIndex)
             let viewportSize = geometry.size
             let fitScale = min(
                 viewportSize.width / max(contentSize.width, 1),
                 viewportSize.height / max(contentSize.height, 1)
             )
-            
-            // Define relative zoom limits (relative to fit-to-screen scale)
-            let relativeMinZoom: CGFloat = 0.75  // Can zoom out to 75% of fit
-            let relativeMaxZoom: CGFloat = 5.0   // Can zoom in to 5x fit
-            
-            // Convert relative zoom limits to absolute scales for this specific page
+
+            // Define zoom limits relative to fit scale
+            let relativeMinZoom: CGFloat = 0.75
+            let relativeMaxZoom: CGFloat = 5.0
             let absoluteMinScale = fitScale * relativeMinZoom
             let absoluteMaxScale = fitScale * relativeMaxZoom
-            
-            // Create binding that converts between relative zoom and absolute scale
+
+            // Create binding that converts between relative and absolute scale
             let absoluteScaleBinding = Binding<CGFloat>(
-                get: {
-                    // Convert relative zoom to absolute scale for this page
-                    return relativeZoomLevel * fitScale
-                },
-                set: { newAbsoluteScale in
-                    // Convert absolute scale back to relative zoom
-                    relativeZoomLevel = newAbsoluteScale / fitScale
-                }
+                get: { relativeZoomLevel * fitScale },
+                set: { relativeZoomLevel = $0 / fitScale }
             )
-            
-            ZoomableScrollView(
-                minScale: absoluteMinScale,
-                maxScale: absoluteMaxScale,
-                resetOnDoubleTap: true,
-                currentScale: absoluteScaleBinding,
-                contentOffset: $unifiedContentOffset,
-                isPanEnabled: .constant(true)
-            ) {
 
-                // Content is now fixed without scrolling
+            if pageIndex < canvasViews.count {
+                NativeScrollCanvasView(
+                    canvasView: canvasViews[pageIndex],
+                    contentSize: contentSize,
+                    minScale: absoluteMinScale,
+                    maxScale: absoluteMaxScale,
+                    currentScale: absoluteScaleBinding,
+                    contentOffset: $unifiedContentOffset,
+                    currentTool: $currentTool,
+                    onDrawingChange: { isEdited = true }
+                )
+                .background {
+                    GeometryReader { _ in
+                        ZStack(alignment: .topLeading) {
+                            // Paper background
+                            paperBackground(pageIndex: pageIndex)
+                                .frame(width: contentSize.width, height: contentSize.height)
 
-                ZStack {
-                    paperBackground(pageIndex: pageIndex)
+                            // Background image
+                            backgroundImagesView(pageIndex: pageIndex)
 
-
-                    // Background images for this page (behind the canvas)
-                    backgroundImagesView(pageIndex: pageIndex)
-
-                    if pageIndex < canvasViews.count {
-                        PencilKitCanvasView(
-                            canvasView: canvasViews[pageIndex],
-                            currentTool: $currentTool,
-                            canvasViews: $canvasViews,
-                            currentPage: $currentPage
-                        )
-                        .frame(
-                            width: perPageSize(pageIndex).width,
-                            height: perPageSize(pageIndex).height
-                        )
-                        .onChange(of: canvasViews[pageIndex].drawing) { _, _ in
-                            isEdited = true
-                        }
-
-                        // Image overlay for this page (on top of canvas for user-added images)
-                        CanvasImageOverlay(
-                            imageManager: imageManager,
-                            pageIndex: pageIndex,
-                            canvasSize: CGSize(
-                                width: perPageSize(pageIndex).width,
-                                height: perPageSize(pageIndex).height
-                            ),
-                            isTextBoxToolActive: currentTool == .textbox
-                        )
-                        .frame(
-                            width: perPageSize(pageIndex).width,
-                            height: perPageSize(pageIndex).height
-                        )
-
-                        // TextBox overlay for this page (on top of everything)
-                        TextBoxOverlay(
-                            textBoxManager: textBoxManager,
-                            pageIndex: pageIndex,
-                            canvasSize: CGSize(
-                            width: perPageSize(pageIndex).width,
-                            height: perPageSize(pageIndex).height
-                        ),
-                            isTextBoxToolActive: currentTool == .textbox
-                        )
-                        .frame(
-                            width: perPageSize(pageIndex).width,
-                            height: perPageSize(pageIndex).height
-                        )
-                    } else {
-                        Text("Error: Canvas not available for page \(pageIndex + 1)")
-                            .foregroundColor(.red)
-                            .frame(
-                                width: perPageSize(pageIndex).width,
-                                height: perPageSize(pageIndex).height
+                            // Canvas overlays
+                            CanvasImageOverlay(
+                                imageManager: imageManager,
+                                pageIndex: pageIndex,
+                                canvasSize: contentSize,
+                                isTextBoxToolActive: currentTool == .textbox
                             )
+
+                            TextBoxOverlay(
+                                textBoxManager: textBoxManager,
+                                pageIndex: pageIndex,
+                                canvasSize: contentSize,
+                                isTextBoxToolActive: currentTool == .textbox
+                            )
+                        }
+                        .frame(width: contentSize.width, height: contentSize.height)
+                        .scaleEffect(relativeZoomLevel * fitScale, anchor: .topLeading)
+                        .offset(x: -unifiedContentOffset.x, y: -unifiedContentOffset.y)
                     }
                 }
-                .onDrop(of: [.plainText], isTargeted: nil) { providers, location in
-                    // Handle dropped text from AI assistant
-                    guard let provider = providers.first else { return false }
-
-                    provider.loadObject(ofClass: NSString.self) { text, error in
-                        guard let droppedText = text as? String, error == nil else { return }
-
-                        DispatchQueue.main.async {
-                            // Create a textbox at the drop location with the AI-generated text
-                            textBoxManager.addTextBox(
-                                to: pageIndex,
-                                at: location,
-                                withText: droppedText
-                            )
-                            // Mark as edited so changes are saved
-                            isEdited = true
-                        }
+                .onAppear {
+                    if !didApplyInitialFit {
+                        relativeZoomLevel = 0.95
+                        unifiedContentOffset = .zero
+                        didApplyInitialFit = true
                     }
-
-                    return true
                 }
-            }
-            .onAppear {
-                // Auto-fit to screen on first appearance of the content after loading a note
-                if !didApplyInitialFit {
-                    // Set initial relative zoom to slightly less than perfect fit (95% of fit-to-screen)
-                    relativeZoomLevel = 0.95
-                    unifiedContentOffset = .zero
-                    didApplyInitialFit = true
+                .onChange(of: geometry.size) { oldSize, newSize in
+                    clampRelativeZoomIfNeeded()
+                    if oldSize != .zero && abs(oldSize.width - newSize.width) > 100 {
+                        unifiedContentOffset = .zero
+                    }
                 }
-            }
-            .onChange(of: geometry.size) { oldSize, newSize in
-                // Clamp relative zoom to stay within valid bounds
-                clampRelativeZoomIfNeeded()
-                // Reset content offset on significant geometry changes (rotation) to prevent invalid scroll positions
-                if oldSize != .zero && abs(oldSize.width - newSize.width) > 100 {
-                    unifiedContentOffset = .zero
+                .onChange(of: currentPage) { _, _ in
+                    clampRelativeZoomIfNeeded()
                 }
+                .edgesIgnoringSafeArea(.bottom)
+            } else {
+                Text("Error: Canvas not available for page \(pageIndex + 1)")
+                    .foregroundColor(.red)
             }
-            .onChange(of: currentPage) { _, _ in
-                // Clamp relative zoom to stay within valid bounds
-                clampRelativeZoomIfNeeded()
-            }
-            .coordinateSpace(name: "scroll")
-            .edgesIgnoringSafeArea(.bottom)
         }
     }
     
@@ -1071,6 +1008,116 @@ struct WrittenNoteView: View {
         }
     }
     
+    // Native scroll canvas view with PKCanvasView's built-in scrolling
+    struct NativeScrollCanvasView: UIViewRepresentable {
+        let canvasView: PKCanvasView
+        let contentSize: CGSize
+        let minScale: CGFloat
+        let maxScale: CGFloat
+        @Binding var currentScale: CGFloat
+        @Binding var contentOffset: CGPoint
+        @Binding var currentTool: PenTool?
+        let onDrawingChange: () -> Void
+
+        func makeUIView(context: Context) -> PKCanvasView {
+            // Enable native scrolling and zooming
+            canvasView.contentSize = contentSize
+            canvasView.minimumZoomScale = minScale
+            canvasView.maximumZoomScale = maxScale
+            canvasView.zoomScale = currentScale
+            canvasView.contentOffset = contentOffset
+            canvasView.delegate = context.coordinator
+            canvasView.showsVerticalScrollIndicator = false
+            canvasView.showsHorizontalScrollIndicator = false
+            canvasView.backgroundColor = .clear
+
+            // Configure for high-resolution
+            canvasView.contentScaleFactor = UIScreen.main.scale * 2
+            canvasView.layer.contentsScale = UIScreen.main.scale * 2
+            canvasView.layer.shouldRasterize = false
+
+            // Add pencil interaction
+            if UIPencilInteraction.preferredTapAction == .switchEraser {
+                let pencilInteraction = UIPencilInteraction()
+                pencilInteraction.delegate = context.coordinator
+                canvasView.addInteraction(pencilInteraction)
+            }
+
+            context.coordinator.canvasView = canvasView
+            context.coordinator.setupDrawingObservation()
+
+            return canvasView
+        }
+
+        func updateUIView(_ uiView: PKCanvasView, context: Context) {
+            context.coordinator.parent = self
+            uiView.isUserInteractionEnabled = (currentTool != .textbox)
+        }
+
+        func makeCoordinator() -> Coordinator {
+            Coordinator(self)
+        }
+
+        class Coordinator: NSObject, PKCanvasViewDelegate, UIPencilInteractionDelegate {
+            var parent: NativeScrollCanvasView
+            var canvasView: PKCanvasView?
+            private var drawingObserver: NSKeyValueObservation?
+            private var previousTool: PenTool = .pen
+
+            init(_ parent: NativeScrollCanvasView) {
+                self.parent = parent
+            }
+
+            func setupDrawingObservation() {
+                drawingObserver = canvasView?.observe(\.drawing, options: [.new]) { [weak self] _, _ in
+                    self?.parent.onDrawingChange()
+                }
+            }
+
+            // MARK: - PKCanvasViewDelegate (UIScrollViewDelegate methods)
+
+            func scrollViewDidScroll(_ scrollView: UIScrollView) {
+                updateZoomOffset(scrollView)
+            }
+
+            func scrollViewDidZoom(_ scrollView: UIScrollView) {
+                updateZoomOffset(scrollView)
+            }
+
+            private func updateZoomOffset(_ scrollView: UIScrollView) {
+                DispatchQueue.main.async {
+                    self.parent.contentOffset = scrollView.contentOffset
+                    self.parent.currentScale = scrollView.zoomScale
+                }
+            }
+
+            // MARK: - UIPencilInteractionDelegate
+
+            func pencilInteractionDidTap(_ interaction: UIPencilInteraction) {
+                guard let canvas = canvasView else { return }
+
+                if let currentTool = parent.currentTool {
+                    if currentTool == .eraser {
+                        parent.currentTool = previousTool
+                        canvas.tool = previousTool.toolInstance()
+                    } else {
+                        previousTool = currentTool
+                        parent.currentTool = .eraser
+                        canvas.tool = PenTool.eraser.toolInstance()
+                    }
+                } else {
+                    previousTool = .pen
+                    parent.currentTool = .eraser
+                    canvas.tool = PenTool.eraser.toolInstance()
+                }
+            }
+
+            deinit {
+                drawingObserver?.invalidate()
+            }
+        }
+    }
+
     // PencilKit Canvas SwiftUI wrapper
     struct PencilKitCanvasView: UIViewRepresentable {
         var canvasView: PKCanvasView
