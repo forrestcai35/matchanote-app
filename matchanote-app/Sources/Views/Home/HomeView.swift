@@ -3,60 +3,54 @@ import SwiftUI
 import Combine
 import PencilKit
 
-struct SidebarItem: Identifiable {
-    var id: String
-    var title: String
-    var icon: String
-}
-
 struct HomeView: View {
-    @EnvironmentObject private var storageManager: StorageManager
-    @EnvironmentObject private var documentHandler: DocumentHandler
+    @EnvironmentObject var storageManager: StorageManager
+    @EnvironmentObject var documentHandler: DocumentHandler
     @StateObject private var authManager = LocalAuthManager.shared
-    @State private var searchText = ""
-    @State private var selectedNote: Note? = nil
-    @State private var selectedItem = "documents"
-    @State private var sortOption = "Date"
-    @State private var isGridView = true
-    @State private var showingSettings = false
-    @State private var currentFolderID: UUID? = nil
-    @State private var folderPath: [Folder] = []
-    @State private var dragItem: (type: DragItemType, id: UUID)? = nil
-    @State private var refreshID = UUID()
-    @ObservedObject private var tabManager = TabManager.shared
-    @Environment(\.colorScheme) private var colorScheme
-    @State private var screenSize: CGSize = .zero
-    @State private var showNewWrittenNoteView = false
-    @State private var showNewFolderView = false
-    @State private var showingFileImporter = false
-    @State private var showMoveSheet = false
-    @State private var notePendingMove: Note? = nil
-    @State private var selectedDestinationFolderID: UUID? = nil
+    @State var searchText = ""
+    @State var selectedNote: Note? = nil
+    @State var selectedItem = "documents"
+    @State var sortOption = "Date"
+    @State var isGridView = true
+    @State var showingSettings = false
+    @State var currentFolderID: UUID? = nil
+    @State var folderPath: [Folder] = []
+    @State var dragItem: (type: DragItemType, id: UUID)? = nil
+    @State var refreshID = UUID()
+    @ObservedObject var tabManager = TabManager.shared
+    @Environment(\.colorScheme) var colorScheme
+    @State var screenSize: CGSize = .zero
+    @State var showNewWrittenNoteView = false
+    @State var showNewFolderView = false
+    @State var showingFileImporter = false
+    @State var showMoveSheet = false
+    @State var notePendingMove: Note? = nil
+    @State var selectedDestinationFolderID: UUID? = nil
 
 
     // Subject state
-    @State private var selectedSubject: String? = nil
-    @State private var editingSubjectID: UUID? = nil
-    @State private var editingSubjectName: String = ""
-    @State private var isNewSubject: Bool = false
-    @State private var showDuplicateSubjectAlert: Bool = false
-    @FocusState private var subjectNameFieldFocused: Bool
-    
-    // Selection state
-    @State private var isSelectionMode = false
-    @State private var selectedNotes: Set<UUID> = []
-    @State private var selectedFolders: Set<UUID> = []
-    @State private var showBulkMoveSheet = false
-    
-    // Progress feedback for bulk operations
-    @State private var isDeleting = false
-    @State private var deletionProgress: Double = 0.0
-    @State private var deletionStatus = ""
-    
-    // Sidebar state for mobile/split view
-    @State private var isSidebarVisible = true
+    @State var selectedSubject: String? = nil
+    @State var editingSubjectID: UUID? = nil
+    @State var editingSubjectName: String = ""
+    @State var isNewSubject: Bool = false
+    @State var showDuplicateSubjectAlert: Bool = false
+    @FocusState var subjectNameFieldFocused: Bool
 
-    private enum DragItemType {
+    // Selection state
+    @State var isSelectionMode = false
+    @State var selectedNotes: Set<UUID> = []
+    @State var selectedFolders: Set<UUID> = []
+    @State var showBulkMoveSheet = false
+
+    // Progress feedback for bulk operations
+    @State var isDeleting = false
+    @State var deletionProgress: Double = 0.0
+    @State var deletionStatus = ""
+
+    // Sidebar state for mobile/split view
+    @State var isSidebarVisible = true
+
+    enum DragItemType {
         case folder
         case note
     }
@@ -67,16 +61,16 @@ struct HomeView: View {
     ]
     
     // Screen size detection
-    private var isCompactWidth: Bool {
+    var isCompactWidth: Bool {
         return screenSize.width < 600 // Compact when width is less than 600
     }
     
-    private var isSmallScreen: Bool {
+    var isSmallScreen: Bool {
         return screenSize.width < 800 // Small screen when width is less than 800
     }
     
     // Dynamic sidebar width based on screen size
-    private var sidebarWidth: CGFloat {
+    var sidebarWidth: CGFloat {
         if isCompactWidth {
             return min(screenSize.width * 0.75, 280) // 75% of screen or max 280 on compact
         } else if isSmallScreen {
@@ -87,22 +81,22 @@ struct HomeView: View {
     }
     
     // Should sidebar overlay content on small screens
-    private var shouldOverlaySidebar: Bool {
+    var shouldOverlaySidebar: Bool {
         return isCompactWidth || isSmallScreen
     }
     
     // Dynamic grid spacing based on screen size
-    private var gridSpacing: CGFloat {
+    var gridSpacing: CGFloat {
         return isCompactWidth ? 12 : 20
     }
     
     // Dynamic grid item spacing based on screen size
-    private var gridItemSpacing: CGFloat {
+    var gridItemSpacing: CGFloat {
         return isCompactWidth ? 12 : 20
     }
     
     // Dynamic minimum grid item size based on screen size
-    private var gridItemMinSize: CGFloat {
+    var gridItemMinSize: CGFloat {
         if isCompactWidth {
             return 140 // Smaller on compact screens
         } else if isSmallScreen {
@@ -281,42 +275,23 @@ struct HomeView: View {
     
     // MARK: - Sidebar View
     private var sidebarView: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: isCompactWidth ? 4 : 8) {
-                Image("Logo")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: isCompactWidth ? 20 : 24)
-
-                Text("Matcha")
-                    .font(.system(isCompactWidth ? .title3 : .title, design: .serif))
-                    .fontWeight(.bold)
-                    .foregroundColor(
-                        colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
-
-                Spacer()
-
-                // Settings button in sidebar
-                Button(action: {
-                    showingSettings = true
-                }) {
-                    Image(systemName: "gear")
-                        .fontWeight(.medium)
-                        .font(.system(size: isCompactWidth ? 14 : 16))
-                        .foregroundStyle(
-                            colorScheme == .dark
-                                ? Color.matchabrown_dark : Color.matchabrown_light)
-                }
-            }
-            .padding(.horizontal, isCompactWidth ? 12 : 16)
-            .padding(.top, 15)
-
-            searchBar
-            sidebarList
-            subjectsList
-
-            Spacer()
-        }
+        HomeSidebarView(
+            searchText: $searchText,
+            selectedItem: $selectedItem,
+            selectedSubject: $selectedSubject,
+            showingSettings: $showingSettings,
+            currentFolderID: $currentFolderID,
+            folderPath: $folderPath,
+            isSidebarVisible: $isSidebarVisible,
+            editingSubjectID: $editingSubjectID,
+            editingSubjectName: $editingSubjectName,
+            isNewSubject: $isNewSubject,
+            showDuplicateSubjectAlert: $showDuplicateSubjectAlert,
+            subjectNameFieldFocused: $subjectNameFieldFocused,
+            isCompactWidth: isCompactWidth,
+            shouldOverlaySidebar: shouldOverlaySidebar,
+            sidebarItems: sidebarItems
+        )
     }
     
     // MARK: - Bottom Tab Bar
@@ -463,41 +438,8 @@ struct HomeView: View {
                 ? Color.matchabackground_dark : Color.matchabackground_light)
     }
 
-    // MARK: - Component Views
-    private var searchBar: some View {
-        MatchaSearchBar(text: $searchText)
-            .padding(.horizontal, isCompactWidth ? 12 : 16)
-            .padding(.top, 15)
-    }
-
-    private var sidebarList: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ForEach(sidebarItems) { item in
-                MatchaSidebarItem(
-                    item: item,
-                    isSelected: selectedItem == item.id,
-                    onSelect: {
-                        selectedItem = item.id
-                        selectedSubject = nil
-                        if item.id == "documents" {
-                            currentFolderID = nil
-                            folderPath = []
-                        }
-                        // Auto-close sidebar on small screens after selection
-                        if shouldOverlaySidebar {
-                            withAnimation {
-                                isSidebarVisible = false
-                            }
-                        }
-                    }
-                )
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .padding(.top, 16)
-    }
-
-    private var subjectsList: some View {
+    // MARK: - Component Views (deprecated - moved to HomeSidebarView)
+    private var subjectsList_OLD: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Header with "Subject" label and plus button
             HStack {
@@ -843,118 +785,18 @@ struct HomeView: View {
 
     // MARK: - Folder navigation breadcrumbs
     private var folderPathBreadcrumbs: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            folderPathContent
-        }
-        .frame(height: folderPath.isEmpty ? 0 : 36)
-    }
-
-    // Extract folder path content to reduce complexity
-    private var folderPathContent: some View {
-        HStack {
-            if !folderPath.isEmpty {
-                // Root folder navigation
-                rootFolderButton
-
-                // Chevron between path items
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-
-                // Show path of folders
-                folderPathLinks
+        FolderNavigationView(
+            currentFolderID: $currentFolderID,
+            folderPath: $folderPath,
+            onDropToFolder: { folder in
+                return handleDrop(onto: folder)
+            },
+            onDropToRoot: {
+                return handleDrop(onto: nil)
             }
-        }
-        .padding(.horizontal)
-        .padding(.top, 8)
+        )
     }
-
-    private var rootFolderButton: some View {
-        Button(action: {
-            currentFolderID = nil
-            folderPath = []
-        }) {
-            HStack(spacing: 4) {
-                Image(systemName: "folder")
-                    .font(.caption)
-                Text("Home")
-                    .font(.caption)
-            }
-            .padding(.vertical, 4)
-            .padding(.horizontal, 8)
-            .background(Color.gray.opacity(0.1))
-            .cornerRadius(8)
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-
-    private var folderPathLinks: some View {
-        ForEach(0..<folderPath.count, id: \.self) { index in
-            folderPathLink(for: index)
-
-            // Add chevron between path items, but not after the last one
-            if index < folderPath.count - 1 {
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-            }
-        }
-    }
-
-    private func folderPathLink(for index: Int) -> some View {
-        Button(action: {
-            // Navigate to this folder in the path
-            if index == folderPath.count - 1 {
-                // Already in this folder, do nothing
-                return
-            }
-
-            // Navigate to the selected folder
-            currentFolderID = folderPath[index].id
-            folderPath = Array(folderPath.prefix(index + 1))
-        }) {
-            HStack(spacing: 4) {
-
-                Text(folderPath[index].name)
-                    .font(.caption)
-            }
-            .padding(.vertical, 4)
-            .padding(.horizontal, 8)
-            .background(
-                index == folderPath.count - 1
-                    ? (colorScheme == .dark
-                        ? Color.matchalight_dark.opacity(0.2)
-                        : Color.matchalight_light.opacity(0.2)) : Color.gray.opacity(0.1)
-            )
-            .cornerRadius(8)
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-    // MARK: - Document View Components
-    // Note: documentHeader removed - now handled by unified header in contentView
-
-    //    private var sortMenu: some View {
-    //        Menu {
-    //            Button("Date", action: { sortOption = "Date" })
-    //                .fontWeight(.medium)
-    //            Button("Name", action: { sortOption = "Name" })
-    //                .fontWeight(.medium)
-    //            Button("Type", action: { sortOption = "Type" })
-    //                .fontWeight(.medium)
-    //
-    //        } label: {
-    //            Label {
-    //                Text(sortOption)
-    //                    .fontWeight(.medium)
-    //            } icon: {
-    //                Image(systemName: "arrow.up.arrow.down")
-    //            }
-    //            .foregroundColor(
-    //                colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
-    //            )
-    //            .fontWeight(.medium)
-    //        }
-    //    }
+   
     private var viewToggleButton: some View {
         HStack(spacing: isCompactWidth ? 4 : 8) {
             // Grid/List toggle
@@ -1215,11 +1057,7 @@ struct HomeView: View {
         }
     }
 
-    // Reset drag state
-    private func resetDragState() {
-        print("Resetting drag state")
-        self.dragItem = nil
-    }
+    // resetDragState moved to HomeView+DragDrop.swift
 
     // Helper to apply common modifiers for items (both notes and folders)
     private func applyCommonItemModifiers<T: View, U: Identifiable>(
@@ -1441,180 +1279,9 @@ struct HomeView: View {
         }
     }
 
-    // Start dragging a folder
-    private func startDragging(folder: Folder) -> NSItemProvider {
-        dragItem = (.folder, folder.id)
-        return NSItemProvider(object: folder.id.uuidString as NSString)
-    }
-
-    // Start dragging a note
-    private func startDragging(note: Note) -> NSItemProvider {
-        dragItem = (.note, note.id)
-        return NSItemProvider(object: note.id.uuidString as NSString)
-    }
-
-    // Handle drop to root level
-    private func handleDropToRoot() -> Bool {
-        guard let draggedItemType = self.dragItem else {
-            return false
-        }
-
-        switch draggedItemType.type {
-        case .folder:
-            // Move folder to root level
-            if let sourceFolder = storageManager.folders.first(where: {
-                $0.id == draggedItemType.id
-            }) {
-                var updatedFolder = sourceFolder
-                updatedFolder.parentID = nil
-                _ = storageManager.saveFolder(updatedFolder)
-                return true
-            }
-        case .note:
-            // Remove note from all folders
-            let foldersContainingNote = storageManager.folders.filter {
-                $0.noteIDs.contains(draggedItemType.id)
-            }
-            for folder in foldersContainingNote {
-                var updatedFolder = folder
-                updatedFolder.noteIDs.removeAll(where: { $0 == draggedItemType.id })
-                updatedFolder.dateModified = Date()
-                _ = storageManager.saveFolder(updatedFolder)
-                print("Removed note \(draggedItemType.id) from folder \(updatedFolder.id)")
-            }
-            return true
-        }
-
-        return false
-    }
-
-    // Handle drop onto a specific folder
-    private func handleDrop(onto targetFolder: Folder? = nil) -> Bool {
-        guard let (type, id) = dragItem else { return false }
-
-        switch type {
-        case .folder:
-            if let targetFolder = targetFolder {
-                // Don't allow dropping on self or circular references
-                if id == targetFolder.id
-                    || wouldCreateCircularReference(sourceID: id, targetID: targetFolder.id)
-                {
-                    return false
-                }
-
-                // Move folder to target folder
-                if let sourceFolderIndex = storageManager.folders.firstIndex(where: { $0.id == id }) {
-                    storageManager.folders[sourceFolderIndex].parentID = targetFolder.id
-
-                    // Update target folder's modified date
-                    if let targetFolderIndex = storageManager.folders.firstIndex(where: { $0.id == targetFolder.id }) {
-                        storageManager.folders[targetFolderIndex].dateModified = Date()
-                    }
-
-                    // Save all folder changes at once
-                    storageManager.saveFoldersState()
-                }
-            } else {
-                // Move to root
-                if let sourceFolderIndex = storageManager.folders.firstIndex(where: { $0.id == id }) {
-                    storageManager.folders[sourceFolderIndex].parentID = nil
-                    storageManager.saveFoldersState()
-                }
-            }
-
-        case .note:
-            // Remove note from all folders that contain it
-            for i in 0..<storageManager.folders.count {
-                if storageManager.folders[i].noteIDs.contains(id) {
-                    storageManager.folders[i].noteIDs.removeAll { $0 == id }
-                    storageManager.folders[i].dateModified = Date()
-                }
-            }
-
-            // Add to target folder if provided
-            if let targetFolder = targetFolder {
-                if let targetIndex = storageManager.folders.firstIndex(where: { $0.id == targetFolder.id }) {
-                    storageManager.folders[targetIndex].noteIDs.append(id)
-                    storageManager.folders[targetIndex].dateModified = Date()
-                }
-            }
-
-            // Save all folder changes at once to ensure persistence
-            storageManager.saveFoldersState()
-        }
-
-        // Refresh UI
-        DispatchQueue.main.async {
-            self.refreshID = UUID()
-            self.dragItem = nil
-        }
-
-        return true
-    }
-
-    // Helper to check if moving a folder would create a circular reference
-    private func wouldCreateCircularReference(sourceID: UUID, targetID: UUID) -> Bool {
-        // If source and target are the same, it would create a circular reference
-        if sourceID == targetID {
-            return true
-        }
-
-        // Check if target is a child of source (which would create a loop)
-        var currentID = targetID
-        while let folder = storageManager.folders.first(where: { $0.id == currentID }) {
-            if folder.parentID == sourceID {
-                return true
-            }
-
-            if let parentID = folder.parentID {
-                currentID = parentID
-            } else {
-                break
-            }
-        }
-
-        return false
-    }
-
-    // Helper function to navigate into a folder
-    private func navigateToFolder(_ folder: Folder) {
-        currentFolderID = folder.id
-
-        // Update the folder path
-        if let index = folderPath.firstIndex(where: { $0.id == folder.id }) {
-            // This folder is already in our path, truncate to this point
-            folderPath = Array(folderPath.prefix(through: index))
-        } else {
-            // Add this folder to our path
-            folderPath.append(folder)
-        }
-    }
-
-    // Helper function to navigate to a folder from favorites
-    private func navigateToFolderFromFavorites(_ folder: Folder) {
-        // Switch to documents view
-        selectedItem = "documents"
-        
-        // Build the folder path from the folder up to the root
-        var path: [Folder] = []
-        var currentFolder: Folder? = folder
-        
-        // Traverse up to build the path
-        while let folder = currentFolder {
-            path.insert(folder, at: 0)
-            
-            // Find parent folder if it exists
-            if let parentID = folder.parentID {
-                currentFolder = storageManager.folders.first(where: { $0.id == parentID })
-            } else {
-                currentFolder = nil
-            }
-        }
-        
-        // Set the current folder and path
-        folderPath = path
-        currentFolderID = folder.id
-    }
+    // Drag-and-drop and navigation functions moved to extensions:
+    // - HomeView+DragDrop.swift
+    // - HomeView+Navigation.swift
 
     private func folderContextMenu(_ folder: Folder) -> some View {
         Group {
@@ -2018,7 +1685,7 @@ struct HomeView: View {
         }
     }
 
-    private func handleImportedFiles(_ urls: [URL]) {
+    func handleImportedFiles(_ urls: [URL]) {
         for url in urls {
             #if canImport(UIKit)
                 if url.startAccessingSecurityScopedResource() {
@@ -2777,337 +2444,6 @@ struct HomeView: View {
     }
 
     // Helper function to navigate to a folder from subject
-    private func navigateToFolderFromSubject(_ folder: Folder) {
-        // Switch to documents view
-        selectedItem = "documents"
-        selectedSubject = nil
-
-        // Build the folder path from the folder up to the root
-        var path: [Folder] = []
-        var currentFolder: Folder? = folder
-
-        // Traverse up to build the path
-        while let folder = currentFolder {
-            path.insert(folder, at: 0)
-
-            // Find parent folder if it exists
-            if let parentID = folder.parentID {
-                currentFolder = storageManager.folders.first(where: { $0.id == parentID })
-            } else {
-                currentFolder = nil
-            }
-        }
-
-        // Set the current folder and path
-        folderPath = path
-        currentFolderID = folder.id
-    }
-
+    // navigateToFolderFromSubject moved to HomeView+Navigation.swift
 }
 
-// MARK: - Header "+ New" Button
-extension HomeView {
-    private var headerNewButton: some View {
-        Menu {
-            // Note creation options
-            Button {
-                showNewWrittenNoteView = true
-            } label: {
-                Label("Note", systemImage: "pencil")
-            }
-
-            // Folder creation option
-            Button {
-                showNewFolderView = true
-            } label: {
-                Label("Folder", systemImage: "folder")
-            }
-
-
-            // Upload
-            Button {
-                showingFileImporter = true
-            } label: {
-                Label("Upload", systemImage: "arrow.up.doc")
-            }
-
-        } label: {
-            if isCompactWidth {
-                // Icon-only on compact screens
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.matchalight_light.opacity(0.2), Color.matchalight_light.opacity(0.1)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 32, height: 32)
-                        .aspectRatio(1, contentMode: .fit)
-                    
-                    Image(systemName: "plus")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.matchalight_light)
-                }
-                .frame(width: 32, height: 32)
-            } else {
-                // Full button on larger screens
-                HStack(spacing: 8) {
-                    ZStack {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.matchalight_light.opacity(0.2), Color.matchalight_light.opacity(0.1)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 28, height: 28)
-                        
-                        Image(systemName: "plus")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.matchalight_light)
-                    }
-                    
-                    Text("New")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
-                }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 16)
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(Color(.systemBackground))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 20)
-                                .stroke(Color(.systemGray5), lineWidth: 1)
-                        )
-                )
-            }
-        }
-        .buttonStyle(PlainButtonStyle())
-        .sheet(isPresented: $showNewWrittenNoteView) {
-            NewWrittenNoteView(
-                onSave: { newNote in
-                    // Add to current folder if we're in one
-                    if let currentFolderID = currentFolderID,
-                        let folderIndex = storageManager.folders.firstIndex(where: {
-                            $0.id == currentFolderID
-                        })
-                    {
-                        var updatedFolder = storageManager.folders[folderIndex]
-                        updatedFolder.addNote(noteID: newNote.id)
-                        _ = storageManager.saveFolder(updatedFolder)
-                    }
-                    let savedNote = storageManager.saveNote(newNote)
-                    TabManager.shared.openTab(note: savedNote)
-                    selectedNote = savedNote
-                },
-                subject: selectedSubject
-            )
-        }
-        .sheet(isPresented: $showNewFolderView) {
-            NewFolderView(
-                parentFolderID: currentFolderID,
-                onSave: { newFolder in
-                    _ = storageManager.saveFolder(newFolder)
-                }
-            )
-        }
-        .fileImporter(
-            isPresented: $showingFileImporter,
-            allowedContentTypes: [.pdf, .image, .matchaNote],
-            allowsMultipleSelection: true
-        ) { result in
-            do {
-                let urls = try result.get()
-                handleImportedFiles(urls)
-            } catch {
-                print("Error importing file: \(error)")
-            }
-        }
-    }
-}
-
-// MARK: - Move Note Sheet
-struct MoveNoteSheet: View {
-    let folders: [Folder]
-    let currentFolderID: UUID?
-    @Binding var selectedDestinationFolderID: UUID?
-    var onCancel: () -> Void
-    var onConfirm: () -> Void
-
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Move to")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                Spacer()
-            }
-
-            // Destination list
-            List {
-                // Home (no folder)
-                HStack {
-                    Image(systemName: "house")
-                    Text("Home")
-                    Spacer()
-                    if selectedDestinationFolderID == nil { 
-                        Image(systemName: "checkmark")
-                            .foregroundColor(.blue)
-                    }
-                }
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    selectedDestinationFolderID = nil
-                }
-
-                // Top-level folders only (no parent)
-                ForEach(folders.filter { $0.parentID == nil }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }) { folder in
-                    HStack {
-                        Image(systemName: "folder")
-                        Text(folder.name)
-                        Spacer()
-                        if selectedDestinationFolderID == folder.id { 
-                            Image(systemName: "checkmark")
-                                .foregroundColor(.blue)
-                        }
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        selectedDestinationFolderID = folder.id
-                    }
-                }
-            }
-            .listStyle(.plain)
-
-            HStack {
-                Button("Cancel") { 
-                    onCancel() 
-                }
-                .buttonStyle(.bordered)
-                
-                Spacer()
-                
-                Button("Move") { 
-                    onConfirm() 
-                }
-                .buttonStyle(.borderedProminent)
-            }
-        }
-        .padding()
-        .frame(minWidth: 400, minHeight: 500)
-        .background(
-            colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light
-        )
-    }
-}
-
-// MARK: - Bulk Move Sheet
-struct BulkMoveSheet: View {
-    let folders: [Folder]
-    let currentFolderID: UUID?
-    @Binding var selectedDestinationFolderID: UUID?
-    let selectedNotes: Set<UUID>
-    let selectedFolders: Set<UUID>
-    var onCancel: () -> Void
-    var onConfirm: () -> Void
-
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Move Selected Items")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                Spacer()
-            }
-
-            // Selection summary
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Moving \(selectedNotes.count + selectedFolders.count) items:")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                
-                if selectedNotes.count > 0 {
-                    Text("• \(selectedNotes.count) note\(selectedNotes.count == 1 ? "" : "s")")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                
-                if selectedFolders.count > 0 {
-                    Text("• \(selectedFolders.count) folder\(selectedFolders.count == 1 ? "" : "s")")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.gray.opacity(0.1))
-            )
-
-            // Destination list
-            List {
-                // Home (no folder)
-                HStack {
-                    Image(systemName: "house")
-                    Text("Home")
-                    Spacer()
-                    if selectedDestinationFolderID == nil { 
-                        Image(systemName: "checkmark")
-                            .foregroundColor(.blue)
-                    }
-                }
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    selectedDestinationFolderID = nil
-                }
-
-                // Top-level folders only (no parent)
-                ForEach(folders.filter { $0.parentID == nil }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }) { folder in
-                    HStack {
-                        Image(systemName: "folder")
-                        Text(folder.name)
-                        Spacer()
-                        if selectedDestinationFolderID == folder.id { 
-                            Image(systemName: "checkmark")
-                                .foregroundColor(.blue)
-                        }
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        selectedDestinationFolderID = folder.id
-                    }
-                }
-            }
-            .listStyle(.plain)
-
-            HStack {
-                Button("Cancel") { 
-                    onCancel() 
-                }
-                .buttonStyle(.bordered)
-                
-                Spacer()
-                
-                Button("Move") { 
-                    onConfirm() 
-                }
-                .buttonStyle(.borderedProminent)
-            }
-        }
-        .padding()
-        .frame(minWidth: 400, minHeight: 500)
-        .background(
-            colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light
-        )
-    }
-}

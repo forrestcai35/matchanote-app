@@ -1,6 +1,12 @@
 import SwiftUI
 // MARK: - Sidebar Item Component
-struct MatchaSidebarItem: View {
+struct SidebarItem: Identifiable {
+    var id: String
+    var title: String
+    var icon: String
+}
+
+struct HomeSidebarItem: View {
     let item: SidebarItem
     let isSelected: Bool
     let onSelect: () -> Void

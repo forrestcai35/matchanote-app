@@ -1,6 +1,6 @@
 import SwiftUI
 // MARK: - Search Bar Component
-struct MatchaSearchBar: View {
+struct HomeSearchBar: View {
     @Binding var searchText: String
     let placeholder: String
 
