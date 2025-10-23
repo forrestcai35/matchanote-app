@@ -295,6 +295,37 @@ struct WrittenNoteView: View {
                         .offset(x: -unifiedContentOffset.x + centerOffsetX, y: -unifiedContentOffset.y + centerOffsetY)
                     }
                 }
+                .onDrop(of: [.plainText], isTargeted: nil) { providers, location in
+                    // Handle dropped text from AI assistant
+                    guard let provider = providers.first else { return false }
+                    
+                    provider.loadObject(ofClass: NSString.self) { text, error in
+                        guard let droppedText = text as? String, error == nil else { return }
+                        
+                        // Convert drop location from view coordinates to canvas coordinates
+                        // Account for scale, offset, and centering transformations
+                        let scale = relativeZoomLevel * fitScale
+                        let canvasX = (location.x - centerOffsetX + unifiedContentOffset.x) / scale
+                        let canvasY = (location.y - centerOffsetY + unifiedContentOffset.y) / scale
+                        let canvasLocation = CGPoint(x: canvasX, y: canvasY)
+                        
+                        DispatchQueue.main.async {
+                            // Activate textbox tool when text is dragged in
+                            currentTool = .textbox
+                            
+                            // Create a textbox at the drop location with the AI-generated text
+                            textBoxManager.addTextBox(
+                                to: pageIndex,
+                                at: canvasLocation,
+                                withText: droppedText
+                            )
+                            // Mark as edited so changes are saved
+                            isEdited = true
+                        }
+                    }
+                    
+                    return true
+                }
                 .onAppear {
                     if !didApplyInitialFit {
                         relativeZoomLevel = 0.95
