@@ -49,9 +49,9 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         canvasView.bouncesZoom = false
         canvasView.bounces = false
 
-        // Configure for high-resolution
-        canvasView.contentScaleFactor = UIScreen.main.scale 
-        canvasView.layer.contentsScale = UIScreen.main.scale 
+        // Configure for high-resolution (match ensureCanvasExists settings)
+        canvasView.contentScaleFactor = UIScreen.main.scale * 2
+        canvasView.layer.contentsScale = UIScreen.main.scale * 2
         canvasView.layer.shouldRasterize = false
 
         // Add pencil interaction
@@ -69,7 +69,37 @@ struct NativeScrollCanvasView: UIViewRepresentable {
 
     func updateUIView(_ uiView: PKCanvasView, context: Context) {
         context.coordinator.parent = self
-        // Disable canvas interaction when textbox or photo tool is active
+
+        // Only update canvas properties when user is NOT actively interacting
+        // This prevents rendering issues during rapid zoom/scroll
+        if !context.coordinator.isUserInteracting {
+            // Update canvas properties to stay in sync with bindings
+            if uiView.contentSize != contentSize {
+                uiView.contentSize = contentSize
+            }
+
+            if uiView.minimumZoomScale != minScale {
+                uiView.minimumZoomScale = minScale
+            }
+
+            if uiView.maximumZoomScale != maxScale {
+                uiView.maximumZoomScale = maxScale
+            }
+
+            // Only update zoom/offset if not actively zooming (to avoid feedback loop)
+            if !context.coordinator.isUpdatingZoom {
+                if abs(uiView.zoomScale - currentScale) > 0.01 {
+                    uiView.zoomScale = currentScale
+                }
+
+                if abs(uiView.contentOffset.x - contentOffset.x) > 1.0 ||
+                   abs(uiView.contentOffset.y - contentOffset.y) > 1.0 {
+                    uiView.contentOffset = contentOffset
+                }
+            }
+        }
+
+        // Always disable drawing when textbox or photo tool is active (regardless of interaction state)
         uiView.drawingGestureRecognizer.isEnabled = (currentTool != .textbox && currentTool != .photo)
     }
 
@@ -82,6 +112,8 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         var canvasView: PKCanvasView?
         private var drawingObserver: NSKeyValueObservation?
         private var previousTool: PenTool = .pen
+        var isUpdatingZoom: Bool = false
+        var isUserInteracting: Bool = false
 
         init(_ parent: NativeScrollCanvasView) {
             self.parent = parent
@@ -95,6 +127,28 @@ struct NativeScrollCanvasView: UIViewRepresentable {
 
         // MARK: - PKCanvasViewDelegate (UIScrollViewDelegate methods)
 
+        func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+            isUserInteracting = true
+        }
+
+        func scrollViewWillBeginZooming(_ scrollView: UIScrollView, with view: UIView?) {
+            isUserInteracting = true
+        }
+
+        func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+            if !decelerate {
+                isUserInteracting = false
+            }
+        }
+
+        func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+            isUserInteracting = false
+        }
+
+        func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
+            isUserInteracting = false
+        }
+
         func scrollViewDidScroll(_ scrollView: UIScrollView) {
             updateZoomOffset(scrollView)
         }
@@ -104,36 +158,44 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         }
 
         private func updateZoomOffset(_ scrollView: UIScrollView) {
-
-                self.parent.contentOffset = scrollView.contentOffset
-                self.parent.currentScale = scrollView.zoomScale
-
+            isUpdatingZoom = true
+            self.parent.contentOffset = scrollView.contentOffset
+            self.parent.currentScale = scrollView.zoomScale
+            isUpdatingZoom = false
         }
 
-        // MARK: - UIPencilInteractionDelegate
+            // MARK: - PKCanvasViewDelegate
 
-        func pencilInteractionDidTap(_ interaction: UIPencilInteraction) {
-            guard let canvas = canvasView else { return }
+            func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
+                // This gets called immediately when a stroke is completed
+                // Trigger recognition by posting a notification for AutoStrokeRecognitionManager
+                NotificationCenter.default.post(name: NSNotification.Name("StrokeCompleted"), object: canvasView)
+            }
 
-            if let currentTool = parent.currentTool {
-                if currentTool == .eraser {
-                    parent.currentTool = previousTool
-                    canvas.tool = previousTool.toolInstance()
+            // MARK: - UIPencilInteractionDelegate
+
+            func pencilInteractionDidTap(_ interaction: UIPencilInteraction) {
+                guard let canvas = canvasView else { return }
+
+                if let currentTool = parent.currentTool {
+                    if currentTool == .eraser {
+                        parent.currentTool = previousTool
+                        canvas.tool = previousTool.toolInstance()
+                    } else {
+                        previousTool = currentTool
+                        parent.currentTool = .eraser
+                        canvas.tool = PenTool.eraser.toolInstance()
+                    }
                 } else {
-                    previousTool = currentTool
+                    previousTool = .pen
                     parent.currentTool = .eraser
                     canvas.tool = PenTool.eraser.toolInstance()
                 }
-            } else {
-                previousTool = .pen
-                parent.currentTool = .eraser
-                canvas.tool = PenTool.eraser.toolInstance()
             }
-        }
 
-        deinit {
-            drawingObserver?.invalidate()
-        }
+            deinit {
+                drawingObserver?.invalidate()
+            }
     }
 }
 
