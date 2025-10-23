@@ -176,20 +176,25 @@ struct CanvasImageOverlay: View {
     @ObservedObject var imageManager: CanvasImageManager
     let pageIndex: Int
     let canvasSize: CGSize
+    var isPhotoToolActive: Bool = false
     var isTextBoxToolActive: Bool = false
     @Environment(\.colorScheme) private var colorScheme
-    
+
     var body: some View {
+
+        let shouldInterceptBackground = imageManager.hasSelectedImage || isPhotoToolActive
+
         ZStack {
-            // Only intercept background taps when there's a selected image to deselect
-            if imageManager.hasSelectedImage {
+            // Background tap layer - intercepts when image is selected OR photo tool is active
+            if shouldInterceptBackground {
                 Color.clear
+                    .frame(width: canvasSize.width, height: canvasSize.height)
                     .contentShape(Rectangle())
                     .onTapGesture {
                         imageManager.deselectImage()
                     }
             }
-            
+
             // Images for current page
             ForEach(imageManager.getImagesForPage(pageIndex), id: \.id) { image in
                 CanvasImageView(
@@ -200,8 +205,11 @@ struct CanvasImageOverlay: View {
                 )
             }
         }
+        .frame(width: canvasSize.width, height: canvasSize.height)
         .clipped()
-        .allowsHitTesting(!isTextBoxToolActive && imageManager.getImagesForPage(pageIndex).count > 0)
+        // Only allow hit testing when we need to intercept background taps
+        // This prevents blocking canvas touches when photo tool is not active
+        .allowsHitTesting(shouldInterceptBackground)
     }
 }
 

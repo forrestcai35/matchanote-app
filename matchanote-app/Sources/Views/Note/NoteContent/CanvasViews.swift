@@ -69,7 +69,8 @@ struct NativeScrollCanvasView: UIViewRepresentable {
 
     func updateUIView(_ uiView: PKCanvasView, context: Context) {
         context.coordinator.parent = self
-        uiView.isUserInteractionEnabled = (currentTool != .textbox)
+        // Disable canvas interaction when textbox or photo tool is active
+        uiView.isUserInteractionEnabled = (currentTool != .textbox && currentTool != .photo)
     }
 
     func makeCoordinator() -> Coordinator {

@@ -26,7 +26,7 @@ struct HomeSidebarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header with logo and settings
+            // Header with logo and settings - stays fixed at top
             HStack(spacing: isCompactWidth ? 4 : 8) {
                 Image("Logo")
                     .resizable()
@@ -56,12 +56,16 @@ struct HomeSidebarView: View {
             .padding(.horizontal, isCompactWidth ? 12 : 16)
             .padding(.top, 15)
 
-            searchBar
-            sidebarList
-            subjectsList
-
-            Spacer()
+            // Scrollable content
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 0) {
+                    searchBar
+                    sidebarList
+                    subjectsList
+                }
+            }
         }
+        .ignoresSafeArea(.keyboard)
     }
 
     // MARK: - Component Views
@@ -94,7 +98,7 @@ struct HomeSidebarView: View {
                 )
             }
         }
-        .padding(.horizontal, 18)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .padding(.top, 15)
     }
 

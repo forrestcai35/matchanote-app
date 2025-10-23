@@ -42,6 +42,7 @@ struct TextBoxOverlay: View {
             }
         }
         .frame(width: canvasSize.width, height: canvasSize.height)
+        .clipped()
         // IMPORTANT: Only allow hit testing when we need to intercept background taps
         // This prevents blocking canvas touches when textbox tool is not active
         .allowsHitTesting(shouldInterceptBackground)
@@ -140,9 +141,10 @@ struct TextBoxView: View {
                 .onEnded { value in
                     print("🔵 DRAG ENDED on textbox \(textBox.id), isSelected: \(isSelected)")
                     if isSelected {
+                        // No clamping - allow free positioning like CanvasImageView
                         let newPosition = CGPoint(
-                            x: max(0, min(canvasSize.width - textBox.size.width, textBox.position.x + value.translation.width)),
-                            y: max(0, min(canvasSize.height - textBox.size.height, textBox.position.y + value.translation.height))
+                            x: textBox.position.x + value.translation.width,
+                            y: textBox.position.y + value.translation.height
                         )
 
                         var updatedTextBox = textBox
