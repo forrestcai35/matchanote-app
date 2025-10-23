@@ -50,8 +50,8 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         canvasView.bounces = false
 
         // Configure for high-resolution
-        canvasView.contentScaleFactor = UIScreen.main.scale * 2
-        canvasView.layer.contentsScale = UIScreen.main.scale * 2
+        canvasView.contentScaleFactor = UIScreen.main.scale 
+        canvasView.layer.contentsScale = UIScreen.main.scale 
         canvasView.layer.shouldRasterize = false
 
         // Add pencil interaction
@@ -106,7 +106,6 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         }
 
         func scrollViewDidZoom(_ scrollView: UIScrollView) {
-            print("🔍 Zoom - contentSize: \(scrollView.contentSize), bounds: \(scrollView.bounds), offset: \(scrollView.contentOffset), insets: \(scrollView.contentInset)")
 
             // Conditionally center based on user preference
             if parent.snapToCenter {
@@ -182,19 +181,17 @@ struct PencilKitCanvasView: UIViewRepresentable {
     @Binding var currentTool: PenTool?
     @Binding var canvasViews: [PKCanvasView]
     @Binding var currentPage: Int
-    // Shape recognition removed
+
 
     func makeUIView(context: Context) -> PKCanvasView {
         canvasView.backgroundColor = .clear
-        canvasView.isScrollEnabled = false  // Disable to let outer scroll view handle pan/zoom
         canvasView.overrideUserInterfaceStyle = .light
 
         // Configure for high-resolution rendering
-        canvasView.contentScaleFactor = UIScreen.main.scale * 2  // 2x scale for crisp rendering
-        canvasView.layer.contentsScale = UIScreen.main.scale * 2
-        canvasView.layer.shouldRasterize = false  // Never rasterize to avoid blur
-
-        // Set up drawing change delegate for shape recognition
+        canvasView.contentScaleFactor = UIScreen.main.scale * 3
+        canvasView.layer.contentsScale = UIScreen.main.scale * 3
+        canvasView.layer.shouldRasterize = false 
+        canvasView.contentInsetAdjustmentBehavior = .never
         canvasView.delegate = context.coordinator
 
         // Add pencil interaction for double tap
@@ -298,8 +295,7 @@ struct PencilKitCanvasView: UIViewRepresentable {
         // MARK: - PKCanvasViewDelegate
 
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
-            // This gets called immediately when a stroke is completed
-            // We can trigger recognition here by posting a notification
+
             NotificationCenter.default.post(name: NSNotification.Name("StrokeCompleted"), object: canvasView)
         }
 
