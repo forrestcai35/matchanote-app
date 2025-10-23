@@ -244,6 +244,13 @@ struct WrittenNoteView: View {
                 set: { relativeZoomLevel = $0 / fitScale }
             )
 
+            // Calculate centering offset when content is smaller than viewport
+            let currentScale = relativeZoomLevel * fitScale
+            let scaledWidth = contentSize.width * currentScale
+            let scaledHeight = contentSize.height * currentScale
+            let centerOffsetX = max((viewportSize.width - scaledWidth) / 2, 0)
+            let centerOffsetY = max((viewportSize.height - scaledHeight) / 2, 0)
+
             if pageIndex < canvasViews.count {
                 NativeScrollCanvasView(
                     canvasView: canvasViews[pageIndex],
@@ -256,6 +263,7 @@ struct WrittenNoteView: View {
                     snapToCenter: preferencesManager.noteEditorSnapToCenter,
                     onDrawingChange: { isEdited = true }
                 )
+                .offset(x: centerOffsetX, y: centerOffsetY)
                 .background {
                     GeometryReader { _ in
                         ZStack(alignment: .topLeading) {
@@ -283,7 +291,7 @@ struct WrittenNoteView: View {
                         }
                         .frame(width: contentSize.width, height: contentSize.height)
                         .scaleEffect(relativeZoomLevel * fitScale, anchor: .topLeading)
-                        .offset(x: -unifiedContentOffset.x, y: -unifiedContentOffset.y)
+                        .offset(x: -unifiedContentOffset.x + centerOffsetX, y: -unifiedContentOffset.y + centerOffsetY)
                     }
                 }
                 .onAppear {

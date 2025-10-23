@@ -26,7 +26,7 @@ struct NativeScrollCanvasView: UIViewRepresentable {
     @Binding var currentScale: CGFloat
     @Binding var contentOffset: CGPoint
     @Binding var currentTool: PenTool?
-    let snapToCenter: Bool
+
     let onDrawingChange: () -> Void
 
     func makeUIView(context: Context) -> PKCanvasView {
@@ -64,13 +64,6 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         context.coordinator.canvasView = canvasView
         context.coordinator.setupDrawingObservation()
 
-        // Apply initial centering
-        DispatchQueue.main.async {
-
-                context.coordinator.centerContentIfNeeded(canvasView)
-
-        }
-
         return canvasView
     }
 
@@ -106,37 +99,7 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         }
 
         func scrollViewDidZoom(_ scrollView: UIScrollView) {
-
-            // Conditionally center based on user preference
-            if parent.snapToCenter {
-                centerContentIfNeeded(scrollView)
-            }
             updateZoomOffset(scrollView)
-        }
-
-     func centerContentIfNeeded(_ scrollView: UIScrollView) {
-            // Center content when it's smaller than the viewport
-            let contentWidth = scrollView.contentSize.width
-            let contentHeight = scrollView.contentSize.height
-            let boundsWidth = scrollView.bounds.width
-            let boundsHeight = scrollView.bounds.height
-
-            var insets = UIEdgeInsets.zero
-
-            // Only center if content is significantly smaller than viewport
-            if contentWidth < boundsWidth * 0.95 {
-                let horizontalInset = max((boundsWidth - contentWidth) * 0.5, 0)
-                insets.left = horizontalInset
-                insets.right = horizontalInset
-            }
-
-            if contentHeight < boundsHeight * 0.95 {
-                let verticalInset = max((boundsHeight - contentHeight) * 0.5, 0)
-                insets.top = verticalInset
-                insets.bottom = verticalInset
-            }
-
-            scrollView.contentInset = insets
         }
 
         private func updateZoomOffset(_ scrollView: UIScrollView) {
