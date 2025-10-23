@@ -52,7 +52,6 @@ class PreferencesManager: ObservableObject {
         
         // Note Editor Preferences
         static let noteEditorStatusBarHidden = "preferences.noteEditor.statusBarHidden"
-        static let noteEditorSnapToCenter = "preferences.noteEditor.snapToCenter"
         static let noteEditorToolsOrder = "preferences.noteEditor.tools.order"
         static let noteEditorToolPen = "preferences.noteEditor.tools.pen"
         static let noteEditorToolMarker = "preferences.noteEditor.tools.marker"
@@ -103,11 +102,7 @@ class PreferencesManager: ObservableObject {
         }
     }
     
-    @Published var noteEditorSnapToCenter: Bool {
-        didSet {
-            userDefaults.set(noteEditorSnapToCenter, forKey: DefaultsKeys.noteEditorSnapToCenter)
-        }
-    }
+ 
     
     @Published var noteEditorToolsOrder: [String] {
         didSet {
@@ -172,8 +167,7 @@ class PreferencesManager: ObservableObject {
         
         // Load note editor preferences
         self.noteEditorStatusBarHidden = userDefaults.bool(forKey: DefaultsKeys.noteEditorStatusBarHidden)
-        self.noteEditorSnapToCenter = userDefaults.object(forKey: DefaultsKeys.noteEditorSnapToCenter) as? Bool ?? true
-        
+  
         // Load tools order or default to all tools in their default order
         if let savedToolsOrder = userDefaults.string(forKey: DefaultsKeys.noteEditorToolsOrder) {
             self.noteEditorToolsOrder = savedToolsOrder.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }

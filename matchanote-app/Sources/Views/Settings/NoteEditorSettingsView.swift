@@ -66,24 +66,7 @@ struct NoteEditorSettingsView: View {
                             .scaleEffect(0.9)
                     }
                     .padding(.vertical, 4)
-                    
-                    HStack(spacing: 10) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Snap to center")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                            Text("Center canvas when zoomed out smaller than viewport")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                        Spacer()
-                        Toggle("", isOn: $preferencesManager.noteEditorSnapToCenter)
-                            .labelsHidden()
-                            .controlSize(.small)
-                            .tint(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
-                            .scaleEffect(0.9)
-                    }
-                    .padding(.vertical, 4)
+      
                 } header: {
                     HStack {
                         Image(systemName: "pencil.and.outline")

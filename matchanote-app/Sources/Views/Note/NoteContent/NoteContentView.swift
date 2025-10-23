@@ -260,7 +260,7 @@ struct WrittenNoteView: View {
                     currentScale: absoluteScaleBinding,
                     contentOffset: $unifiedContentOffset,
                     currentTool: $currentTool,
-                    snapToCenter: preferencesManager.noteEditorSnapToCenter,
+   
                     onDrawingChange: { isEdited = true }
                 )
                 .offset(x: centerOffsetX, y: centerOffsetY)
@@ -279,6 +279,7 @@ struct WrittenNoteView: View {
                                 imageManager: imageManager,
                                 pageIndex: pageIndex,
                                 canvasSize: contentSize,
+                                isPhotoToolActive: currentTool == .photo,
                                 isTextBoxToolActive: currentTool == .textbox
                             )
 
