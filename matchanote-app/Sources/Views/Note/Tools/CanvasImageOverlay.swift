@@ -207,8 +207,6 @@ struct CanvasImageOverlay: View {
         }
         .frame(width: canvasSize.width, height: canvasSize.height)
         .clipped()
-        // Only allow hit testing when photo tool is active or image is selected
-        .allowsHitTesting(shouldInterceptBackground)
     }
 }
 
