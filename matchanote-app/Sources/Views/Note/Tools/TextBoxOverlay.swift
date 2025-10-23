@@ -1,4 +1,46 @@
 import SwiftUI
+import UIKit
+
+// Utility struct for textbox calculations
+struct TextBoxUtilities {
+    // Calculate the size needed for a textbox to fit the given text
+    static func calculateTextBoxSize(for text: String, fontSize: CGFloat, fontFamily: String, maxWidth: CGFloat) -> CGSize {
+        guard !text.isEmpty else {
+            // Return minimum size for empty text
+            return CGSize(width: 200, height: 60)
+        }
+
+        let padding: CGFloat = 16 // 8pt padding on each side
+        let maxTextWidth = maxWidth - padding
+
+        // Create attributed string with the font to measure
+        let font: UIFont
+        if fontFamily == "System" {
+            font = UIFont.systemFont(ofSize: fontSize)
+        } else if let customFont = UIFont(name: fontFamily, size: fontSize) {
+            font = customFont
+        } else {
+            font = UIFont.systemFont(ofSize: fontSize)
+        }
+
+        let attributes: [NSAttributedString.Key: Any] = [.font: font]
+
+        // Calculate bounding rect with maximum width constraint
+        let constraintSize = CGSize(width: maxTextWidth, height: .greatestFiniteMagnitude)
+        let boundingRect = (text as NSString).boundingRect(
+            with: constraintSize,
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: attributes,
+            context: nil
+        )
+
+        // Add padding and ensure minimum dimensions
+        let width = min(max(boundingRect.width + padding, 120), maxWidth)
+        let height = max(boundingRect.height + padding, 40)
+
+        return CGSize(width: ceil(width), height: ceil(height))
+    }
+}
 
 struct TextBoxOverlay: View {
     @ObservedObject var textBoxManager: TextBoxManager
@@ -96,6 +138,15 @@ struct TextBoxView: View {
                     .onChange(of: editingText) { _, newValue in
                         // Sync with manager so deletion check works
                         textBoxManager.currentEditingText = newValue
+
+                        // Auto-resize textbox based on content
+                        let newSize = TextBoxUtilities.calculateTextBoxSize(for: newValue, fontSize: textBox.fontSize, fontFamily: textBox.fontFamily, maxWidth: 600)
+                        if newSize != textBox.size {
+                            var updatedTextBox = textBox
+                            updatedTextBox.size = newSize
+                            updatedTextBox.text = newValue
+                            textBoxManager.updateTextBox(updatedTextBox)
+                        }
                     }
             } else {
                 // Non-interactive text display
@@ -271,11 +322,16 @@ struct TextBoxView: View {
     }
 
     private func finishEditing() {
-        // Save the text before clearing editing state
+        // Save the text and updated size before clearing editing state
         var updatedTextBox = textBox
         updatedTextBox.text = editingText
+
+        // Update size to fit final text content
+        let newSize = TextBoxUtilities.calculateTextBoxSize(for: editingText, fontSize: textBox.fontSize, fontFamily: textBox.fontFamily, maxWidth: 600)
+        updatedTextBox.size = newSize
+
         textBoxManager.updateTextBox(updatedTextBox)
-        
+
         textBoxManager.isEditingText = false
         textBoxManager.editingTextBoxId = nil
     }
@@ -338,6 +394,44 @@ struct TextBoxView: View {
 
     private func canPaste() -> Bool {
         return textBoxManager.copiedTextBox != nil
+    }
+
+    // Calculate the size needed for a textbox to fit the given text
+    private func calculateTextBoxSize(for text: String, fontSize: CGFloat, fontFamily: String, maxWidth: CGFloat) -> CGSize {
+        guard !text.isEmpty else {
+            // Return minimum size for empty text
+            return CGSize(width: 200, height: 60)
+        }
+
+        let padding: CGFloat = 16 // 8pt padding on each side
+        let maxTextWidth = maxWidth - padding
+
+        // Create attributed string with the font to measure
+        let font: UIFont
+        if fontFamily == "System" {
+            font = UIFont.systemFont(ofSize: fontSize)
+        } else if let customFont = UIFont(name: fontFamily, size: fontSize) {
+            font = customFont
+        } else {
+            font = UIFont.systemFont(ofSize: fontSize)
+        }
+
+        let attributes: [NSAttributedString.Key: Any] = [.font: font]
+
+        // Calculate bounding rect with maximum width constraint
+        let constraintSize = CGSize(width: maxTextWidth, height: .greatestFiniteMagnitude)
+        let boundingRect = (text as NSString).boundingRect(
+            with: constraintSize,
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: attributes,
+            context: nil
+        )
+
+        // Add padding and ensure minimum dimensions
+        let width = min(max(boundingRect.width + padding, 120), maxWidth)
+        let height = max(boundingRect.height + padding, 40)
+
+        return CGSize(width: ceil(width), height: ceil(height))
     }
 }
 
@@ -463,12 +557,22 @@ struct TextBoxFormattingControls: View {
     private func updateTextBoxFont(_ fontFamily: String) {
         guard var selectedTextBox = textBoxManager.selectedTextBox else { return }
         selectedTextBox.fontFamily = fontFamily
+
+        // Recalculate size to fit text with new font
+        let newSize = TextBoxUtilities.calculateTextBoxSize(for: selectedTextBox.text, fontSize: selectedTextBox.fontSize, fontFamily: fontFamily, maxWidth: 600)
+        selectedTextBox.size = newSize
+
         textBoxManager.updateTextBox(selectedTextBox)
     }
 
     private func adjustFontSize(_ delta: CGFloat) {
         guard var selectedTextBox = textBoxManager.selectedTextBox else { return }
         selectedTextBox.fontSize = max(8, min(72, selectedTextBox.fontSize + delta))
+
+        // Recalculate size to fit text with new font size
+        let newSize = TextBoxUtilities.calculateTextBoxSize(for: selectedTextBox.text, fontSize: selectedTextBox.fontSize, fontFamily: selectedTextBox.fontFamily, maxWidth: 600)
+        selectedTextBox.size = newSize
+
         textBoxManager.updateTextBox(selectedTextBox)
     }
 

@@ -150,18 +150,61 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         }
 
         func scrollViewDidScroll(_ scrollView: UIScrollView) {
+            // Constrain scrolling to valid content bounds
+            constrainScrollBounds(scrollView)
             updateZoomOffset(scrollView)
         }
 
         func scrollViewDidZoom(_ scrollView: UIScrollView) {
+            // Constrain scrolling during zoom as well
+            constrainScrollBounds(scrollView)
             updateZoomOffset(scrollView)
         }
 
+        private func constrainScrollBounds(_ scrollView: UIScrollView) {
+            // Calculate the valid scroll bounds based on content size and zoom
+            let scaledContentWidth = scrollView.contentSize.width * scrollView.zoomScale
+            let scaledContentHeight = scrollView.contentSize.height * scrollView.zoomScale
+            
+            let maxOffsetX = max(0, scaledContentWidth - scrollView.bounds.width)
+            let maxOffsetY = max(0, scaledContentHeight - scrollView.bounds.height)
+            
+            var newOffset = scrollView.contentOffset
+            var needsCorrection = false
+            
+            // Clamp horizontal scrolling
+            if newOffset.x < 0 {
+                newOffset.x = 0
+                needsCorrection = true
+            } else if newOffset.x > maxOffsetX {
+                newOffset.x = maxOffsetX
+                needsCorrection = true
+            }
+            
+            // Clamp vertical scrolling
+            if newOffset.y < 0 {
+                newOffset.y = 0
+                needsCorrection = true
+            } else if newOffset.y > maxOffsetY {
+                newOffset.y = maxOffsetY
+                needsCorrection = true
+            }
+            
+            // Apply correction if needed
+            if needsCorrection {
+                scrollView.contentOffset = newOffset
+            }
+        }
+
         private func updateZoomOffset(_ scrollView: UIScrollView) {
+            guard !isUpdatingZoom else { return }
             isUpdatingZoom = true
+            
+            // Update immediately for smooth, lag-free drawing
+            // Synchronous updates are critical for real-time canvas interactions
             self.parent.contentOffset = scrollView.contentOffset
             self.parent.currentScale = scrollView.zoomScale
-            isUpdatingZoom = false
+            self.isUpdatingZoom = false
         }
 
             // MARK: - PKCanvasViewDelegate

@@ -288,6 +288,8 @@ struct PageThumbnailView: View {
   
   @Environment(\.colorScheme) private var colorScheme
   @State private var previewImage: UIImage?
+  @State private var isLoading = false
+  @State private var hasContentCache: Bool?
   
   var body: some View {
     VStack(spacing: 8) {
@@ -305,41 +307,26 @@ struct PageThumbnailView: View {
               )
           )
         
-        // Drawing preview - use consolidated PreviewGenerator
+        // Drawing preview
         if let previewImage = previewImage {
           Image(uiImage: previewImage)
             .resizable()
             .aspectRatio(paperAspectRatio(for: pageIndex), contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 6))
-        } else if PreviewGenerator.hasContent(note: note, pageIndex: pageIndex) {
-          // Generate preview using consolidated logic
-          let thumbnailImage = PreviewGenerator.generatePreview(
-            for: note, 
-            pageIndex: pageIndex, 
-            size: .grid
-          )
-          Image(uiImage: thumbnailImage)
-            .resizable()
-            .aspectRatio(contentMode: .fit)
-            .aspectRatio(paperAspectRatio(for: pageIndex), contentMode: .fit)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-        } else if (pageIndex < canvasViews.count && !canvasViews[pageIndex].drawing.strokes.isEmpty) {
-          // Fallback while loading (drawing strokes)
+        } else if isLoading {
+          // Show loading indicator
           Rectangle()
-            .fill(Color.gray.opacity(0.1))
+            .fill(Color.gray.opacity(0.05))
             .aspectRatio(paperAspectRatio(for: pageIndex), contentMode: .fit)
             .overlay(
               ProgressView()
-                .scaleEffect(0.8)
+                .scaleEffect(0.7)
             )
-        }
-        
-        // Paper pattern overlay (subtle) - only show if no preview and no content
-        if previewImage == nil && !PreviewGenerator.hasContent(note: note, pageIndex: pageIndex) {
-          paperPatternOverlay()
-            .opacity(0.3)
-            .aspectRatio(paperAspectRatio, contentMode: .fit)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+        } else if hasContentCache == true {
+          // Has content but preview not loaded yet
+          Rectangle()
+            .fill(Color.gray.opacity(0.05))
+            .aspectRatio(paperAspectRatio(for: pageIndex), contentMode: .fit)
         }
         
         // Bookmark indicator
@@ -394,11 +381,14 @@ struct PageThumbnailView: View {
       .onTapGesture {
         onTap()
       }
-      .onAppear {
-        generatePreview()
-      }
-      .onChange(of: pageIndex) { _, _ in
-        generatePreview()
+      .task {
+        // Check content immediately on appear (fast check)
+        hasContentCache = PreviewGenerator.hasContent(note: note, pageIndex: pageIndex)
+        
+        // Generate preview asynchronously if there's content
+        if hasContentCache == true {
+          await generatePreview()
+        }
       }
       
       // Page number and bookmark button
@@ -419,105 +409,26 @@ struct PageThumbnailView: View {
     .frame(maxWidth: .infinity)
   }
   
-  @ViewBuilder
-  private func paperPatternOverlay() -> some View {
-    GeometryReader { geometry in
-      switch note.paperStyle {
-      case .grid:
-        gridOverlay(size: geometry.size)
-      case .dotted:
-        dottedOverlay(size: geometry.size)
-      case .lined:
-        linedOverlay(size: geometry.size)
-      case .blank:
-        EmptyView()
-      }
-    }
-  }
   
-  @ViewBuilder
-  private func gridOverlay(size: CGSize) -> some View {
-    let gridSpacing: CGFloat = max(8, size.width / 30) // Adaptive spacing for thumbnail
+  private func generatePreview() async {
+    // Set loading state
+    isLoading = true
     
-    ZStack {
-      // Horizontal lines
-      ForEach(0..<Int(size.height / gridSpacing + 1), id: \.self) { i in
-        let y = CGFloat(i) * gridSpacing
-        Path { path in
-          path.move(to: CGPoint(x: 0, y: y))
-          path.addLine(to: CGPoint(x: size.width, y: y))
-        }
-        .stroke(Color.gray.opacity(0.4), lineWidth: 0.5)
-      }
-      // Vertical lines
-      ForEach(0..<Int(size.width / gridSpacing + 1), id: \.self) { i in
-        let x = CGFloat(i) * gridSpacing
-        Path { path in
-          path.move(to: CGPoint(x: x, y: 0))
-          path.addLine(to: CGPoint(x: x, y: size.height))
-        }
-        .stroke(Color.gray.opacity(0.4), lineWidth: 0.5)
-      }
-    }
-  }
-  
-  @ViewBuilder
-  private func dottedOverlay(size: CGSize) -> some View {
-    let baseSpacing: CGFloat = max(12, size.width / 20) // Adaptive spacing for thumbnail
-    let dotRadius: CGFloat = 0.8
+    // Generate preview on background thread using Task
+    let note = self.note
+    let pageIndex = self.pageIndex
     
-    Canvas { context, canvasSize in
-      let horizontalCount = Int(canvasSize.width / baseSpacing)
-      let verticalCount = Int(canvasSize.height / baseSpacing)
-      
-      for row in 0...verticalCount {
-        for col in 0...horizontalCount {
-          let x = CGFloat(col) * baseSpacing
-          let y = CGFloat(row) * baseSpacing
-          
-          context.fill(
-            Path(ellipseIn: CGRect(x: x - dotRadius, y: y - dotRadius, width: dotRadius * 2, height: dotRadius * 2)),
-            with: .color(.gray.opacity(0.4))
-          )
-        }
-      }
-    }
-  }
-  
-  @ViewBuilder
-  private func linedOverlay(size: CGSize) -> some View {
-    let lineSpacing: CGFloat = max(10, size.height / 20) // Adaptive spacing for thumbnail
-    
-    ForEach(0..<Int(size.height / lineSpacing + 1), id: \.self) { i in
-      let y = CGFloat(i) * lineSpacing
-      Path { path in
-        path.move(to: CGPoint(x: 0, y: y))
-        path.addLine(to: CGPoint(x: size.width, y: y))
-      }
-      .stroke(Color.gray.opacity(0.4), lineWidth: 0.5)
-    }
-  }
-  
-  private func generatePreview() {
-    guard pageIndex < canvasViews.count else {
-      previewImage = nil
-      return
-    }
-
-    // Only generate preview if there's content on this page
-    guard PreviewGenerator.hasContent(note: note, pageIndex: pageIndex) else {
-      previewImage = nil
-      return
-    }
-    
-    DispatchQueue.main.async {
-      // Use consolidated PreviewGenerator for consistent preview generation
-      self.previewImage = PreviewGenerator.generatePreview(
-        for: self.note,
-        pageIndex: self.pageIndex,
+    let preview = await Task.detached(priority: .userInitiated) { () -> UIImage in
+      return PreviewGenerator.generatePreview(
+        for: note,
+        pageIndex: pageIndex,
         size: .grid
       )
-    }
+    }.value
+    
+    // Update UI on main thread
+    self.previewImage = preview
+    self.isLoading = false
   }
   
   private var paperAspectRatio: CGFloat {

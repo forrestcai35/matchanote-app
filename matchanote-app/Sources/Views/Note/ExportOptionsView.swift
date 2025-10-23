@@ -90,6 +90,8 @@ struct ExportOptionsView: View {
                             ForEach(0..<totalPages, id: \.self) { pageIndex in
                                 PageSelectButton(
                                     pageNumber: pageIndex + 1,
+                                    pageIndex: pageIndex,
+                                    note: note,
                                     isSelected: selectedPages.contains(pageIndex),
                                     colorScheme: colorScheme
                                 ) {
@@ -158,24 +160,46 @@ struct ExportOptionsView: View {
 
 struct PageSelectButton: View {
     let pageNumber: Int
+    let pageIndex: Int
+    let note: Note
     let isSelected: Bool
     let colorScheme: ColorScheme
     let action: () -> Void
+    
+    @State private var previewImage: UIImage?
+    @State private var isGeneratingPreview = false
     
     var body: some View {
         Button(action: action) {
             VStack(spacing: 4) {
                 ZStack {
+                    // Base paper background
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(isSelected ? 
-                              (colorScheme == .dark ? Color.matchalight_dark.opacity(0.3) : Color.matchalight_light.opacity(0.2)) : 
-                              (colorScheme == .dark ? Color.gray.opacity(0.2) : Color.gray.opacity(0.1)))
+                        .fill(getPaperBackgroundColor(for: note.paperColor))
                         .frame(width: 70, height: 90)
                     
+                    // Preview image overlay
+                    if let previewImage = previewImage {
+                        Image(uiImage: previewImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 70, height: 90)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    } else if isGeneratingPreview {
+                        ProgressView()
+                            .scaleEffect(0.6)
+                    }
+                    
+                    // Selection overlay
                     if isSelected {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.black.opacity(0.3))
+                            .frame(width: 70, height: 90)
+                        
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundColor(colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light)
                             .font(.title2)
+                            .shadow(color: .black.opacity(0.3), radius: 2)
                     }
                 }
                 .overlay(
@@ -191,6 +215,42 @@ struct PageSelectButton: View {
             }
         }
         .buttonStyle(PlainButtonStyle())
+        .onAppear {
+            // Generate preview lazily when view appears - only if there's content
+            generatePreviewIfNeeded()
+        }
+    }
+    
+    private func generatePreviewIfNeeded() {
+        // Only generate if there's actual content on this page
+        guard PreviewGenerator.hasContent(note: note, pageIndex: pageIndex) else {
+            previewImage = nil
+            return
+        }
+        
+        // Check if already generating
+        guard !isGeneratingPreview else { return }
+        
+        isGeneratingPreview = true
+        
+        // Generate preview asynchronously on background thread
+        // Use a smaller custom size for better performance with many pages
+        DispatchQueue.global(qos: .userInitiated).async {
+            let preview = PreviewGenerator.generatePreview(
+                for: note,
+                pageIndex: pageIndex,
+                size: .custom(CGSize(width: 70, height: 90))
+            )
+            
+            DispatchQueue.main.async {
+                self.previewImage = preview
+                self.isGeneratingPreview = false
+            }
+        }
+    }
+    
+    private func getPaperBackgroundColor(for color: PaperColor) -> Color {
+        return PaperUtilities.getPaperBackgroundColor(for: color)
     }
 }
 

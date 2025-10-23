@@ -102,6 +102,10 @@ struct WrittenNoteView: View {
             // Save when textboxes change
             isEdited = true
         }
+        .onReceive(imageManager.objectWillChange) { _ in
+            // Save when images change
+            isEdited = true
+        }
         .onAppear {
             // Expose the add page functionality to the parent
             onAddPageCallback? { placement in

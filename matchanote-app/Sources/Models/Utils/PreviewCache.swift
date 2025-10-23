@@ -2,6 +2,17 @@ import SwiftUI
 import UIKit
 import PencilKit
 
+// Extension to convert TextAlignment to NSTextAlignment
+extension TextAlignment {
+  var nsTextAlignment: NSTextAlignment {
+    switch self {
+    case .leading: return .left
+    case .center: return .center
+    case .trailing: return .right
+    }
+  }
+}
+
 /// High-performance preview cache with automatic memory management
 /// Caches previews keyed by note ID + modification date to avoid redundant generation
 class PreviewCache: ObservableObject {
@@ -149,6 +160,9 @@ class PreviewCache: ObservableObject {
       }
     }
 
+    // Extract textboxes
+    let textBoxes = extractTextBoxes(from: note.textBoxDataByPage, for: pageIndex)
+
     // Generate the preview
     return await Task.detached(priority: .userInitiated) {
       self.renderPreview(
@@ -159,9 +173,25 @@ class PreviewCache: ObservableObject {
         size: size,
         backgroundImages: backgroundImages,
         overlayImages: overlayImages,
+        textBoxes: textBoxes,
         cornerRadius: note.noteType == .written ? (size == .grid ? 10 : 6) : (size == .grid ? 0 : 2)
       )
     }.value
+  }
+
+  // MARK: - TextBox Extraction
+
+  /// Extract textboxes for a specific page
+  private func extractTextBoxes(from textBoxDataByPage: [String: [Data]], for pageIndex: Int) -> [TextBox] {
+    guard let textBoxDataArray = textBoxDataByPage[String(pageIndex)] else { return [] }
+
+    var textBoxes: [TextBox] = []
+    for textBoxData in textBoxDataArray {
+      if let textBox = try? JSONDecoder().decode(TextBox.self, from: textBoxData) {
+        textBoxes.append(textBox)
+      }
+    }
+    return textBoxes
   }
 
   // MARK: - Image Decoding Cache
@@ -198,6 +228,7 @@ class PreviewCache: ObservableObject {
     size: PreviewGenerator.PreviewSize,
     backgroundImages: [UIImage],
     overlayImages: [(image: UIImage, canvasImage: CanvasImage)],
+    textBoxes: [TextBox],
     cornerRadius: CGFloat?
   ) -> UIImage {
     let scale = size.scale
@@ -258,6 +289,79 @@ class PreviewCache: ObservableObject {
       overlayUIImage.draw(in: CGRect(origin: scaledPosition, size: scaledSize))
 
       if canvasImage.rotation != 0 {
+        context.restoreGState()
+      }
+    }
+
+    // Draw textboxes
+    for textBox in textBoxes {
+      let scaledPosition = CGPoint(
+        x: textBox.position.x * scale,
+        y: textBox.position.y * scale
+      )
+      let scaledSize = CGSize(
+        width: textBox.size.width * scale,
+        height: textBox.size.height * scale
+      )
+      let scaledFontSize = textBox.fontSize * scale
+
+      // Apply rotation if needed
+      if textBox.rotation != 0 {
+        context.saveGState()
+        let centerX = scaledPosition.x + scaledSize.width / 2
+        let centerY = scaledPosition.y + scaledSize.height / 2
+        context.translateBy(x: centerX, y: centerY)
+        context.rotate(by: CGFloat(textBox.rotation) * .pi / 180)
+        context.translateBy(x: -centerX, y: -centerY)
+      }
+
+      let textBoxRect = CGRect(origin: scaledPosition, size: scaledSize)
+
+      // Draw background
+      if textBox.backgroundColor != .clear {
+        UIColor(textBox.backgroundColor).setFill()
+        let backgroundPath = UIBezierPath(roundedRect: textBoxRect, cornerRadius: textBox.cornerRadius * scale)
+        backgroundPath.fill()
+      }
+
+      // Draw border
+      if textBox.borderWidth > 0 {
+        UIColor(textBox.borderColor).setStroke()
+        let borderPath = UIBezierPath(roundedRect: textBoxRect, cornerRadius: textBox.cornerRadius * scale)
+        borderPath.lineWidth = textBox.borderWidth * scale
+        borderPath.stroke()
+      }
+
+      // Draw text
+      let paragraphStyle = NSMutableParagraphStyle()
+      paragraphStyle.alignment = textBox.textAlignment.nsTextAlignment
+
+      let font: UIFont
+      if textBox.fontFamily == "System" {
+        font = UIFont.systemFont(ofSize: scaledFontSize)
+      } else if let customFont = UIFont(name: textBox.fontFamily, size: scaledFontSize) {
+        font = customFont
+      } else {
+        font = UIFont.systemFont(ofSize: scaledFontSize)
+      }
+
+      let attributes: [NSAttributedString.Key: Any] = [
+        .font: font,
+        .foregroundColor: UIColor(textBox.textColor),
+        .paragraphStyle: paragraphStyle
+      ]
+
+      let padding = 8 * scale
+      let textRect = CGRect(
+        x: scaledPosition.x + padding,
+        y: scaledPosition.y + padding,
+        width: scaledSize.width - padding * 2,
+        height: scaledSize.height - padding * 2
+      )
+
+      (textBox.text as NSString).draw(in: textRect, withAttributes: attributes)
+
+      if textBox.rotation != 0 {
         context.restoreGState()
       }
     }
