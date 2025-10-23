@@ -260,7 +260,7 @@ struct WrittenNoteView: View {
                     currentScale: absoluteScaleBinding,
                     contentOffset: $unifiedContentOffset,
                     currentTool: $currentTool,
-   
+
                     onDrawingChange: { isEdited = true }
                 )
                 .offset(x: centerOffsetX, y: centerOffsetY)
@@ -274,25 +274,53 @@ struct WrittenNoteView: View {
                             // Background image
                             backgroundImagesView(pageIndex: pageIndex)
 
-                            // Canvas overlays
-                            CanvasImageOverlay(
-                                imageManager: imageManager,
-                                pageIndex: pageIndex,
-                                canvasSize: contentSize,
-                                isPhotoToolActive: currentTool == .photo,
-                                isTextBoxToolActive: currentTool == .textbox
-                            )
+                            // Canvas overlays (only in background when tools NOT active)
+                            if currentTool != .textbox && currentTool != .photo {
+                                CanvasImageOverlay(
+                                    imageManager: imageManager,
+                                    pageIndex: pageIndex,
+                                    canvasSize: contentSize,
+                                    isPhotoToolActive: false,
+                                    isTextBoxToolActive: false
+                                )
 
-                            TextBoxOverlay(
-                                textBoxManager: textBoxManager,
-                                pageIndex: pageIndex,
-                                canvasSize: contentSize,
-                                isTextBoxToolActive: currentTool == .textbox
-                            )
+                                TextBoxOverlay(
+                                    textBoxManager: textBoxManager,
+                                    pageIndex: pageIndex,
+                                    canvasSize: contentSize,
+                                    isTextBoxToolActive: false
+                                )
+                            }
                         }
                         .frame(width: contentSize.width, height: contentSize.height)
                         .scaleEffect(relativeZoomLevel * fitScale, anchor: .topLeading)
                         .offset(x: -unifiedContentOffset.x + centerOffsetX, y: -unifiedContentOffset.y + centerOffsetY)
+                    }
+                }
+                .overlay {
+                    // Canvas overlays (on top when tools ARE active for gesture interception)
+                    if currentTool == .textbox || currentTool == .photo {
+                        GeometryReader { _ in
+                            ZStack(alignment: .topLeading) {
+                                CanvasImageOverlay(
+                                    imageManager: imageManager,
+                                    pageIndex: pageIndex,
+                                    canvasSize: contentSize,
+                                    isPhotoToolActive: currentTool == .photo,
+                                    isTextBoxToolActive: currentTool == .textbox
+                                )
+
+                                TextBoxOverlay(
+                                    textBoxManager: textBoxManager,
+                                    pageIndex: pageIndex,
+                                    canvasSize: contentSize,
+                                    isTextBoxToolActive: currentTool == .textbox
+                                )
+                            }
+                            .frame(width: contentSize.width, height: contentSize.height)
+                            .scaleEffect(relativeZoomLevel * fitScale, anchor: .topLeading)
+                            .offset(x: -unifiedContentOffset.x + centerOffsetX, y: -unifiedContentOffset.y + centerOffsetY)
+                        }
                     }
                 }
                 .onDrop(of: [.plainText], isTargeted: nil) { providers, location in

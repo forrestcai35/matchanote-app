@@ -43,8 +43,7 @@ struct TextBoxOverlay: View {
         }
         .frame(width: canvasSize.width, height: canvasSize.height)
         .clipped()
-        // IMPORTANT: Only allow hit testing when we need to intercept background taps
-        // This prevents blocking canvas touches when textbox tool is not active
+        // Only allow hit testing when textbox tool is active or textbox is selected/editing
         .allowsHitTesting(shouldInterceptBackground)
     }
 }

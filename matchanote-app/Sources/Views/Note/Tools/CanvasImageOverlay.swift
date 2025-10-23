@@ -207,8 +207,7 @@ struct CanvasImageOverlay: View {
         }
         .frame(width: canvasSize.width, height: canvasSize.height)
         .clipped()
-        // Only allow hit testing when we need to intercept background taps
-        // This prevents blocking canvas touches when photo tool is not active
+        // Only allow hit testing when photo tool is active or image is selected
         .allowsHitTesting(shouldInterceptBackground)
     }
 }
