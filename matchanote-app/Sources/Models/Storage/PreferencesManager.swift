@@ -52,6 +52,7 @@ class PreferencesManager: ObservableObject {
         
         // Note Editor Preferences
         static let noteEditorStatusBarHidden = "preferences.noteEditor.statusBarHidden"
+        static let noteEditorFingerDrawingEnabled = "preferences.noteEditor.fingerDrawingEnabled"
         static let noteEditorToolsOrder = "preferences.noteEditor.tools.order"
         static let noteEditorToolPen = "preferences.noteEditor.tools.pen"
         static let noteEditorToolMarker = "preferences.noteEditor.tools.marker"
@@ -102,7 +103,11 @@ class PreferencesManager: ObservableObject {
         }
     }
     
- 
+    @Published var noteEditorFingerDrawingEnabled: Bool {
+        didSet {
+            userDefaults.set(noteEditorFingerDrawingEnabled, forKey: DefaultsKeys.noteEditorFingerDrawingEnabled)
+        }
+    }
     
     @Published var noteEditorToolsOrder: [String] {
         didSet {
@@ -167,6 +172,9 @@ class PreferencesManager: ObservableObject {
         
         // Load note editor preferences
         self.noteEditorStatusBarHidden = userDefaults.bool(forKey: DefaultsKeys.noteEditorStatusBarHidden)
+        
+        // Load finger drawing preference or default to false (pencil only)
+        self.noteEditorFingerDrawingEnabled = userDefaults.object(forKey: DefaultsKeys.noteEditorFingerDrawingEnabled) as? Bool ?? false
   
         // Load tools order or default to all tools in their default order
         if let savedToolsOrder = userDefaults.string(forKey: DefaultsKeys.noteEditorToolsOrder) {

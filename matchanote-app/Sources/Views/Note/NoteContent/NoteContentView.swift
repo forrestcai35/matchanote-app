@@ -125,6 +125,35 @@ struct WrittenNoteView: View {
 
     // MARK: - Tool Picker & Canvas Setup
 
+    // MARK: - Centralized Canvas Creation
+    // Creates a new canvas with consistent configuration
+    func createCanvas() -> PKCanvasView {
+        let canvas = PKCanvasView()
+        canvas.overrideUserInterfaceStyle = .light
+        canvas.backgroundColor = .clear
+        
+        // Apply finger drawing preference from settings
+        canvas.drawingPolicy = preferencesManager.noteEditorFingerDrawingEnabled ? .anyInput : .pencilOnly
+        
+        // Configure for high-resolution rendering
+        // Use 1x scale - NativeScrollCanvasView will handle display scaling
+        canvas.contentScaleFactor = UIScreen.main.scale
+        canvas.layer.contentsScale = UIScreen.main.scale
+        canvas.layer.shouldRasterize = false
+        
+        // Scroll and zoom will be managed by NativeScrollCanvasView
+        // Set initial tool
+        canvas.tool = PKInkingTool(.pen, color: .black, width: 1.0)
+        
+        // Note: undoManager comes from responder chain automatically
+        // when canvas becomes first responder
+        
+        // Add observer for tool picker
+        toolPicker.addObserver(canvas)
+        
+        return canvas
+    }
+
     // Setup the PKToolPicker for the current canvas
     private func setupToolPicker() {
         guard let currentCanvas = getCurrentCanvas() else { return }
@@ -156,8 +185,6 @@ struct WrittenNoteView: View {
 
     // Update active canvas when page changes
     func updateActiveCanvas() {
-        ensureCanvasExists(for: currentPage)
-
         // Update tool picker for the current canvas
         guard let currentCanvas = getCurrentCanvas() else { return }
 
@@ -182,33 +209,6 @@ struct WrittenNoteView: View {
             currentCanvas.becomeFirstResponder()
         } else {
             currentCanvas.resignFirstResponder()
-        }
-    }
-
-    // Make sure a canvas exists for the given page index
-    private func ensureCanvasExists(for pageIndex: Int) {
-        // Add new canvases if needed
-        while canvasViews.count <= pageIndex {
-            let newCanvas = PKCanvasView()
-            newCanvas.overrideUserInterfaceStyle = .light
-            newCanvas.isScrollEnabled = false
-            newCanvas.backgroundColor = .clear
-
-            // Configure for high-resolution rendering
-            newCanvas.contentScaleFactor = UIScreen.main.scale * 2
-            newCanvas.layer.contentsScale = UIScreen.main.scale * 2
-            newCanvas.layer.shouldRasterize = false
-
-            // Clear undo manager for fresh start
-            newCanvas.undoManager?.removeAllActions()
-
-            toolPicker.addObserver(newCanvas)
-            canvasViews.append(newCanvas)
-
-            // Update image manager's undo manager if this is the current page
-            if pageIndex == currentPage {
-                imageManager.setUndoManager(newCanvas.undoManager)
-            }
         }
     }
 
@@ -264,7 +264,6 @@ struct WrittenNoteView: View {
                     currentScale: absoluteScaleBinding,
                     contentOffset: $unifiedContentOffset,
                     currentTool: $currentTool,
-
                     onDrawingChange: { isEdited = true }
                 )
                 .offset(x: centerOffsetX, y: centerOffsetY)

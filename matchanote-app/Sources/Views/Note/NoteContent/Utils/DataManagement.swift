@@ -20,32 +20,15 @@ extension WrittenNoteView {
         // Initialize page identifiers for required pages
         pageIdentifiers = Array(0..<requiredPageCount).map { _ in UUID() }
 
-        // Create canvas views for all required pages
+        // Create canvas views for all required pages using centralized function
         for pageIndex in 0..<requiredPageCount {
-            let canvas = PKCanvasView()
-            canvas.overrideUserInterfaceStyle = .light
-            canvas.tool = PKInkingTool(.pen, color: .black, width: 1.0)
-            canvas.isScrollEnabled = false
-            canvas.backgroundColor = .clear
-
-            // Configure for high-resolution rendering
-            canvas.contentScaleFactor = UIScreen.main.scale * 2
-            canvas.layer.contentsScale = UIScreen.main.scale * 2
-            canvas.layer.shouldRasterize = false
-
-            // Clear undo manager for fresh start on each note
-            canvas.undoManager?.removeAllActions()
+            let canvas = createCanvas()
 
             // Load drawing data if it exists for this page
             if let drawingData = note.drawingDataByPage[String(pageIndex)] {
                 do {
                     let drawing = try PKDrawing(data: drawingData)
                     canvas.drawing = drawing
-
-                    // Initialize undo history with the loaded drawing
-                    // This ensures we have a starting point for undo operations
-                    // Note: We need to access the parent's canvas manager for this
-                    // For now, this will be handled by the parent view
                 } catch {
                     print("Error loading drawing for page \(pageIndex): \(error)")
                 }

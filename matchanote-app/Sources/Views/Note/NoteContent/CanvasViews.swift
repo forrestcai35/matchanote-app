@@ -26,6 +26,7 @@ struct NativeScrollCanvasView: UIViewRepresentable {
     @Binding var currentScale: CGFloat
     @Binding var contentOffset: CGPoint
     @Binding var currentTool: PenTool?
+    @ObservedObject var preferencesManager = PreferencesManager.shared
 
     let onDrawingChange: () -> Void
 
@@ -61,6 +62,26 @@ struct NativeScrollCanvasView: UIViewRepresentable {
             canvasView.addInteraction(pencilInteraction)
         }
 
+        // Add custom undo gesture (2-finger tap)
+        let twoFingerTapGesture = UITapGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handleTwoFingerTap(_:))
+        )
+        twoFingerTapGesture.numberOfTouchesRequired = 2
+        twoFingerTapGesture.numberOfTapsRequired = 1
+        canvasView.addGestureRecognizer(twoFingerTapGesture)
+
+        // Add custom redo gesture (3-finger tap)
+        let threeFingerTapGesture = UITapGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handleThreeFingerTap(_:))
+        )
+        threeFingerTapGesture.numberOfTouchesRequired = 3
+        threeFingerTapGesture.numberOfTapsRequired = 1
+        // Set delegate to allow simultaneous recognition with system gestures
+        threeFingerTapGesture.delegate = context.coordinator
+        canvasView.addGestureRecognizer(threeFingerTapGesture)
+
         context.coordinator.canvasView = canvasView
         context.coordinator.setupDrawingObservation()
 
@@ -78,6 +99,8 @@ struct NativeScrollCanvasView: UIViewRepresentable {
     func updateUIView(_ uiView: PKCanvasView, context: Context) {
         context.coordinator.parent = self
 
+        // Apply finger drawing preference
+        uiView.drawingPolicy = preferencesManager.noteEditorFingerDrawingEnabled ? .anyInput : .pencilOnly
 
         // Always disable drawing when textbox or photo tool is active (regardless of interaction state)
         uiView.drawingGestureRecognizer.isEnabled = (currentTool != .textbox && currentTool != .photo)
@@ -87,7 +110,7 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         Coordinator(self)
     }
 
-    class Coordinator: NSObject, PKCanvasViewDelegate, UIPencilInteractionDelegate {
+    class Coordinator: NSObject, PKCanvasViewDelegate, UIPencilInteractionDelegate, UIGestureRecognizerDelegate {
         var parent: NativeScrollCanvasView
         var canvasView: PKCanvasView?
         private var drawingObserver: NSKeyValueObservation?
@@ -174,145 +197,41 @@ struct NativeScrollCanvasView: UIViewRepresentable {
                 }
             }
 
+            // MARK: - Gesture Recognizers
+
+            @objc func handleTwoFingerTap(_ gestureRecognizer: UITapGestureRecognizer) {
+                guard gestureRecognizer.state == .ended else { return }
+                guard let canvas = canvasView else { return }
+                
+                // Perform undo
+                if let undoManager = canvas.undoManager, undoManager.canUndo {
+                    undoManager.undo()
+                }
+            }
+
+            @objc func handleThreeFingerTap(_ gestureRecognizer: UITapGestureRecognizer) {
+                guard gestureRecognizer.state == .ended else { return }
+                guard let canvas = canvasView else { return }
+                
+                // Perform redo
+                if let undoManager = canvas.undoManager, undoManager.canRedo {
+                    undoManager.redo()
+                }
+            }
+
+            // MARK: - UIGestureRecognizerDelegate
+            
+            // Allow our gesture to be recognized simultaneously with system gestures
+            func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+                return true
+            }
+
             deinit {
                 drawingObserver?.invalidate()
             }
     }
 }
 
-// MARK: - PencilKit Canvas View (Legacy)
-
-// PencilKit Canvas SwiftUI wrapper
-struct PencilKitCanvasView: UIViewRepresentable {
-    var canvasView: PKCanvasView
-    @Binding var currentTool: PenTool?
-    @Binding var canvasViews: [PKCanvasView]
-    @Binding var currentPage: Int
-
-
-    func makeUIView(context: Context) -> PKCanvasView {
-        canvasView.backgroundColor = .clear
-        canvasView.overrideUserInterfaceStyle = .light
-
-        // Configure for high-resolution rendering
-        canvasView.contentScaleFactor = UIScreen.main.scale
-        canvasView.layer.contentsScale = UIScreen.main.scale 
-        canvasView.layer.shouldRasterize = false 
-        canvasView.contentInsetAdjustmentBehavior = .never
-        canvasView.delegate = context.coordinator
-
-        // Add pencil interaction for double tap
-        if UIPencilInteraction.preferredTapAction == .switchEraser {
-            let pencilInteraction = UIPencilInteraction()
-            pencilInteraction.delegate = context.coordinator
-            canvasView.addInteraction(pencilInteraction)
-        }
-
-        // Add undo/redo gesture recognizers
-        let twoFingerTapGesture = UITapGestureRecognizer(
-            target: context.coordinator,
-            action: #selector(Coordinator.handleTwoFingerTap(_:))
-        )
-        twoFingerTapGesture.numberOfTouchesRequired = 2
-        twoFingerTapGesture.numberOfTapsRequired = 1
-        canvasView.addGestureRecognizer(twoFingerTapGesture)
-
-        let threeFingerTapGesture = UITapGestureRecognizer(
-            target: context.coordinator,
-            action: #selector(Coordinator.handleThreeFingerTap(_:))
-        )
-        threeFingerTapGesture.numberOfTouchesRequired = 3
-        threeFingerTapGesture.numberOfTapsRequired = 1
-        canvasView.addGestureRecognizer(threeFingerTapGesture)
-
-        return canvasView
-    }
-
-    func updateUIView(_ uiView: PKCanvasView, context: Context) {
-        // Disable user interaction when textbox tool is active
-        uiView.isUserInteractionEnabled = (currentTool != .textbox)
-        context.coordinator.parent = self
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-
-    class Coordinator: NSObject, UIPencilInteractionDelegate, PKCanvasViewDelegate {
-        var parent: PencilKitCanvasView
-        private var previousTool: PenTool = .pen
-
-        init(_ parent: PencilKitCanvasView) {
-            self.parent = parent
-            super.init()
-            // Shape recognition configuration removed
-        }
-
-        func pencilInteractionDidTap(_ interaction: UIPencilInteraction) {
-            // Handle double tap to switch between eraser and previous tool
-            if let currentTool = parent.currentTool {
-                if currentTool == .eraser {
-                    // Switch back to previous tool
-                    parent.currentTool = previousTool
-                    if parent.currentPage < parent.canvasViews.count {
-                        parent.canvasViews[parent.currentPage].tool = previousTool.toolInstance()
-                    }
-                } else {
-                    // Store current tool and switch to eraser
-                    previousTool = currentTool
-                    parent.currentTool = .eraser
-                    if parent.currentPage < parent.canvasViews.count {
-                        parent.canvasViews[parent.currentPage].tool = PenTool.eraser.toolInstance()
-                    }
-                }
-            } else {
-                // If no current tool, default to pen then switch to eraser
-                previousTool = .pen
-                parent.currentTool = .eraser
-                if parent.currentPage < parent.canvasViews.count {
-                    parent.canvasViews[parent.currentPage].tool = PenTool.eraser.toolInstance()
-                }
-            }
-        }
-
-        @objc func handleTwoFingerTap(_ gestureRecognizer: UITapGestureRecognizer) {
-            guard gestureRecognizer.state == .ended else { return }
-
-            // Perform undo on the current canvas
-            if parent.currentPage < parent.canvasViews.count {
-                let canvas = parent.canvasViews[parent.currentPage]
-                if let undoManager = canvas.undoManager, undoManager.canUndo {
-                    undoManager.undo()
-                }
-            }
-        }
-
-        @objc func handleThreeFingerTap(_ gestureRecognizer: UITapGestureRecognizer) {
-            guard gestureRecognizer.state == .ended else { return }
-
-            // Perform redo on the current canvas
-            if parent.currentPage < parent.canvasViews.count {
-                let canvas = parent.canvasViews[parent.currentPage]
-                if let undoManager = canvas.undoManager, undoManager.canRedo {
-                    undoManager.redo()
-                }
-            }
-        }
-
-        // MARK: - PKCanvasViewDelegate
-
-        func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
-
-            NotificationCenter.default.post(name: NSNotification.Name("StrokeCompleted"), object: canvasView)
-        }
-
-        deinit {
-            // Shape recognition cleanup removed
-        }
-    }
-}
-
-// MARK: - UIView Extension
 
 // Extension to find the UIViewController
 extension UIView {

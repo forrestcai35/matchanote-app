@@ -66,6 +66,24 @@ struct NoteEditorSettingsView: View {
                             .scaleEffect(0.9)
                     }
                     .padding(.vertical, 4)
+                    
+                    HStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Enable finger drawing")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            Text("Allow drawing with finger in addition to Apple Pencil")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Toggle("", isOn: $preferencesManager.noteEditorFingerDrawingEnabled)
+                            .labelsHidden()
+                            .controlSize(.small)
+                            .tint(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+                            .scaleEffect(0.9)
+                    }
+                    .padding(.vertical, 4)
       
                 } header: {
                     HStack {

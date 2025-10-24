@@ -28,18 +28,7 @@ extension WrittenNoteView {
 
         // CRITICAL FIX: Create and insert the new canvas FIRST, before updating page identifiers
         // This prevents the race condition where TabView tries to access a non-existent canvas
-        let newCanvas = PKCanvasView()
-        newCanvas.overrideUserInterfaceStyle = .light
-        newCanvas.isScrollEnabled = false
-        newCanvas.backgroundColor = .clear
-
-        // Configure for high-resolution rendering
-        newCanvas.contentScaleFactor = UIScreen.main.scale * 2
-        newCanvas.layer.contentsScale = UIScreen.main.scale * 2
-        newCanvas.layer.shouldRasterize = false
-
-        newCanvas.undoManager?.removeAllActions()
-        toolPicker.addObserver(newCanvas)
+        let newCanvas = createCanvas()
 
         // Insert the new canvas at the correct position BEFORE updating page identifiers
         canvasViews.insert(newCanvas, at: insertIndex)
