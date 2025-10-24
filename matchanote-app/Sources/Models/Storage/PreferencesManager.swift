@@ -37,6 +37,26 @@ enum AppTheme: String, CaseIterable {
     }
 }
 
+// MARK: - Undo/Redo Gesture Mode enum
+enum UndoRedoGestureMode: String, CaseIterable {
+    case threeFingerSwipe = "threeFingerSwipe"
+    case twoThreeTap = "twoThreeTap"
+
+    var displayName: String {
+        switch self {
+        case .threeFingerSwipe: return "3-Finger Swipe"
+        case .twoThreeTap: return "2-Tap/3-Tap"
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .threeFingerSwipe: return "Swipe left/right with 3 fingers to undo/redo"
+        case .twoThreeTap: return "2-finger tap to undo, 3-finger tap to redo"
+        }
+    }
+}
+
 // MARK: - Preferences Manager
 class PreferencesManager: ObservableObject {
     static let shared = PreferencesManager()
@@ -53,6 +73,8 @@ class PreferencesManager: ObservableObject {
         // Note Editor Preferences
         static let noteEditorStatusBarHidden = "preferences.noteEditor.statusBarHidden"
         static let noteEditorFingerDrawingEnabled = "preferences.noteEditor.fingerDrawingEnabled"
+        static let noteEditorLeftHandMode = "preferences.noteEditor.leftHandMode"
+        static let noteEditorUndoRedoGestureMode = "preferences.noteEditor.undoRedoGestureMode"
         static let noteEditorToolsOrder = "preferences.noteEditor.tools.order"
         static let noteEditorToolPen = "preferences.noteEditor.tools.pen"
         static let noteEditorToolMarker = "preferences.noteEditor.tools.marker"
@@ -106,6 +128,18 @@ class PreferencesManager: ObservableObject {
     @Published var noteEditorFingerDrawingEnabled: Bool {
         didSet {
             userDefaults.set(noteEditorFingerDrawingEnabled, forKey: DefaultsKeys.noteEditorFingerDrawingEnabled)
+        }
+    }
+    
+    @Published var noteEditorLeftHandMode: Bool {
+        didSet {
+            userDefaults.set(noteEditorLeftHandMode, forKey: DefaultsKeys.noteEditorLeftHandMode)
+        }
+    }
+    
+    @Published var noteEditorUndoRedoGestureMode: UndoRedoGestureMode {
+        didSet {
+            userDefaults.set(noteEditorUndoRedoGestureMode.rawValue, forKey: DefaultsKeys.noteEditorUndoRedoGestureMode)
         }
     }
     
@@ -175,6 +209,13 @@ class PreferencesManager: ObservableObject {
         
         // Load finger drawing preference or default to false (pencil only)
         self.noteEditorFingerDrawingEnabled = userDefaults.object(forKey: DefaultsKeys.noteEditorFingerDrawingEnabled) as? Bool ?? false
+        
+        // Load left hand mode preference or default to false (right-handed)
+        self.noteEditorLeftHandMode = userDefaults.object(forKey: DefaultsKeys.noteEditorLeftHandMode) as? Bool ?? false
+        
+        // Load undo/redo gesture mode or default to three finger swipe
+        let savedGestureMode = userDefaults.string(forKey: DefaultsKeys.noteEditorUndoRedoGestureMode)
+        self.noteEditorUndoRedoGestureMode = UndoRedoGestureMode(rawValue: savedGestureMode ?? "threeFingerSwipe") ?? .threeFingerSwipe
   
         // Load tools order or default to all tools in their default order
         if let savedToolsOrder = userDefaults.string(forKey: DefaultsKeys.noteEditorToolsOrder) {

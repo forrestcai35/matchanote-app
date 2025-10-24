@@ -367,20 +367,11 @@ struct WrittenNoteToolbar: View {
 
   var body: some View {
     HStack {
-      // Left side buttons
-      Button(action: {
-        toggleBookmarkForCurrentPage()
-      }) {
-        Image(systemName: isCurrentPageBookmarked ? "bookmark.fill" : "bookmark")
-          .foregroundColor(
-            colorScheme == .dark ? .matchadark_dark : .matchadark_light)
-      }
-
-      Button(action: {
-        showPageOverview = true
-      }) {
-        Image(systemName: "square.grid.2x2")
-          .foregroundColor((colorScheme == .dark ? .matchadark_dark : .matchadark_light))
+      // Left side buttons (swap based on left-hand mode)
+      if preferencesManager.noteEditorLeftHandMode {
+        rightSideButtons
+      } else {
+        leftSideButtons
       }
 
       // Flexible spacer to center the main toolbar content
@@ -406,38 +397,11 @@ struct WrittenNoteToolbar: View {
       // Flexible spacer to balance the left side
       Spacer()
 
-      // Right side buttons grouped together
-      HStack(spacing: 12) {
-        // Undo/Redo buttons
-        HStack(spacing: 6) {
-          Button(action: { performUndo() }) {
-            Image(systemName: "arrow.uturn.backward")
-              .font(.system(size: 16, weight: .medium))
-              .foregroundColor(
-                canUndo ? (colorScheme == .dark ? .matchadark_dark : .matchadark_light) : .gray)
-          }
-          .disabled(!canUndo)
-
-          Button(action: { performRedo() }) {
-            Image(systemName: "arrow.uturn.forward")
-              .font(.system(size: 16, weight: .medium))
-              .foregroundColor(
-                canRedo ? (colorScheme == .dark ? .matchadark_dark : .matchadark_light) : .gray)
-          }
-          .disabled(!canRedo)
-        }
-
-        // AI assistant toggle
-        Button(action: {
-          isAssistantVisible.toggle()
-        }) {
-          Image(isAssistantVisible ? "logo_icon" : "logo_small_gray")
-            .renderingMode(.original)
-            .resizable()
-            .scaledToFit()
-            .frame(width: 20, height: 20)
-            .opacity(1.0)
-        }
+      // Right side buttons (swap based on left-hand mode)
+      if preferencesManager.noteEditorLeftHandMode {
+        leftSideButtons
+      } else {
+        rightSideButtons
       }
     }
     .padding(.horizontal, 12)  // Reduced from 20 to prevent overflow
@@ -527,6 +491,63 @@ struct WrittenNoteToolbar: View {
         addImageToCurrentPage(selectedImage)
       }
       .id(pickerID)  // Force recreation with new ID
+    }
+  }
+
+  // MARK: - Left/Right Side Button Groups
+  @ViewBuilder
+  private var leftSideButtons: some View {
+    HStack(spacing: 12) {
+      Button(action: {
+        toggleBookmarkForCurrentPage()
+      }) {
+        Image(systemName: isCurrentPageBookmarked ? "bookmark.fill" : "bookmark")
+          .foregroundColor(
+            colorScheme == .dark ? .matchadark_dark : .matchadark_light)
+      }
+
+      Button(action: {
+        showPageOverview = true
+      }) {
+        Image(systemName: "square.grid.2x2")
+          .foregroundColor((colorScheme == .dark ? .matchadark_dark : .matchadark_light))
+      }
+    }
+  }
+  
+  @ViewBuilder
+  private var rightSideButtons: some View {
+    HStack(spacing: 12) {
+      // Undo/Redo buttons
+      HStack(spacing: 6) {
+        Button(action: { performUndo() }) {
+          Image(systemName: "arrow.uturn.backward")
+            .font(.system(size: 16, weight: .medium))
+            .foregroundColor(
+              canUndo ? (colorScheme == .dark ? .matchadark_dark : .matchadark_light) : .gray)
+        }
+        .disabled(!canUndo)
+
+        Button(action: { performRedo() }) {
+          Image(systemName: "arrow.uturn.forward")
+            .font(.system(size: 16, weight: .medium))
+            .foregroundColor(
+              canRedo ? (colorScheme == .dark ? .matchadark_dark : .matchadark_light) : .gray)
+        }
+        .disabled(!canRedo)
+      }
+
+      // AI assistant toggle
+      Button(action: {
+        isAssistantVisible.toggle()
+      }) {
+        Image(isAssistantVisible ? "logo_icon" : "logo_small_gray")
+          .renderingMode(.original)
+          .resizable()
+          .scaledToFit()
+          .frame(width: 20, height: 20)
+          .opacity(1.0)
+      }
     }
   }
 

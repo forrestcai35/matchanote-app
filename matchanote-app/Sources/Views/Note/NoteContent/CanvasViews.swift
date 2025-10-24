@@ -62,25 +62,28 @@ struct NativeScrollCanvasView: UIViewRepresentable {
             canvasView.addInteraction(pencilInteraction)
         }
 
-        // Add custom undo gesture (2-finger tap)
-        let twoFingerTapGesture = UITapGestureRecognizer(
-            target: context.coordinator,
-            action: #selector(Coordinator.handleTwoFingerTap(_:))
-        )
-        twoFingerTapGesture.numberOfTouchesRequired = 2
-        twoFingerTapGesture.numberOfTapsRequired = 1
-        canvasView.addGestureRecognizer(twoFingerTapGesture)
+        // Add custom undo/redo gestures only when in tap mode
+        if preferencesManager.noteEditorUndoRedoGestureMode == .twoThreeTap {
+            // Add custom undo gesture (2-finger tap)
+            let twoFingerTapGesture = UITapGestureRecognizer(
+                target: context.coordinator,
+                action: #selector(Coordinator.handleTwoFingerTap(_:))
+            )
+            twoFingerTapGesture.numberOfTouchesRequired = 2
+            twoFingerTapGesture.numberOfTapsRequired = 1
+            canvasView.addGestureRecognizer(twoFingerTapGesture)
 
-        // Add custom redo gesture (3-finger tap)
-        let threeFingerTapGesture = UITapGestureRecognizer(
-            target: context.coordinator,
-            action: #selector(Coordinator.handleThreeFingerTap(_:))
-        )
-        threeFingerTapGesture.numberOfTouchesRequired = 3
-        threeFingerTapGesture.numberOfTapsRequired = 1
-        // Set delegate to allow simultaneous recognition with system gestures
-        threeFingerTapGesture.delegate = context.coordinator
-        canvasView.addGestureRecognizer(threeFingerTapGesture)
+            // Add custom redo gesture (3-finger tap)
+            let threeFingerTapGesture = UITapGestureRecognizer(
+                target: context.coordinator,
+                action: #selector(Coordinator.handleThreeFingerTap(_:))
+            )
+            threeFingerTapGesture.numberOfTouchesRequired = 3
+            threeFingerTapGesture.numberOfTapsRequired = 1
+            // Set delegate to allow simultaneous recognition with system gestures
+            threeFingerTapGesture.delegate = context.coordinator
+            canvasView.addGestureRecognizer(threeFingerTapGesture)
+        }
 
         context.coordinator.canvasView = canvasView
         context.coordinator.setupDrawingObservation()
