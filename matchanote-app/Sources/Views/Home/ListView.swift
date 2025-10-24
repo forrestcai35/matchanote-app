@@ -29,10 +29,15 @@ public struct ListItemView: View {
                 .clipped()
                 .clipShape(RoundedRectangle(cornerRadius: note.noteType == .written ? 6 : 2))
         } else {
-            // Placeholder while loading
+            // Clean placeholder while loading - no spinner needed as preloading handles it
             RoundedRectangle(cornerRadius: note.noteType == .written ? 6 : 2)
-                .fill(note.color.opacity(0.3))
+                .fill(note.color.opacity(0.15))
                 .frame(width: 32, height: 40)
+                .overlay(
+                    Image(systemName: note.noteType == .written ? "doc.text" : "photo")
+                        .font(.system(size: 12))
+                        .foregroundColor(.gray.opacity(0.4))
+                )
         }
     }
 

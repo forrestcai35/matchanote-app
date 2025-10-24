@@ -44,9 +44,6 @@ struct HomeView: View {
     
     // Session validation state
     @State var hasValidatedSession = false
-    
-    // Preview preloading state
-    @State var hasPreloadedPreviews = false
 
     // Progress feedback for bulk operations
     @State var isDeleting = false
@@ -286,6 +283,23 @@ struct HomeView: View {
             .onAppear {
                 // Preload previews for better performance
                 // This prevents the loading spinners by generating previews in advance
+                preloadVisiblePreviews()
+            }
+            .onChange(of: selectedItem) { _, _ in
+                // Preload previews when switching between Documents/Recents/Favorites
+                preloadVisiblePreviews()
+            }
+            .onChange(of: currentFolderID) { _, _ in
+                // Preload previews when navigating folders
+                preloadVisiblePreviews()
+            }
+            .onChange(of: selectedSubject) { _, _ in
+                // Preload previews when switching subjects
+                preloadVisiblePreviews()
+            }
+            .onChange(of: isGridView) { _, _ in
+                // Preload previews when toggling grid/list view
+                // (different preview sizes are needed)
                 preloadVisiblePreviews()
             }
             .accentColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
@@ -1989,5 +2003,29 @@ struct HomeView: View {
 
     // Helper function to navigate to a folder from subject
     // navigateToFolderFromSubject moved to HomeView+Navigation.swift
+    
+    // MARK: - Preview Preloading
+    
+    /// Preload previews for visible notes to avoid loading spinners
+    private func preloadVisiblePreviews() {
+        // Determine which notes to preload based on current view
+        let notesToPreload: [Note]
+        if selectedSubject != nil {
+            notesToPreload = Array(filteredSubjectNotes.prefix(20))
+        } else if selectedItem == "recents" {
+            notesToPreload = Array(recentNotes.prefix(20))
+        } else if selectedItem == "favorites" {
+            notesToPreload = Array(filteredFavoriteNotes.prefix(20))
+        } else {
+            notesToPreload = Array(filteredNotes.prefix(20))
+        }
+        
+        // Skip if no notes to preload
+        guard !notesToPreload.isEmpty else { return }
+        
+        // Preload in background with appropriate size for current view
+        let previewSize: PreviewGenerator.PreviewSize = isGridView ? .grid : .list
+        PreviewCache.shared.preloadPreviews(for: notesToPreload, size: previewSize)
+    }
 }
 

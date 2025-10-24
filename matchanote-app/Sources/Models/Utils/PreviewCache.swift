@@ -417,9 +417,15 @@ class PreviewCache: ObservableObject {
 
   /// Preload previews for visible notes (call from onAppear)
   func preloadPreviews(for notes: [Note], size: PreviewGenerator.PreviewSize) {
-    Task.detached(priority: .utility) {
-      for note in notes {
-        _ = await self.getPreview(for: note, size: size)
+    // Use userInitiated priority for faster loading when user is actively viewing
+    Task.detached(priority: .userInitiated) {
+      // Preload with concurrency limit to avoid overwhelming the system
+      await withTaskGroup(of: Void.self) { group in
+        for note in notes {
+          group.addTask {
+            _ = await self.getPreview(for: note, size: size)
+          }
+        }
       }
     }
   }

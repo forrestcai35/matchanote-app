@@ -163,12 +163,13 @@ public struct GridItemView: View {
                 .aspectRatio(contentMode: .fill)
                 .clipped()
         } else {
-            // Placeholder while loading
+            // Clean placeholder while loading - no spinner needed as preloading handles it
             RoundedRectangle(cornerRadius: note.noteType == .written ? 10 : 0)
-                .fill(note.color.opacity(0.3))
+                .fill(note.color.opacity(0.15))
                 .overlay(
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .gray))
+                    Image(systemName: note.noteType == .written ? "doc.text" : "photo")
+                        .font(.system(size: 40))
+                        .foregroundColor(.gray.opacity(0.3))
                 )
         }
     }
