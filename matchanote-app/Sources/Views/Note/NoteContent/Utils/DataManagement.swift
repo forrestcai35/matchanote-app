@@ -6,16 +6,21 @@ import Foundation
 
 extension WrittenNoteView {
 
+    // Calculate page count from note data (used to detect external changes)
+    func calculatePageCountFromNote() -> Int {
+        let maxDrawingPage = note.drawingDataByPage.keys.compactMap { Int($0) }.max() ?? 0
+        let maxImagePage = note.imageDataByPage.keys.compactMap { Int($0) }.max() ?? 0
+        let maxPage = max(maxDrawingPage, maxImagePage)
+        return max(1, maxPage + 1)
+    }
+
     // Load drawing data when view appears
     func loadDrawingData() {
         // Clean up existing canvas views properly
         cleanupCanvasViews()
 
         // Determine the number of pages based on stored drawings and images
-        let maxDrawingPage = note.drawingDataByPage.keys.compactMap { Int($0) }.max() ?? 0
-        let maxImagePage = note.imageDataByPage.keys.compactMap { Int($0) }.max() ?? 0
-        let maxPage = max(maxDrawingPage, maxImagePage)
-        let requiredPageCount = max(1, maxPage + 1)
+        let requiredPageCount = calculatePageCountFromNote()
 
         // Initialize page identifiers for required pages
         pageIdentifiers = Array(0..<requiredPageCount).map { _ in UUID() }

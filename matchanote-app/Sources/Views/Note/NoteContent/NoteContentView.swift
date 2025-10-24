@@ -86,10 +86,14 @@ struct WrittenNoteView: View {
                 loadDrawingData()
             }
         }
-        .onChange(of: note.drawingDataByPage) { _, _ in
-            // Note content changed (e.g., pages deleted), reload drawing data
+        .onChange(of: note.dateModified) { _, _ in
+            // Note was modified (e.g., pages deleted from PageOverviewView)
+            // Only reload if the page count has changed to avoid interfering with normal drawing changes
             if currentNoteId == note.id {
-                loadDrawingData()
+                let newPageCount = calculatePageCountFromNote()
+                if newPageCount != pageCount {
+                    loadDrawingData()
+                }
             }
         }
         .onChange(of: toolPickerIsVisible) { _, newValue in
