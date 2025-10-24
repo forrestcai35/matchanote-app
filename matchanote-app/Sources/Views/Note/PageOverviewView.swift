@@ -191,8 +191,11 @@ struct PageOverviewView: View {
   private func deleteSelectedPages() {
     guard !selectedPages.isEmpty else { return }
     
-    // Prevent deletion if there's only one page
+    // Prevent deletion if there's only one page total
     guard totalPages > 1 else { return }
+    
+    // Prevent deletion if trying to delete all pages - must keep at least one
+    guard selectedPages.count < totalPages else { return }
     
     // Create updated note with selected pages removed
     var updatedNote = note
@@ -207,9 +210,10 @@ struct PageOverviewView: View {
     }
     
     // Adjust remaining page indices
-    let adjustedNote = adjustPageIndicesAfterDeletion(updatedNote, deletedPages: selectedPagesArray)
+    var adjustedNote = adjustPageIndicesAfterDeletion(updatedNote, deletedPages: selectedPagesArray)
     
-    updatedNote.dateModified = Date()
+    // Set modified date on the adjusted note
+    adjustedNote.dateModified = Date()
     let savedNote = storageManager.saveNote(adjustedNote)
     tabManager.updateNote(savedNote)
     
