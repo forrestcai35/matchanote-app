@@ -149,10 +149,20 @@ struct NativeScrollCanvasView: UIViewRepresentable {
 
         func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
             isUserInteracting = false
+            // Full tile refresh by reassigning drawing
+            if let canvas = canvasView {
+                let current = canvas.drawing
+                canvas.drawing = current
+            }
         }
 
         func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
             isUserInteracting = false
+            // Full tile refresh by reassigning drawing
+            if let canvas = canvasView {
+                let current = canvas.drawing
+                canvas.drawing = current
+            }
         }
 
         func scrollViewDidScroll(_ scrollView: UIScrollView) {
