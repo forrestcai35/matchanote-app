@@ -345,8 +345,6 @@ struct WrittenNoteToolbar: View {
   @State private var previousToolBeforePhoto: PenTool? = nil
   @State private var pickerID = UUID()  // Force picker recreation
 
-  // Tool visibility preferences - now using PreferencesManager
-
   // Dropdown slider visibility per tool
   @State private var expandedPenPresetIndex: Int? = nil
   @State private var expandedMarkerPresetIndex: Int? = nil
@@ -359,8 +357,6 @@ struct WrittenNoteToolbar: View {
 
   // Page overview state
   @State private var showPageOverview: Bool = false
-
-  // Shape recognition removed
 
   // Applied cap for PencilKit bitmap eraser radius to match UI expectations
   private let eraserBitmapMaxWidth: CGFloat = 120.0

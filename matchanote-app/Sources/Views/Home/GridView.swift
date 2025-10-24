@@ -18,10 +18,6 @@ public struct GridFolderItemView: View {
         self.isSelectionMode = isSelectionMode
     }
 
-    private func itemShadow(in colorScheme: ColorScheme) -> Color {
-        return colorScheme == .dark ? Color.white.opacity(0.4) : Color.black.opacity(0.2)
-    }
-
     public var body: some View {
         VStack(spacing: 2) {
             // Folder card

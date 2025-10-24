@@ -155,11 +155,6 @@ public struct ListItemView: View {
                 .padding(.horizontal)
         }
     }
-
-    // Use the DocumentsView noteTypeIcon function
-    private func noteTypeIcon(_ type: NoteType) -> String {
-        return "pencil"
-    }
 }
 
 // Add a helper view for folder list items

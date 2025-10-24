@@ -844,11 +844,6 @@ extension NoteView {
     }
     topViewController()?.present(controller, animated: true)
   }
-  
-  private func handleExport(pages: [Int]) {
-    // Legacy function for backwards compatibility
-    handleExportWithType(exportType: .pdf, pages: pages)
-  }
 
   private func handlePrint(pages: [Int]) {
     // Save current canvas data before printing
