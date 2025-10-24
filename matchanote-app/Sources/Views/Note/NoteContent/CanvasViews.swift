@@ -192,8 +192,15 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         private func updateZoomOffset(_ scrollView: UIScrollView) {
             guard !isUpdatingZoom else { return }
             isUpdatingZoom = true
-            self.parent.contentOffset = scrollView.contentOffset
-            self.parent.currentScale = scrollView.zoomScale
+            
+            // Use transaction to suppress the warning while keeping synchronous behavior
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                self.parent.contentOffset = scrollView.contentOffset
+                self.parent.currentScale = scrollView.zoomScale
+            }
+            
             self.isUpdatingZoom = false
         }
 

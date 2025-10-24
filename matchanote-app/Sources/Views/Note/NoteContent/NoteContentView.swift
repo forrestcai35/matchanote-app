@@ -249,7 +249,14 @@ struct WrittenNoteView: View {
             // Create binding that converts between relative and absolute scale
             let absoluteScaleBinding = Binding<CGFloat>(
                 get: { relativeZoomLevel * fitScale },
-                set: { relativeZoomLevel = $0 / fitScale }
+                set: { newValue in
+                    // Use transaction to suppress the warning while keeping synchronous behavior
+                    var transaction = Transaction()
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) {
+                        relativeZoomLevel = newValue / fitScale
+                    }
+                }
             )
 
             // Calculate centering offset when content is smaller than viewport
