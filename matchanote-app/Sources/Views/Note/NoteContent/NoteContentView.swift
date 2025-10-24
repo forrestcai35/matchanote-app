@@ -83,7 +83,11 @@ struct WrittenNoteView: View {
         .onChange(of: toolPickerIsVisible) { _, newValue in
             updateToolPickerVisibility(newValue)
         }
-        .onChange(of: currentPage) { _, newPage in
+        .onChange(of: currentPage) { oldPage, newPage in
+            // Maintain zoom level but reset content offset to center the new page
+            // This provides continuity while preventing confusing scroll positions
+            unifiedContentOffset = .zero
+            
             updateActiveCanvas()
         }
         .onChange(of: currentTool) { _, newTool in
@@ -325,6 +329,20 @@ struct WrittenNoteView: View {
                             .offset(x: -unifiedContentOffset.x + centerOffsetX, y: -unifiedContentOffset.y + centerOffsetY)
                         }
                     }
+                    
+                    // Page boundary indicators when zoomed in
+                    if relativeZoomLevel > 1.5 {
+                        GeometryReader { indicatorGeometry in
+                            pageBoundaryIndicators(
+                                contentSize: contentSize,
+                                viewportSize: geometry.size,
+                                safeAreaInsets: indicatorGeometry.safeAreaInsets,
+                                currentScale: relativeZoomLevel * fitScale,
+                                centerOffsetX: centerOffsetX,
+                                centerOffsetY: centerOffsetY
+                            )
+                        }
+                    }
                 }
                 .onDrop(of: [.plainText], isTargeted: nil) { providers, location in
                     // Handle dropped text from AI assistant
@@ -390,6 +408,166 @@ struct WrittenNoteView: View {
             relativeZoomLevel = relativeMinZoom
         } else if relativeZoomLevel > relativeMaxZoom {
             relativeZoomLevel = relativeMaxZoom
+        }
+    }
+    
+    // Page boundary indicators to show page edges when zoomed in
+    @ViewBuilder
+    private func pageBoundaryIndicators(
+        contentSize: CGSize,
+        viewportSize: CGSize,
+        safeAreaInsets: EdgeInsets,
+        currentScale: CGFloat,
+        centerOffsetX: CGFloat,
+        centerOffsetY: CGFloat
+    ) -> some View {
+        let scaledWidth = contentSize.width * currentScale
+        let scaledHeight = contentSize.height * currentScale
+        
+        // Calculate effective viewport size excluding safe areas
+        // This is important because contentOffset works with the actual scrollable area,
+        // not including safe area insets
+        let effectiveViewportHeight = viewportSize.height - safeAreaInsets.top - safeAreaInsets.bottom
+        
+        // Only show indicators if content is actually larger than viewport (i.e., scrollable)
+        let isScrollableHorizontally = scaledWidth > viewportSize.width
+        let isScrollableVertically = scaledHeight > effectiveViewportHeight
+        
+        // Calculate the visible portion of the canvas with proper bounds checking
+        // Use larger tolerance for bottom edge due to safe area and rounding issues
+        let edgeTolerance: CGFloat = 20
+        let bottomEdgeTolerance: CGFloat = 50  // More forgiving for bottom edge
+        
+        let leftEdgeVisible = !isScrollableHorizontally || unifiedContentOffset.x <= edgeTolerance
+        let rightEdgeVisible = !isScrollableHorizontally || unifiedContentOffset.x + viewportSize.width >= scaledWidth - edgeTolerance
+        let topEdgeVisible = !isScrollableVertically || unifiedContentOffset.y <= edgeTolerance
+        
+        // For bottom edge: account for effective viewport height and use larger tolerance
+        let maxScrollY = max(0, scaledHeight - effectiveViewportHeight)
+        let bottomEdgeVisible = !isScrollableVertically || unifiedContentOffset.y >= maxScrollY - bottomEdgeTolerance
+        
+        ZStack {
+            // Left edge indicator
+            if !leftEdgeVisible {
+                HStack {
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    Color.blue.opacity(0.3),
+                                    Color.blue.opacity(0.0)
+                                ]),
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: 8)
+                    Spacer()
+                }
+            }
+            
+            // Right edge indicator
+            if !rightEdgeVisible {
+                HStack {
+                    Spacer()
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    Color.blue.opacity(0.0),
+                                    Color.blue.opacity(0.3)
+                                ]),
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: 8)
+                }
+            }
+            
+            // Top edge indicator
+            if !topEdgeVisible {
+                VStack {
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    Color.blue.opacity(0.3),
+                                    Color.blue.opacity(0.0)
+                                ]),
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .frame(height: 8)
+                    Spacer()
+                }
+            }
+            
+            // Bottom edge indicator
+            if !bottomEdgeVisible {
+                VStack {
+                    Spacer()
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    Color.blue.opacity(0.0),
+                                    Color.blue.opacity(0.3)
+                                ]),
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .frame(height: 8)
+                }
+            }
+            
+            // Page navigation buttons when at edges
+            // Only show buttons when content is scrollable and user is at the edge
+            if isScrollableHorizontally && leftEdgeVisible && currentPage > 0 {
+                HStack {
+                    VStack {
+                        Spacer()
+                        Button(action: {
+                            currentPage -= 1
+                        }) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(width: 32, height: 32)
+                                .background(Color.black.opacity(0.4))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        Spacer()
+                    }
+                    .padding(.leading, 16)
+                    Spacer()
+                }
+            }
+            
+            if isScrollableHorizontally && rightEdgeVisible && currentPage < pageCount - 1 {
+                HStack {
+                    Spacer()
+                    VStack {
+                        Spacer()
+                        Button(action: {
+                            currentPage += 1
+                        }) {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(width: 32, height: 32)
+                                .background(Color.black.opacity(0.4))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        Spacer()
+                    }
+                    .padding(.trailing, 16)
+                }
+            }
         }
     }
 
