@@ -39,7 +39,7 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         canvasView.contentOffset = contentOffset
         canvasView.delegate = context.coordinator
 
-        print("📐 Canvas setup - contentSize: \(contentSize), frame: \(canvasView.frame)")
+        print("📐 makeUIView - AFTER: contentSize=\(canvasView.contentSize), isScrollEnabled=\(canvasView.isScrollEnabled)")
         canvasView.showsVerticalScrollIndicator = false
         canvasView.showsHorizontalScrollIndicator = false
         canvasView.backgroundColor = .clear
@@ -50,8 +50,8 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         canvasView.bounces = false
 
         // Configure for high-resolution (match ensureCanvasExists settings)
-        canvasView.contentScaleFactor = UIScreen.main.scale * 2
-        canvasView.layer.contentsScale = UIScreen.main.scale * 2
+        canvasView.contentScaleFactor = UIScreen.main.scale 
+        canvasView.layer.contentsScale = UIScreen.main.scale 
         canvasView.layer.shouldRasterize = false
 
         // Add pencil interaction
@@ -64,40 +64,20 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         context.coordinator.canvasView = canvasView
         context.coordinator.setupDrawingObservation()
 
+        // HACK: Trigger a micro-zoom to force PKCanvasView to enforce contentSize bounds
+        // This simulates what a pinch gesture does
+        DispatchQueue.main.async {
+            let originalZoom = canvasView.zoomScale
+            canvasView.zoomScale = originalZoom * 1.00001
+            canvasView.zoomScale = originalZoom
+        }
+
         return canvasView
     }
 
     func updateUIView(_ uiView: PKCanvasView, context: Context) {
         context.coordinator.parent = self
 
-        // Only update canvas properties when user is NOT actively interacting
-        // This prevents rendering issues during rapid zoom/scroll
-        if !context.coordinator.isUserInteracting {
-            // Update canvas properties to stay in sync with bindings
-            if uiView.contentSize != contentSize {
-                uiView.contentSize = contentSize
-            }
-
-            if uiView.minimumZoomScale != minScale {
-                uiView.minimumZoomScale = minScale
-            }
-
-            if uiView.maximumZoomScale != maxScale {
-                uiView.maximumZoomScale = maxScale
-            }
-
-            // Only update zoom/offset if not actively zooming (to avoid feedback loop)
-            if !context.coordinator.isUpdatingZoom {
-                if abs(uiView.zoomScale - currentScale) > 0.01 {
-                    uiView.zoomScale = currentScale
-                }
-
-                if abs(uiView.contentOffset.x - contentOffset.x) > 1.0 ||
-                   abs(uiView.contentOffset.y - contentOffset.y) > 1.0 {
-                    uiView.contentOffset = contentOffset
-                }
-            }
-        }
 
         // Always disable drawing when textbox or photo tool is active (regardless of interaction state)
         uiView.drawingGestureRecognizer.isEnabled = (currentTool != .textbox && currentTool != .photo)
@@ -215,8 +195,8 @@ struct PencilKitCanvasView: UIViewRepresentable {
         canvasView.overrideUserInterfaceStyle = .light
 
         // Configure for high-resolution rendering
-        canvasView.contentScaleFactor = UIScreen.main.scale * 3
-        canvasView.layer.contentsScale = UIScreen.main.scale * 3
+        canvasView.contentScaleFactor = UIScreen.main.scale
+        canvasView.layer.contentsScale = UIScreen.main.scale 
         canvasView.layer.shouldRasterize = false 
         canvasView.contentInsetAdjustmentBehavior = .never
         canvasView.delegate = context.coordinator
