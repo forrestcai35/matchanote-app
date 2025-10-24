@@ -41,6 +41,12 @@ struct HomeView: View {
     @State var selectedNotes: Set<UUID> = []
     @State var selectedFolders: Set<UUID> = []
     @State var showBulkMoveSheet = false
+    
+    // Session validation state
+    @State var hasValidatedSession = false
+    
+    // Preview preloading state
+    @State var hasPreloadedPreviews = false
 
     // Progress feedback for bulk operations
     @State var isDeleting = false
@@ -107,6 +113,11 @@ struct HomeView: View {
     }
     // Filtered notes based on search text and current folder
     var filteredNotes: [Note] {
+        // Optimize: Create set once for O(1) lookup instead of O(n*m) for each note
+        let allFolderNoteIDs: Set<UUID> = currentFolderID == nil 
+            ? Set(storageManager.folders.flatMap { $0.noteIDs })
+            : []
+        
         let folderNotes = storageManager.notes.filter { note in
             if let currentFolderID = currentFolderID {
                 // Get the folder to check its noteIDs
@@ -116,7 +127,7 @@ struct HomeView: View {
                 return false
             } else {
                 // Root level - show notes that don't belong to any folder
-                return !storageManager.folders.flatMap { $0.noteIDs }.contains(note.id)
+                return !allFolderNoteIDs.contains(note.id)
             }
         }
         if searchText.isEmpty {
@@ -263,8 +274,19 @@ struct HomeView: View {
                 }
             }
             .task {
-                // Validate session on app appear
-                await authManager.validateSession()
+                // Only validate session once per app session, not on every navigation
+                // This was causing major slowdown by making network calls every time HomeView appeared
+                guard !hasValidatedSession else { return }
+                hasValidatedSession = true
+                
+                Task.detached(priority: .background) {
+                    await authManager.validateSession()
+                }
+            }
+            .onAppear {
+                // Preload previews for better performance
+                // This prevents the loading spinners by generating previews in advance
+                preloadVisiblePreviews()
             }
             .accentColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
             .sheet(isPresented: $showingSettings) {

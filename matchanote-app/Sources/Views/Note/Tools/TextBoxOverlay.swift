@@ -51,7 +51,7 @@ struct TextBoxOverlay: View {
     var body: some View {
         let hasTextBoxes = !textBoxManager.textBoxes(for: pageIndex).isEmpty
         let shouldInterceptBackground = textBoxManager.hasSelectedTextBox || textBoxManager.isEditingText || isTextBoxToolActive
-        let _ = print("🟦 TextBoxOverlay render: page=\(pageIndex), hasTextBoxes=\(hasTextBoxes), shouldInterceptBg=\(shouldInterceptBackground), isTextBoxToolActive=\(isTextBoxToolActive)")
+        let allowHitTesting = hasTextBoxes || textBoxManager.hasSelectedTextBox || textBoxManager.isEditingText
         
         ZStack {
             // Background tap layer - intercepts when something is selected OR textbox tool is active
@@ -60,14 +60,11 @@ struct TextBoxOverlay: View {
                     .frame(width: canvasSize.width, height: canvasSize.height)
                     .contentShape(Rectangle())
                     .onTapGesture { location in
-                        print("🟢 BACKGROUND TAP - location: \(location)")
                         if isTextBoxToolActive && !textBoxManager.hasSelectedTextBox {
                             // Create new textbox at tap location
-                            print("🟢 Creating textbox at \(location)")
                             textBoxManager.addTextBox(to: pageIndex, at: location)
                         } else {
                             // Deselect existing selection
-                            print("🟢 Deselecting")
                             textBoxManager.deselectAllTextBoxes()
                         }
                     }
@@ -84,6 +81,7 @@ struct TextBoxOverlay: View {
             }
         }
         .frame(width: canvasSize.width, height: canvasSize.height)
+        .allowsHitTesting(allowHitTesting)
         .clipped()
     }
 }

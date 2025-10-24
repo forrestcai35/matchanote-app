@@ -181,11 +181,12 @@ struct CanvasImageOverlay: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-
-        let shouldInterceptBackground = imageManager.hasSelectedImage || isPhotoToolActive
+        let hasImages = !imageManager.getImagesForPage(pageIndex).isEmpty
+        let shouldInterceptBackground = imageManager.hasSelectedImage
+        let allowHitTesting = hasImages || shouldInterceptBackground
 
         ZStack {
-            // Background tap layer - intercepts when image is selected OR photo tool is active
+            // Background tap layer - intercepts when image is selected
             if shouldInterceptBackground {
                 Color.clear
                     .frame(width: canvasSize.width, height: canvasSize.height)
@@ -206,6 +207,7 @@ struct CanvasImageOverlay: View {
             }
         }
         .frame(width: canvasSize.width, height: canvasSize.height)
+        .allowsHitTesting(allowHitTesting)
         .clipped()
     }
 }
