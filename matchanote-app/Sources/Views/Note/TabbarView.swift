@@ -15,6 +15,7 @@ enum PagePlacement: String, CaseIterable, Hashable {
 // Tab Bar View
 struct TabBarView: View {
   @ObservedObject private var tabManager = TabManager.shared
+  @ObservedObject private var preferencesManager = PreferencesManager.shared
   @Environment(\.colorScheme) private var colorScheme
 
   var dismiss: DismissAction
@@ -182,6 +183,27 @@ struct TabBarView: View {
         .buttonStyle(PlainButtonStyle())
         .popover(isPresented: $showMorePopover) {
           VStack(alignment: .leading, spacing: 8) {
+            // Vertical scroll mode toggle
+            Button(action: {
+              preferencesManager.noteEditorVerticalScrollMode.toggle()
+            }) {
+              HStack {
+                Label(
+                  preferencesManager.noteEditorVerticalScrollMode ? "Page Mode" : "Vertical Scroll",
+                  systemImage: preferencesManager.noteEditorVerticalScrollMode 
+                    ? "rectangle.split.2x1" 
+                    : "rectangle.portrait.split.2x1"
+                )
+                Spacer()
+
+              }
+            }
+            .foregroundColor(
+              colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+            )
+            
+ 
+            
             Button(action: {
               // TODO: Implement rotate page functionality
               showMorePopover = false

@@ -39,21 +39,27 @@ struct WrittenNoteView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TabView(selection: $currentPage) {
-                ForEach(Array(pageIdentifiers.enumerated()), id: \.element) { index, pageId in
-                    if index < pageCount {
-                        pageContent(pageIndex: index, isInfinite: false)
-                            .tag(index)
-                            .id(pageId)
+            if preferencesManager.noteEditorVerticalScrollMode {
+                // Vertical scroll mode - all pages in a continuous scroll view
+                verticalScrollContent
+            } else {
+                // Page mode - horizontal tabbed pages
+                TabView(selection: $currentPage) {
+                    ForEach(Array(pageIdentifiers.enumerated()), id: \.element) { index, pageId in
+                        if index < pageCount {
+                            pageContent(pageIndex: index, isInfinite: false)
+                                .tag(index)
+                                .id(pageId)
+                        }
                     }
                 }
-            }
-            .shadow(color: Color.black.opacity(0.3), radius: 3, x: 0, y: 1)
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .clipped()
-            .ignoresSafeArea(.all, edges: .bottom)
-            .overlay(alignment: .bottomTrailing) {
-                controlsOverlay
+                .shadow(color: Color.black.opacity(0.3), radius: 3, x: 0, y: 1)
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .clipped()
+                .ignoresSafeArea(.all, edges: .bottom)
+                .overlay(alignment: .bottomTrailing) {
+                    controlsOverlay
+                }
             }
         }
         .background(
@@ -77,6 +83,12 @@ struct WrittenNoteView: View {
                     saveDrawingDataForNote(noteId: currentId)
                 }
                 currentNoteId = newNoteId
+                loadDrawingData()
+            }
+        }
+        .onChange(of: note.drawingDataByPage) { _, _ in
+            // Note content changed (e.g., pages deleted), reload drawing data
+            if currentNoteId == note.id {
                 loadDrawingData()
             }
         }
@@ -605,5 +617,257 @@ struct WrittenNoteView: View {
             .padding(16)
         }
         .buttonStyle(PlainButtonStyle())
+    }
+    
+    // MARK: - Vertical Scroll Content
+    
+    // Vertical scroll view displaying all pages continuously
+    @ViewBuilder
+    private var verticalScrollContent: some View {
+        GeometryReader { geometry in
+            // Calculate a unified fit scale based on the first page (or current page)
+            // This ensures all pages zoom consistently
+            let referenceContentSize = perPageSize(0)
+            let unifiedFitScale = min(
+                geometry.size.width / max(referenceContentSize.width, 1),
+                geometry.size.height / max(referenceContentSize.height, 1)
+            )
+            
+            ScrollViewReader { scrollProxy in
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 24) {
+                        ForEach(Array(pageIdentifiers.enumerated()), id: \.element) { index, pageId in
+                            if index < pageCount {
+                                verticalPageContent(
+                                    pageIndex: index,
+                                    viewportSize: geometry.size,
+                                    unifiedFitScale: unifiedFitScale
+                                )
+                                .id(index)
+                                .background(
+                                    // Track which page is in view
+                                    GeometryReader { pageGeometry in
+                                        Color.clear.preference(
+                                            key: PageVisibilityPreferenceKey.self,
+                                            value: [index: pageGeometry.frame(in: .named("scroll")).midY]
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    .padding(.vertical, 24)
+                }
+                .coordinateSpace(name: "scroll")
+                .onPreferenceChange(PageVisibilityPreferenceKey.self) { positions in
+                    // Find the page closest to the center of the screen
+                    let screenCenter = geometry.size.height / 2
+                    if let closestPage = positions.min(by: { abs($0.value - screenCenter) < abs($1.value - screenCenter) }) {
+                        if currentPage != closestPage.key {
+                            currentPage = closestPage.key
+                        }
+                    }
+                }
+                .clipped()
+                .ignoresSafeArea(.all, edges: .bottom)
+                .overlay(alignment: .bottomTrailing) {
+                    verticalScrollControlsOverlay
+                }
+                .onAppear {
+                    // Scroll to current page when switching to vertical mode
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        if currentPage > 0 {
+                            scrollProxy.scrollTo(currentPage, anchor: .top)
+                        }
+                    }
+                }
+                .onChange(of: preferencesManager.noteEditorVerticalScrollMode) { _, isVertical in
+                    // Scroll to current page when switching modes
+                    if isVertical {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            scrollProxy.scrollTo(currentPage, anchor: .top)
+                        }
+                    }
+                }
+            }
+        }
+        .shadow(color: Color.black.opacity(0.3), radius: 3, x: 0, y: 1)
+    }
+    
+    // Individual page content for vertical scroll mode
+    @ViewBuilder
+    private func verticalPageContent(pageIndex: Int, viewportSize: CGSize, unifiedFitScale: CGFloat) -> some View {
+        let contentSize = perPageSize(pageIndex)
+        
+        // Use the unified fit scale for consistent zoom across all pages
+        let relativeMinZoom: CGFloat = 0.75
+        let relativeMaxZoom: CGFloat = 5.0
+        let absoluteMinScale = unifiedFitScale * relativeMinZoom
+        let absoluteMaxScale = unifiedFitScale * relativeMaxZoom
+        
+        // Create binding that converts between relative and absolute scale using unified fit scale
+        let absoluteScaleBinding = Binding<CGFloat>(
+            get: { relativeZoomLevel * unifiedFitScale },
+            set: { newValue in
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    relativeZoomLevel = newValue / unifiedFitScale
+                }
+            }
+        )
+        
+        // Calculate centering offset when content is smaller than viewport
+        let currentScale = relativeZoomLevel * unifiedFitScale
+        let scaledWidth = contentSize.width * currentScale
+        let scaledHeight = contentSize.height * currentScale
+        let centerOffsetX = max((viewportSize.width - scaledWidth) / 2, 0)
+        
+        if pageIndex < canvasViews.count {
+            // Page content
+            NativeScrollCanvasView(
+                    canvasView: canvasViews[pageIndex],
+                    contentSize: contentSize,
+                    minScale: absoluteMinScale,
+                    maxScale: absoluteMaxScale,
+                    currentScale: absoluteScaleBinding,
+                    contentOffset: $unifiedContentOffset,
+                    currentTool: $currentTool,
+                    onDrawingChange: { isEdited = true }
+                )
+                .frame(width: viewportSize.width, height: scaledHeight)
+                .offset(x: centerOffsetX, y: 0)
+                .background {
+                    GeometryReader { _ in
+                        ZStack(alignment: .topLeading) {
+                            // Paper background
+                            paperBackground(pageIndex: pageIndex)
+                                .frame(width: contentSize.width, height: contentSize.height)
+                            
+                            // Background image
+                            backgroundImagesView(pageIndex: pageIndex)
+                            
+                            // Canvas overlays (only in background when tools NOT active)
+                            if currentTool != .textbox && currentTool != .photo {
+                                CanvasImageOverlay(
+                                    imageManager: imageManager,
+                                    pageIndex: pageIndex,
+                                    canvasSize: contentSize,
+                                    isPhotoToolActive: false,
+                                    isTextBoxToolActive: false
+                                )
+                                
+                                TextBoxOverlay(
+                                    textBoxManager: textBoxManager,
+                                    pageIndex: pageIndex,
+                                    canvasSize: contentSize,
+                                    isTextBoxToolActive: false
+                                )
+                            }
+                        }
+                        .frame(width: contentSize.width, height: contentSize.height)
+                        .scaleEffect(relativeZoomLevel * unifiedFitScale, anchor: .topLeading)
+                        .offset(x: -unifiedContentOffset.x + centerOffsetX, y: -unifiedContentOffset.y)
+                    }
+                }
+                .overlay {
+                    // Canvas overlays (on top when tools ARE active for gesture interception)
+                    if currentTool == .textbox || currentTool == .photo {
+                        GeometryReader { _ in
+                            ZStack(alignment: .topLeading) {
+                                CanvasImageOverlay(
+                                    imageManager: imageManager,
+                                    pageIndex: pageIndex,
+                                    canvasSize: contentSize,
+                                    isPhotoToolActive: currentTool == .photo,
+                                    isTextBoxToolActive: currentTool == .textbox
+                                )
+                                
+                                TextBoxOverlay(
+                                    textBoxManager: textBoxManager,
+                                    pageIndex: pageIndex,
+                                    canvasSize: contentSize,
+                                    isTextBoxToolActive: currentTool == .textbox
+                                )
+                            }
+                            .frame(width: contentSize.width, height: contentSize.height)
+                        .scaleEffect(relativeZoomLevel * unifiedFitScale, anchor: .topLeading)
+                        .offset(x: -unifiedContentOffset.x + centerOffsetX, y: -unifiedContentOffset.y)
+                        }
+                    }
+                }
+                .onDrop(of: [.plainText], isTargeted: nil) { providers, location in
+                    // Handle dropped text from AI assistant
+                    guard let provider = providers.first else { return false }
+                    
+                    provider.loadObject(ofClass: NSString.self) { text, error in
+                        guard let droppedText = text as? String, error == nil else { return }
+                        
+                        // Convert drop location from view coordinates to canvas coordinates
+                        let scale = relativeZoomLevel * unifiedFitScale
+                        let canvasX = (location.x - centerOffsetX + unifiedContentOffset.x) / scale
+                        let canvasY = (location.y + unifiedContentOffset.y) / scale
+                        let canvasLocation = CGPoint(x: canvasX, y: canvasY)
+                        
+                        DispatchQueue.main.async {
+                            // Activate textbox tool when text is dragged in
+                            currentTool = .textbox
+                            
+                            // Create a textbox at the drop location with the AI-generated text
+                            textBoxManager.addTextBox(
+                                to: pageIndex,
+                                at: canvasLocation,
+                                withText: droppedText
+                            )
+                            // Mark as edited so changes are saved
+                            isEdited = true
+                        }
+                    }
+                    
+                    return true
+                }
+                .cornerRadius(8)
+                .shadow(color: Color.black.opacity(0.15), radius: 4, x: 0, y: 2)
+        } else {
+            Text("Error: Canvas not available for page \(pageIndex + 1)")
+                .foregroundColor(.red)
+        }
+    }
+    
+    // Controls overlay for vertical scroll mode
+    @ViewBuilder
+    private var verticalScrollControlsOverlay: some View {
+        Button {
+            // Add page after the current page in vertical mode
+            addPageAtPosition(.after)
+        } label: {
+            VStack(spacing: 8) {
+                HStack {
+                    Text("\(currentPage + 1)/\(pageCount)")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                Image(systemName: "plus.circle.fill")
+                    .font(.caption)
+                    .foregroundColor(Color.matchalight_dark)
+            }
+            .padding(8)
+            .background(Color.white.opacity(0.9))
+            .cornerRadius(20)
+            .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 1)
+            .padding(16)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Page Visibility Preference Key
+
+// PreferenceKey for tracking which page is currently visible in vertical scroll mode
+struct PageVisibilityPreferenceKey: PreferenceKey {
+    static var defaultValue: [Int: CGFloat] = [:]
+    
+    static func reduce(value: inout [Int: CGFloat], nextValue: () -> [Int: CGFloat]) {
+        value.merge(nextValue()) { (_, new) in new }
     }
 }
