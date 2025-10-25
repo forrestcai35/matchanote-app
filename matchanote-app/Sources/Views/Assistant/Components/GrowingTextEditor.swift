@@ -20,7 +20,7 @@ struct GrowingTextEditor: View {
   
   // Cache screen width to avoid repeated UIScreen calls
   #if canImport(UIKit)
-  private static let cachedScreenWidth = UIScreen.main.bounds.width
+  private static let cachedScreenWidth: CGFloat = 800 // Default width for iOS
   #else
   private static let cachedScreenWidth: CGFloat = 800 // Default width for macOS
   #endif

@@ -246,7 +246,7 @@ struct FormattedTextView: View {
                 segmentText = segmentText.italic()
             }
             
-            result = result + segmentText
+            result = Text("\(result)\(segmentText)")
         }
         
         if isHeading {

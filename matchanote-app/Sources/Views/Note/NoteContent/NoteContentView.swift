@@ -157,8 +157,8 @@ struct WrittenNoteView: View {
         
         // Configure for high-resolution rendering
         // Use 1x scale - NativeScrollCanvasView will handle display scaling
-        canvas.contentScaleFactor = UIScreen.main.scale
-        canvas.layer.contentsScale = UIScreen.main.scale
+        canvas.contentScaleFactor = 2.0 // Default high-resolution scale
+        canvas.layer.contentsScale = 2.0
         canvas.layer.shouldRasterize = false
         
         // Scroll and zoom will be managed by NativeScrollCanvasView

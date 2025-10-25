@@ -51,8 +51,8 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         canvasView.bounces = false
 
         // Configure for high-resolution (match ensureCanvasExists settings)
-        canvasView.contentScaleFactor = UIScreen.main.scale 
-        canvasView.layer.contentsScale = UIScreen.main.scale 
+        canvasView.contentScaleFactor = 2.0 // Default high-resolution scale
+        canvasView.layer.contentsScale = 2.0 
         canvasView.layer.shouldRasterize = false
 
         // Add pencil interaction

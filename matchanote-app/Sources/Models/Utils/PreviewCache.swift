@@ -237,7 +237,7 @@ class PreviewCache: ObservableObject {
       height: paperSize.height * scale
     )
 
-    let screenScale = UIScreen.main.scale
+    let screenScale = 2.0 // Use default high-resolution scale
     let effectiveScale = scale * screenScale
 
     UIGraphicsBeginImageContextWithOptions(thumbnailSize, false, screenScale)

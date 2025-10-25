@@ -79,17 +79,18 @@ struct PaperUtilities {
     paperStyle: PaperStyle,
     scale: CGFloat,
     backgroundImages: [Data]? = nil,
-    overlayImages: [CanvasImage]? = nil
+    overlayImages: [CanvasImage]? = nil,
+    screenScale: CGFloat? = nil
   ) -> UIImage {
     let thumbnailSize = CGSize(
       width: paperSize.width * scale,
       height: paperSize.height * scale
     )
     
-    let screenScale = UIScreen.main.scale
-    let effectiveScale = scale * screenScale
+    let effectiveScreenScale = screenScale ?? 2.0 // Default to 2.0 for high-resolution displays
+    let effectiveScale = scale * effectiveScreenScale
     
-    UIGraphicsBeginImageContextWithOptions(thumbnailSize, false, screenScale)
+    UIGraphicsBeginImageContextWithOptions(thumbnailSize, false, effectiveScreenScale)
     defer { UIGraphicsEndImageContext() }
     
     guard let context = UIGraphicsGetCurrentContext() else {

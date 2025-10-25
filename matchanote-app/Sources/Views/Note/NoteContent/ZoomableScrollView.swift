@@ -64,8 +64,8 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
         hostedView.backgroundColor = .clear
 
         // Configure for lossless scaling
-        hostedView.contentScaleFactor = UIScreen.main.scale
-        hostedView.layer.rasterizationScale = UIScreen.main.scale
+        hostedView.contentScaleFactor = 2.0 // Default high-resolution scale
+        hostedView.layer.rasterizationScale = 2.0
         hostedView.layer.shouldRasterize = false  // Disable rasterization to avoid blur
 
         scrollView.addSubview(hostedView)
