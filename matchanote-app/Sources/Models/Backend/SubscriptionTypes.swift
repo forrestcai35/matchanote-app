@@ -16,8 +16,8 @@ enum SubscriptionTier: String, CaseIterable {
 
     var hasPremiumAccess: Bool {
         switch self {
-        case .free: return false
-        case .student, .pro: return true
+        case .free, .student: return false
+        case .pro: return true
         }
     }
 }

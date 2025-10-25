@@ -37,7 +37,7 @@ struct NewWrittenNoteView: View {
             Text("Create New Note")
               .font(.title2)
               .fontWeight(.semibold)
-              .foregroundColor(.primary)
+              .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
           }
           .padding(.top, 12)
           
@@ -45,7 +45,7 @@ struct NewWrittenNoteView: View {
           VStack(alignment: .leading, spacing: 8) {
             Text("Note Title")
               .font(.headline)
-              .foregroundColor(.primary)
+              .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
             
             TextField("Enter note title", text: $title)
               .textFieldStyle(ModernTextFieldStyle())
@@ -55,7 +55,7 @@ struct NewWrittenNoteView: View {
           VStack(alignment: .leading, spacing: 12) {
             Text("Paper Style")
               .font(.headline)
-              .foregroundColor(.primary)
+              .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
             
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
               ForEach(PaperStyle.allCases, id: \.self) { style in
@@ -75,7 +75,7 @@ struct NewWrittenNoteView: View {
             VStack(alignment: .leading, spacing: 12) {
               Text("Paper Color")
                 .font(.headline)
-                .foregroundColor(.primary)
+                .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
 
               HStack(spacing: 12) {
                 ForEach(PaperColor.allCases, id: \.self) { color in
@@ -93,7 +93,7 @@ struct NewWrittenNoteView: View {
             VStack(alignment: .leading, spacing: 12) {
               Text("Paper Size")
                 .font(.headline)
-                .foregroundColor(.primary)
+                .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
 
               Menu {
                 ForEach(PaperSize.allCases, id: \.self) { size in
@@ -161,7 +161,7 @@ struct NewWrittenNoteView: View {
           Button("Cancel") {
             dismiss()
           }
-          .foregroundColor(.secondary)
+          .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
         }
       }
     }
@@ -221,7 +221,8 @@ struct PaperStyleCard: View {
   let paperColor: PaperColor
   let isSelected: Bool
   let onTap: () -> Void
-  
+  @Environment(\.colorScheme) private var colorScheme
+
   var body: some View {
     Button(action: onTap) {
       VStack(spacing: 8) {
@@ -232,18 +233,18 @@ struct PaperStyleCard: View {
             .overlay(
               paperPatternForStyle(style)
             )
-          
+
           if isSelected {
             RoundedRectangle(cornerRadius: 8)
               .stroke(Color.matchalight_light, lineWidth: 2)
               .frame(height: 48)
           }
         }
-        
+
         Text(style.rawValue.capitalized)
           .font(.caption)
           .fontWeight(.medium)
-          .foregroundColor(.primary)
+          .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
       }
     }
     .buttonStyle(PlainButtonStyle())
@@ -415,7 +416,7 @@ struct NewFolderView: View {
             Text("Create New Folder")
               .font(.title2)
               .fontWeight(.semibold)
-              .foregroundColor(.primary)
+              .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
           }
           .padding(.top, 20)
           
@@ -423,7 +424,7 @@ struct NewFolderView: View {
           VStack(alignment: .leading, spacing: 8) {
             Text("Folder Name")
               .font(.headline)
-              .foregroundColor(.primary)
+              .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
             
             TextField("Enter folder name", text: $name)
               .textFieldStyle(ModernTextFieldStyle())
@@ -462,15 +463,15 @@ struct NewFolderView: View {
           Button("Cancel") {
             dismiss()
           }
-          .foregroundColor(.secondary)
+          .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
         }
       }
     }
     .presentationDetents([.large])
     .presentationDragIndicator(.visible)
   }
-  
-  
+
+
   private func createFolder() {
     let newFolder = Folder(
       name: name,

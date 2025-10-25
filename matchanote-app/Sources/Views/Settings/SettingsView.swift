@@ -4,6 +4,8 @@ struct SettingsView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
     @State private var selectedSection: SettingsSection? = nil
+    @State private var showingPremiumAlert = false
+    @StateObject private var subscriptionManager = SubscriptionManager()
     
     enum SettingsSection {
         case preferences
@@ -118,7 +120,13 @@ struct SettingsView: View {
                     subtitle: "Enable or disable AI models",
                     icon: "slider.vertical.3",
                     action: {
-                        selectedSection = .models
+                        // Check if user is pro before allowing access to models
+                        let userTier = subscriptionManager.userProfile?.subscriptionTier ?? .free
+                        if userTier == .pro {
+                            selectedSection = .models
+                        } else {
+                            showingPremiumAlert = true
+                        }
                     }
                 ))
 
@@ -150,6 +158,22 @@ struct SettingsView: View {
             .padding(.horizontal)
             .padding(.vertical, 20)
             .padding(.bottom, 20)
+        }
+        .onAppear {
+            // Fetch user profile to check subscription status
+            Task {
+                await subscriptionManager.fetchUserProfile()
+            }
+        }
+        .alert("Premium Feature", isPresented: $showingPremiumAlert) {
+            Button("OK", role: .cancel) { }
+            Button("Upgrade") {
+                if let url = URL(string: "https://matchanote.app/app/settings") {
+                    UIApplication.shared.open(url)
+                }
+            }
+        } message: {
+            Text("Model configuration is a premium feature. Upgrade to Pro to customize your AI models.")
         }
     }
     

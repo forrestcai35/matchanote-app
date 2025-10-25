@@ -8,6 +8,8 @@ import SwiftUI
 
 struct GrowingTextEditor: View {
   @Binding var text: String
+  @FocusState private var isFocused: Bool
+  @Binding var isTextEditorFocused: Bool
   @State private var textEditorHeight: CGFloat = 60
   @State private var heightCalculationTimer: Timer?
   @State private var lastCalculatedText: String = ""
@@ -29,6 +31,10 @@ struct GrowingTextEditor: View {
       TextEditor(text: $text)
         .frame(height: min(max(textEditorHeight, 80), maxHeight))
         .scrollContentBackground(.hidden)
+        .focused($isFocused)
+        .onChange(of: isFocused) { _, newValue in
+          isTextEditorFocused = newValue
+        }
         .onChange(of: text) { oldValue, newValue in
           // If configured, treat Return as submit (single trailing newline typed)
           if submitsOnReturn,
@@ -50,6 +56,7 @@ struct GrowingTextEditor: View {
           }
         }
         .background(StaticKeyboardBackgroundFix())
+
 
       if text.isEmpty {
         Text(placeholderText)

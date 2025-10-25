@@ -560,6 +560,7 @@ struct AIAssistantView: View {
     @State private var showingCamera = false
     @Environment(\.colorScheme) private var colorScheme
     @State private var isInputTargeted = false
+    @State private var isTextEditorFocused = false
     @State private var keyboardHeight: CGFloat = 0
     private let inputOuterPadding: CGFloat = 16
     @State private var userScrollTrigger: Int = 0
@@ -567,12 +568,23 @@ struct AIAssistantView: View {
     
     // Assistant orientation (passed from parent)
     var assistantOrientation: AssistantOrientation = .right
+    
+    // Computed property to check if user is PRO
+    private var isProUser: Bool {
+        state.subscriptionManager.userProfile?.subscriptionTier == .pro
+    }
 
     // MARK: - Mode Toggle Button
     private var modeToggleButton: some View {
         Button(action: { 
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { 
-                state.currentMode = state.currentMode == .chat ? .study : .chat
+            // Only allow mode switching for premium/student users
+            let userTier = state.subscriptionManager.userProfile?.subscriptionTier ?? .free
+            let canSwitchModes = userTier == .pro || userTier == .student
+            
+            if canSwitchModes {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { 
+                    state.currentMode = state.currentMode == .chat ? .study : .chat
+                }
             }
         }) {
             HStack(spacing: 5) {
@@ -646,6 +658,12 @@ struct AIAssistantView: View {
             // Set initial model immediately to avoid delay
             setInitialModel()
             refreshAvailableModels()
+            
+            // Ensure free users are always in chat mode
+            let userTier = state.subscriptionManager.userProfile?.subscriptionTier ?? .free
+            if userTier == .free && state.currentMode == .study {
+                state.currentMode = .chat
+            }
             
             // Start a new conversation if none exists
             if state.chatStorage.currentConversation == nil && state.messages.isEmpty {
@@ -904,6 +922,7 @@ struct AIAssistantView: View {
             ZStack(alignment: .bottomTrailing) {
                 GrowingTextEditor(
                     text: $state.userInput,
+                    isTextEditorFocused: $isTextEditorFocused,
                     placeholderText: "Ask me about your notes...",
                     submitsOnReturn: true,
                     onSubmit: {
@@ -916,12 +935,43 @@ struct AIAssistantView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .padding(.trailing, 40)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(.ultraThinMaterial)
+                            .opacity(isTextEditorFocused ? 0.1 : 0.3)
+                    )
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                            .stroke(
+                                isTextEditorFocused && isProUser
+                                    ? LinearGradient.premiumGradient
+                                    : LinearGradient(
+                                        gradient: Gradient(colors: [Color.gray.opacity(0.3)]),
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                lineWidth: isTextEditorFocused ? 2 : 1
+                            )
                     )
                     .cornerRadius(8)
+                    .shadow(
+                        color: isTextEditorFocused && isProUser
+                            ? Color.matchaGreen.opacity(0.3)
+                            : Color.clear,
+                        radius: isTextEditorFocused && isProUser ? 6 : 0,
+                        x: 0,
+                        y: 0
+                    )
+                    .shadow(
+                        color: isTextEditorFocused && isProUser
+                            ? Color.premiumBlue.opacity(0.25)
+                            : Color.clear,
+                        radius: isTextEditorFocused && isProUser ? 8 : 0,
+                        x: 0,
+                        y: 0
+                    )
                     .padding(1)
+                    .animation(.easeInOut(duration: 0.3), value: isTextEditorFocused)
                     .submitLabel(.send)
                     .onSubmit {
                         if (!state.userInput.isEmpty || !state.tempMediaItems.isEmpty) && !state.isLoading {
@@ -1095,6 +1145,12 @@ struct AIAssistantView: View {
             await state.subscriptionManager.fetchUserProfile()
             await MainActor.run {
                 refreshAvailableModels()
+                
+                // Ensure free users are in chat mode after profile fetch
+                let userTier = state.subscriptionManager.userProfile?.subscriptionTier ?? .free
+                if userTier == .free && state.currentMode == .study {
+                    state.currentMode = .chat
+                }
             }
         }
     }

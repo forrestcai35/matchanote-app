@@ -71,8 +71,10 @@ struct ModelConfiguration {
         switch tier {
         case .free:
             return freeModels
-        case .student, .pro:
-            return allModels
+        case .student:
+            return freeModels  // Student users only get free models
+        case .pro:
+            return allModels   // PRO users get all models
         }
     }
     
