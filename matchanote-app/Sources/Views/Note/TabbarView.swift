@@ -27,6 +27,7 @@ struct TabBarView: View {
   var printAllPagesAction: (() -> Void)?
   var onAddPage: ((PagePlacement) -> Void)?
   var onUpload: ((PagePlacement) -> Void)?
+  var onTabSwitch: (() -> Void)?
 
   // Placement selection for add/upload actions
   @State private var selectedPlacement: PagePlacement = .after
@@ -55,10 +56,10 @@ struct TabBarView: View {
         HStack(spacing: 2) {
           // Existing tabs
           ForEach(tabManager.tabs) { tab in
-            TabItemView(tab: tab)
+            TabItemView(tab: tab, onTabSwitch: onTabSwitch)
           }
         }
-        .padding(.horizontal, 4)  
+        .padding(.horizontal, 4)
       }
 
       // Static Action Buttons (outside ScrollView)
@@ -249,6 +250,7 @@ struct TabBarView: View {
 // Individual Tab Item
 struct TabItemView: View {
   let tab: NoteTab
+  var onTabSwitch: (() -> Void)?
   @ObservedObject private var tabManager = TabManager.shared
   @Environment(\.colorScheme) private var colorScheme
   @EnvironmentObject private var storageManager: StorageManager
@@ -259,8 +261,7 @@ struct TabItemView: View {
     HStack {
       // Tab Content
       HStack {
-        Spacer(minLength: 6)
-        // Title centered; rename available only when active
+        // Title left-aligned; rename available only when active
         if tab.isActive {
           Button(action: {
             newTitle = tab.note.title
@@ -313,7 +314,7 @@ struct TabItemView: View {
             .foregroundColor(
               colorScheme == .dark ? Color.matchabrown_dark.opacity(0.8) : Color.matchabrown_light.opacity(0.8))
         }
-        Spacer(minLength: 6)
+        Spacer()
         // Close button
         Button(action: {
           closeTab()
@@ -350,6 +351,9 @@ struct TabItemView: View {
 
   // Activate this tab
   private func activateTab() {
+    // Save current canvas data before switching tabs
+    onTabSwitch?()
+
     // Make all tabs inactive first
     for i in 0..<tabManager.tabs.count {
       tabManager.tabs[i].isActive = false

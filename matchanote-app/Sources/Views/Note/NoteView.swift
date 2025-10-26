@@ -325,6 +325,9 @@ struct NoteView: View {
             },
             onUpload: { placement in
               handleUpload(placement: placement)
+            },
+            onTabSwitch: {
+              saveCurrentCanvasData()
             }
           )
 
