@@ -11,8 +11,7 @@ struct ChatHistoryDropdown: View {
             // Header
             HStack {
                 Text("Recent Chats")
-                    .font(.headline)
-                    .fontWeight(.semibold)
+                    .font(.jost(.headline()))
                 
                 Spacer()
             }
@@ -27,7 +26,7 @@ struct ChatHistoryDropdown: View {
                         .font(.system(size: 40))
                         .foregroundColor(.secondary)
                     Text("No conversations yet")
-                        .font(.subheadline)
+                        .font(.jost(.subheadline()))
                         .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity)
@@ -65,7 +64,7 @@ struct ChatHistoryDropdown: View {
                 Image(systemName: "info.circle")
                     .font(.caption)
                 Text("Auto-deleted after 30 days")
-                    .font(.caption2)
+                    .font(.jost(.caption2()))
             }
             .foregroundColor(.secondary)
             .padding(.horizontal)
@@ -105,8 +104,7 @@ struct DropdownConversationRow: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(conversation.title)
-                        .font(.subheadline)
-                        .fontWeight(isSelected ? .semibold : .regular)
+                        .font(.jost(.subheadline()))
                         .foregroundColor(.primary)
                         .lineLimit(1)
                     
@@ -115,7 +113,7 @@ struct DropdownConversationRow: View {
                         Text("•")
                         Text("\(conversation.messages.count) msgs")
                     }
-                    .font(.caption2)
+                    .font(.jost(.caption2()))
                     .foregroundColor(.secondary)
                 }
                 
@@ -124,7 +122,7 @@ struct DropdownConversationRow: View {
                 // Delete button
                 Button(action: onDelete) {
                     Image(systemName: "trash")
-                        .font(.caption)
+                        .font(.jost(.caption()))
                         .foregroundColor(.red.opacity(0.8))
                         .frame(width: 28, height: 28)
                         .clipShape(Circle())

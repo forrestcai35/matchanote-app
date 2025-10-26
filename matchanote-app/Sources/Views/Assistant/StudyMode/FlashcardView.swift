@@ -58,14 +58,14 @@ struct FlashcardView: View {
                 // Flip hint
                 if !isFlipped {
                     Text("Tap card to reveal answer")
-                        .font(.caption)
+                        .font(.jost(.caption()))
                         .foregroundColor(.secondary)
                         .padding(.bottom, 8)
                 } else {
                     // Confidence buttons when flipped
                     VStack(spacing: 12) {
                         Text("How well did you know this?")
-                            .font(.caption)
+                            .font(.jost(.caption()))
                             .foregroundColor(.secondary)
 
                         HStack(spacing: 12) {
@@ -81,7 +81,7 @@ struct FlashcardView: View {
                 HStack(spacing: 12) {
                     Button(action: previousCard) {
                         Image(systemName: "chevron.left")
-                            .font(.caption)
+                            .font(.jost(.caption()))
                             .foregroundColor(currentCardIndex > 0 ? .matchadark_light : .gray)
                             .frame(width: 30, height: 30)
                             .background(
@@ -96,7 +96,7 @@ struct FlashcardView: View {
 
                     Button(action: nextCard) {
                         Image(systemName: "chevron.right")
-                            .font(.caption)
+                            .font(.jost(.caption()))
                             .foregroundColor(.white)
                             .frame(width: 30, height: 30)
                             .background(
@@ -126,7 +126,7 @@ struct FlashcardView: View {
             // Back of card (answer)
             VStack(spacing: 0) {
                 Text("Answer")
-                    .font(.caption)
+                    .font(.jost(.caption()))
                     .fontWeight(.semibold)
                     .foregroundColor(.secondary)
                     .padding(.top, 24)
@@ -134,7 +134,7 @@ struct FlashcardView: View {
 
                 ScrollView {
                     Text(card.back)
-                        .font(.body)
+                        .font(.jost(.body()))
                         .foregroundColor(.primary)
                         .lineLimit(nil)
                         .fixedSize(horizontal: false, vertical: true)
@@ -193,7 +193,7 @@ struct FlashcardView: View {
             // Front of card (question)
             VStack(spacing: 0) {
                 Text("Question")
-                    .font(.caption)
+                    .font(.jost(.caption()))
                     .fontWeight(.semibold)
                     .foregroundColor(.secondary)
                     .padding(.top, 24)
@@ -205,7 +205,7 @@ struct FlashcardView: View {
                         Spacer()
                         
                         Text(card.front)
-                            .font(.title)
+                            .font(.jost(.title()))
                             .fontWeight(.bold)
                             .foregroundColor(.primary)
                             .lineLimit(nil)
@@ -276,7 +276,7 @@ struct FlashcardView: View {
     private func confidenceButton(level: ConfidenceLevel, title: String, color: Color) -> some View {
         Button(action: { markConfidence(level) }) {
             Text(title)
-                .font(.subheadline)
+                .font(.jost(.subheadline()))
                 .fontWeight(.medium)
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
@@ -294,9 +294,9 @@ struct FlashcardView: View {
 
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.caption2)
+                .font(.jost(.caption2()))
             Text(text)
-                .font(.caption2)
+                .font(.jost(.caption2()))
                 .fontWeight(.medium)
         }
         .foregroundColor(.white)

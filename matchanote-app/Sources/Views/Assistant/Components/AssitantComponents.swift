@@ -12,8 +12,7 @@ struct UserMessageView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     Text("User")
-                        .font(.caption)
-                        .fontWeight(.medium)
+                        .font(.jost(.caption()))
                         .foregroundColor(.secondary)
                     Spacer()
                 }
@@ -21,7 +20,7 @@ struct UserMessageView: View {
                 .padding(.top, 12)
                 
                 Text(message.content)
-                    .font(.system(size: 15))
+                    .font(.jost(.body()))
                     .foregroundColor(.primary)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
@@ -29,7 +28,7 @@ struct UserMessageView: View {
                 if !message.model.isEmpty {
                     HStack {
                         Text(message.model)
-                            .font(.caption2)
+                            .font(.jost(.caption2()))
                             .foregroundColor(.secondary)
                         Spacer()
                     }
@@ -66,14 +65,14 @@ struct AssistantMessageView: View {
         VStack(alignment: .leading, spacing: 8) {
             // Plain text response underneath user message with basic formatting support
             FormattedTextView(text: message.content)
-                .font(.system(size: 15))
+                .font(.jost(.body()))
                 .foregroundColor(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
             
             HStack {
                 if !message.model.isEmpty {
                     Text(message.model)
-                        .font(.caption2)
+                        .font(.jost(.caption2()))
                         .foregroundColor(.secondary)
                 }
                 
@@ -85,9 +84,9 @@ struct AssistantMessageView: View {
                 }) {
                     HStack(spacing: 4) {
                         Image(systemName: showingCopyConfirmation ? "checkmark" : "doc.on.doc")
-                            .font(.caption2)
+                            .font(.jost(.caption2()))
                         Text(showingCopyConfirmation ? "Copied!" : "Copy")
-                            .font(.caption2)
+                            .font(.jost(.caption2()))
                     }
                     .foregroundColor(.blue)
                     .padding(.horizontal, 8)
@@ -131,13 +130,13 @@ struct DraggableTextBlockView: View {
         HStack(alignment: .top, spacing: 8) {
             // Drag indicator icon
             Image(systemName: "hand.draw")
-                .font(.caption)
+                .font(.jost(.caption()))
                 .foregroundColor(.blue.opacity(0.7))
                 .padding(.top, 4)
 
             // Content text (plain, no markdown rendering)
             Text(stripMarkdown(content))
-                .font(.system(size: 15))
+                .font(.jost(.body()))
                 .foregroundColor(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
@@ -210,7 +209,7 @@ struct FormattedTextView: View {
                 case .listItem(let content, let isNumbered, let number):
                     HStack(alignment: .top, spacing: 8) {
                         Text(isNumbered ? "\(number)." : "•")
-                            .font(.system(size: 15))
+                            .font(.jost(.body()))
                             .foregroundColor(.primary)
                             .frame(width: 20, alignment: .leading)
 
@@ -251,11 +250,11 @@ struct FormattedTextView: View {
         
         if isHeading {
             return result
-                .font(.system(size: 17, weight: .semibold))
+                .font(.jost(.headline()))
                 .foregroundColor(.primary)
         } else {
             return result
-                .font(.system(size: 15))
+                .font(.jost(.body()))
                 .foregroundColor(.primary)
         }
     }

@@ -589,10 +589,9 @@ struct AIAssistantView: View {
         }) {
             HStack(spacing: 5) {
                 Image(systemName: state.currentMode == .study ? "brain.head.profile" : "bubble.left.and.bubble.right")
-                    .font(.caption)
+                    .font(.jost(.caption()))
                 Text(state.currentMode == .study ? "Study" : "Chat")
-                    .font(.caption)
-                    .fontWeight(.medium)
+                    .font(.jost(.caption()))
             }
             .foregroundStyle(LinearGradient.premiumGradient)
             .padding(.horizontal, 10)
@@ -728,7 +727,7 @@ struct AIAssistantView: View {
                         ProgressView()
                             .scaleEffect(0.8)
                         Text("Thinking...")
-                            .font(.caption)
+                            .font(.jost(.caption()))
                             .foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -737,14 +736,13 @@ struct AIAssistantView: View {
                 if let error = state.errorMessage {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Error")
-                            .font(.caption)
-                            .fontWeight(.medium)
+                            .font(.jost(.caption()))
                             .foregroundColor(.red)
                             .padding(.horizontal, 16)
                             .padding(.top, 12)
                         
                         Text(error)
-                            .font(.system(.body, design: .default))
+                            .font(.jost(.body()))
                             .foregroundColor(.red)
                             .padding(.horizontal, 16)
                             .padding(.bottom, 12)
@@ -821,7 +819,7 @@ struct AIAssistantView: View {
                 } label: {
                     Image(systemName: "plus")
                         .foregroundColor(.gray)
-                        .font(.caption)
+                        .font(.jost(.caption()))
                         .padding(6)
                         .background(Color.gray.opacity(0.1))
                         .clipShape(Circle())
@@ -847,9 +845,9 @@ struct AIAssistantView: View {
                                     } else if case .file(let name) = item.type {
                                         HStack(spacing: 2) {
                                             Image(systemName: "doc")
-                                                .font(.caption2)
+                                                .font(.jost(.caption2()))
                                             Text(name)
-                                                .font(.caption2)
+                                                .font(.jost(.caption2()))
                                                 .lineLimit(1)
                                         }
                                         .padding(4)
@@ -1026,13 +1024,13 @@ struct AIAssistantView: View {
                         ForEach(state.availableModels, id: \.self) { model in
                             Button(action: { state.selectedModel = model }) {
                                 ModelNameLabel(name: model)
-                                    .font(.caption)
+                                    .font(.jost(.caption()))
                             }
                         }
                     } label: {
                         HStack(spacing: 4) {
                             ModelNameLabel(name: state.selectedModel)
-                                .font(.caption)
+                                .font(.jost(.caption()))
                             Image(systemName: "chevron.down")
                                 .font(.caption2)
                                 .foregroundColor(.gray)
@@ -1057,7 +1055,7 @@ struct AIAssistantView: View {
                                 (state.userInput.isEmpty && state.tempMediaItems.isEmpty) || state.isLoading
                                 ? .gray : .matchadark_light
                             )
-                            .font(.title2)
+                            .font(.jost(.title2()))
                     }
                     .disabled((state.userInput.isEmpty && state.tempMediaItems.isEmpty) || state.isLoading)
                 }

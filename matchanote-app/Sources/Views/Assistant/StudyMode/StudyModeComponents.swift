@@ -33,10 +33,9 @@ struct StudySubModeToggle: View {
     private var quizContent: some View {
         HStack(spacing: 4) {
             Image(systemName: "questionmark.circle.fill")
-                .font(.caption2)
+                .font(.jost(.caption2()))
             Text("Quiz")
-                .font(.caption)
-                .fontWeight(.semibold)
+                .font(.jost(.caption()))
         }
         .foregroundColor(selectedMode == .quiz ? .white : .secondary)
         .frame(maxWidth: .infinity, minHeight: 28)
@@ -73,10 +72,9 @@ struct StudySubModeToggle: View {
     private var flashcardsContent: some View {
         HStack(spacing: 4) {
             Image(systemName: "rectangle.stack.fill")
-                .font(.caption2)
+                .font(.jost(.caption2()))
             Text("Flashcards")
-                .font(.caption)
-                .fontWeight(.semibold)
+                .font(.jost(.caption()))
         }
         .foregroundColor(selectedMode == .flashcards ? .white : .secondary)
         .frame(maxWidth: .infinity, minHeight: 28)
@@ -262,10 +260,10 @@ struct ProgressIndicator: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "chart.bar.fill")
-                .font(.caption)
+                .font(.jost(.caption()))
                 .foregroundColor(.gray)
             Text("\(current)/\(total)")
-                .font(.caption)
+                .font(.jost(.caption()))
                 .fontWeight(.medium)
                 .foregroundColor(.gray)
         }
@@ -287,7 +285,7 @@ struct IconOnlyButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.body)
+                .font(.jost(.body()))
                 .foregroundColor(color)
                 .frame(width: 32, height: 32)
                 .background(
@@ -310,10 +308,9 @@ struct StudyActionButton: View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.caption)
+                    .font(.jost(.caption()))
                 Text(title)
-                    .font(.caption)
-                    .fontWeight(.medium)
+                    .font(.jost(.caption()))
                     .lineLimit(1)
             }
             .foregroundColor(color)
@@ -345,11 +342,11 @@ struct StudyEmptyState: View {
 
             VStack(spacing: 8) {
                 Text(title)
-                    .font(.headline)
+                    .font(.jost(.headline()))
                     .foregroundColor(.primary)
 
                 Text(message)
-                    .font(.subheadline)
+                    .font(.jost(.subheadline()))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
@@ -358,8 +355,7 @@ struct StudyEmptyState: View {
             if let actionTitle = actionTitle, let action = action {
                 Button(action: action) {
                     Text(actionTitle)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+                        .font(.jost(.subheadline()))
                         .foregroundColor(.white)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
@@ -390,7 +386,7 @@ struct StudyLoadingView: View {
                 .scaleEffect(1.2)
 
             Text(message)
-                .font(.subheadline)
+                .font(.jost(.subheadline()))
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -410,9 +406,9 @@ struct FeedbackBadge: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: isCorrect ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .font(.caption)
+                .font(.jost(.caption()))
             Text(isCorrect ? "Correct" : "Incorrect")
-                .font(.caption)
+                .font(.jost(.caption()))
                 .fontWeight(.medium)
         }
         .foregroundColor(.white)

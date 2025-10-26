@@ -46,11 +46,11 @@ struct QuizView: View {
                             // Question text
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Question \(currentQuestionIndex + 1)")
-                                    .font(.caption)
+                                    .font(.jost(.caption()))
                                     .foregroundColor(.secondary)
 
                                 Text(question.question)
-                                    .font(.title3)
+                                    .font(.jost(.title3()))
                                     .fontWeight(.semibold)
                                     .foregroundColor(.primary)
                                     .lineLimit(nil)
@@ -113,16 +113,16 @@ struct QuizView: View {
                                 VStack(alignment: .leading, spacing: 8) {
                                     HStack {
                                         Image(systemName: "lightbulb.fill")
-                                            .font(.caption)
+                                            .font(.jost(.caption()))
                                             .foregroundColor(.yellow)
                                         Text("Explanation")
-                                            .font(.caption)
+                                            .font(.jost(.caption()))
                                             .fontWeight(.semibold)
                                             .foregroundColor(.secondary)
                                     }
 
                                     Text(explanation)
-                                        .font(.subheadline)
+                                        .font(.jost(.subheadline()))
                                         .foregroundColor(.primary)
                                         .lineLimit(nil)
                                         .fixedSize(horizontal: false, vertical: true)
@@ -172,7 +172,7 @@ struct QuizView: View {
                 HStack(spacing: 12) {
                     Button(action: previousQuestion) {
                         Image(systemName: "chevron.left")
-                            .font(.caption)
+                            .font(.jost(.caption()))
                             .foregroundColor(currentQuestionIndex > 0 ? .matchadark_light : .gray)
                             .frame(width: 30, height: 30)
                             .background(
@@ -187,7 +187,7 @@ struct QuizView: View {
 
                     Button(action: nextQuestion) {
                         Image(systemName: "chevron.right")
-                            .font(.caption)
+                            .font(.jost(.caption()))
                             .foregroundColor(.white)
                             .frame(width: 30, height: 30)
                             .background(
@@ -220,7 +220,7 @@ struct QuizView: View {
         Button(action: { selectAnswer(option) }) {
             HStack(alignment: .top, spacing: 12) {
                 Text(option)
-                    .font(.subheadline)
+                    .font(.jost(.subheadline()))
                     .foregroundColor(.primary)
                     .lineLimit(nil)
                     .fixedSize(horizontal: false, vertical: true)
@@ -230,7 +230,7 @@ struct QuizView: View {
                 if showFeedback && isSelected {
                     Image(systemName: isCorrect ? "checkmark.circle.fill" : "xmark.circle.fill")
                         .foregroundColor(isCorrect ? .green : .red)
-                        .font(.body)
+                        .font(.jost(.body()))
                 }
             }
             .padding()
@@ -314,13 +314,13 @@ struct QuizView: View {
     private func fillInBlankInput(for question: QuizQuestion) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Your Answer")
-                .font(.caption)
+                .font(.jost(.caption()))
                 .foregroundColor(.secondary)
             
             HStack(spacing: 12) {
                 TextField("Type your answer...", text: $fillInBlankText)
                     .textFieldStyle(.plain)
-                    .font(.body)
+                      .font(.jost(.callout(14)))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(
@@ -349,7 +349,7 @@ struct QuizView: View {
                 if !showingExplanation {
                     Button(action: submitFillInBlank) {
                         Text("Submit")
-                            .font(.subheadline)
+                            .font(.jost(.subheadline()))
                             .fontWeight(.semibold)
                             .foregroundColor(.white)
                             .padding(.horizontal, 20)
@@ -384,17 +384,17 @@ struct QuizView: View {
                 HStack(spacing: 8) {
                     Image(systemName: isCorrect ? "checkmark.circle.fill" : "xmark.circle.fill")
                         .foregroundColor(isCorrect ? .green : .red)
-                        .font(.title3)
+                        .font(.jost(.title3()))
                     
                     VStack(alignment: .leading, spacing: 4) {
                         Text(isCorrect ? "Correct!" : "Incorrect")
-                            .font(.subheadline)
+                            .font(.jost(.subheadline()))
                             .fontWeight(.semibold)
                             .foregroundColor(isCorrect ? .green : .red)
                         
                         if !isCorrect {
                             Text("Correct answer: \(question.correctAnswer)")
-                                .font(.caption)
+                                .font(.jost(.caption()))
                                 .foregroundColor(.secondary)
                         }
                     }
