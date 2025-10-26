@@ -119,7 +119,7 @@ struct LlmAPI {
     if let customPrompt = customPrompt {
       return SystemPrompt.getPrompt(for: customPrompt)
     }
-    return SystemPrompt.getPrompt(for: PromptConfiguration.shouldUseConcisePrompt(for: model) ? .concise : .general)
+    return SystemPrompt.getPrompt(for: .general)
   }
 
   /// Send message using the load balancer (for Matcha Assistant)
@@ -137,17 +137,20 @@ struct LlmAPI {
 
     print("🔧 Load Balancer: Using \(selectedModel.name)")
 
+    // Always use concise prompt for Matcha Assistant
+    let matchaSystemPrompt = systemPrompt ?? .concise
+
     do {
       // Try the selected model
       switch selectedModel.provider {
       case .openRouter:
-        return try await sendOpenRouterMessage(userMessage: userMessage, model: selectedModel.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: systemPrompt)
+        return try await sendOpenRouterMessage(userMessage: userMessage, model: selectedModel.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: matchaSystemPrompt)
       case .google:
-        return try await sendGoogleMessage(userMessage: userMessage, model: selectedModel.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: systemPrompt)
+        return try await sendGoogleMessage(userMessage: userMessage, model: selectedModel.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: matchaSystemPrompt)
       case .mistral:
-        return try await sendMistralMessage(userMessage: userMessage, model: selectedModel.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: systemPrompt)
+        return try await sendMistralMessage(userMessage: userMessage, model: selectedModel.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: matchaSystemPrompt)
       case .groq:
-        return try await sendGroqMessage(userMessage: userMessage, model: selectedModel.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: systemPrompt)
+        return try await sendGroqMessage(userMessage: userMessage, model: selectedModel.modelId, mediaItems: mediaItems, conversationHistory: conversationHistory, systemPrompt: matchaSystemPrompt)
       default:
         throw LlmError.invalidResponse
       }
@@ -166,7 +169,7 @@ struct LlmAPI {
         conversationHistory: conversationHistory,
         originalError: error,
         excludeModels: [selectedModel.modelId],
-        systemPrompt: systemPrompt
+        systemPrompt: matchaSystemPrompt
       )
     }
   }

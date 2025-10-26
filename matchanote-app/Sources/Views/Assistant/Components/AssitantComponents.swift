@@ -20,7 +20,7 @@ struct UserMessageView: View {
                 .padding(.top, 12)
                 
                 Text(message.content)
-                    .font(.jost(.body()))
+                    .font(.jost(.callout(14)))
                     .foregroundColor(.primary)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
@@ -65,7 +65,7 @@ struct AssistantMessageView: View {
         VStack(alignment: .leading, spacing: 8) {
             // Plain text response underneath user message with basic formatting support
             FormattedTextView(text: message.content)
-                .font(.jost(.body()))
+                .font(.jost(.callout(14)))
                 .foregroundColor(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
             
@@ -254,7 +254,7 @@ struct FormattedTextView: View {
                 .foregroundColor(.primary)
         } else {
             return result
-                .font(.jost(.body()))
+                .font(.jost(.callout(14)))
                 .foregroundColor(.primary)
         }
     }

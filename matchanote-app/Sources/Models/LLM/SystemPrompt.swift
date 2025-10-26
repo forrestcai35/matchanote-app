@@ -225,23 +225,12 @@ enum PromptUseCase {
 
 /// Configuration for prompt management
 struct PromptConfiguration {
-    /// Whether to use the concise prompt for models with token limits
-    static let useConciseForTokenLimitedModels = true
-    
-    /// Models that should use the concise prompt (includes Matcha Assistant and its fallback models)
-    static let tokenLimitedModels = [
-        "google/gemini-2.0-flash-exp:free",  // Matcha Assistant primary model
-        "mistral-7b-instruct",                // Matcha Assistant fallback
-        "llama-3.3-70b-versatile",            // Groq fallback
-        "llama-3.1-70b-versatile",            // Groq fallback
-        "llama-3.2-11b-vision-preview",       // Groq fallback (with vision)
-        "mixtral-8x7b-32768"                  // Groq fallback
-    ]
-    
-    /// Check if a model should use the concise prompt (with identity protection)
+    /// Check if a model should use the concise prompt
     /// - Parameter modelId: The model identifier
     /// - Returns: True if the model should use the concise prompt
     static func shouldUseConcisePrompt(for modelId: String) -> Bool {
-        return useConciseForTokenLimitedModels && tokenLimitedModels.contains(modelId)
+        // This function is kept for backward compatibility but is no longer used
+        // Matcha Assistant now uses concise prompt via sendWithLoadBalancer
+        return false
     }
 }

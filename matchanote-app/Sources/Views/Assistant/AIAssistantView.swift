@@ -929,7 +929,7 @@ struct AIAssistantView: View {
                         }
                     }
                 )
-                    .font(.system(size: 16))
+                    .font(.jost(.callout(14)))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .padding(.trailing, 40)
