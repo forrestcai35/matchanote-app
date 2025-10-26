@@ -21,12 +21,14 @@ struct StorageNote: Codable {
   var paperSize: String
   var drawingDataByPage: [String: Data]
   var imageDataByPage: [String: [Data]]
+  var textBoxDataByPage: [String: [Data]]
   var bookmarkedPages: Set<Int>
+  var currentPage: Int
 
   private enum CodingKeys: String, CodingKey {
     case id, title, subject, colorString, dateCreated, dateModified, lastOpenedAt
     case isFavorite, content, noteType, paperColor, paperStyle, paperSize
-    case drawingDataByPage, imageDataByPage, bookmarkedPages
+    case drawingDataByPage, imageDataByPage, textBoxDataByPage, bookmarkedPages, currentPage
   }
 
   init(from decoder: Decoder) throws {
@@ -50,10 +52,17 @@ struct StorageNote: Codable {
     // Handle backwards compatibility - default to empty dict if imageDataByPage doesn't exist
     imageDataByPage =
       try container.decodeIfPresent([String: [Data]].self, forKey: .imageDataByPage) ?? [:]
+    
+    // Handle backwards compatibility - default to empty dict if textBoxDataByPage doesn't exist
+    textBoxDataByPage =
+      try container.decodeIfPresent([String: [Data]].self, forKey: .textBoxDataByPage) ?? [:]
 
     // Handle backwards compatibility - default to empty set if bookmarkedPages doesn't exist
     bookmarkedPages =
       try container.decodeIfPresent(Set<Int>.self, forKey: .bookmarkedPages) ?? Set<Int>()
+    
+    // Handle backwards compatibility - default to 0 if currentPage doesn't exist
+    currentPage = try container.decodeIfPresent(Int.self, forKey: .currentPage) ?? 0
   }
 
   init(from note: Note) {
@@ -72,7 +81,9 @@ struct StorageNote: Codable {
     self.paperSize = note.paperSize.rawValue
     self.drawingDataByPage = note.drawingDataByPage
     self.imageDataByPage = note.imageDataByPage
+    self.textBoxDataByPage = note.textBoxDataByPage
     self.bookmarkedPages = note.bookmarkedPages
+    self.currentPage = note.currentPage
   }
 
   func toNote() -> Note {
@@ -91,7 +102,9 @@ struct StorageNote: Codable {
       paperSize: PaperSize(rawValue: paperSize) ?? .a4,
       drawingDataByPage: drawingDataByPage,
       imageDataByPage: imageDataByPage,
-      bookmarkedPages: bookmarkedPages
+      textBoxDataByPage: textBoxDataByPage,
+      bookmarkedPages: bookmarkedPages,
+      currentPage: currentPage
     )
     note.id = id
     return note
