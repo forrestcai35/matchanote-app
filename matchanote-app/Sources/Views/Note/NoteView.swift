@@ -371,6 +371,7 @@ struct NoteView: View {
             }
           }
         }
+        .ignoresSafeArea(.all, edges: noteEditorStatusBarHidden ? .top : [])
 
 
         // Hover indicator overlay

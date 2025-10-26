@@ -84,6 +84,7 @@ class PreferencesManager: ObservableObject {
         static let noteEditorToolTextbox = "preferences.noteEditor.tools.textbox"
         static let noteEditorToolShape = "preferences.noteEditor.tools.shape"
         static let noteEditorVerticalScrollMode = "preferences.noteEditor.verticalScrollMode"
+        static let noteEditorPageBoundaryIndicators = "preferences.noteEditor.pageBoundaryIndicators"
     }
     
     // MARK: - Published Properties
@@ -197,6 +198,12 @@ class PreferencesManager: ObservableObject {
             userDefaults.set(noteEditorVerticalScrollMode, forKey: DefaultsKeys.noteEditorVerticalScrollMode)
         }
     }
+    
+    @Published var noteEditorPageBoundaryIndicators: Bool {
+        didSet {
+            userDefaults.set(noteEditorPageBoundaryIndicators, forKey: DefaultsKeys.noteEditorPageBoundaryIndicators)
+        }
+    }
 
     
     private init() {
@@ -242,6 +249,9 @@ class PreferencesManager: ObservableObject {
         
         // Load vertical scroll mode preference or default to false (page mode)
         self.noteEditorVerticalScrollMode = userDefaults.object(forKey: DefaultsKeys.noteEditorVerticalScrollMode) as? Bool ?? false
+        
+        // Load page boundary indicators preference or default to true (enabled)
+        self.noteEditorPageBoundaryIndicators = userDefaults.object(forKey: DefaultsKeys.noteEditorPageBoundaryIndicators) as? Bool ?? true
         
         // Load enabled models with dynamic model management
         if let savedModels = userDefaults.array(forKey: DefaultsKeys.enabledModels) as? [String] {

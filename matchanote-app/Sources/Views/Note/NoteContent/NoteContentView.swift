@@ -358,7 +358,7 @@ struct WrittenNoteView: View {
                     }
                     
                     // Page boundary indicators when zoomed in
-                    if relativeZoomLevel > 1.5 {
+                    if relativeZoomLevel > 1.5 && preferencesManager.noteEditorPageBoundaryIndicators {
                         GeometryReader { indicatorGeometry in
                             pageBoundaryIndicators(
                                 contentSize: contentSize,

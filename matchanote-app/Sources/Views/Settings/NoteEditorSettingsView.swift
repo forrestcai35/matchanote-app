@@ -103,6 +103,24 @@ struct NoteEditorSettingsView: View {
                     }
                     .padding(.vertical, 4)
                     
+                    HStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Page boundary indicators")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            Text("Show blue shadows at page edges when zoomed in")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Toggle("", isOn: $preferencesManager.noteEditorPageBoundaryIndicators)
+                            .labelsHidden()
+                            .controlSize(.small)
+                            .tint(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+                            .scaleEffect(0.9)
+                    }
+                    .padding(.vertical, 4)
+                    
                    
       
                 } header: {

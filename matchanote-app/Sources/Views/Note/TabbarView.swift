@@ -241,7 +241,7 @@ struct TabBarView: View {
     .frame(height: 40)
     .frame(maxWidth: .infinity, alignment: .center)
     .background(
-      colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light
+      colorScheme == .dark ? Color.tabbar_background_dark : Color.tabbar_background_light
     )
   }
 
@@ -330,12 +330,12 @@ struct TabItemView: View {
 
       }
       .padding(.horizontal, 8)
-      .frame(height: tab.isActive ? 34 : 32)
+      .frame(height: 34)
       .frame(minWidth: tab.isActive ? 160 : 155)
       .background(
         tab.isActive
-          ? colorScheme == .dark ? Color.gray.opacity(0.3) : Color.white
-          : colorScheme == .dark ? Color.gray.opacity(0.15) : Color.gray.opacity(0.2)
+          ? colorScheme == .dark ? Color.toolbar_background_dark : Color.toolbar_background_light
+          : colorScheme == .dark ? Color.tab_inactive_dark : Color.tab_inactive_light
       )
       .clipShape(
         tab.isActive

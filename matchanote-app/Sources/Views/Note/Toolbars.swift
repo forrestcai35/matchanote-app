@@ -404,7 +404,7 @@ struct WrittenNoteToolbar: View {
     .padding(.vertical, 8)
     .frame(height: 40)
     .buttonStyle(PlainButtonStyle())
-    .background(colorScheme == .dark ? Color.gray.opacity(0.3) : Color.white)
+    .background(colorScheme == .dark ? Color.toolbar_background_dark : Color.toolbar_background_light)
     .foregroundColor(colorScheme == .dark ? Color.white.opacity(0.8) : Color.black.opacity(0.8))
     .clipped()
     .onAppear {

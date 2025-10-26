@@ -17,7 +17,16 @@ extension Color {
     static let matchabackground_dark = Color(red: 0.089, green: 0.091, blue: 0.082) // #191817
     static let matchabackground_light = Color(red: 0.9725, green: 0.9725, blue: 0.9725) // #f2f2f2
 
-    
+    // Toolbar Colors (solid colors to avoid opacity blending issues)
+    static let toolbar_background_dark = Color(red: 0.3, green: 0.3, blue: 0.3) // Solid gray
+    static let toolbar_background_light = Color.white
+
+    // Tab Colors
+    static let tab_inactive_dark = Color(red: 0.15, green: 0.15, blue: 0.15) // Darker solid gray for inactive tabs
+    static let tab_inactive_light = Color(red: 0.7, green: 0.7, blue: 0.7) // Light gray for inactive tabs
+    static let tabbar_background_dark = Color(red: 0.089, green: 0.091, blue: 0.082) // Same as matchabackground_dark
+    static let tabbar_background_light = Color(red: 0.8725, green: 0.8725, blue: 0.8725) // Same as matchabackground_light
+
     // Paper Colors
     static let paper_offwhite =  Color(red: 0.98, green: 0.96, blue: 0.9) //
     static let paper_dark = Color(red: 0.15, green: 0.15, blue: 0.15) // #3b3d38
