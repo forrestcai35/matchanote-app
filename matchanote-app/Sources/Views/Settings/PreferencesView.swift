@@ -52,6 +52,7 @@ struct PreferencesView: View {
                                 )
                             }
                         }
+                        .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(.vertical, 4)
                 } header: {

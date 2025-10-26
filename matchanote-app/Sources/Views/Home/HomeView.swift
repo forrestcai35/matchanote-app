@@ -90,12 +90,12 @@ struct HomeView: View {
     
     // Dynamic grid spacing based on screen size
     var gridSpacing: CGFloat {
-        return isCompactWidth ? 12 : 20
+        return isCompactWidth ? 12 : 24
     }
-    
+
     // Dynamic grid item spacing based on screen size
     var gridItemSpacing: CGFloat {
-        return isCompactWidth ? 12 : 20
+        return isCompactWidth ? 12 : 24
     }
     
     // Dynamic minimum grid item size based on screen size

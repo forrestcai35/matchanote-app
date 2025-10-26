@@ -109,7 +109,7 @@ enum AppFont {
     var font: Font {
         switch self {
         case .largeTitle(let size):
-            return jostFont(.heavy, size ?? 34)
+            return jostFont(.bold, size ?? 34)
         case .title(let size):
             return jostFont(.bold, size ?? 28)
         case .title2(let size):

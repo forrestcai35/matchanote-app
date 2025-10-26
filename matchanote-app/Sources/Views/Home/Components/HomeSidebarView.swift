@@ -29,9 +29,13 @@ struct HomeSidebarView: View {
             // Header with logo and settings - stays fixed at top
             HStack(spacing: isCompactWidth ? 4 : 8) {
 
-
+                Image("logo_small")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 24, height: 24)
+                    
                 Text("Matcha")
-                    .font(.geosans(isCompactWidth ? .title3() : .title()))
+                    .font(.geosans(isCompactWidth ? .title3(26) : .title(18)))
                     .foregroundColor(
                         colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
  
