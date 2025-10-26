@@ -183,7 +183,6 @@ struct HomeView: View {
                             bottomTabBar
                         }
                     }
-                    .ignoresSafeArea(.keyboard)
                     .onAppear {
                         screenSize = geometry.size
                     }
@@ -227,7 +226,6 @@ struct HomeView: View {
                                 .zIndex(2)
                         }
                     }
-                    .ignoresSafeArea(.keyboard)
                     .onAppear {
                         screenSize = geometry.size
                         isSidebarVisible = false
@@ -256,7 +254,6 @@ struct HomeView: View {
                         contentViewWithHeader
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
-                    .ignoresSafeArea(.keyboard)
                     .onAppear {
                         screenSize = geometry.size
                         isSidebarVisible = true

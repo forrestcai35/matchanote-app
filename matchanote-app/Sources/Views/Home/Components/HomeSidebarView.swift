@@ -189,7 +189,7 @@ struct HomeSidebarView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 8)
                 .stroke(
-                    colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light,
+                    subject.color,
                     lineWidth: 2
                 )
         )
