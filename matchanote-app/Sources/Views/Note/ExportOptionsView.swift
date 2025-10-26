@@ -18,7 +18,7 @@ struct ExportOptionsView: View {
                 // Export Type Selection
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Export Format")
-                        .font(.headline)
+                        .font(.jost(.headline()))
                         .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                         .padding(.horizontal)
                         .padding(.top, 20)
@@ -28,7 +28,7 @@ struct ExportOptionsView: View {
                             Image(systemName: exportType.icon)
                                 .frame(width: 24)
                             Text(exportType.rawValue)
-                                .font(.body)
+                                .font(.jost(.body()))
                             Spacer()
                             if selectedExportType == exportType {
                                 Image(systemName: "checkmark.circle.fill")
@@ -64,7 +64,7 @@ struct ExportOptionsView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Text("Select Pages")
-                            .font(.headline)
+                            .font(.jost(.headline()))
                             .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                         Spacer()
                         Toggle("All Pages", isOn: $selectAllPages)
@@ -126,7 +126,7 @@ struct ExportOptionsView: View {
                             Image(systemName: "square.and.arrow.up")
                             Text("Export \(selectAllPages ? "All" : "\(selectedPages.count)") Page\(selectedPages.count == 1 ? "" : "s")")
                         }
-                        .font(.headline)
+                        .font(.jost(.headline()))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -210,7 +210,7 @@ struct PageSelectButton: View {
                 )
                 
                 Text("Page \(pageNumber)")
-                    .font(.caption)
+                    .font(.jost(.caption()))
                     .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
             }
         }

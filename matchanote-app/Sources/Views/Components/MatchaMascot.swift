@@ -92,14 +92,13 @@ struct MatchaMascot: View {
             if showDescription {
                 VStack(spacing: 4) {
                     Text(emotion.displayName)
-                        .font(.headline)
-                        .fontWeight(.semibold)
+                        .font(.jost(.headline()))
                         .foregroundColor(
                             colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
                         )
                     
                     Text(emotion.description)
-                        .font(.caption)
+                        .font(.jost(.caption()))
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                 }
@@ -147,8 +146,7 @@ struct MatchaMascotWithContext: View {
             // Content
             VStack(spacing: 12) {
                 Text(title)
-                    .font(.title2)
-                    .fontWeight(.semibold)
+                    .font(.jost(.title2()))
                     .foregroundColor(
                         colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
                     )
@@ -156,7 +154,7 @@ struct MatchaMascotWithContext: View {
                 
                 if let subtitle = subtitle {
                     Text(subtitle)
-                        .font(.body)
+                        .font(.jost(.body()))
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                 }
@@ -168,7 +166,7 @@ struct MatchaMascotWithContext: View {
                             Image(systemName: "plus")
                             Text(actionTitle)
                         }
-                        .font(.headline)
+                                .font(.jost(.headline()))
                         .foregroundColor(.white)
                         .padding(.horizontal, 24)
                         .padding(.vertical, 12)

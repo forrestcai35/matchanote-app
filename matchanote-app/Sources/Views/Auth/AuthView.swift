@@ -8,7 +8,7 @@ struct AuthView: View {
       if authManager.isLoggedIn {
         HomeView()
       } else if !authManager.showSignIn {
-        OnboardingView()
+        SignUpView()
           .environmentObject(authManager)
       } else {
         SignInView()

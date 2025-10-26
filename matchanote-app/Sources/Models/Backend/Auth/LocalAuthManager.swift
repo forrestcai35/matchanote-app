@@ -42,8 +42,8 @@ class LocalAuthManager: ObservableObject {
     isFirstLaunch = false
   }
 
-  // Switch to onboarding view
-  func showOnboardingView() {
+  // Switch to signup view
+  func showSignUpView() {
     showSignIn = false
   }
   

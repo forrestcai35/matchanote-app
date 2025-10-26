@@ -65,8 +65,7 @@ extension HomeView {
                     }
                     
                     Text("New")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
+                        .font(.jost(.subheadline()))
                         .foregroundColor(.primary)
                 }
                 .padding(.vertical, 8)

@@ -428,8 +428,7 @@ struct HomeView: View {
                 }
                 
                 Text(currentViewTitle)
-                    .font(.system(isCompactWidth ? .title2 : .largeTitle, design: .serif))
-                    .bold()
+                    .font(.jost(isCompactWidth ? .title2() : .largeTitle()))
                     .foregroundStyle(
                         colorScheme == .dark
                             ? Color.matchabrown_dark : Color.matchabrown_light)
@@ -619,8 +618,7 @@ struct HomeView: View {
         HStack(spacing: 6) {
             // Selection count (compact)
             Text("\(selectedNotes.count + selectedFolders.count)")
-                .font(.caption2)
-                .fontWeight(.medium)
+                .font(.jost(.caption2()))
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 3)
@@ -675,7 +673,7 @@ struct HomeView: View {
             HStack(spacing: 8) {
                 // Selection count
                 Text("\(selectedNotes.count + selectedFolders.count) selected")
-                    .font(.caption)
+                    .font(.jost(.caption()))
                     .foregroundColor(.secondary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -692,8 +690,7 @@ struct HomeView: View {
                         Image(systemName: "folder")
                         Text("Move")
                     }
-                    .font(.caption)
-                    .fontWeight(.medium)
+                    .font(.jost(.caption()))
                     .foregroundColor(.primary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
@@ -718,8 +715,7 @@ struct HomeView: View {
                         }
                         Text(isDeleting ? "Deleting..." : "Delete")
                     }
-                    .font(.caption)
-                    .fontWeight(.medium)
+                    .font(.jost(.caption()))
                     .foregroundColor(.red)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
@@ -737,11 +733,11 @@ struct HomeView: View {
                 VStack(spacing: 4) {
                     HStack {
                         Text(deletionStatus)
-                            .font(.caption2)
+                            .font(.jost(.caption2()))
                             .foregroundColor(.secondary)
                         Spacer()
                         Text("\(Int(deletionProgress * 100))%")
-                            .font(.caption2)
+                            .font(.jost(.caption2()))
                             .foregroundColor(.secondary)
                     }
                     

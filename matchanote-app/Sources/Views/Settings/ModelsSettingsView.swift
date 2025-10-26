@@ -10,8 +10,8 @@ struct ModelsSettingsView: View {
             // Header
             HStack {
                 Text("Models")
-                    .font(.system(.largeTitle, design: .serif))
-                    .bold()
+                    .font(.jost(.largeTitle()))
+                    .fontWeight(.bold)
                     .foregroundStyle(
                         colorScheme == .dark
                             ? Color.matchabrown_dark : Color.matchabrown_light)
@@ -79,19 +79,19 @@ struct ModelsSettingsView: View {
                                 colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                             .font(.system(size: 14))
                         Text("Models")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
+                            .font(.jost(.subheadline()))
                             .foregroundColor(
                                 colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                     }
-                } footer: {
+            } footer: {
                     Text("Enable models to show them in AI dropdowns. Some models require a paid plan. At least one model must remain enabled.")
-                        .font(.caption2)
+                        .font(.jost(.caption2()))
                         .foregroundColor(.secondary)
                 }
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
+            .scrollIndicators(.hidden)
             // Always enable edit mode to show system drag handles
             .environment(\.editMode, .constant(.active))
         }

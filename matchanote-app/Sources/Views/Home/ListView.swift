@@ -95,7 +95,7 @@ public struct ListItemView: View {
                     .popover(isPresented: $showRenamePopover) {
                         VStack(spacing: 12) {
                             Text("Rename Note")
-                                .font(.headline)
+                                .font(.jost(.headline()))
 
                             TextField("Note name", text: $newTitle)
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
@@ -125,7 +125,7 @@ public struct ListItemView: View {
                     }
 
                     Text(note.dateModified, style: .date)
-                        .font(.caption)
+                        .font(.jost(.caption()))
                         .foregroundColor(.secondary)
                 }
 
@@ -231,7 +231,7 @@ public struct ListFolderItemView: View {
                         .popover(isPresented: $showRenamePopover) {
                             VStack(spacing: 12) {
                                 Text("Rename Folder")
-                                    .font(.headline)
+                                    .font(.jost(.headline()))
 
                                 TextField("Folder name", text: $newName)
                                     .textFieldStyle(RoundedBorderTextFieldStyle())
@@ -260,7 +260,7 @@ public struct ListFolderItemView: View {
                     }
 
                     Text(folder.dateModified, style: .date)
-                        .font(.caption)
+                        .font(.jost(.caption()))
                         .foregroundColor(.secondary)
                 }
 

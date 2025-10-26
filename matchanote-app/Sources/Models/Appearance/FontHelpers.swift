@@ -134,11 +134,71 @@ enum AppFont {
     }
 }
 
+// MARK: - Geosans Font Styles
+
+/// Semantic font styles using GeosansLight with default sizes
+enum GeosansFont {
+    /// Large title for main headings (default: 34pt)
+    case largeTitle(CGFloat? = nil)
+    /// Title for section headings (default: 28pt)
+    case title(CGFloat? = nil)
+    /// Title 2 for subsection headings (default: 22pt)
+    case title2(CGFloat? = nil)
+    /// Title 3 for smaller headings (default: 20pt)
+    case title3(CGFloat? = nil)
+    /// Headline for emphasized text (default: 17pt)
+    case headline(CGFloat? = nil)
+    /// Subheadline for secondary emphasized text (default: 15pt)
+    case subheadline(CGFloat? = nil)
+    /// Body text for primary content (default: 17pt)
+    case body(CGFloat? = nil)
+    /// Callout for highlighted content (default: 16pt)
+    case callout(CGFloat? = nil)
+    /// Footnote for supplementary text (default: 13pt)
+    case footnote(CGFloat? = nil)
+    /// Caption for labels and small text (default: 12pt)
+    case caption(CGFloat? = nil)
+    /// Caption 2 for smallest text (default: 11pt)
+    case caption2(CGFloat? = nil)
+
+    var font: Font {
+        switch self {
+        case .largeTitle(let size):
+            return geoSansFont(size ?? 34)
+        case .title(let size):
+            return geoSansFont(size ?? 28)
+        case .title2(let size):
+            return geoSansFont(size ?? 22)
+        case .title3(let size):
+            return geoSansFont(size ?? 20)
+        case .headline(let size):
+            return geoSansFont(size ?? 17)
+        case .subheadline(let size):
+            return geoSansFont(size ?? 15)
+        case .body(let size):
+            return geoSansFont(size ?? 17)
+        case .callout(let size):
+            return geoSansFont(size ?? 16)
+        case .footnote(let size):
+            return geoSansFont(size ?? 13)
+        case .caption(let size):
+            return geoSansFont(size ?? 12)
+        case .caption2(let size):
+            return geoSansFont(size ?? 11)
+        }
+    }
+}
+
 // MARK: - Font Extension for Convenience
 
 extension Font {
     /// Get a semantic Jost font style with optional custom size
     static func jost(_ style: AppFont) -> Font {
+        style.font
+    }
+
+    /// Get a semantic GeosansLight font style with optional custom size
+    static func geosans(_ style: GeosansFont) -> Font {
         style.font
     }
 }

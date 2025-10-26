@@ -10,8 +10,8 @@ struct PreferencesView: View {
             // Header
             HStack {
                 Text("Preferences")
-                    .font(.system(.largeTitle, design: .serif))
-                    .bold()
+                    .font(.jost(.largeTitle()))
+                    .fontWeight(.bold)
                     .foregroundStyle(
                         colorScheme == .dark
                             ? Color.matchabrown_dark : Color.matchabrown_light)
@@ -31,12 +31,11 @@ struct PreferencesView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Theme")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
+                                .font(.jost(.subheadline()))
                                 .foregroundColor(.primary)
                             
                             Text("Choose how Matcha looks")
-                                .font(.caption2)
+                                .font(.jost(.caption2()))
                                 .foregroundColor(.secondary)
                         }
                         
@@ -62,8 +61,7 @@ struct PreferencesView: View {
                                 colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                             .font(.system(size: 14))
                         Text("Appearance")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
+                            .font(.jost(.subheadline()))
                             .foregroundColor(
                                 colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                     }
@@ -74,12 +72,11 @@ struct PreferencesView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Default Orientation")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
+                                .font(.jost(.subheadline()))
                                 .foregroundColor(.primary)
                             
                             Text("Choose which side the assistant appears on")
-                                .font(.caption2)
+                                .font(.jost(.caption2()))
                                 .foregroundColor(.secondary)
                         }
                         
@@ -105,8 +102,7 @@ struct PreferencesView: View {
                                 colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                             .font(.system(size: 14))
                         Text("Assistant")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
+                            .font(.jost(.subheadline()))
                             .foregroundColor(
                                 colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                     }
@@ -121,12 +117,11 @@ struct PreferencesView: View {
                         
                         VStack(alignment: .leading, spacing: 1) {
                             Text("Cloud Sync")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
+                                .font(.jost(.subheadline()))
                                 .foregroundColor(.primary)
                             
                             Text("Sync your notes and folders to the cloud (Premium feature)")
-                                .font(.caption2)
+                                .font(.jost(.caption2()))
                                 .foregroundColor(.secondary)
                         }
                         
@@ -143,8 +138,7 @@ struct PreferencesView: View {
                                 colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                             .font(.system(size: 14))
                         Text("Storage")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
+                            .font(.jost(.subheadline()))
                             .foregroundColor(
                                 colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                     }

@@ -80,7 +80,9 @@ struct TabBarView: View {
             // Inline placement selector with segmented style
             Picker("", selection: $selectedPlacement) {
               ForEach(PagePlacement.allCases, id: \.self) { placement in
-                Text(placement.title).tag(placement)
+                Text(placement.title)
+                  .font(.jost(.caption()))
+                  .tag(placement)
               }
             }
             .labelsHidden()
@@ -95,6 +97,7 @@ struct TabBarView: View {
                 showAddPopover = false
               }) {
                 Label("Add Page", systemImage: "doc.badge.plus")
+                  .font(.jost(.body()))
               }
               .foregroundColor(
                 colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
@@ -104,6 +107,7 @@ struct TabBarView: View {
                 showAddPopover = false
               }) {
                 Label("Upload", systemImage: "square.and.arrow.up")
+                  .font(.jost(.body()))
               }
               .foregroundColor(
                 colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
@@ -133,6 +137,7 @@ struct TabBarView: View {
               showExportPopover = false
             }) {
               Label("Quick Export (PDF)", systemImage: "doc.fill")
+                .font(.jost(.body()))
             }
             .foregroundColor(
               colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
@@ -142,6 +147,7 @@ struct TabBarView: View {
               showExportPopover = false
             }) {
               Label("Export Options", systemImage: "slider.horizontal.3")
+                .font(.jost(.body()))
             }
             .foregroundColor(
               colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
@@ -152,6 +158,7 @@ struct TabBarView: View {
               showExportPopover = false
             }) {
               Label("Print this page", systemImage: "printer")
+                .font(.jost(.body()))
             }
             .foregroundColor(
               colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
@@ -161,6 +168,7 @@ struct TabBarView: View {
               showExportPopover = false
             }) {
               Label("Print all pages", systemImage: "printer.fill")
+                .font(.jost(.body()))
             }
             .foregroundColor(
               colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
@@ -195,6 +203,7 @@ struct TabBarView: View {
                     ? "rectangle.split.2x1" 
                     : "rectangle.portrait.split.2x1"
                 )
+                .font(.jost(.body()))
                 Spacer()
 
               }
@@ -210,6 +219,7 @@ struct TabBarView: View {
               showMorePopover = false
             }) {
               Label("Rotate Page", systemImage: "rotate.right")
+                .font(.jost(.body()))
             }
             .foregroundColor(
               colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
@@ -220,6 +230,7 @@ struct TabBarView: View {
               showMorePopover = false
             }) {
               Label("Clear Page", systemImage: "trash")
+                .font(.jost(.body()))
             }
             .foregroundColor(.red)
             Button(action: {
@@ -227,6 +238,7 @@ struct TabBarView: View {
               showMorePopover = false
             }) {
               Label("Delete Page", systemImage: "trash.fill")
+                .font(.jost(.body()))
             }
             .foregroundColor(.red)
           }
@@ -269,7 +281,7 @@ struct TabItemView: View {
           }) {
             HStack(spacing: 4) {
               Text(tab.note.title)
-                .font(.caption)
+                .font(.jost(.caption()))
                 .lineLimit(1)
                 .foregroundColor(
                   colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
@@ -283,7 +295,7 @@ struct TabItemView: View {
           .popover(isPresented: $showRenamePopover) {
             VStack(spacing: 12) {
               Text("Rename Note")
-                .font(.headline)
+                .font(.jost(.headline()))
               TextField("Note name", text: $newTitle)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .frame(width: 200)
@@ -291,6 +303,7 @@ struct TabItemView: View {
                 Button("Cancel") {
                   showRenamePopover = false
                 }
+                .font(.jost(.body()))
                 .foregroundColor(.red)
                 Spacer()
                 Button("Save") {
@@ -301,6 +314,7 @@ struct TabItemView: View {
                   TabManager.shared.updateNote(savedNote)
                   showRenamePopover = false
                 }
+                .font(.jost(.body()))
                 .disabled(newTitle.isEmpty)
               }
             }
@@ -309,7 +323,7 @@ struct TabItemView: View {
           }
         } else {
           Text(tab.note.title)
-            .font(.caption)
+            .font(.jost(.caption()))
             .lineLimit(1)
             .foregroundColor(
               colorScheme == .dark ? Color.matchabrown_dark.opacity(0.8) : Color.matchabrown_light.opacity(0.8))

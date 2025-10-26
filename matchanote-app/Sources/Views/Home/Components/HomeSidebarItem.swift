@@ -26,7 +26,7 @@ struct HomeSidebarItem: View {
                     .frame(width: 24)
 
                 Text(item.title)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.jost(.subheadline()))
                     .foregroundColor(
                         isSelected
                             ? (colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)

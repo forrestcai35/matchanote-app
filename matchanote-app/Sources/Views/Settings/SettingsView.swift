@@ -70,8 +70,8 @@ struct SettingsView: View {
             // Header
             HStack {
                 Text("Settings")
-                    .font(.system(.largeTitle, design: .serif))
-                    .bold()
+                    .font(.jost(.largeTitle()))
+                    .fontWeight(.bold)
                     .foregroundStyle(
                         colorScheme == .dark
                             ? Color.matchabrown_dark : Color.matchabrown_light)
@@ -236,12 +236,11 @@ struct SettingsItemView: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.title)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+                        .font(.jost(.subheadline()))
                         .foregroundColor(item.isDestructive ? .red : .primary)
                     
                     Text(item.subtitle)
-                        .font(.caption)
+                        .font(.jost(.caption()))
                         .foregroundColor(.secondary)
                 }
                 

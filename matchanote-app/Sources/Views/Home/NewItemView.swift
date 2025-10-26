@@ -35,8 +35,7 @@ struct NewWrittenNoteView: View {
             }
             
             Text("Create New Note")
-              .font(.title2)
-              .fontWeight(.semibold)
+              .font(.jost(.title2()))
               .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
           }
           .padding(.top, 12)
@@ -44,7 +43,7 @@ struct NewWrittenNoteView: View {
           // Title input
           VStack(alignment: .leading, spacing: 8) {
             Text("Note Title")
-              .font(.headline)
+              .font(.jost(.headline()))
               .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
             
             TextField("Enter note title", text: $title)
@@ -54,7 +53,7 @@ struct NewWrittenNoteView: View {
           // Paper style selection
           VStack(alignment: .leading, spacing: 12) {
             Text("Paper Style")
-              .font(.headline)
+              .font(.jost(.headline()))
               .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
             
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
@@ -74,7 +73,7 @@ struct NewWrittenNoteView: View {
             // Paper color
             VStack(alignment: .leading, spacing: 12) {
               Text("Paper Color")
-                .font(.headline)
+                .font(.jost(.headline()))
                 .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
 
               HStack(spacing: 12) {
@@ -92,7 +91,7 @@ struct NewWrittenNoteView: View {
             // Paper size
             VStack(alignment: .leading, spacing: 12) {
               Text("Paper Size")
-                .font(.headline)
+                .font(.jost(.headline()))
                 .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
 
               Menu {
@@ -134,8 +133,8 @@ struct NewWrittenNoteView: View {
             HStack {
               Image(systemName: "plus.circle.fill")
               Text("Create Note")
-                .fontWeight(.semibold)
             }
+            .font(.jost(.headline()))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
             .background(
@@ -242,8 +241,7 @@ struct PaperStyleCard: View {
         }
 
         Text(style.rawValue.capitalized)
-          .font(.caption)
-          .fontWeight(.medium)
+          .font(.jost(.caption()))
           .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
       }
     }
@@ -414,8 +412,7 @@ struct NewFolderView: View {
             }
             
             Text("Create New Folder")
-              .font(.title2)
-              .fontWeight(.semibold)
+              .font(.jost(.title2()))
               .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
           }
           .padding(.top, 20)
@@ -423,7 +420,7 @@ struct NewFolderView: View {
           // Folder name input
           VStack(alignment: .leading, spacing: 8) {
             Text("Folder Name")
-              .font(.headline)
+              .font(.jost(.headline()))
               .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
             
             TextField("Enter folder name", text: $name)
@@ -436,8 +433,8 @@ struct NewFolderView: View {
             HStack {
               Image(systemName: "folder.badge.plus")
               Text("Create Folder")
-                .fontWeight(.semibold)
             }
+            .font(.jost(.headline()))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
                   .background(

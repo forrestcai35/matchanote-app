@@ -28,17 +28,13 @@ struct HomeSidebarView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header with logo and settings - stays fixed at top
             HStack(spacing: isCompactWidth ? 4 : 8) {
-                Image("Logo")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: isCompactWidth ? 20 : 24)
+
 
                 Text("Matcha")
-                    .font(.system(isCompactWidth ? .title3 : .title, design: .serif))
-                    .fontWeight(.bold)
+                    .font(.geosans(isCompactWidth ? .title3() : .title()))
                     .foregroundColor(
                         colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
-
+ 
                 Spacer()
 
                 // Settings button in sidebar
@@ -107,7 +103,7 @@ struct HomeSidebarView: View {
             // Header with "Subject" label and plus button
             HStack {
                 Text("Subjects")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.jost(.caption2()))
                     .foregroundColor(.secondary)
                     .textCase(.uppercase)
                     .padding(.leading, 18)
@@ -157,7 +153,7 @@ struct HomeSidebarView: View {
                 .frame(width: 8, height: 8)
 
             TextField("Subject name", text: $editingSubjectName)
-                .font(.system(size: 14, weight: .medium))
+                .font(.jost(.callout()))
                 .textFieldStyle(PlainTextFieldStyle())
                 .focused($subjectNameFieldFocused)
                 .onAppear {
@@ -213,7 +209,7 @@ struct HomeSidebarView: View {
                     .frame(width: 8, height: 8)
 
                 Text(subject.name)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.jost(.callout()))
                     .foregroundColor(
                         selectedSubject == subject.name
                             ? (colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)

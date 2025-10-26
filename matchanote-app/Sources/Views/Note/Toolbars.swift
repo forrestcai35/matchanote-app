@@ -594,10 +594,10 @@ struct WrittenNoteToolbar: View {
                   VStack(spacing: 12) {
                     HStack(spacing: 6) {
                       Image(systemName: "scribble.variable")
-                        .font(.caption)
+                        .font(.jost(.caption()))
                         .foregroundColor(.gray)
                       Text("Width: \(String(format: "%.1f", toolState.penWidthPresets[i]))")
-                        .font(.caption)
+                        .font(.jost(.caption()))
                         .foregroundColor(.gray)
                     }
                     
@@ -735,10 +735,10 @@ struct WrittenNoteToolbar: View {
                   VStack(spacing: 12) {
                     HStack(spacing: 6) {
                       Image(systemName: "scribble")
-                        .font(.caption)
+                        .font(.jost(.caption()))
                         .foregroundColor(.gray)
                       Text("Width: \(String(format: "%.1f", toolState.markerWidthPresets[i]))")
-                        .font(.caption)
+                        .font(.jost(.caption()))
                         .foregroundColor(.gray)
                     }
                     
@@ -893,7 +893,7 @@ struct WrittenNoteToolbar: View {
                     VStack(spacing: 12) {
                       HStack(spacing: 6) {
                         Image(systemName: "circle.lefthalf.filled")
-                          .font(.caption)
+                          .font(.jost(.caption()))
                           .foregroundColor(.gray)
                         let binding = Binding<CGFloat>(
                           get: { toolState.eraserAreaWidthPresets[i] },
@@ -922,7 +922,7 @@ struct WrittenNoteToolbar: View {
             // Object eraser: show text with same spacing as area eraser controls
             HStack {
               Text("Erase entire strokes")
-                .font(.caption)
+                .font(.jost(.caption()))
                 .foregroundColor(colorScheme == .dark ? .white : .gray)
             }
             .frame(maxWidth: .infinity)
@@ -940,7 +940,7 @@ struct WrittenNoteToolbar: View {
       // Minimal lasso tool options
       HStack {
         Text("Selection Mode")
-          .font(.caption)
+          .font(.jost(.caption()))
           .foregroundColor(.gray)
       }
       .frame(maxWidth: .infinity)
@@ -961,7 +961,7 @@ struct WrittenNoteToolbar: View {
             Image(systemName: "camera")
               .font(.system(size: 16))
             Text("Camera")
-              .font(.caption)
+              .font(.jost(.caption()))
           }
           .padding(.horizontal, 10)
           .padding(.vertical, 5)
@@ -980,7 +980,7 @@ struct WrittenNoteToolbar: View {
             Image(systemName: "photo.on.rectangle")
               .font(.system(size: 16))
             Text("Gallery")
-              .font(.caption)
+              .font(.jost(.caption()))
           }
           .padding(.horizontal, 10)
           .padding(.vertical, 5)
@@ -1005,7 +1005,7 @@ struct WrittenNoteToolbar: View {
         else {
                   // Hint text for user
         Text("Tap anywhere to create a text box")
-          .font(.caption)
+          .font(.jost(.caption()))
           .foregroundColor(.gray)
           .padding(.horizontal, 8)
         }
@@ -1054,10 +1054,10 @@ struct WrittenNoteToolbar: View {
                   VStack(spacing: 12) {
                     HStack(spacing: 6) {
                       Image(systemName: "scribble.variable")
-                        .font(.caption)
+                        .font(.jost(.caption()))
                         .foregroundColor(.gray)
                       Text("Width: \(String(format: "%.1f", toolState.penWidthPresets[i]))")
-                        .font(.caption)
+                        .font(.jost(.caption()))
                         .foregroundColor(.gray)
                     }
                     
@@ -1615,7 +1615,7 @@ struct ColorPickerDropdown: View {
       // Header with title and icon
       HStack(spacing: 8) {
         Text("Colors")
-          .font(.system(size: 14, weight: .semibold))
+          .font(.jost(.subheadline()))
           .foregroundColor(colorScheme == .dark ? .white : .black)
 
         Spacer()
@@ -1736,7 +1736,7 @@ struct ColorPickerDropdown: View {
           VStack(spacing: 8) {
             HStack {
               Text("Hue")
-                .font(.system(size: 11))
+                .font(.jost(.caption2()))
                 .foregroundColor(.gray)
               Spacer()
               Circle()
@@ -1767,7 +1767,7 @@ struct ColorPickerDropdown: View {
             }
           }) {
             Text(pickerSource == .paintpalette ? "Add to Toolbar" : "Add to Palette")
-              .font(.system(size: 13, weight: .semibold))
+              .font(.jost(.caption()))
               .foregroundColor(.white)
               .frame(maxWidth: .infinity)
               .padding(.vertical, 10)

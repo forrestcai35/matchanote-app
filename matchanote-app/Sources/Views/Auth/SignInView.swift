@@ -39,7 +39,7 @@ struct SignInView: View {
 
               VStack(spacing: 8) {
                 Text("Welcome Back")
-                  .font(.system(size: 40, weight: .bold, design: .rounded))
+                  .font(.jost(.largeTitle(40)))
                   .foregroundStyle(
                     LinearGradient(
                       gradient: Gradient(colors: [
@@ -53,13 +53,13 @@ struct SignInView: View {
                   .shadow(color: colorScheme == .dark ? .white.opacity(0.1) : .black.opacity(0.1), radius: 2, x: 0, y: 1)
 
                 Text("Choose your preferred sign-in method")
-                  .font(.system(size: 16, weight: .medium))
+                  .font(.jost(.subheadline()))
                   .foregroundColor(.secondary)
                   .multilineTextAlignment(.center)
               }
             }
 
-            Spacer(minLength: geometry.size.height * 0.08)
+            .padding(.bottom, 32)
 
             // Auth options section
             VStack(spacing: 16) {
@@ -68,7 +68,7 @@ struct SignInView: View {
                 VStack(spacing: 16) {
                   VStack(alignment: .leading, spacing: 8) {
                     Text("Email")
-                      .font(.system(size: 14, weight: .medium))
+                      .font(.jost(.callout()))
                       .foregroundColor(.secondary)
 
                     TextField("Enter your email", text: $email)
@@ -92,7 +92,7 @@ struct SignInView: View {
 
                   VStack(alignment: .leading, spacing: 8) {
                     Text("Password")
-                      .font(.system(size: 14, weight: .medium))
+                      .font(.jost(.callout()))
                       .foregroundColor(.secondary)
 
                     SecureField("Enter your password", text: $password)
@@ -128,7 +128,7 @@ struct SignInView: View {
                       }
 
                       Text("Sign In")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.jost(.subheadline()))
                     }
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -153,7 +153,7 @@ struct SignInView: View {
                     }
                   }) {
                     Text("Use OAuth instead")
-                      .font(.system(size: 14, weight: .medium))
+                      .font(.jost(.callout()))
                       .foregroundColor(.secondary)
                   }
                 }
@@ -182,7 +182,7 @@ struct SignInView: View {
                       }
 
                       Text("Continue with Apple")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.jost(.subheadline()))
                     }
                     .foregroundColor(.black)
                     .frame(maxWidth: min(geometry.size.width * 0.8, 400))
@@ -219,7 +219,7 @@ struct SignInView: View {
                         }
 
                       Text("Continue with Google")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.jost(.subheadline()))
                         .foregroundColor(.black)
                     }
                     .frame(maxWidth: min(geometry.size.width * 0.8, 400))
@@ -232,50 +232,51 @@ struct SignInView: View {
                     )
                     .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
                   }
+                  .padding(.bottom, 32)
                   .disabled(isLoading)
 
                   // OR divider
-                  HStack {
-                    Rectangle()
-                      .fill(Color.secondary.opacity(0.3))
-                      .frame(height: 1)
+                  // HStack {
+                  //   Rectangle()
+                  //     .fill(Color.secondary.opacity(0.3))
+                  //     .frame(height: 1)
 
-                    Text("OR")
-                      .font(.system(size: 14, weight: .medium))
-                      .foregroundColor(.secondary)
-                      .padding(.horizontal, 16)
+                  //   Text("OR")
+                  //     .font(.jost(.callout()))
+                  //     .foregroundColor(.secondary)
+                  //     .padding(.horizontal, 16)
 
-                    Rectangle()
-                      .fill(Color.secondary.opacity(0.3))
-                      .frame(height: 1)
-                  }
-                  .padding(.vertical, 8)
+                  //   Rectangle()
+                  //     .fill(Color.secondary.opacity(0.3))
+                  //     .frame(height: 1)
+                  // }
+                  // .padding(.vertical, 8)
 
                   // Email Sign In Button
-                  Button(action: {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                      showEmailSignIn = true
-                    }
-                  }) {
-                    HStack(spacing: 12) {
-                      Image(systemName: "envelope")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(.secondary)
+                  // Button(action: {
+                  //   withAnimation(.easeInOut(duration: 0.3)) {
+                  //     showEmailSignIn = true
+                  //   }
+                  // }) {
+                  //   HStack(spacing: 12) {
+                  //     Image(systemName: "envelope")
+                  //       .font(.system(size: 18, weight: .medium))
+                  //       .foregroundColor(.secondary)
 
-                      Text("Sign in with Email")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: min(geometry.size.width * 0.8, 400))
-                    .frame(height: 56)
-                    .background(Color.clear)
-                    .cornerRadius(12)
-                    .overlay(
-                      RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
-                    )
-                  }
-                  .disabled(isLoading)
+                  //     Text("Sign in with Email")
+                  //       .font(.jost(.subheadline()))
+                  //       .foregroundColor(.secondary)
+                  //   }
+                  //   .frame(maxWidth: min(geometry.size.width * 0.8, 400))
+                  //   .frame(height: 56)
+                  //   .background(Color.clear)
+                  //   .cornerRadius(12)
+                  //   .overlay(
+                  //     RoundedRectangle(cornerRadius: 12)
+                  //       .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                  //   )
+                  // }
+                  // .disabled(isLoading)
                 }
                 .transition(.opacity)
               }
@@ -284,25 +285,25 @@ struct SignInView: View {
             // Error message
             if let errorMessage = errorMessage {
               Text(errorMessage)
-                .font(.system(size: 14, weight: .medium))
+                .font(.jost(.callout()))
                 .foregroundColor(.red)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
                 .padding(.top, 16)
             }
 
-            Spacer(minLength: geometry.size.height * 0.08)
+        
 
             // Sign up prompt
             HStack(spacing: 4) {
               Text("New to Matcha?")
-                .font(.system(size: 15, weight: .medium))
+                .font(.jost(.subheadline()))
                 .foregroundColor(.secondary)
 
               Button("Create Account") {
-                authManager.showOnboardingView()
+                authManager.showSignUpView()
               }
-              .font(.system(size: 15, weight: .semibold))
+              .font(.jost(.subheadline()))
               .foregroundColor(colorScheme == .dark ? .matchalight_dark : .matchalight_light)
             }
 

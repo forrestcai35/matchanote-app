@@ -3,7 +3,7 @@ import Foundation
 import Supabase
 import SwiftUI
 
-struct OnboardingView: View {
+struct SignUpView: View {
   @EnvironmentObject private var authManager: LocalAuthManager
   @State private var isLoading = false
   @State private var errorMessage: String? = nil
@@ -41,7 +41,7 @@ struct OnboardingView: View {
 
               VStack(spacing: 12) {
                 Text("Welcome to Matcha")
-                  .font(.system(size: 40, weight: .bold, design: .rounded))
+                  .font(.jost(.largeTitle(40)))
                   .foregroundStyle(
                     LinearGradient(
                       gradient: Gradient(colors: [
@@ -56,18 +56,18 @@ struct OnboardingView: View {
 
                 VStack(spacing: 6) {
                   Text("Your notes, powered with AI")
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.jost(.headline()))
                     .foregroundColor(.secondary)
 
                   Text("Choose your preferred sign-up method")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.jost(.subheadline()))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                 }
               }
             }
 
-            Spacer(minLength: geometry.size.height * 0.06)
+            .padding(.bottom, 32)
 
             // Auth options section
             VStack(spacing: 16) {
@@ -76,7 +76,7 @@ struct OnboardingView: View {
                 VStack(spacing: 16) {
                   VStack(alignment: .leading, spacing: 8) {
                     Text("Email")
-                      .font(.system(size: 14, weight: .medium))
+                      .font(.jost(.callout()))
                       .foregroundColor(.secondary)
 
                     TextField("Enter your email", text: $email)
@@ -100,7 +100,7 @@ struct OnboardingView: View {
 
                   VStack(alignment: .leading, spacing: 8) {
                     Text("Password")
-                      .font(.system(size: 14, weight: .medium))
+                      .font(.jost(.callout()))
                       .foregroundColor(.secondary)
 
                     SecureField("Create a password", text: $password)
@@ -122,7 +122,7 @@ struct OnboardingView: View {
 
                   VStack(alignment: .leading, spacing: 8) {
                     Text("Confirm Password")
-                      .font(.system(size: 14, weight: .medium))
+                      .font(.jost(.callout()))
                       .foregroundColor(.secondary)
 
                     SecureField("Confirm your password", text: $confirmPassword)
@@ -149,7 +149,7 @@ struct OnboardingView: View {
 
                   if !confirmPassword.isEmpty && password != confirmPassword {
                     Text("Passwords don't match")
-                      .font(.system(size: 12, weight: .medium))
+                      .font(.jost(.caption()))
                       .foregroundColor(.red)
                       .frame(maxWidth: .infinity, alignment: .leading)
                   }
@@ -170,7 +170,7 @@ struct OnboardingView: View {
                       }
 
                       Text("Create Account")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.jost(.subheadline()))
                     }
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -196,7 +196,7 @@ struct OnboardingView: View {
                     }
                   }) {
                     Text("Use OAuth instead")
-                      .font(.system(size: 14, weight: .medium))
+                      .font(.jost(.callout()))
                       .foregroundColor(.secondary)
                   }
                 }
@@ -225,7 +225,7 @@ struct OnboardingView: View {
                       }
 
                       Text("Sign up with Apple")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.jost(.subheadline()))
                     }
                     .foregroundColor(.black)
                     .frame(maxWidth: min(geometry.size.width * 0.8, 400))
@@ -262,7 +262,7 @@ struct OnboardingView: View {
                         }
                
                       Text("Sign up with Google")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.jost(.subheadline()))
                         .foregroundColor(.black)
                     }
                     .frame(maxWidth: min(geometry.size.width * 0.8, 400))
@@ -275,50 +275,51 @@ struct OnboardingView: View {
                     )
                     .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
                   }
+                  .padding(.bottom, 32)
                   .disabled(isLoading)
 
                   // OR divider
-                  HStack {
-                    Rectangle()
-                      .fill(Color.secondary.opacity(0.3))
-                      .frame(height: 1)
+                  // HStack {
+                  //   Rectangle()
+                  //     .fill(Color.secondary.opacity(0.3))
+                  //     .frame(height: 1)
 
-                    Text("OR")
-                      .font(.system(size: 14, weight: .medium))
-                      .foregroundColor(.secondary)
-                      .padding(.horizontal, 16)
+                  //   Text("OR")
+                  //     .font(.jost(.callout()))
+                  //     .foregroundColor(.secondary)
+                  //     .padding(.horizontal, 16)
 
-                    Rectangle()
-                      .fill(Color.secondary.opacity(0.3))
-                      .frame(height: 1)
-                  }
-                  .padding(.vertical, 8)
+                  //   Rectangle()
+                  //     .fill(Color.secondary.opacity(0.3))
+                  //     .frame(height: 1)
+                  // }
+                  // .padding(.vertical, 8)
 
-                  // Email Sign Up Button
-                  Button(action: {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                      showEmailSignUp = true
-                    }
-                  }) {
-                    HStack(spacing: 12) {
-                      Image(systemName: "envelope")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(.secondary)
+                  // Email Sign Up Button DISABLED for NOW
+              //     Button(action: {
+              //       withAnimation(.easeInOut(duration: 0.3)) {
+              //         showEmailSignUp = true
+              //       }
+              //     }) {
+              //       HStack(spacing: 12) {
+              //         Image(systemName: "envelope")
+              //           .font(.system(size: 18, weight: .medium))
+              //           .foregroundColor(.secondary)
 
-                      Text("Sign up with Email")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: min(geometry.size.width * 0.8, 400))
-                    .frame(height: 56)
-                    .background(Color.clear)
-                    .cornerRadius(12)
-                    .overlay(
-                      RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
-                    )
-                  }
-                  .disabled(isLoading)
+              //         Text("Sign up with Email")
+              //           .font(.jost(.subheadline()))
+              //           .foregroundColor(.secondary)
+              //       }
+              //       .frame(maxWidth: min(geometry.size.width * 0.8, 400))
+              //       .frame(height: 56)
+              //       .background(Color.clear)
+              //       .cornerRadius(12)
+              //       .overlay(
+              //         RoundedRectangle(cornerRadius: 12)
+              //           .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+              //       )
+                  // }
+                  // .disabled(isLoading)
                 }
                 .transition(.opacity)
               }
@@ -327,34 +328,35 @@ struct OnboardingView: View {
             // Error message
             if let errorMessage = errorMessage {
               Text(errorMessage)
-                .font(.system(size: 14, weight: .medium))
+                .font(.jost(.callout()))
                 .foregroundColor(.red)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
                 .padding(.top, 16)
+
             }
 
-            Spacer(minLength: geometry.size.height * 0.06)
 
             // Terms and Privacy (optional)
             Text("By signing up, you agree to our Terms of Service and Privacy Policy")
-              .font(.system(size: 12, weight: .medium))
+              .font(.jost(.caption()))
               .foregroundColor(.secondary)
               .multilineTextAlignment(.center)
               .padding(.horizontal, 40)
+              .padding(.bottom, 16)
 
-            Spacer(minLength: 24)
+
 
             // Sign in prompt
             HStack(spacing: 4) {
               Text("Already have an account?")
-                .font(.system(size: 15, weight: .medium))
+                .font(.jost(.subheadline()))
                 .foregroundColor(.secondary)
 
               Button("Sign In") {
                 authManager.showSignInView()
               }
-              .font(.system(size: 15, weight: .semibold))
+              .font(.jost(.subheadline()))
               .foregroundColor(colorScheme == .dark ? .matchalight_dark : .matchalight_light)
             }
 

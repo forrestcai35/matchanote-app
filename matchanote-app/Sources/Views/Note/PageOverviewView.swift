@@ -24,8 +24,8 @@ struct PageOverviewView: View {
         // Header
         HStack {
           Text("Pages Overview")
-            .font(.system(.largeTitle, design: .serif))
-            .bold()
+            .font(.jost(.largeTitle()))
+            .fontWeight(.bold)
             .foregroundStyle(
               colorScheme == .dark
                 ? Color.matchabrown_dark : Color.matchabrown_light)
@@ -40,7 +40,7 @@ struct PageOverviewView: View {
                 Button("Export") {
                   showingExportSheet = true
                 }
-                .font(.subheadline)
+                .font(.jost(.subheadline()))
                 .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                 
                 // Only show delete button if there's more than one page
@@ -48,7 +48,7 @@ struct PageOverviewView: View {
                   Button("Delete") {
                     showingDeleteAlert = true
                   }
-                  .font(.subheadline)
+                  .font(.jost(.subheadline()))
                   .foregroundColor(.red)
                 }
               }
@@ -56,7 +56,7 @@ struct PageOverviewView: View {
               Button("Select") {
                 enterSelectionMode()
               }
-              .font(.subheadline)
+              .font(.jost(.subheadline()))
               .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
             }
           }
@@ -398,7 +398,7 @@ struct PageThumbnailView: View {
       // Page number and bookmark button
       HStack {
         Text("Page \(pageIndex + 1)")
-          .font(.caption)
+          .font(.jost(.caption()))
           .foregroundColor(colorScheme == .dark ? .white : .black)
         
         Spacer()

@@ -72,8 +72,7 @@ public struct GridFolderItemView: View {
                 Text(folder.name)
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .fontWeight(.medium)
-                    .font(.subheadline)
+                    .font(.jost(.subheadline()))
 
                 // Rename dropdown button
                 Button(action: {
@@ -88,7 +87,7 @@ public struct GridFolderItemView: View {
                 .popover(isPresented: $showRenamePopover) {
                     VStack(spacing: 12) {
                         Text("Rename Folder")
-                            .font(.headline)
+                            .font(.jost(.headline()))
 
                         TextField("Folder name", text: $newName)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
@@ -121,7 +120,7 @@ public struct GridFolderItemView: View {
             // Date
             Text(folder.dateModified, style: .date)
                 .padding(.bottom, 5)
-                .font(.caption)
+                .font(.jost(.caption()))
                 .foregroundColor(.secondary)
                 .frame(width: 160)
                 .multilineTextAlignment(.center)
@@ -252,8 +251,7 @@ public struct GridItemView: View {
                     Text(note.title)
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .fontWeight(.medium)
-                        .font(.subheadline)
+                        .font(.jost(.subheadline()))
                     Image(systemName: "chevron.down")
                         .foregroundColor(.gray)
                         .font(.system(size: 10))
@@ -264,7 +262,7 @@ public struct GridItemView: View {
             .popover(isPresented: $showRenamePopover) {
                 VStack(spacing: 12) {
                     Text("Rename Note")
-                        .font(.headline)
+                        .font(.jost(.headline()))
 
                     TextField("Note name", text: $newTitle)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
@@ -298,7 +296,7 @@ public struct GridItemView: View {
 
             Text(note.dateModified, style: .date)
                 .padding(.bottom, 5)
-                .font(.caption)
+                .font(.jost(.caption()))
                 .foregroundColor(.secondary)
                 .frame(width: 160)
                 .multilineTextAlignment(.center)

@@ -14,8 +14,8 @@ struct TrashView: View {
             // Header
             HStack {
                 Text("Trash")
-                    .font(.system(.largeTitle, design: .serif))
-                    .bold()
+                    .font(.jost(.largeTitle()))
+                    .fontWeight(.bold)
                     .foregroundStyle(
                         colorScheme == .dark
                             ? Color.matchabrown_dark : Color.matchabrown_light)
@@ -44,8 +44,7 @@ struct TrashView: View {
                                     colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                                 .font(.system(size: 14))
                             Text("Deleted Items")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
+                                .font(.jost(.subheadline()))
                                 .foregroundColor(
                                     colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                             
@@ -71,7 +70,7 @@ struct TrashView: View {
                                     .font(.system(size: 14))
                                 
                                 Text("Some items are scheduled for automatic deletion after 30 days")
-                                    .font(.caption2)
+                                    .font(.jost(.caption2()))
                                     .foregroundColor(.secondary)
                             }
                             .padding(.top, 4)
@@ -107,11 +106,11 @@ struct TrashView: View {
 
             VStack(spacing: 8) {
                 Text("Trash is Empty")
-                    .font(.headline)
+                    .font(.jost(.headline()))
                     .foregroundColor(.primary)
 
                 Text("Items you delete will appear here and will be removed after 30 days")
-                    .font(.subheadline)
+                    .font(.jost(.subheadline()))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
             }
@@ -141,33 +140,31 @@ struct TrashView: View {
             // Content
             VStack(alignment: .leading, spacing: 1) {
                 Text(trashItem.title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(.jost(.subheadline()))
                     .foregroundColor(.primary)
                     .lineLimit(1)
 
                 HStack {
                     Text(trashItem.type == .note ? "Note" : "Folder")
-                        .font(.caption2)
+                        .font(.jost(.caption2()))
                         .foregroundColor(.secondary)
 
                     Text("•")
-                        .font(.caption2)
+                        .font(.jost(.caption2()))
                         .foregroundColor(.secondary)
 
                     Text("Deleted \(formatDaysAgo(trashItem.daysSinceDeletion))")
-                        .font(.caption2)
+                        .font(.jost(.caption2()))
                         .foregroundColor(trashItem.shouldAutoDelete ? .orange : .secondary)
 
                     if trashItem.shouldAutoDelete {
                         Text("•")
-                            .font(.caption2)
+                            .font(.jost(.caption2()))
                             .foregroundColor(.orange)
 
                         Text("Auto-delete soon")
-                            .font(.caption2)
+                            .font(.jost(.caption2()))
                             .foregroundColor(.orange)
-                            .fontWeight(.medium)
                     }
                 }
             }
@@ -180,7 +177,7 @@ struct TrashView: View {
                     restoreTrashItem(trashItem)
                 } label: {
                     Text("Restore")
-                        .font(.caption2)
+                        .font(.jost(.caption2()))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(
