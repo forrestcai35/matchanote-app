@@ -79,4 +79,68 @@ func jostHeavyFont(_ size: CGFloat) -> Font {
     jostFont(.heavy, size)
 }
 
+// MARK: - Semantic Font Styles
+
+/// Semantic font styles with default sizes that can be customized
+enum AppFont {
+    /// Large title for main headings (default: 34pt, Heavy)
+    case largeTitle(CGFloat? = nil)
+    /// Title for section headings (default: 28pt, Bold)
+    case title(CGFloat? = nil)
+    /// Title 2 for subsection headings (default: 22pt, Bold)
+    case title2(CGFloat? = nil)
+    /// Title 3 for smaller headings (default: 20pt, Semi)
+    case title3(CGFloat? = nil)
+    /// Headline for emphasized text (default: 17pt, Semi)
+    case headline(CGFloat? = nil)
+    /// Subheadline for secondary emphasized text (default: 15pt, Medium)
+    case subheadline(CGFloat? = nil)
+    /// Body text for primary content (default: 17pt, Book)
+    case body(CGFloat? = nil)
+    /// Callout for highlighted content (default: 16pt, Book)
+    case callout(CGFloat? = nil)
+    /// Footnote for supplementary text (default: 13pt, Book)
+    case footnote(CGFloat? = nil)
+    /// Caption for labels and small text (default: 12pt, Book)
+    case caption(CGFloat? = nil)
+    /// Caption 2 for smallest text (default: 11pt, Book)
+    case caption2(CGFloat? = nil)
+
+    var font: Font {
+        switch self {
+        case .largeTitle(let size):
+            return jostFont(.heavy, size ?? 34)
+        case .title(let size):
+            return jostFont(.bold, size ?? 28)
+        case .title2(let size):
+            return jostFont(.bold, size ?? 22)
+        case .title3(let size):
+            return jostFont(.semi, size ?? 20)
+        case .headline(let size):
+            return jostFont(.semi, size ?? 17)
+        case .subheadline(let size):
+            return jostFont(.medium, size ?? 15)
+        case .body(let size):
+            return jostFont(.book, size ?? 17)
+        case .callout(let size):
+            return jostFont(.book, size ?? 16)
+        case .footnote(let size):
+            return jostFont(.book, size ?? 13)
+        case .caption(let size):
+            return jostFont(.book, size ?? 12)
+        case .caption2(let size):
+            return jostFont(.book, size ?? 11)
+        }
+    }
+}
+
+// MARK: - Font Extension for Convenience
+
+extension Font {
+    /// Get a semantic Jost font style with optional custom size
+    static func jost(_ style: AppFont) -> Font {
+        style.font
+    }
+}
+
 
