@@ -4,7 +4,6 @@ import SwiftUI
 
 struct SignInView: View {
   @EnvironmentObject private var authManager: LocalAuthManager
-  @State private var isLoading = false
   @State private var errorMessage: String? = nil
   @State private var email = ""
   @State private var password = ""
@@ -114,34 +113,24 @@ struct SignInView: View {
 
                   // Sign In Button
                   Button(action: {
-                    if !isLoading {
-                      Task {
-                        await signInWithEmail()
-                      }
+                    Task {
+                      await signInWithEmail()
                     }
                   }) {
-                    HStack(spacing: 12) {
-                      if isLoading {
-                        ProgressView()
-                          .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                          .scaleEffect(0.8)
-                      }
-
-                      Text("Sign In")
-                        .font(.jost(.subheadline()))
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(
-                      email.isEmpty || password.isEmpty
-                      ? Color.gray
-                      : (colorScheme == .dark ? Color.matchalight_dark : Color.matcha_logo_color)
-                    )
-                    .cornerRadius(12)
-                    .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+                    Text("Sign In")
+                      .font(.jost(.subheadline()))
+                      .foregroundColor(.white)
+                      .frame(maxWidth: .infinity)
+                      .frame(height: 56)
+                      .background(
+                        email.isEmpty || password.isEmpty
+                        ? Color.gray
+                        : (colorScheme == .dark ? Color.matchalight_dark : Color.matcha_logo_color)
+                      )
+                      .cornerRadius(12)
+                      .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
                   }
-                  .disabled(isLoading || email.isEmpty || password.isEmpty)
+                  .disabled(email.isEmpty || password.isEmpty)
 
                   // Back to OAuth button
                   Button(action: {
@@ -165,21 +154,13 @@ struct SignInView: View {
                 VStack(spacing: 16) {
                   // Apple Sign In
                   Button(action: {
-                    if !isLoading {
-                      Task {
-                        await oauthWithApple()
-                      }
+                    Task {
+                      await oauthWithApple()
                     }
                   }) {
                     HStack(spacing: 12) {
-                      if isLoading {
-                        ProgressView()
-                          .progressViewStyle(CircularProgressViewStyle(tint: .black))
-                          .scaleEffect(0.8)
-                      } else {
-                        Image(systemName: "apple.logo")
-                          .font(.system(size: 20, weight: .medium))
-                      }
+                      Image(systemName: "apple.logo")
+                        .font(.system(size: 20, weight: .medium))
 
                       Text("Continue with Apple")
                         .font(.jost(.subheadline()))
@@ -195,28 +176,18 @@ struct SignInView: View {
                     )
                     .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
                   }
-                  .disabled(isLoading)
 
                   // Google Sign In
                   Button(action: {
-                    if !isLoading {
-                      Task {
-                        await oauthWithGoogle()
-                      }
+                    Task {
+                      await oauthWithGoogle()
                     }
                   }) {
                     HStack(spacing: 12) {
-                        if isLoading {
-                          ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .black))
-                            .scaleEffect(0.8)
-                        } else {
-                            Image("google_logo")
-                              .resizable()
-                              .scaledToFit()
-                              .frame(width: 20, height: 20)
-
-                        }
+                      Image("google_logo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 20, height: 20)
 
                       Text("Continue with Google")
                         .font(.jost(.subheadline()))
@@ -233,7 +204,6 @@ struct SignInView: View {
                     .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
                   }
                   .padding(.bottom, 32)
-                  .disabled(isLoading)
 
                   // OR divider
                   // HStack {
@@ -320,13 +290,11 @@ struct SignInView: View {
 
   private func signInWithEmail() async {
     await MainActor.run {
-      isLoading = true
       errorMessage = nil
     }
 
     guard !email.isEmpty && !password.isEmpty else {
       await MainActor.run {
-        isLoading = false
         errorMessage = "Please enter both email and password."
       }
       return
@@ -338,12 +306,10 @@ struct SignInView: View {
         password: password
       )
       await MainActor.run {
-        isLoading = false
         authManager.setLoggedIn()
       }
     } catch {
       await MainActor.run {
-        isLoading = false
         errorMessage = "Invalid email or password. Please try again."
       }
     }
@@ -351,7 +317,6 @@ struct SignInView: View {
 
   private func oauthWithGoogle() async {
     await MainActor.run {
-      isLoading = true
       errorMessage = nil
     }
 
@@ -361,12 +326,10 @@ struct SignInView: View {
         redirectTo: URL(string: "matchanote://authcallback")!
       )
       await MainActor.run {
-        isLoading = false
         authManager.setLoggedIn()
       }
     } catch {
       await MainActor.run {
-        isLoading = false
         errorMessage = "Sign in with Google failed. Please try again."
       }
     }
@@ -374,7 +337,6 @@ struct SignInView: View {
 
   private func oauthWithApple() async {
     await MainActor.run {
-      isLoading = true
       errorMessage = nil
     }
 
@@ -384,12 +346,10 @@ struct SignInView: View {
         redirectTo: URL(string: "matchanote://authcallback")!
       ) 
       await MainActor.run {
-        isLoading = false
         authManager.setLoggedIn()
       }
     } catch {
       await MainActor.run {
-        isLoading = false
         errorMessage = "Sign in with Apple failed. Please try again."
       }
     }
