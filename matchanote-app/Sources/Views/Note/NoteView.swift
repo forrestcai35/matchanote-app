@@ -297,9 +297,12 @@ struct NoteView: View {
     
     // Collect textbox data
     updatedNote.textBoxDataByPage = textBoxManager.getAllTextBoxesData()
-    
+
+    // Save current page position
+    updatedNote.currentPage = currentPage
+
     updatedNote.dateModified = Date()
-    
+
     // Save to storage
     print("💾 Calling storageManager.saveNote()...")
     let savedNote = storageManager.saveNote(updatedNote)
@@ -452,11 +455,32 @@ struct NoteView: View {
         }
       }
       .onDisappear {
+        // Save current canvas data before disappearing
+        saveCurrentCanvasData()
+
         // Clean up the callback
         tabManager.onAllTabsClosed = nil
-        
+
         // Remove app lifecycle observers
         removeAppLifecycleObservers()
+      }
+      .onChange(of: tabManager.getActiveTab()?.note.id) { _, newNoteId in
+        // When switching tabs, restore the current page for the new note
+        if let activeTab = tabManager.getActiveTab() {
+          let savedPage = activeTab.note.currentPage
+          let pageCount = max(1, activeTab.note.drawingDataByPage.keys.compactMap { Int($0) }.max().map { $0 + 1 } ?? 1)
+          // Ensure the saved page is within valid bounds
+          currentPage = min(max(0, savedPage), pageCount - 1)
+        }
+      }
+      .onChange(of: currentPage) { oldPage, newPage in
+        // Save immediately when page changes so it persists even if app is force-closed
+        guard let activeTab = tabManager.getActiveTab() else { return }
+        var updatedNote = activeTab.note
+        updatedNote.currentPage = newPage
+        updatedNote.dateModified = Date()
+        let savedNote = storageManager.saveNote(updatedNote)
+        tabManager.updateNote(savedNote)
       }
     }
   }
@@ -478,7 +502,8 @@ struct NoteView: View {
       object: nil,
       queue: .main
     ) { _ in
-      // Per-note undo history is now preserved - no clearing needed
+      // Save current canvas data when app becomes inactive
+      self.saveCurrentCanvasData()
     }
 
     NotificationCenter.default.addObserver(
@@ -486,7 +511,8 @@ struct NoteView: View {
       object: nil,
       queue: .main
     ) { _ in
-      // Per-note undo history is now preserved - no clearing needed
+      // Save current canvas data when app enters background
+      self.saveCurrentCanvasData()
     }
   }
   

@@ -260,20 +260,30 @@ struct PageOverviewView: View {
   private func updateCanvasViewsAfterDeletion(deletedPages: [Int]) {
     // Remove canvas views for deleted pages
     let sortedDeletedPages = deletedPages.sorted()
-    
+
     // Remove from the end to avoid index shifting issues
     for pageIndex in sortedDeletedPages.reversed() {
       if pageIndex < canvasViews.count {
         canvasViews.remove(at: pageIndex)
       }
     }
-    
+
     // Adjust current page if it was affected
+    let oldCurrentPage = currentPage
     if let maxDeletedPage = deletedPages.max(), currentPage > maxDeletedPage {
       currentPage -= deletedPages.filter { $0 < currentPage }.count
     } else if deletedPages.contains(currentPage) {
       // If current page was deleted, go to the previous page or 0
       currentPage = max(0, currentPage - 1)
+    }
+
+    // Save the updated current page position if it changed
+    if currentPage != oldCurrentPage {
+      var updatedNote = note
+      updatedNote.currentPage = currentPage
+      updatedNote.dateModified = Date()
+      let savedNote = storageManager.saveNote(updatedNote)
+      tabManager.updateNote(savedNote)
     }
   }
   

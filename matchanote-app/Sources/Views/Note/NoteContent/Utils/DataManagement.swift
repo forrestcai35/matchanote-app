@@ -45,8 +45,8 @@ extension WrittenNoteView {
         // Update page count
         pageCount = requiredPageCount
 
-        // Reset current page to 0 when loading new note
-        currentPage = 0
+        // Restore saved page position, ensuring it's within valid range
+        currentPage = min(max(0, note.currentPage), requiredPageCount - 1)
 
         // Reset relative zoom level and content offset to center the canvas for new note
         relativeZoomLevel = 1.0  // 1.0 = fit to screen

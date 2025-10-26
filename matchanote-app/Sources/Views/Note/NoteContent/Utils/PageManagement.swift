@@ -108,6 +108,7 @@ extension WrittenNoteView {
         updatedNote.drawingDataByPage = newDrawingData
         updatedNote.imageDataByPage = newImageData
         updatedNote.bookmarkedPages = newBookmarkedPages
+        updatedNote.currentPage = currentPage
         updatedNote.dateModified = Date()
 
         // Save the updated note
@@ -202,6 +203,7 @@ extension WrittenNoteView {
         updatedNote.drawingDataByPage = newDrawingData
         updatedNote.imageDataByPage = newImageData
         updatedNote.bookmarkedPages = newBookmarkedPages
+        updatedNote.currentPage = currentPage
         updatedNote.dateModified = Date()
 
         // Save the updated note

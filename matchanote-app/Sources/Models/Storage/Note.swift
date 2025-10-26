@@ -43,12 +43,14 @@ public struct Note: Identifiable, Codable {
   public var textBoxDataByPage: [String: [Data]] = [:]
   // Track which pages are bookmarked using page indices as Set
   public var bookmarkedPages: Set<Int> = []
-  
+  // Store the last viewed page to restore position when reopening the note
+  public var currentPage: Int = 0
+
   // MARK: - Codable Implementation
   private enum CodingKeys: String, CodingKey {
     case id, title, subject, colorString, dateCreated, dateModified, lastOpenedAt
     case isFavorite, content, noteType, paperColor, paperStyle, paperSize
-    case drawingDataByPage, imageDataByPage, textBoxDataByPage, bookmarkedPages
+    case drawingDataByPage, imageDataByPage, textBoxDataByPage, bookmarkedPages, currentPage
   }
   
   // Custom encoding to handle Color serialization
@@ -71,6 +73,7 @@ public struct Note: Identifiable, Codable {
     try container.encode(imageDataByPage, forKey: .imageDataByPage)
     try container.encode(textBoxDataByPage, forKey: .textBoxDataByPage)
     try container.encode(bookmarkedPages, forKey: .bookmarkedPages)
+    try container.encode(currentPage, forKey: .currentPage)
   }
   
   // Custom decoding to handle Color deserialization
@@ -94,6 +97,7 @@ public struct Note: Identifiable, Codable {
     imageDataByPage = try container.decode([String: [Data]].self, forKey: .imageDataByPage)
     textBoxDataByPage = try container.decode([String: [Data]].self, forKey: .textBoxDataByPage)
     bookmarkedPages = try container.decode(Set<Int>.self, forKey: .bookmarkedPages)
+    currentPage = try container.decodeIfPresent(Int.self, forKey: .currentPage) ?? 0
   }
 
   public init(
@@ -105,7 +109,8 @@ public struct Note: Identifiable, Codable {
     drawingDataByPage: [String: Data] = [:],
     imageDataByPage: [String: [Data]] = [:],
     textBoxDataByPage: [String: [Data]] = [:],
-    bookmarkedPages: Set<Int> = []
+    bookmarkedPages: Set<Int> = [],
+    currentPage: Int = 0
   ) {
     self.title = title
     self.subject = subject
@@ -123,6 +128,7 @@ public struct Note: Identifiable, Codable {
     self.imageDataByPage = imageDataByPage
     self.textBoxDataByPage = textBoxDataByPage
     self.bookmarkedPages = bookmarkedPages
+    self.currentPage = currentPage
   }
 
 }

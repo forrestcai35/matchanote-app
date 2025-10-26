@@ -88,17 +88,6 @@ struct FreeModel {
 
     // Groq Models - Fast inference, varying limits
     FreeModel(
-      name: "Llama 3.1 8B",
-      modelId: "llama-3.1-8b-instant",
-      provider: .groq,
-      supportsImages: false,
-      tokensPerMinute: 6000,
-      requestsPerDay: 14400, // Excellent for high volume!
-      requestsPerMinute: 30,
-      isGoodForHighTokens: false,
-      isGoodForHighVolume: true // Great for many simple requests
-    ),
-    FreeModel(
       name: "Llama 3.3 70B",
       modelId: "llama-3.3-70b-versatile",
       provider: .groq,

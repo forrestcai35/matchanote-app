@@ -23,7 +23,7 @@ extension Color {
 
     // Tab Colors
     static let tab_inactive_dark = Color(red: 0.15, green: 0.15, blue: 0.15) // Darker solid gray for inactive tabs
-    static let tab_inactive_light = Color(red: 0.75, green: 0.75, blue: 0.75) // Light gray for inactive tabs
+    static let tab_inactive_light = Color(red: 0.8, green: 0.8, blue: 0.8) // Light gray for inactive tabs
     static let tabbar_background_dark = Color(red: 0.089, green: 0.091, blue: 0.082) // Same as matchabackground_dark
     static let tabbar_background_light = Color(red: 0.8725, green: 0.8725, blue: 0.8725) // Same as matchabackground_light
 
