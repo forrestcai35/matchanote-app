@@ -202,6 +202,7 @@ struct NoteView: View {
   @State private var isDraggingAssistant = false
   @State private var draggedPosition: AssistantOrientation? = nil
   @State private var dragLocation: CGPoint = .zero
+  @State private var pendingUploadPlacement: PagePlacement? = nil
   @ObservedObject private var tabManager = TabManager.shared
   @State private var isEdited = false
   @State private var toolPickerIsVisible = false
@@ -954,13 +955,11 @@ extension NoteView {
   // MARK: - Page Management Functions
   
   private func handleUpload(placement: PagePlacement) {
-    // First add a page at the specified placement
-    addPageCallback?(placement)
-
-    // Small delay to ensure page is created before presenting picker
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-      self.presentFilePicker()
-    }
+    // Store the placement for use after file selection
+    self.pendingUploadPlacement = placement
+    
+    // Present file picker directly - page will be added after file selection
+    presentFilePicker()
   }
   
   private func presentFilePicker() {
@@ -980,221 +979,147 @@ extension NoteView {
   }
   
   private func processImportedFile(url: URL) {
-    do {
-      // Determine file type and handle accordingly
-      let fileExtension = url.pathExtension.lowercased()
-
-      switch fileExtension {
-      case "pdf":
-        try handlePDFImport(url: url)
-      case "jpg", "jpeg", "png", "heic", "heif":
-        try handleImageImport(url: url)
-      case "matcha":
-        try handleMatchaImport(url: url)
-      default:
-        print("Unsupported file type: \(fileExtension)")
+    // Use ImportManager to create a note for import into current note
+    ImportManager.shared.createNoteForImportIntoCurrent(
+      url: url,
+      storageManager: storageManager
+    ) { importedNote in
+      guard let importedNote = importedNote else {
+        print("Failed to import file: \(url.lastPathComponent)")
+        return
       }
-    } catch {
-      print("Error processing imported file: \(error)")
+      
+      // Process the imported note content into the current note
+      self.addImportedContentToCurrentNote(importedNote: importedNote)
     }
   }
   
-  private func handlePDFImport(url: URL) throws {
-    guard url.startAccessingSecurityScopedResource() else {
-      throw ImportError.accessDenied
-    }
-    defer { url.stopAccessingSecurityScopedResource() }
-
-    let pdfData = try Data(contentsOf: url)
-    guard let pdfDocument = PDFDocument(data: pdfData) else {
-      throw ImportError.invalidPDFFormat
-    }
-
-    let pageCount = pdfDocument.pageCount
-    guard pageCount > 0 else {
-      throw ImportError.emptyPDFDocument
-    }
-
-    // Process each page of the PDF
-    for pageIndex in 0..<pageCount {
-      guard let pdfPage = pdfDocument.page(at: pageIndex) else { continue }
-
-      // Convert PDF page to image
-      let pageImage = renderPDFPageToImage(pdfPage: pdfPage)
-
-      if pageIndex == 0 {
-        // Add first page image to the current (newly created) page
-        addImageToCurrentPage(imageData: pageImage.pngData() ?? Data())
-      } else {
-        // Add subsequent pages as new pages
-        addPageCallback?(.end)
-
-        // Wait for page creation then add image
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-          // Navigate to the newly created page first
-          self.currentPage = self.canvasManager.canvasViews.count - 1
-          if let imageData = pageImage.pngData() {
-            self.addImageToCurrentPage(imageData: imageData)
-          }
-        }
-      }
-    }
-
-    print("PDF imported successfully: \(url.lastPathComponent) with \(pageCount) pages")
-  }
-
-  private func renderPDFPageToImage(pdfPage: PDFPage) -> UIImage {
-    // Get the bounds of the PDF page and render to its native size
-    let pageRect = pdfPage.bounds(for: .mediaBox)
-
-    // Create the image context at the PDF page size
-    let renderer = UIGraphicsImageRenderer(size: pageRect.size)
-    let image = renderer.image { context in
-      // Fill with white background
-      UIColor.white.setFill()
-      context.fill(CGRect(origin: .zero, size: pageRect.size))
-
-      // Map PDF page coordinates to the full image rect, accounting for coordinate flip
-      context.cgContext.saveGState()
-      context.cgContext.translateBy(x: 0, y: pageRect.size.height)
-      context.cgContext.scaleBy(x: 1.0, y: -1.0)
-
-      // Draw the PDF page (PDFKit handles page rotation internally for PDFPage)
-      pdfPage.draw(with: .mediaBox, to: context.cgContext)
-      context.cgContext.restoreGState()
-    }
-
-    return image
-  }
+  // MARK: - Import Content Integration
   
-  private func handleImageImport(url: URL) throws {
-    guard url.startAccessingSecurityScopedResource() else {
-      throw ImportError.accessDenied
-    }
-    defer { url.stopAccessingSecurityScopedResource() }
-
-    let imageData = try Data(contentsOf: url)
-    guard let image = UIImage(data: imageData) else {
-      throw ImportError.invalidImageFormat
-    }
-
-    // Resize image if it's too large for the canvas
-    let resizedImageData = resizeImageForCanvas(image: image)
-
-    // Add image to current page (which was just created)
-    addImageToCurrentPage(imageData: resizedImageData)
-    print("Image imported successfully: \(url.lastPathComponent)")
-  }
-
-  private func resizeImageForCanvas(image: UIImage) -> Data {
-    let paperSize = PaperUtilities.paperSize(for: activeNote.paperSize)
-    let maxDimension = min(paperSize.width * 0.8, paperSize.height * 0.8) // 80% of paper size
-
-    // Calculate new size maintaining aspect ratio
-    let imageSize = image.size
-    let scale = min(maxDimension / imageSize.width, maxDimension / imageSize.height, 1.0)
-
-    if scale < 1.0 {
-      let newSize = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
-      let renderer = UIGraphicsImageRenderer(size: newSize)
-      let resizedImage = renderer.image { _ in
-        image.draw(in: CGRect(origin: .zero, size: newSize))
-      }
-      return resizedImage.jpegData(compressionQuality: 0.8) ?? image.jpegData(compressionQuality: 0.8) ?? Data()
-    } else {
-      return image.jpegData(compressionQuality: 0.9) ?? Data()
-    }
-  }
-  
-  private func handleTextImport(url: URL) throws {
-    guard url.startAccessingSecurityScopedResource() else {
-      throw ImportError.accessDenied
-    }
-    defer { url.stopAccessingSecurityScopedResource() }
-    
-    let textContent = try String(contentsOf: url, encoding: .utf8)
-    
-    // Add text content to note (this could be enhanced to create text annotations)
-    print("Text imported successfully: \(url.lastPathComponent)")
-    print("Content preview: \(String(textContent.prefix(100)))")
-  }
-  
-  private func handleMatchaImport(url: URL) throws {
-    guard url.startAccessingSecurityScopedResource() else {
-      throw ImportError.accessDenied
-    }
-    defer { url.stopAccessingSecurityScopedResource() }
-    
-    // Read the Matcha note data
-    let matchaData = try Data(contentsOf: url)
-    
-    // Decode the note from JSON with proper date decoding strategy
-    let decoder = JSONDecoder()
-    decoder.dateDecodingStrategy = .iso8601
-    let importedNote = try decoder.decode(Note.self, from: matchaData)
-    
-    guard let activeTab = tabManager.getActiveTab() else {
-      throw ImportError.unsupportedFileType
+  private func addImportedContentToCurrentNote(importedNote: Note) {
+    guard tabManager.getActiveTab() != nil else {
+      print("No active tab found for importing content")
+      return
     }
     
-    var updatedNote = activeTab.note
+    // Get the placement for this upload
+    let placement = pendingUploadPlacement ?? .after
+    pendingUploadPlacement = nil // Clear the pending placement
     
-    // Get the list of pages from the imported note
-    let importedPages = importedNote.drawingDataByPage.keys.compactMap { Int($0) }.sorted()
+    // Get the list of pages from the imported note (check all possible page data sources)
+    let imagePages = importedNote.imageDataByPage.keys.compactMap { Int($0) }
+    let drawingPages = importedNote.drawingDataByPage.keys.compactMap { Int($0) }
+    let textBoxPages = importedNote.textBoxDataByPage.keys.compactMap { Int($0) }
+    let allPageNumbers = Set(imagePages + drawingPages + textBoxPages)
+    let importedPages = Array(allPageNumbers).sorted()
+    
+
     
     if importedPages.isEmpty {
-      // If no pages in the imported note, just add the first page to current page
-      let pageKey = String(currentPage)
+      // If no pages in the imported note, add a page at the specified placement first
+      addPageCallback?(placement)
       
-      // Add any images from the imported note's first page
-      if let imageData = importedNote.imageDataByPage["0"] {
-        if updatedNote.imageDataByPage[pageKey] == nil {
-          updatedNote.imageDataByPage[pageKey] = []
+      // Small delay to ensure page is created, then add content
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        // Get fresh note from tab manager after page creation
+        guard let freshTab = self.tabManager.getActiveTab() else { return }
+        var updatedNote = freshTab.note
+        let targetPageKey = String(self.currentPage)
+        
+        
+        // Add any images from the imported note's first page
+        if let imageData = importedNote.imageDataByPage["0"] {
+
+          if updatedNote.imageDataByPage[targetPageKey] == nil {
+            updatedNote.imageDataByPage[targetPageKey] = []
+          }
+          updatedNote.imageDataByPage[targetPageKey]?.append(contentsOf: imageData)
         }
-        updatedNote.imageDataByPage[pageKey]?.append(contentsOf: imageData)
+        
+        // Add any drawing data
+        if let drawingData = importedNote.drawingDataByPage["0"] {
+          updatedNote.drawingDataByPage[targetPageKey] = drawingData
+        }
+        
+        // Add any text box data
+        if let textBoxData = importedNote.textBoxDataByPage["0"] {
+          if updatedNote.textBoxDataByPage[targetPageKey] == nil {
+            updatedNote.textBoxDataByPage[targetPageKey] = []
+          }
+          updatedNote.textBoxDataByPage[targetPageKey]?.append(contentsOf: textBoxData)
+        }
+        
+        // Update the note
+        updatedNote.dateModified = Date()
+        let savedNote = self.storageManager.saveNote(updatedNote)
+        self.tabManager.updateNote(savedNote)
+        
+        // Refresh canvas views to load the new drawing data (async to avoid state modification during view update)
+        DispatchQueue.main.async {
+          self.refreshCanvasViews()
+        }
+        
       }
-      
-      print("Matcha note imported successfully: \(url.lastPathComponent)")
     } else {
-      // Import each page from the matcha file
+      // Import each page from the imported note
       for (index, pageIndex) in importedPages.enumerated() {
         let pageKey = String(pageIndex)
         
         if index == 0 {
-          // Add first page content to the current page
-          let currentPageKey = String(currentPage)
+          // Add first page at the specified placement
+          addPageCallback?(placement)
+          
+          // Small delay to ensure page is created, then add content
+          DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            // Get fresh note from tab manager after page creation
+            guard let freshTab = self.tabManager.getActiveTab() else { return }
+            var updatedNote = freshTab.note
+            let targetPageKey = String(self.currentPage)
+            
           
           // Merge drawing if exists
           if let drawingData = importedNote.drawingDataByPage[pageKey] {
-            updatedNote.drawingDataByPage[currentPageKey] = drawingData
+              updatedNote.drawingDataByPage[targetPageKey] = drawingData
           }
           
           // Merge images if exist
           if let imageData = importedNote.imageDataByPage[pageKey] {
-            if updatedNote.imageDataByPage[currentPageKey] == nil {
-              updatedNote.imageDataByPage[currentPageKey] = []
+              if updatedNote.imageDataByPage[targetPageKey] == nil {
+                updatedNote.imageDataByPage[targetPageKey] = []
             }
-            updatedNote.imageDataByPage[currentPageKey]?.append(contentsOf: imageData)
+              updatedNote.imageDataByPage[targetPageKey]?.append(contentsOf: imageData)
           }
           
           // Merge text boxes if exist
           if let textBoxData = importedNote.textBoxDataByPage[pageKey] {
-            if updatedNote.textBoxDataByPage[currentPageKey] == nil {
-              updatedNote.textBoxDataByPage[currentPageKey] = []
+              if updatedNote.textBoxDataByPage[targetPageKey] == nil {
+                updatedNote.textBoxDataByPage[targetPageKey] = []
+              }
+              updatedNote.textBoxDataByPage[targetPageKey]?.append(contentsOf: textBoxData)
             }
-            updatedNote.textBoxDataByPage[currentPageKey]?.append(contentsOf: textBoxData)
+            
+            // Update the note
+            updatedNote.dateModified = Date()
+            let savedNote = self.storageManager.saveNote(updatedNote)
+            self.tabManager.updateNote(savedNote)
+            
+            // Refresh canvas views to load the new drawing data (async to avoid state modification during view update)
+            DispatchQueue.main.async {
+              self.refreshCanvasViews()
+            }
           }
         } else {
-          // Add subsequent pages as new pages
+          // Add subsequent pages as new pages at the end
           addPageCallback?(.end)
           
           // Wait for page creation then add content
           let delay = 0.2 * Double(index)
           DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            // Get fresh note from tab manager after page creation
+            guard let freshTab = self.tabManager.getActiveTab() else { return }
+            var currentNote = freshTab.note
             let newPageIndex = self.canvasManager.canvasViews.count - 1
             let newPageKey = String(newPageIndex)
-            
-            guard var currentNote = self.tabManager.getActiveTab()?.note else { return }
             
             // Add drawing
             if let drawingData = importedNote.drawingDataByPage[pageKey] {
@@ -1214,50 +1139,55 @@ extension NoteView {
             currentNote.dateModified = Date()
             let savedNote = self.storageManager.saveNote(currentNote)
             self.tabManager.updateNote(savedNote)
+            
+            // Refresh canvas views to load the new drawing data (async to avoid state modification during view update)
+            DispatchQueue.main.async {
+              self.refreshCanvasViews()
+            }
           }
         }
       }
       
-      print("Matcha note imported successfully: \(url.lastPathComponent) with \(importedPages.count) pages")
+    }
+  }
+  
+  // MARK: - Canvas Refresh Helper
+  
+  private func refreshCanvasViews() {
+    guard let activeTab = tabManager.getActiveTab() else { return }
+    
+    // Get the current note with the latest data
+    let currentNote = activeTab.note
+    
+    // Calculate required page count based on note data
+    let maxDrawingPage = currentNote.drawingDataByPage.keys.compactMap { Int($0) }.max() ?? 0
+    let maxImagePage = currentNote.imageDataByPage.keys.compactMap { Int($0) }.max() ?? 0
+    let requiredPageCount = max(1, max(maxDrawingPage, maxImagePage) + 1)
+    
+    // Ensure we have enough canvas views
+    while canvasManager.canvasViews.count < requiredPageCount {
+      let canvas = PKCanvasView()
+      canvas.overrideUserInterfaceStyle = .light
+      canvas.tool = PKInkingTool(.pen, color: .black, width: 1.0)
+      canvasManager.canvasViews.append(canvas)
     }
     
-    updatedNote.dateModified = Date()
-    let savedNote = storageManager.saveNote(updatedNote)
-    tabManager.updateNote(savedNote)
+    // Load drawing data into existing canvas views
+    for pageIndex in 0..<min(requiredPageCount, canvasManager.canvasViews.count) {
+      let canvas = canvasManager.canvasViews[pageIndex]
+      
+      if let drawingData = currentNote.drawingDataByPage[String(pageIndex)] {
+        do {
+          let drawing = try PKDrawing(data: drawingData)
+          canvas.drawing = drawing
+        } catch {
+          print("Error loading drawing for page \(pageIndex): \(error)")
+        }
+      }
+    }
+    
   }
   
-  
-  private func addImageToCurrentPage(imageData: Data) {
-    guard let activeTab = tabManager.getActiveTab() else {
-      return
-    }
-
-    var updatedNote = activeTab.note
-
-    // Add image data to current page as background image (same as home page uploads)
-    let pageKey = String(currentPage)
-    if updatedNote.imageDataByPage[pageKey] == nil {
-      updatedNote.imageDataByPage[pageKey] = []
-    }
-    updatedNote.imageDataByPage[pageKey]?.append(imageData)
-    updatedNote.dateModified = Date()
-
-
-    // Update storage and tab manager
-    let savedNote = storageManager.saveNote(updatedNote)
-    tabManager.updateNote(savedNote)
-
-
-    // Force a UI refresh to show the new background image
-    DispatchQueue.main.async {
-      // The backgroundImagesView will automatically show the new image
-      // since it reads directly from note.imageDataByPage
-    }
-  }
-  
-  
-}
-
 // MARK: - Document Picker Coordinator
 class DocumentPickerCoordinator: NSObject, UIDocumentPickerDelegate {
   static let shared = DocumentPickerCoordinator()
@@ -1270,32 +1200,6 @@ class DocumentPickerCoordinator: NSObject, UIDocumentPickerDelegate {
     onFilePicked?(url)
   }
 
-  func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
-    // File picker was cancelled
-  }
+
 }
-
-// MARK: - Import Errors
-enum ImportError: Error {
-  case accessDenied
-  case invalidImageFormat
-  case invalidPDFFormat
-  case emptyPDFDocument
-  case unsupportedFileType
-
-  var localizedDescription: String {
-    switch self {
-    case .accessDenied:
-      return "Access to file was denied"
-    case .invalidImageFormat:
-      return "Invalid image format"
-    case .invalidPDFFormat:
-      return "Invalid PDF format"
-    case .emptyPDFDocument:
-      return "PDF document contains no pages"
-    case .unsupportedFileType:
-      return "Unsupported file type"
-    }
-  }
-
 }
