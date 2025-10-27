@@ -32,6 +32,8 @@ struct WrittenNoteView: View {
     // Separate state for vertical scroll mode
     @State var verticalZoomLevel: CGFloat = 1.0
     @State var verticalContentOffsets: [Int: CGPoint] = [:]  // Per-page offsets
+    @State var isProgrammaticScroll: Bool = false  // Flag to prevent automatic currentPage updates during programmatic scrolls
+    @State var scrollPosition: Int? = nil  // Declarative scroll position for vertical mode (like TabView selection)
 
     // Stable page identifiers to prevent view recreation
     @State var pageIdentifiers: [UUID] = [UUID()]
@@ -45,7 +47,7 @@ struct WrittenNoteView: View {
         VStack(spacing: 0) {
             if preferencesManager.noteEditorVerticalScrollMode {
                 // Vertical scroll mode - all pages in a continuous scroll view
-                verticalScrollContent
+                verticalScrollContent()
             } else {
                 // Page mode - horizontal tabbed pages
                 TabView(selection: $currentPage) {
@@ -651,7 +653,7 @@ struct WrittenNoteView: View {
     
     // Vertical scroll view displaying all pages continuously
     @ViewBuilder
-    private var verticalScrollContent: some View {
+    private func verticalScrollContent() -> some View {
         GeometryReader { geometry in
             // Calculate a unified fit scale based on the first page (or current page)
             // This ensures all pages zoom consistently
@@ -668,62 +670,74 @@ struct WrittenNoteView: View {
                 maxZoom: 5.0,
                 unifiedFitScale: unifiedFitScale
             ) {
-                ScrollViewReader { scrollProxy in
-                    ScrollView(.vertical, showsIndicators: false) {
-                        LazyVStack(spacing: 8) {
-                            ForEach(Array(pageIdentifiers.enumerated()), id: \.element) { index, pageId in
-                                if index < pageCount {
-                                    verticalPageContent(
-                                        pageIndex: index,
-                                        viewportSize: geometry.size,
-                                        unifiedFitScale: unifiedFitScale
-                                    )
-                                    .id(index)
-                                    .background(
-                                        // Track which page is in view
-                                        GeometryReader { pageGeometry in
-                                            Color.clear.preference(
-                                                key: PageVisibilityPreferenceKey.self,
-                                                value: [index: pageGeometry.frame(in: .named("scroll")).midY]
-                                            )
-                                        }
-                                    )
-                                }
+                ScrollView(.vertical, showsIndicators: false) {
+                    LazyVStack(spacing: 8) {
+                        ForEach(Array(pageIdentifiers.enumerated()), id: \.element) { index, pageId in
+                            if index < pageCount {
+                                verticalPageContent(
+                                    pageIndex: index,
+                                    viewportSize: geometry.size,
+                                    unifiedFitScale: unifiedFitScale
+                                )
+                                .id(index)
+                                .background(
+                                    // Track which page is in view
+                                    GeometryReader { pageGeometry in
+                                        Color.clear.preference(
+                                            key: PageVisibilityPreferenceKey.self,
+                                            value: [index: pageGeometry.frame(in: .named("scroll")).midY]
+                                        )
+                                    }
+                                )
                             }
                         }
+                    }
 
-                    }
-                    .coordinateSpace(name: "scroll")
-                    .onPreferenceChange(PageVisibilityPreferenceKey.self) { positions in
-                        // Find the page closest to the center of the screen
-                        let screenCenter = geometry.size.height / 2
-                        if let closestPage = positions.min(by: { abs($0.value - screenCenter) < abs($1.value - screenCenter) }) {
-                            if currentPage != closestPage.key {
-                                currentPage = closestPage.key
-                            }
+                }
+                .scrollPosition(id: $scrollPosition, anchor: .top)
+                .coordinateSpace(name: "scroll")
+                .onPreferenceChange(PageVisibilityPreferenceKey.self) { positions in
+                    // Skip automatic currentPage updates during programmatic scrolls
+                    guard !isProgrammaticScroll else { return }
+
+                    // Find the page closest to the center of the screen
+                    let screenCenter = geometry.size.height / 2
+                    if let closestPage = positions.min(by: { abs($0.value - screenCenter) < abs($1.value - screenCenter) }) {
+                        if currentPage != closestPage.key {
+                            currentPage = closestPage.key
                         }
                     }
-                    .clipped()
-                    .ignoresSafeArea(.all, edges: .bottom)
-                    .overlay(alignment: .bottomTrailing) {
-                        verticalScrollControlsOverlay
-                    }
-                    .onAppear {
-                        // Scroll to current page when switching to vertical mode
+                }
+                .onChange(of: scrollPosition) { _, newPosition in
+                    // Sync scrollPosition back to currentPage when user scrolls
+                    if let newPosition = newPosition, newPosition != currentPage {
+                        isProgrammaticScroll = true
+                        currentPage = newPosition
+                        // Clear flag after a brief delay
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            if currentPage > 0 {
-                                scrollProxy.scrollTo(currentPage, anchor: .top)
-                            }
+                            isProgrammaticScroll = false
                         }
                     }
-                    .onChange(of: preferencesManager.noteEditorVerticalScrollMode) { _, isVertical in
-                        // Scroll to current page when switching modes
-                        if isVertical {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                scrollProxy.scrollTo(currentPage, anchor: .top)
-                            }
-                        }
+                }
+                .clipped()
+                .ignoresSafeArea(.all, edges: .bottom)
+                .overlay(alignment: .bottomTrailing) {
+                    verticalScrollControlsOverlay
+                }
+                .onAppear {
+                    // Set scroll position declaratively (like TabView selection)
+                    scrollPosition = currentPage
+                }
+                .onChange(of: preferencesManager.noteEditorVerticalScrollMode) { _, isVertical in
+                    // Set scroll position when switching to vertical mode
+                    if isVertical {
+                        scrollPosition = currentPage
                     }
+                }
+                .onChange(of: note.id) { _, _ in
+                    // Set scroll position when note changes
+                    guard preferencesManager.noteEditorVerticalScrollMode else { return }
+                    scrollPosition = currentPage
                 }
             }
         }
@@ -843,6 +857,8 @@ struct WrittenNoteView: View {
                                     isTextBoxToolActive: currentTool == .textbox
                                 )
                             }
+                            .background(Color.clear)  // Provide hit testing surface for tap gesture
+                            .contentShape(Rectangle())  // Ensure entire frame is tappable
                             .frame(width: contentSize.width, height: contentSize.height)
                         .scaleEffect(verticalZoomLevel * unifiedFitScale, anchor: .topLeading)
                         .offset(x: -pageOffset.x + centerOffsetX, y: -pageOffset.y)
