@@ -333,6 +333,9 @@ struct WrittenNoteToolbar: View {
   // TextBox manager for handling textboxes on canvas
   @ObservedObject var textBoxManager: TextBoxManager
 
+  // Callback to trigger save before PageOverviewView opens
+  var saveCallback: (() -> Void)?
+
   // Local state for ColorPickers
   @State private var newPenColor: Color = .black
   @State private var newMarkerColor: Color = .yellow
@@ -478,6 +481,12 @@ struct WrittenNoteToolbar: View {
         isPresented: $showPageOverview
       )
       .environmentObject(storageManager)
+    }
+    .onChange(of: showPageOverview) { _, isShowing in
+      if isShowing {
+        // Save current drawing data before showing PageOverviewView
+        saveCallback?()
+      }
     }
     .sheet(isPresented: $showImagePicker) {
       ImagePickerView(

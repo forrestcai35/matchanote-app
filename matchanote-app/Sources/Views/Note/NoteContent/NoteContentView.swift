@@ -16,6 +16,7 @@ struct WrittenNoteView: View {
     // Callback to expose add page functionality
     var onAddPageCallback: ((@escaping (PagePlacement) -> Void) -> Void)?
     var onDeletePageCallback: ((@escaping (Int) -> Void) -> Void)?
+    var onSaveCallback: ((@escaping () -> Void) -> Void)?
     @State var pageCount = 1
     @State var toolPicker = PKToolPicker()
     @Environment(\.colorScheme) var colorScheme
@@ -141,6 +142,11 @@ struct WrittenNoteView: View {
             // Expose the delete page functionality to the parent
             onDeletePageCallback? { pageIndex in
                 deletePage(at: pageIndex)
+            }
+
+            // Expose the save functionality to the parent
+            onSaveCallback? {
+                saveCurrentDrawingData()
             }
         }
         .onDisappear {
