@@ -44,7 +44,10 @@ extension WrittenNoteView {
 
         // Navigate to the new page if it's before or after current
         if position == .before || position == .after {
-            currentPage = insertIndex
+            // Force UI update by using DispatchQueue.main.async
+            DispatchQueue.main.async {
+                self.currentPage = insertIndex
+            }
         }
 
         // Update active canvas after page change

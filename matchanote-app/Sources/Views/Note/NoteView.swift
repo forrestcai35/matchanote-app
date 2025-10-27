@@ -476,6 +476,12 @@ struct NoteView: View {
       .onChange(of: currentPage) { oldPage, newPage in
         // Save immediately when page changes so it persists even if app is force-closed
         guard let activeTab = tabManager.getActiveTab() else { return }
+
+        // Skip save if currentPage in storage already matches (prevents conflicting saves during page add/delete)
+        if activeTab.note.currentPage == newPage {
+          return
+        }
+
         var updatedNote = activeTab.note
         updatedNote.currentPage = newPage
         updatedNote.dateModified = Date()
