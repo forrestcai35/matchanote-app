@@ -33,7 +33,7 @@ struct WrittenNoteView: View {
     @State var verticalZoomLevel: CGFloat = 1.0
     @State var verticalContentOffsets: [Int: CGPoint] = [:]  // Per-page offsets
     @State var isProgrammaticScroll: Bool = false  // Flag to prevent automatic currentPage updates during programmatic scrolls
-    @State var scrollPosition: Int? = nil  // Declarative scroll position for vertical mode (like TabView selection)
+    @State var scrollPosition: Int?
 
     // Stable page identifiers to prevent view recreation
     @State var pageIdentifiers: [UUID] = [UUID()]
@@ -672,7 +672,7 @@ struct WrittenNoteView: View {
             ) {
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: 8) {
-                        ForEach(Array(pageIdentifiers.enumerated()), id: \.element) { index, pageId in
+                        ForEach(Array(pageIdentifiers.enumerated()), id: \.element) { index, _ in
                             if index < pageCount {
                                 verticalPageContent(
                                     pageIndex: index,
