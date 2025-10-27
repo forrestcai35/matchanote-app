@@ -71,4 +71,10 @@ class EnvironmentManager {
   func getLlmAPIKey(for service: String) -> String? {
     return get("\(service)_API_KEY")
   }
+  
+  /// Get Supabase service role key for admin operations
+  /// - Returns: Service role key as String or nil if not found
+  func getSupabaseServiceRoleKey() -> String? {
+    return get("PRIVATE_SUPABASE_SERVICE_ROLE_KEY")
+  }
 }

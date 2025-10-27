@@ -30,3 +30,45 @@ let supabase = {
 }()
 
 let auth = supabase.auth
+
+// MARK: - Admin Client for Service Role Operations
+// This client operates purely as service role with no user session context
+let supabaseAdmin = {
+  let envManager = EnvironmentManager.shared
+  
+  let supabaseUrl = envManager.get("PUBLIC_SUPABASE_URL")
+  let serviceRoleKey = envManager.getSupabaseServiceRoleKey()
+  
+  guard let supabaseUrl = supabaseUrl, let serviceRoleKey = serviceRoleKey else {
+    fatalError("Missing Supabase admin credentials")
+  }
+  
+  // Configure JSON decoder for proper date and key handling
+  let decoder = JSONDecoder()
+  decoder.keyDecodingStrategy = .convertFromSnakeCase
+  decoder.dateDecodingStrategy = .iso8601
+  
+  let encoder = JSONEncoder()
+  encoder.keyEncodingStrategy = .convertToSnakeCase
+  encoder.dateEncodingStrategy = .iso8601
+  
+  // Create a completely separate client instance with service role key
+  // This client will have no session context and operate purely as service_role
+  let adminClient = SupabaseClient(
+    supabaseURL: URL(string: supabaseUrl)!,
+    supabaseKey: serviceRoleKey,
+    options: .init(
+      db: .init(encoder: encoder, decoder: decoder),
+      auth: .init(
+        autoRefreshToken: false
+      )
+    )
+  )
+  
+  // Ensure no session context by clearing any existing session
+  Task {
+    try? await adminClient.auth.signOut()
+  }
+  
+  return adminClient
+}()
