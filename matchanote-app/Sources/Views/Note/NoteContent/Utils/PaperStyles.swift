@@ -27,7 +27,13 @@ extension WrittenNoteView {
 
     @ViewBuilder
     func paperBackground(pageIndex: Int) -> some View {
-        let paperBackground: Color = getPaperBackgroundColor(for: note.paperColor)
+        // Determine if dark mode should apply to the paper background
+        let shouldUseDarkBackground = preferencesManager.noteEditorDarkModeForWhitePaper
+            && note.paperColor == .white
+            && colorScheme == .dark
+
+        let paperBackground: Color = shouldUseDarkBackground ? .black : getPaperBackgroundColor(for: note.paperColor)
+
         Rectangle()
             .fill(paperBackground)
             .frame(
@@ -38,11 +44,11 @@ extension WrittenNoteView {
                 GeometryReader { geometry in
                     switch note.paperStyle {
                     case .grid:
-                        gridOverlay(size: geometry.size)
+                        gridOverlay(size: geometry.size, isDarkBackground: shouldUseDarkBackground)
                     case .dotted:
-                        dottedOverlay(size: geometry.size)
+                        dottedOverlay(size: geometry.size, isDarkBackground: shouldUseDarkBackground)
                     case .lined:
-                        linedOverlay(size: geometry.size)
+                        linedOverlay(size: geometry.size, isDarkBackground: shouldUseDarkBackground)
                     case .blank:
                         EmptyView()
                     }
@@ -65,32 +71,34 @@ extension WrittenNoteView {
     }
 
     @ViewBuilder
-    func gridOverlay(size: CGSize) -> some View {
+    func gridOverlay(size: CGSize, isDarkBackground: Bool) -> some View {
         // Match prior visual density now that we render at natural size
         let gridSpacing: CGFloat = 20
+        let lineColor = isDarkBackground ? Color.white.opacity(0.3) : Color.gray.opacity(0.3)
 
         ZStack {
             // Horizontal lines
             ForEach(0..<Int(size.height / gridSpacing + 1), id: \.self) { i in
                 let y = CGFloat(i) * gridSpacing
                 Line(start: CGPoint(x: 0, y: y), end: CGPoint(x: size.width, y: y))
-                    .stroke(Color.gray.opacity(0.3), lineWidth: 0.75)
+                    .stroke(lineColor, lineWidth: 0.75)
             }
             // Vertical lines
             ForEach(0..<Int(size.width / gridSpacing + 1), id: \.self) { i in
                 let x = CGFloat(i) * gridSpacing
                 Line(start: CGPoint(x: x, y: 0), end: CGPoint(x: x, y: size.height))
-                    .stroke(Color.gray.opacity(0.3), lineWidth: 0.75)
+                    .stroke(lineColor, lineWidth: 0.75)
             }
         }
     }
 
     @ViewBuilder
-    func dottedOverlay(size: CGSize) -> some View {
+    func dottedOverlay(size: CGSize, isDarkBackground: Bool) -> some View {
         // Match prior visual density at natural size
         let baseSpacing: CGFloat = 18
         let dotRadius: CGFloat = 1
         let margin: CGFloat = baseSpacing
+        let dotColor = isDarkBackground ? Color.white.opacity(0.35) : Color.gray.opacity(0.35)
 
         Canvas { context, canvasSize in
                 // Calculate available space after margins
@@ -118,7 +126,7 @@ extension WrittenNoteView {
                                     width: 2 * dotRadius,
                                     height: 2 * dotRadius
                                 )),
-                            with: .color(Color.gray.opacity(0.35))
+                            with: .color(dotColor)
                         )
                     }
                 }
@@ -127,16 +135,17 @@ extension WrittenNoteView {
     }
 
     @ViewBuilder
-    func linedOverlay(size: CGSize) -> some View {
+    func linedOverlay(size: CGSize, isDarkBackground: Bool) -> some View {
         // Match prior visual density at natural size
         let lineSpacing: CGFloat = 24
         let marginTop: CGFloat = 30
+        let lineColor = isDarkBackground ? Color.white.opacity(0.3) : Color.gray.opacity(0.3)
 
         ZStack {
             ForEach(0..<Int((size.height - marginTop) / lineSpacing + 1), id: \.self) { i in
                 let y = marginTop + CGFloat(i) * lineSpacing
                 Line(start: CGPoint(x: 0, y: y), end: CGPoint(x: size.width, y: y))
-                    .stroke(Color.gray.opacity(0.3), lineWidth: 0.75)
+                    .stroke(lineColor, lineWidth: 0.75)
             }
         }
     }

@@ -211,9 +211,26 @@ struct TabBarView: View {
             .foregroundColor(
               colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
             )
-            
- 
-            
+
+            // Dark mode for white paper toggle
+            Button(action: {
+              preferencesManager.noteEditorDarkModeForWhitePaper.toggle()
+            }) {
+              HStack {
+                Label(
+                  "Content matches theme",
+                  systemImage: preferencesManager.noteEditorDarkModeForWhitePaper
+                    ? "checkmark.circle.fill"
+                    : "circle"
+                )
+                .font(.jost(.body()))
+                Spacer()
+              }
+            }
+            .foregroundColor(
+              colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+            )
+
             Button(action: {
               // TODO: Implement rotate page functionality
               showMorePopover = false

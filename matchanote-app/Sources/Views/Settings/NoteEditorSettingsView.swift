@@ -115,9 +115,25 @@ struct NoteEditorSettingsView: View {
                             .scaleEffect(0.9)
                     }
                     .padding(.vertical, 4)
-                    
-                   
-      
+
+                    HStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Dark mode for white paper")
+                                .font(.jost(.subheadline()))
+                            Text("Allow dark mode only for white paper notes")
+                                .font(.jost(.caption2()))
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Toggle("", isOn: $preferencesManager.noteEditorDarkModeForWhitePaper)
+                            .labelsHidden()
+                            .controlSize(.small)
+                            .tint(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+                            .scaleEffect(0.9)
+                    }
+                    .padding(.vertical, 4)
+
+
                 } header: {
                     HStack {
                         Image(systemName: "pencil.and.outline")
@@ -184,6 +200,7 @@ struct NoteEditorSettingsView: View {
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
+            .scrollIndicators(.hidden)
         }
         .background(
             colorScheme == .dark

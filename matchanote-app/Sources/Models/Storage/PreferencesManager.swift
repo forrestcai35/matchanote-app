@@ -85,6 +85,7 @@ class PreferencesManager: ObservableObject {
         static let noteEditorToolShape = "preferences.noteEditor.tools.shape"
         static let noteEditorVerticalScrollMode = "preferences.noteEditor.verticalScrollMode"
         static let noteEditorPageBoundaryIndicators = "preferences.noteEditor.pageBoundaryIndicators"
+        static let noteEditorDarkModeForWhitePaper = "preferences.noteEditor.darkModeForWhitePaper"
     }
     
     // MARK: - Published Properties
@@ -205,7 +206,13 @@ class PreferencesManager: ObservableObject {
         }
     }
 
-    
+    @Published var noteEditorDarkModeForWhitePaper: Bool {
+        didSet {
+            userDefaults.set(noteEditorDarkModeForWhitePaper, forKey: DefaultsKeys.noteEditorDarkModeForWhitePaper)
+        }
+    }
+
+
     private init() {
         // Load saved orientation or default to left
         let savedOrientation = userDefaults.string(forKey: DefaultsKeys.assistantDefaultOrientation)
@@ -252,7 +259,10 @@ class PreferencesManager: ObservableObject {
         
         // Load page boundary indicators preference or default to true (enabled)
         self.noteEditorPageBoundaryIndicators = userDefaults.object(forKey: DefaultsKeys.noteEditorPageBoundaryIndicators) as? Bool ?? true
-        
+
+        // Load dark mode for white paper preference or default to false (disabled)
+        self.noteEditorDarkModeForWhitePaper = userDefaults.object(forKey: DefaultsKeys.noteEditorDarkModeForWhitePaper) as? Bool ?? false
+
         // Load enabled models with dynamic model management
         if let savedModels = userDefaults.array(forKey: DefaultsKeys.enabledModels) as? [String] {
             // Check if we have old display names or new model IDs

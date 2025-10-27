@@ -18,10 +18,10 @@ struct WrittenNoteView: View {
     var onDeletePageCallback: ((@escaping (Int) -> Void) -> Void)?
     @State var pageCount = 1
     @State var toolPicker = PKToolPicker()
-    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.colorScheme) var colorScheme
     @EnvironmentObject var storageManager: StorageManager
     @ObservedObject var tabManager = TabManager.shared
-    @ObservedObject private var preferencesManager = PreferencesManager.shared
+    @ObservedObject var preferencesManager = PreferencesManager.shared
     @State var currentNoteId: UUID?
 
     // Persist a relative zoom level across pages (1.0 = fit to screen, 2.0 = 2x fit size)
@@ -145,15 +145,35 @@ struct WrittenNoteView: View {
             // Save any unsaved drawing data when view disappears
             saveCurrentDrawingData()
         }
+        .onChange(of: preferencesManager.noteEditorDarkModeForWhitePaper) { _, _ in
+            // Update all canvases when the dark mode preference changes
+            updateCanvasInterfaceStyles()
+        }
     }
 
     // MARK: - Tool Picker & Canvas Setup
+
+    // Update interface styles for all canvases based on current preference
+    private func updateCanvasInterfaceStyles() {
+        let shouldAllowDarkMode = preferencesManager.noteEditorDarkModeForWhitePaper && note.paperColor == .white
+        let interfaceStyle: UIUserInterfaceStyle = shouldAllowDarkMode ? .unspecified : .light
+
+        for canvas in canvasViews {
+            canvas.overrideUserInterfaceStyle = interfaceStyle
+        }
+    }
 
     // MARK: - Centralized Canvas Creation
     // Creates a new canvas with consistent configuration
     func createCanvas() -> PKCanvasView {
         let canvas = PKCanvasView()
-        canvas.overrideUserInterfaceStyle = .light
+
+        // Conditionally override to light mode:
+        // - If dark mode for white paper is enabled AND paper is white, allow dark mode
+        // - Otherwise, force light mode (for colored papers)
+        let shouldAllowDarkMode = preferencesManager.noteEditorDarkModeForWhitePaper && note.paperColor == .white
+        canvas.overrideUserInterfaceStyle = shouldAllowDarkMode ? .unspecified : .light
+
         canvas.backgroundColor = .clear
         
         // Apply finger drawing preference from settings
