@@ -181,12 +181,10 @@ struct CanvasImageOverlay: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        let hasImages = !imageManager.getImagesForPage(pageIndex).isEmpty
         let shouldInterceptBackground = imageManager.hasSelectedImage
-        let allowHitTesting = hasImages || shouldInterceptBackground
 
         ZStack {
-            // Background tap layer - intercepts when image is selected
+            // Background tap layer - only for deselection when an image is selected
             if shouldInterceptBackground {
                 Color.clear
                     .frame(width: canvasSize.width, height: canvasSize.height)
@@ -207,7 +205,6 @@ struct CanvasImageOverlay: View {
             }
         }
         .frame(width: canvasSize.width, height: canvasSize.height)
-        .allowsHitTesting(allowHitTesting)
         .clipped()
     }
 }
@@ -227,7 +224,7 @@ struct ImagePickerView: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
         picker.delegate = context.coordinator
-        picker.allowsEditing = true
+        picker.allowsEditing = false
         picker.modalPresentationStyle = .formSheet
 
         // Check if the source type is available
