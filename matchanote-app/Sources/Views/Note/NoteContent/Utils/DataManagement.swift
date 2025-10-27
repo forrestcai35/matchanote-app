@@ -209,7 +209,6 @@ extension WrittenNoteView {
                     }
                 } else {
                     hasChanges = true
-                    break
                 }
             }
         }
