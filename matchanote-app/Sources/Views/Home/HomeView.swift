@@ -805,7 +805,7 @@ struct HomeView: View {
         }
     }
 
-    // resetDragState moved to HomeView+DragDrop.swift
+
 
     // Helper to apply common modifiers for items (both notes and folders)
     private func applyCommonItemModifiers<T: View, U: Identifiable>(
@@ -1334,217 +1334,30 @@ struct HomeView: View {
 
 
     private func handleDocumentImport(url: URL, type: String) {
-        print("HomeView: Handling document import - URL: \(url), Type: \(type)")
-        
-        switch type {
-        case "pdf":
-            createNoteFromPDF(url: url, fileName: url.deletingPathExtension().lastPathComponent)
-        case "image":
-            createNoteFromImage(url: url, fileName: url.deletingPathExtension().lastPathComponent)
-        case "matcha":
-            createNoteFromMatchaFile(url: url, fileName: url.deletingPathExtension().lastPathComponent)
-        default:
-            print("HomeView: Unknown document type: \(type)")
+        ImportManager.shared.handleDocumentImport(
+            url: url,
+            type: type,
+            storageManager: storageManager,
+            currentFolderID: currentFolderID,
+            selectedSubject: selectedSubject
+        ) { note in
+            if let note = note {
+                selectedNote = note
+            }
         }
     }
 
     func handleImportedFiles(_ urls: [URL]) {
-        for url in urls {
-            #if canImport(UIKit)
-                if url.startAccessingSecurityScopedResource() {
-                    createNoteFromImportedFile(url)
-                    url.stopAccessingSecurityScopedResource()
-                }
-            #else
-                createNoteFromImportedFile(url)
-            #endif
-        }
-    }
-
-    private func createNoteFromImportedFile(_ url: URL) {
-        let fileExtension = url.pathExtension.lowercased()
-        let fileName = url.deletingPathExtension().lastPathComponent
-
-        // Check if it's a PDF, image, or matcha file
-        if fileExtension == "pdf" {
-            createNoteFromPDF(url: url, fileName: fileName)
-        } else if ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "heic"].contains(fileExtension) {
-            createNoteFromImage(url: url, fileName: fileName)
-        } else if fileExtension == "matcha" {
-            createNoteFromMatchaFile(url: url, fileName: fileName)
-        } else {
-            // Ignore unsupported file types for uploads
-            print("Unsupported upload file type: \(fileExtension)")
-        }
-    }
-
-    private func createNoteFromPDF(url: URL, fileName: String) {
-        guard let pdf = CGPDFDocument(url as CFURL) else {
-            print("Error: Could not load PDF from \(url)")
-            return
-        }
-
-        let pageCount = pdf.numberOfPages
-        var imageDataByPage: [String: [Data]] = [:]
-
-        // Extract each page as an image at native page size
-        for pageIndex in 1...pageCount {
-            guard let page = pdf.page(at: pageIndex) else { continue }
-
-            let pageRect = page.getBoxRect(.mediaBox)
-            let renderer = UIGraphicsImageRenderer(size: pageRect.size)
-            let image = renderer.image { context in
-                UIColor.white.set()
-                context.fill(CGRect(origin: .zero, size: pageRect.size))
-
-                context.cgContext.saveGState()
-                context.cgContext.translateBy(x: 0, y: pageRect.size.height)
-                context.cgContext.scaleBy(x: 1.0, y: -1.0)
-                context.cgContext.drawPDFPage(page)
-                context.cgContext.restoreGState()
-            }
-
-            if let imageData = image.jpegData(compressionQuality: 0.8) {
-                imageDataByPage[String(pageIndex - 1)] = [imageData]
+        ImportManager.shared.handleImportedFiles(
+            urls,
+            storageManager: storageManager,
+            currentFolderID: currentFolderID,
+            selectedSubject: selectedSubject
+        ) { note in
+            if let note = note {
+                selectedNote = note
             }
         }
-
-        // Create a better title from the filename
-        let noteTitle = createNoteTitle(from: fileName, type: "PDF")
-
-        let newNote = Note(
-            title: noteTitle,
-            subject: selectedSubject ?? "",
-            color: .matchalight_light,
-            dateCreated: Date(),
-            dateModified: Date(),
-            noteType: .written,
-            paperColor: .white,
-            paperStyle: .blank,
-            paperSize: .a4,
-            imageDataByPage: imageDataByPage
-        )
-
-        saveAndOpenNote(newNote)
-    }
-
-    private func createNoteFromImage(url: URL, fileName: String) {
-        guard let imageData = try? Data(contentsOf: url) else {
-            print("Error: Could not load image data from \(url)")
-            return
-        }
-
-        // Create a note with the image as background on the first page
-        let imageDataByPage: [String: [Data]] = ["0": [imageData]]
-
-        // Create a better title from the filename
-        let noteTitle = createNoteTitle(from: fileName, type: "Image")
-
-        let newNote = Note(
-            title: noteTitle,
-            subject: selectedSubject ?? "",
-            color: .matchalight_light,
-            dateCreated: Date(),
-            dateModified: Date(),
-            noteType: .written,
-            paperColor: .white,
-            paperStyle: .blank,
-            paperSize: .a4,
-            imageDataByPage: imageDataByPage
-        )
-
-        saveAndOpenNote(newNote)
-    }
-
-    private func createNoteFromMatchaFile(url: URL, fileName: String) {
-        do {
-            // Read the Matcha note data
-            let matchaData = try Data(contentsOf: url)
-            
-            // Decode the note from JSON with proper date decoding strategy
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            let importedNote = try decoder.decode(Note.self, from: matchaData)
-            
-            // Create a new note with the imported data but with a new ID and current timestamp
-            // Use the imported subject if it exists, otherwise use the current subject context
-            let noteSubject = importedNote.subject.isEmpty ? (selectedSubject ?? "") : importedNote.subject
-            
-            let newNote = Note(
-                title: importedNote.title,
-                subject: noteSubject,
-                color: importedNote.color,
-                dateCreated: Date(),
-                dateModified: Date(),
-                lastOpenedAt: nil,
-                isFavorite: false,
-                content: importedNote.content,
-                noteType: importedNote.noteType,
-                paperColor: importedNote.paperColor,
-                paperStyle: importedNote.paperStyle,
-                paperSize: importedNote.paperSize,
-                drawingDataByPage: importedNote.drawingDataByPage,
-                imageDataByPage: importedNote.imageDataByPage,
-                textBoxDataByPage: importedNote.textBoxDataByPage,
-                bookmarkedPages: importedNote.bookmarkedPages
-            )
-            
-            saveAndOpenNote(newNote)
-            print("Success: Imported Matcha note '\(newNote.title)' from \(url.lastPathComponent)")
-        } catch {
-            print("Error: Could not load Matcha note from \(url): \(error)")
-            print("Error details: \(error.localizedDescription)")
-        }
-    }
-
-    private func createTextNoteFromFile(url: URL, fileName: String) {
-        let newNote = Note(
-            title: fileName,
-            subject: selectedSubject ?? "",
-            color: .matchalight_light,
-            dateCreated: Date(),
-            dateModified: Date(),
-            content: "Imported from \(fileName)",
-            noteType: .written
-        )
-
-        saveAndOpenNote(newNote)
-    }
-
-    // MARK: - Helper Functions for Upload
-    private func createNoteTitle(from fileName: String, type: String) -> String {
-        // Clean up the filename and create a better title
-        let cleanName = fileName
-            .replacingOccurrences(of: "_", with: " ")
-            .replacingOccurrences(of: "-", with: " ")
-            .capitalized
-        
-        // If the name is too long, truncate it
-        if cleanName.count > 30 {
-            let truncated = String(cleanName.prefix(27))
-            return "\(truncated)..."
-        }
-        
-        return cleanName.isEmpty ? "Imported \(type)" : cleanName
-    }
-    
-    
-    
-    private func saveAndOpenNote(_ newNote: Note) {
-        // Add to current folder if we're in one
-        if let currentFolderID = currentFolderID,
-            let folderIndex = storageManager.folders.firstIndex(where: { $0.id == currentFolderID })
-        {
-            var updatedFolder = storageManager.folders[folderIndex]
-            updatedFolder.addNote(noteID: newNote.id)
-            _ = storageManager.saveFolder(updatedFolder)
-        }
-
-        let savedNote = storageManager.saveNote(newNote)
-
-        // Optionally open the imported note
-        TabManager.shared.openTab(note: savedNote)
-        selectedNote = savedNote
     }
 
 
