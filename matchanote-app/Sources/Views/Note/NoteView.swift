@@ -261,7 +261,31 @@ struct NoteView: View {
     // Mark as edited to trigger save
     isEdited = true
   }
-  
+
+  // Toggle note orientation between portrait and landscape
+  private func toggleOrientation() {
+    // Save current canvas data before changing orientation
+    saveCurrentCanvasData()
+
+    // Get the current note from the active tab
+    guard let activeTab = tabManager.getActiveTab() else { return }
+
+    // Create mutable copy of the note
+    var updatedNote = activeTab.note
+
+    // Toggle the orientation
+    updatedNote.paperOrientation = updatedNote.paperOrientation == .portrait ? .landscape : .portrait
+
+    // Update modification date
+    updatedNote.dateModified = Date()
+
+    // Save the updated note
+    let savedNote = storageManager.saveNote(updatedNote)
+    tabManager.updateNote(savedNote)
+
+    // Canvas views will be automatically reloaded by WrittenNoteView's onChange(of: note.paperOrientation) handler
+  }
+
   // Save current canvas data to storage
   private func saveCurrentCanvasData() {
     print("🎨 saveCurrentCanvasData() called!")
@@ -332,6 +356,9 @@ struct NoteView: View {
             },
             onTabSwitch: {
               saveCurrentCanvasData()
+            },
+            onOrientationToggle: {
+              toggleOrientation()
             }
           )
 

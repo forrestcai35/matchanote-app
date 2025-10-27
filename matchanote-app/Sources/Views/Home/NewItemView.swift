@@ -7,6 +7,7 @@ struct NewWrittenNoteView: View {
   @State private var paperColor: PaperColor = .white
   @State private var paperStyle: PaperStyle = .blank
   @State private var paperSize: PaperSize = .a4
+  @State private var paperOrientation: PaperOrientation = .portrait
   @State private var noteColor: Color = .matchalight_light
 
   var onSave: (Note) -> Void
@@ -15,9 +16,9 @@ struct NewWrittenNoteView: View {
   var body: some View {
     NavigationStack {
       ScrollView {
-        VStack(spacing: 16) {
-          // Header with icon
-          VStack(spacing: 12) {
+        VStack(spacing: 12) {
+          // Header with icon - more compact
+          VStack(spacing: 8) {
             ZStack {
               Circle()
                 .fill(
@@ -27,21 +28,21 @@ struct NewWrittenNoteView: View {
                     endPoint: .bottomTrailing
                   )
                 )
-                .frame(width: 64, height: 64)
-              
+                .frame(width: 50, height: 50)
+
               Image(systemName: "pencil.and.outline")
-                .font(.system(size: 28, weight: .medium))
+                .font(.system(size: 22, weight: .medium))
                 .foregroundColor(.matchalight_light)
             }
-            
+
             Text("Create New Note")
-              .font(.jost(.title2()))
+              .font(.jost(.title3()))
               .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
           }
-          .padding(.top, 12)
-          
+          .padding(.top, 8)
+
           // Title input
-          VStack(alignment: .leading, spacing: 8) {
+          VStack(alignment: .leading, spacing: 6) {
             Text("Note Title")
               .font(.jost(.headline()))
               .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
@@ -51,12 +52,12 @@ struct NewWrittenNoteView: View {
           }
           
           // Paper style selection
-          VStack(alignment: .leading, spacing: 12) {
+          VStack(alignment: .leading, spacing: 8) {
             Text("Paper Style")
-              .font(.jost(.headline()))
+              .font(.jost(.subheadline()))
               .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
-            
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 2), spacing: 6) {
               ForEach(PaperStyle.allCases, id: \.self) { style in
                 PaperStyleCard(
                   style: style,
@@ -68,30 +69,12 @@ struct NewWrittenNoteView: View {
             }
           }
           
-          // Paper options side by side
-          HStack(alignment: .top, spacing: 16) {
-            // Paper color
-            VStack(alignment: .leading, spacing: 12) {
-              Text("Paper Color")
-                .font(.jost(.headline()))
-                .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
-
-              HStack(spacing: 12) {
-                ForEach(PaperColor.allCases, id: \.self) { color in
-                  PaperColorCard(
-                    color: color,
-                    isSelected: paperColor == color,
-                    onTap: { paperColor = color }
-                  )
-                }
-              }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
+          // Paper size, orientation, and color in one row
+          HStack(alignment: .top, spacing: 12) {
             // Paper size
-            VStack(alignment: .leading, spacing: 12) {
-              Text("Paper Size")
-                .font(.jost(.headline()))
+            VStack(alignment: .leading, spacing: 8) {
+              Text("Size")
+                .font(.jost(.subheadline()))
                 .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
 
               Menu {
@@ -113,21 +96,73 @@ struct NewWrittenNoteView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.secondary)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
                 .background(
-                  RoundedRectangle(cornerRadius: 12)
+                  RoundedRectangle(cornerRadius: 10)
                     .fill(Color(.systemGray6))
                     .overlay(
-                      RoundedRectangle(cornerRadius: 12)
+                      RoundedRectangle(cornerRadius: 10)
                         .stroke(Color(.systemGray4), lineWidth: 1)
                     )
                 )
               }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Orientation
+            VStack(alignment: .leading, spacing: 8) {
+              Text("Orientation")
+                .font(.jost(.subheadline()))
+                .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+
+              HStack(spacing: 8) {
+                ForEach(PaperOrientation.allCases, id: \.self) { orientation in
+                  Button(action: { paperOrientation = orientation }) {
+                    VStack(spacing: 4) {
+                      Image(systemName: orientation == .portrait ? "rectangle.portrait" : "rectangle")
+                        .font(.system(size: 20))
+                        .foregroundColor(paperOrientation == orientation ? .matchalight_light : .secondary)
+                      Text(orientation == .portrait ? "Portrait" : "Landscape")
+                        .font(.jost(.caption2()))
+                        .foregroundColor(paperOrientation == orientation ? .matchalight_light : .secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(
+                      RoundedRectangle(cornerRadius: 10)
+                        .fill(paperOrientation == orientation ? Color.matchalight_light.opacity(0.1) : Color(.systemGray6))
+                        .overlay(
+                          RoundedRectangle(cornerRadius: 10)
+                            .stroke(paperOrientation == orientation ? Color.matchalight_light : Color(.systemGray4), lineWidth: paperOrientation == orientation ? 2 : 1)
+                        )
+                    )
+                  }
+                  .buttonStyle(PlainButtonStyle())
+                }
+              }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Paper color
+            VStack(alignment: .leading, spacing: 8) {
+              Text("Color")
+                .font(.jost(.subheadline()))
+                .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+
+              HStack(spacing: 8) {
+                ForEach(PaperColor.allCases, id: \.self) { color in
+                  PaperColorCard(
+                    color: color,
+                    isSelected: paperColor == color,
+                    onTap: { paperColor = color }
+                  )
+                }
+              }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
           }
-          
+
           // Create button
           Button(action: createNote) {
             HStack {
@@ -136,7 +171,7 @@ struct NewWrittenNoteView: View {
             }
             .font(.jost(.headline()))
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
+            .padding(.vertical, 10)
             .background(
               LinearGradient(
                 colors: [Color.matchalight_dark, Color.matchalight_light],
@@ -147,9 +182,9 @@ struct NewWrittenNoteView: View {
             .foregroundColor(.white)
             .clipShape(RoundedRectangle(cornerRadius: 12))
           }
-          .padding(.top, 8)
-          
-          Spacer(minLength: 10)
+          .padding(.top, 4)
+
+          Spacer(minLength: 4)
         }
         .padding(.horizontal, 20)
       }
@@ -179,7 +214,8 @@ struct NewWrittenNoteView: View {
       noteType: .written,
       paperColor: paperColor,
       paperStyle: paperStyle,
-      paperSize: paperSize
+      paperSize: paperSize,
+      paperOrientation: paperOrientation
     )
     onSave(newNote)
     dismiss()

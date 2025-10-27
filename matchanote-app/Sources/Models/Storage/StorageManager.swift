@@ -19,6 +19,7 @@ struct StorageNote: Codable {
   var paperColor: String
   var paperStyle: String
   var paperSize: String
+  var paperOrientation: String
   var drawingDataByPage: [String: Data]
   var imageDataByPage: [String: [Data]]
   var textBoxDataByPage: [String: [Data]]
@@ -27,7 +28,7 @@ struct StorageNote: Codable {
 
   private enum CodingKeys: String, CodingKey {
     case id, title, subject, colorString, dateCreated, dateModified, lastOpenedAt
-    case isFavorite, content, noteType, paperColor, paperStyle, paperSize
+    case isFavorite, content, noteType, paperColor, paperStyle, paperSize, paperOrientation
     case drawingDataByPage, imageDataByPage, textBoxDataByPage, bookmarkedPages, currentPage
   }
 
@@ -47,6 +48,8 @@ struct StorageNote: Codable {
     paperColor = try container.decode(String.self, forKey: .paperColor)
     paperStyle = try container.decode(String.self, forKey: .paperStyle)
     paperSize = try container.decode(String.self, forKey: .paperSize)
+    // Handle backwards compatibility - default to portrait if paperOrientation doesn't exist
+    paperOrientation = try container.decodeIfPresent(String.self, forKey: .paperOrientation) ?? "portrait"
     drawingDataByPage = try container.decode([String: Data].self, forKey: .drawingDataByPage)
 
     // Handle backwards compatibility - default to empty dict if imageDataByPage doesn't exist
@@ -79,6 +82,7 @@ struct StorageNote: Codable {
     self.paperColor = note.paperColor.rawValue
     self.paperStyle = note.paperStyle.rawValue
     self.paperSize = note.paperSize.rawValue
+    self.paperOrientation = note.paperOrientation.rawValue
     self.drawingDataByPage = note.drawingDataByPage
     self.imageDataByPage = note.imageDataByPage
     self.textBoxDataByPage = note.textBoxDataByPage
@@ -100,6 +104,7 @@ struct StorageNote: Codable {
       paperColor: PaperColor(rawValue: paperColor) ?? .white,
       paperStyle: PaperStyle(rawValue: paperStyle) ?? .blank,
       paperSize: PaperSize(rawValue: paperSize) ?? .a4,
+      paperOrientation: PaperOrientation(rawValue: paperOrientation) ?? .portrait,
       drawingDataByPage: drawingDataByPage,
       imageDataByPage: imageDataByPage,
       textBoxDataByPage: textBoxDataByPage,

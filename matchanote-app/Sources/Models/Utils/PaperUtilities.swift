@@ -6,7 +6,9 @@ import PencilKit
 struct PaperUtilities {
   
   // MARK: - Paper Dimensions
-  static func getPaperWidth(for size: PaperSize) -> CGFloat {
+
+  // Base dimensions (portrait orientation)
+  private static func getBaseWidth(for size: PaperSize) -> CGFloat {
     switch size {
     case .legal:
       return 612  // 8.5 x 14 inches at 72 dpi
@@ -18,8 +20,8 @@ struct PaperUtilities {
       return 595  // 210 × 297 mm at 72 dpi
     }
   }
-  
-  static func getPaperHeight(for size: PaperSize) -> CGFloat {
+
+  private static func getBaseHeight(for size: PaperSize) -> CGFloat {
     switch size {
     case .legal:
       return 1008  // 8.5 x 14 inches at 72 dpi
@@ -30,6 +32,19 @@ struct PaperUtilities {
     case .a4:
       return 842  // 210 × 297 mm at 72 dpi
     }
+  }
+
+  // Public functions with orientation support
+  static func getPaperWidth(for size: PaperSize, orientation: PaperOrientation = .portrait) -> CGFloat {
+    let baseWidth = getBaseWidth(for: size)
+    let baseHeight = getBaseHeight(for: size)
+    return orientation == .portrait ? baseWidth : baseHeight
+  }
+
+  static func getPaperHeight(for size: PaperSize, orientation: PaperOrientation = .portrait) -> CGFloat {
+    let baseWidth = getBaseWidth(for: size)
+    let baseHeight = getBaseHeight(for: size)
+    return orientation == .portrait ? baseHeight : baseWidth
   }
   
   // MARK: - Paper Background Colors
@@ -45,16 +60,16 @@ struct PaperUtilities {
   }
   
   // MARK: - Convenience Properties
-  static func paperSize(for size: PaperSize) -> CGSize {
+  static func paperSize(for size: PaperSize, orientation: PaperOrientation = .portrait) -> CGSize {
     return CGSize(
-      width: getPaperWidth(for: size),
-      height: getPaperHeight(for: size)
+      width: getPaperWidth(for: size, orientation: orientation),
+      height: getPaperHeight(for: size, orientation: orientation)
     )
   }
-  
-  static func paperAspectRatio(for size: PaperSize) -> CGFloat {
-    let width = getPaperWidth(for: size)
-    let height = getPaperHeight(for: size)
+
+  static func paperAspectRatio(for size: PaperSize, orientation: PaperOrientation = .portrait) -> CGFloat {
+    let width = getPaperWidth(for: size, orientation: orientation)
+    let height = getPaperHeight(for: size, orientation: orientation)
     return width / height
   }
   

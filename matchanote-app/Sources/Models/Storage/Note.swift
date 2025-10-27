@@ -16,6 +16,10 @@ public enum PaperSize: String, CaseIterable, Codable {
   case legal, letter, tabloid, a4
 }
 
+public enum PaperOrientation: String, CaseIterable, Codable {
+  case portrait, landscape
+}
+
 // Define the type of note
 public enum NoteType: String, CaseIterable, Codable {
   case written
@@ -35,6 +39,7 @@ public struct Note: Identifiable, Codable {
   public var paperColor: PaperColor = .white
   public var paperStyle: PaperStyle = .blank
   public var paperSize: PaperSize = .a4
+  public var paperOrientation: PaperOrientation = .portrait
   // Store drawing data by page using String keys for better JSON compatibility
   public var drawingDataByPage: [String: Data] = [:]
   // Store image data by page
@@ -49,7 +54,7 @@ public struct Note: Identifiable, Codable {
   // MARK: - Codable Implementation
   private enum CodingKeys: String, CodingKey {
     case id, title, subject, colorString, dateCreated, dateModified, lastOpenedAt
-    case isFavorite, content, noteType, paperColor, paperStyle, paperSize
+    case isFavorite, content, noteType, paperColor, paperStyle, paperSize, paperOrientation
     case drawingDataByPage, imageDataByPage, textBoxDataByPage, bookmarkedPages, currentPage
   }
   
@@ -69,6 +74,7 @@ public struct Note: Identifiable, Codable {
     try container.encode(paperColor, forKey: .paperColor)
     try container.encode(paperStyle, forKey: .paperStyle)
     try container.encode(paperSize, forKey: .paperSize)
+    try container.encode(paperOrientation, forKey: .paperOrientation)
     try container.encode(drawingDataByPage, forKey: .drawingDataByPage)
     try container.encode(imageDataByPage, forKey: .imageDataByPage)
     try container.encode(textBoxDataByPage, forKey: .textBoxDataByPage)
@@ -93,6 +99,7 @@ public struct Note: Identifiable, Codable {
     paperColor = try container.decode(PaperColor.self, forKey: .paperColor)
     paperStyle = try container.decode(PaperStyle.self, forKey: .paperStyle)
     paperSize = try container.decode(PaperSize.self, forKey: .paperSize)
+    paperOrientation = try container.decodeIfPresent(PaperOrientation.self, forKey: .paperOrientation) ?? .portrait
     drawingDataByPage = try container.decode([String: Data].self, forKey: .drawingDataByPage)
     imageDataByPage = try container.decode([String: [Data]].self, forKey: .imageDataByPage)
     textBoxDataByPage = try container.decode([String: [Data]].self, forKey: .textBoxDataByPage)
@@ -106,6 +113,7 @@ public struct Note: Identifiable, Codable {
     content: String = "", noteType: NoteType,
     paperColor: PaperColor = .white,
     paperStyle: PaperStyle = .blank, paperSize: PaperSize = .a4,
+    paperOrientation: PaperOrientation = .portrait,
     drawingDataByPage: [String: Data] = [:],
     imageDataByPage: [String: [Data]] = [:],
     textBoxDataByPage: [String: [Data]] = [:],
@@ -124,6 +132,7 @@ public struct Note: Identifiable, Codable {
     self.paperColor = paperColor
     self.paperStyle = paperStyle
     self.paperSize = paperSize
+    self.paperOrientation = paperOrientation
     self.drawingDataByPage = drawingDataByPage
     self.imageDataByPage = imageDataByPage
     self.textBoxDataByPage = textBoxDataByPage

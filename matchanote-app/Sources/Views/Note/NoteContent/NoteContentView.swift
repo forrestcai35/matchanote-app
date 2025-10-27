@@ -103,6 +103,12 @@ struct WrittenNoteView: View {
                 }
             }
         }
+        .onChange(of: note.paperOrientation) { _, _ in
+            // Paper orientation changed - reload canvas views to apply new dimensions
+            if currentNoteId == note.id {
+                loadDrawingData()
+            }
+        }
         .onChange(of: toolPickerIsVisible) { _, newValue in
             updateToolPickerVisibility(newValue)
         }

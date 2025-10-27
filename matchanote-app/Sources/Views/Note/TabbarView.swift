@@ -28,6 +28,7 @@ struct TabBarView: View {
   var onAddPage: ((PagePlacement) -> Void)?
   var onUpload: ((PagePlacement) -> Void)?
   var onTabSwitch: (() -> Void)?
+  var onOrientationToggle: (() -> Void)?
 
   // Placement selection for add/upload actions
   @State private var selectedPlacement: PagePlacement = .after
@@ -232,10 +233,10 @@ struct TabBarView: View {
             )
 
             Button(action: {
-              // TODO: Implement rotate page functionality
+              onOrientationToggle?()
               showMorePopover = false
             }) {
-              Label("Rotate Page", systemImage: "rotate.right")
+              Label("Switch Orientation", systemImage: "rotate.right")
                 .font(.jost(.body()))
             }
             .foregroundColor(

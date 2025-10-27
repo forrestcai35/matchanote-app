@@ -64,7 +64,10 @@ extension WrittenNoteView {
            let uiImage = UIImage(data: imageData) {
             baseSize = uiImage.size
         } else {
-            baseSize = CGSize(width: getPaperWidth(for: note.paperSize), height: getPaperHeight(for: note.paperSize))
+            baseSize = CGSize(
+                width: getPaperWidth(for: note.paperSize, orientation: note.paperOrientation),
+                height: getPaperHeight(for: note.paperSize, orientation: note.paperOrientation)
+            )
         }
         // Render at natural size; rely on UIScreen scale for crispness
         return baseSize
@@ -156,11 +159,11 @@ extension WrittenNoteView {
     }
 
     // Helper functions to get paper dimensions
-    func getPaperWidth(for size: PaperSize) -> CGFloat {
-        return PaperUtilities.getPaperWidth(for: size)
+    func getPaperWidth(for size: PaperSize, orientation: PaperOrientation = .portrait) -> CGFloat {
+        return PaperUtilities.getPaperWidth(for: size, orientation: orientation)
     }
 
-    func getPaperHeight(for size: PaperSize) -> CGFloat {
-        return PaperUtilities.getPaperHeight(for: size)
+    func getPaperHeight(for size: PaperSize, orientation: PaperOrientation = .portrait) -> CGFloat {
+        return PaperUtilities.getPaperHeight(for: size, orientation: orientation)
     }
 }
