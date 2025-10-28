@@ -22,14 +22,14 @@ struct StorageNote: Codable {
   var paperOrientation: String
   var drawingDataByPage: [String: Data]
   var imageDataByPage: [String: [Data]]
-  // var textBoxDataByPage: [String: [Data]]
+  var textBoxDataByPage: [String: [Data]]
   var bookmarkedPages: Set<Int>
   var currentPage: Int
 
   private enum CodingKeys: String, CodingKey {
     case id, title, subject, colorString, dateCreated, dateModified, lastOpenedAt
     case isFavorite, content, noteType, paperColor, paperStyle, paperSize, paperOrientation
-    case drawingDataByPage, imageDataByPage,  bookmarkedPages, currentPage
+    case drawingDataByPage, imageDataByPage, textBoxDataByPage, bookmarkedPages, currentPage
   }
 
   init(from decoder: Decoder) throws {
@@ -55,10 +55,10 @@ struct StorageNote: Codable {
     // Handle backwards compatibility - default to empty dict if imageDataByPage doesn't exist
     imageDataByPage =
       try container.decodeIfPresent([String: [Data]].self, forKey: .imageDataByPage) ?? [:]
-    
+
     // Handle backwards compatibility - default to empty dict if textBoxDataByPage doesn't exist
-    // textBoxDataByPage =
-    //   try container.decodeIfPresent([String: [Data]].self, forKey: .textBoxDataByPage) ?? [:]
+    textBoxDataByPage =
+      try container.decodeIfPresent([String: [Data]].self, forKey: .textBoxDataByPage) ?? [:]
 
     // Handle backwards compatibility - default to empty set if bookmarkedPages doesn't exist
     bookmarkedPages =
@@ -85,7 +85,7 @@ struct StorageNote: Codable {
     self.paperOrientation = note.paperOrientation.rawValue
     self.drawingDataByPage = note.drawingDataByPage
     self.imageDataByPage = note.imageDataByPage
-    // self.textBoxDataByPage = note.textBoxDataByPage
+    self.textBoxDataByPage = note.textBoxDataByPage
     self.bookmarkedPages = note.bookmarkedPages
     self.currentPage = note.currentPage
   }
@@ -107,7 +107,7 @@ struct StorageNote: Codable {
       paperOrientation: PaperOrientation(rawValue: paperOrientation) ?? .portrait,
       drawingDataByPage: drawingDataByPage,
       imageDataByPage: imageDataByPage,
-      // textBoxDataByPage: textBoxDataByPage,
+      textBoxDataByPage: textBoxDataByPage,
       bookmarkedPages: bookmarkedPages,
       currentPage: currentPage
     )

@@ -101,9 +101,9 @@ public struct Note: Identifiable, Codable {
     paperSize = try container.decode(PaperSize.self, forKey: .paperSize)
     paperOrientation = try container.decodeIfPresent(PaperOrientation.self, forKey: .paperOrientation) ?? .portrait
     drawingDataByPage = try container.decode([String: Data].self, forKey: .drawingDataByPage)
-    imageDataByPage = try container.decode([String: [Data]].self, forKey: .imageDataByPage)
-    textBoxDataByPage = try container.decode([String: [Data]].self, forKey: .textBoxDataByPage)
-    bookmarkedPages = try container.decode(Set<Int>.self, forKey: .bookmarkedPages)
+    imageDataByPage = try container.decodeIfPresent([String: [Data]].self, forKey: .imageDataByPage) ?? [:]
+    textBoxDataByPage = try container.decodeIfPresent([String: [Data]].self, forKey: .textBoxDataByPage) ?? [:]
+    bookmarkedPages = try container.decodeIfPresent(Set<Int>.self, forKey: .bookmarkedPages) ?? Set<Int>()
     currentPage = try container.decodeIfPresent(Int.self, forKey: .currentPage) ?? 0
   }
 

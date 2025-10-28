@@ -84,7 +84,10 @@ extension WrittenNoteView {
         imageManager.loadImagesData(canvasImageData)
 
         // Load textbox data
-        textBoxManager.loadTextBoxesData(note.textBoxDataByPage)
+        // PERFORMANCE FIX: Defer textbox loading to next run loop to avoid interfering with zoom state
+        DispatchQueue.main.async {
+            textBoxManager.loadTextBoxesData(note.textBoxDataByPage)
+        }
     }
 
     // Clean up canvas views properly
