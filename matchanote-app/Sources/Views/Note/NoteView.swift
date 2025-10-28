@@ -587,6 +587,7 @@ struct NoteView: View {
             onDeletePageCallback: { callback in
               deletePageCallback = callback
             })
+            .id(activeTab.note.id)
         } else {
           // Note has been deleted, show message and close tab
           VStack {
@@ -619,6 +620,7 @@ struct NoteView: View {
             onDeletePageCallback: { callback in
               deletePageCallback = callback
             })
+            .id(firstTab.note.id)
         } else {
           // Note has been deleted, show message and close tab
           VStack {
