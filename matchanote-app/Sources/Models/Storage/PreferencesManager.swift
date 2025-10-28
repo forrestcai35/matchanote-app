@@ -48,11 +48,34 @@ enum UndoRedoGestureMode: String, CaseIterable {
         case .twoThreeTap: return "2-Tap/3-Tap"
         }
     }
-    
+
     var description: String {
         switch self {
         case .threeFingerSwipe: return "Swipe left/right with 3 fingers to undo/redo"
         case .twoThreeTap: return "2-finger tap to undo, 3-finger tap to redo"
+        }
+    }
+}
+
+// MARK: - Page Boundary Indicator Mode enum
+enum PageBoundaryIndicatorMode: String, CaseIterable {
+    case scrollBars = "scrollBars"
+    case blueBorder = "blueBorder"
+    case none = "none"
+
+    var displayName: String {
+        switch self {
+        case .scrollBars: return "Scroll Bars"
+        case .blueBorder: return "Blue Border"
+        case .none: return "None"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .scrollBars: return "Show scroll bars when zoomed in"
+        case .blueBorder: return "Show blue gradient borders at page edges"
+        case .none: return "No page boundary indicators"
         }
     }
 }
@@ -84,7 +107,7 @@ class PreferencesManager: ObservableObject {
         static let noteEditorToolTextbox = "preferences.noteEditor.tools.textbox"
         static let noteEditorToolShape = "preferences.noteEditor.tools.shape"
         static let noteEditorVerticalScrollMode = "preferences.noteEditor.verticalScrollMode"
-        static let noteEditorPageBoundaryIndicators = "preferences.noteEditor.pageBoundaryIndicators"
+        static let noteEditorPageBoundaryIndicatorMode = "preferences.noteEditor.pageBoundaryIndicatorMode"
         static let noteEditorDarkModeForWhitePaper = "preferences.noteEditor.darkModeForWhitePaper"
     }
     
@@ -199,10 +222,10 @@ class PreferencesManager: ObservableObject {
             userDefaults.set(noteEditorVerticalScrollMode, forKey: DefaultsKeys.noteEditorVerticalScrollMode)
         }
     }
-    
-    @Published var noteEditorPageBoundaryIndicators: Bool {
+
+    @Published var noteEditorPageBoundaryIndicatorMode: PageBoundaryIndicatorMode {
         didSet {
-            userDefaults.set(noteEditorPageBoundaryIndicators, forKey: DefaultsKeys.noteEditorPageBoundaryIndicators)
+            userDefaults.set(noteEditorPageBoundaryIndicatorMode.rawValue, forKey: DefaultsKeys.noteEditorPageBoundaryIndicatorMode)
         }
     }
 
@@ -256,9 +279,18 @@ class PreferencesManager: ObservableObject {
         
         // Load vertical scroll mode preference or default to false (page mode)
         self.noteEditorVerticalScrollMode = userDefaults.object(forKey: DefaultsKeys.noteEditorVerticalScrollMode) as? Bool ?? false
-        
-        // Load page boundary indicators preference or default to true (enabled)
-        self.noteEditorPageBoundaryIndicators = userDefaults.object(forKey: DefaultsKeys.noteEditorPageBoundaryIndicators) as? Bool ?? true
+
+        // Load page boundary indicator mode preference or default to blueBorder
+        // Handle migration from old boolean key to new enum key
+        if let savedMode = userDefaults.string(forKey: DefaultsKeys.noteEditorPageBoundaryIndicatorMode) {
+            self.noteEditorPageBoundaryIndicatorMode = PageBoundaryIndicatorMode(rawValue: savedMode) ?? .blueBorder
+        } else if let oldBooleanValue = userDefaults.object(forKey: "preferences.noteEditor.pageBoundaryIndicators") as? Bool {
+            // Migrate from old boolean value: true -> blueBorder, false -> none
+            self.noteEditorPageBoundaryIndicatorMode = oldBooleanValue ? .blueBorder : .none
+        } else {
+            // Default to blueBorder for new installs
+            self.noteEditorPageBoundaryIndicatorMode = .blueBorder
+        }
 
         // Load dark mode for white paper preference or default to false (disabled)
         self.noteEditorDarkModeForWhitePaper = userDefaults.object(forKey: DefaultsKeys.noteEditorDarkModeForWhitePaper) as? Bool ?? false

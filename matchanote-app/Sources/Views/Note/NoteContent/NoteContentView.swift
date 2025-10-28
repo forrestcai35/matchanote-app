@@ -333,6 +333,7 @@ struct WrittenNoteView: View {
                     currentScale: absoluteScaleBinding,
                     contentOffset: $unifiedContentOffset,
                     currentTool: $currentTool,
+                    showScrollIndicators: preferencesManager.noteEditorPageBoundaryIndicatorMode == .scrollBars,
                     onDrawingChange: { isEdited = true }
                 )
                 .offset(x: centerOffsetX, y: centerOffsetY)
@@ -395,8 +396,8 @@ struct WrittenNoteView: View {
                         }
                     }
                     
-                    // Page boundary indicators when zoomed in
-                    if relativeZoomLevel > 1.5 && preferencesManager.noteEditorPageBoundaryIndicators {
+                    // Page boundary indicators when zoomed in (only show blue border mode, not scroll bars)
+                    if relativeZoomLevel > 1.5 && preferencesManager.noteEditorPageBoundaryIndicatorMode == .blueBorder {
                         GeometryReader { indicatorGeometry in
                             pageBoundaryIndicators(
                                 contentSize: contentSize,
@@ -816,6 +817,7 @@ struct WrittenNoteView: View {
                     currentScale: absoluteScaleBinding,
                     contentOffset: pageOffsetBinding,
                     currentTool: $currentTool,
+                    showScrollIndicators: preferencesManager.noteEditorPageBoundaryIndicatorMode == .scrollBars,
                     onDrawingChange: { isEdited = true }
                 )
                 .frame(width: viewportSize.width, height: scaledHeight)

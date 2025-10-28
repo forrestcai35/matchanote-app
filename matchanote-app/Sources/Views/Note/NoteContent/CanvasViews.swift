@@ -27,6 +27,7 @@ struct NativeScrollCanvasView: UIViewRepresentable {
     @Binding var contentOffset: CGPoint
     @Binding var currentTool: PenTool?
     @ObservedObject var preferencesManager = PreferencesManager.shared
+    var showScrollIndicators: Bool = false
 
     let onDrawingChange: () -> Void
 
@@ -41,8 +42,8 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         canvasView.delegate = context.coordinator
 
         print("📐 makeUIView - AFTER: contentSize=\(canvasView.contentSize), isScrollEnabled=\(canvasView.isScrollEnabled)")
-        canvasView.showsVerticalScrollIndicator = false
-        canvasView.showsHorizontalScrollIndicator = false
+        canvasView.showsVerticalScrollIndicator = showScrollIndicators
+        canvasView.showsHorizontalScrollIndicator = showScrollIndicators
         canvasView.backgroundColor = .clear
 
         // Disable automatic content inset adjustment to prevent auto-centering
