@@ -26,12 +26,12 @@ struct WrittenNoteView: View {
     @State var currentNoteId: UUID?
 
     // Persist a relative zoom level across pages (1.0 = fit to screen, 2.0 = 2x fit size)
-    @State var relativeZoomLevel: CGFloat = 1.0
+    @State var relativeZoomLevel: CGFloat = ZoomConstants.initialFitZoom
     // Persist content offset across pages
     @State var unifiedContentOffset: CGPoint = .zero
 
     // Separate state for vertical scroll mode
-    @State var verticalZoomLevel: CGFloat = 1.0
+    @State var verticalZoomLevel: CGFloat = ZoomConstants.initialFitZoom
     @State var verticalContentOffsets: [Int: CGPoint] = [:]  // Per-page offsets
     @State var isProgrammaticScroll: Bool = false  // Flag to prevent automatic currentPage updates during programmatic scrolls
     @State var scrollPosition: Int?
@@ -299,10 +299,8 @@ struct WrittenNoteView: View {
             )
 
             // Define zoom limits relative to fit scale
-            let relativeMinZoom: CGFloat = 0.75
-            let relativeMaxZoom: CGFloat = 5.0
-            let absoluteMinScale = fitScale * relativeMinZoom
-            let absoluteMaxScale = fitScale * relativeMaxZoom
+            let absoluteMinScale = fitScale * ZoomConstants.minZoom
+            let absoluteMaxScale = fitScale * ZoomConstants.maxZoom
 
             // Create binding that converts between relative and absolute scale
             let absoluteScaleBinding = Binding<CGFloat>(
@@ -397,7 +395,7 @@ struct WrittenNoteView: View {
                     }
                     
                     // Page boundary indicators when zoomed in (only show blue border mode, not scroll bars)
-                    if relativeZoomLevel > 1.5 && preferencesManager.noteEditorPageBoundaryIndicatorMode == .blueBorder {
+                    if relativeZoomLevel > ZoomConstants.boundaryIndicatorThreshold && preferencesManager.noteEditorPageBoundaryIndicatorMode == .blueBorder {
                         GeometryReader { indicatorGeometry in
                             pageBoundaryIndicators(
                                 contentSize: contentSize,
@@ -443,7 +441,7 @@ struct WrittenNoteView: View {
                 }
                 .onAppear {
                     if !didApplyInitialFit {
-                        relativeZoomLevel = 0.95
+                        relativeZoomLevel = ZoomConstants.initialFitZoom
                         unifiedContentOffset = .zero
                         didApplyInitialFit = true
                     }
@@ -467,13 +465,10 @@ struct WrittenNoteView: View {
 
     // Ensure relative zoom stays within valid bounds when page or geometry changes
     private func clampRelativeZoomIfNeeded() {
-        let relativeMinZoom: CGFloat = 0.75
-        let relativeMaxZoom: CGFloat = 5.0
-
-        if relativeZoomLevel < relativeMinZoom {
-            relativeZoomLevel = relativeMinZoom
-        } else if relativeZoomLevel > relativeMaxZoom {
-            relativeZoomLevel = relativeMaxZoom
+        if relativeZoomLevel < ZoomConstants.minZoom {
+            relativeZoomLevel = ZoomConstants.minZoom
+        } else if relativeZoomLevel > ZoomConstants.maxZoom {
+            relativeZoomLevel = ZoomConstants.maxZoom
         }
     }
     
@@ -767,10 +762,8 @@ struct WrittenNoteView: View {
         let contentSize = perPageSize(pageIndex)
         
         // Use the unified fit scale for consistent zoom across all pages
-        let relativeMinZoom: CGFloat = 0.75
-        let relativeMaxZoom: CGFloat = 5.0
-        let absoluteMinScale = unifiedFitScale * relativeMinZoom
-        let absoluteMaxScale = unifiedFitScale * relativeMaxZoom
+        let absoluteMinScale = unifiedFitScale * ZoomConstants.minZoom
+        let absoluteMaxScale = unifiedFitScale * ZoomConstants.maxZoom
         
         // Create binding that converts between relative and absolute scale using unified fit scale
         // Use separate vertical zoom state for vertical scroll mode

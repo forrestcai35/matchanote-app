@@ -283,8 +283,8 @@ struct VerticalScrollViewWithZoom<Content: View>: UIViewRepresentable {
 
     init(
         zoomLevel: Binding<CGFloat>,
-        minZoom: CGFloat = 0.75,
-        maxZoom: CGFloat = 5.0,
+        minZoom: CGFloat = ZoomConstants.minZoom,
+        maxZoom: CGFloat = ZoomConstants.maxZoom,
         unifiedFitScale: CGFloat,
         @ViewBuilder content: () -> Content
     ) {

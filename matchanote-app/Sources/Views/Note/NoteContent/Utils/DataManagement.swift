@@ -49,7 +49,7 @@ extension WrittenNoteView {
         currentPage = min(max(0, note.currentPage), requiredPageCount - 1)
 
         // Reset relative zoom level and content offset to center the canvas for new note
-        relativeZoomLevel = 1.0  // 1.0 = fit to screen
+        relativeZoomLevel = ZoomConstants.initialFitZoom
         unifiedContentOffset = .zero
         didApplyInitialFit = false
 
