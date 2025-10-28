@@ -584,51 +584,7 @@ struct WrittenNoteView: View {
                 }
             }
             
-            // Page navigation buttons when at edges
-            // Only show buttons when content is scrollable and user is at the edge
-            if isScrollableHorizontally && leftEdgeVisible && currentPage > 0 {
-                HStack {
-                    VStack {
-                        Spacer()
-                        Button(action: {
-                            currentPage -= 1
-                        }) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.white)
-                                .frame(width: 32, height: 32)
-                                .background(Color.black.opacity(0.4))
-                                .clipShape(Circle())
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        Spacer()
-                    }
-                    .padding(.leading, 16)
-                    Spacer()
-                }
-            }
-            
-            if isScrollableHorizontally && rightEdgeVisible && currentPage < pageCount - 1 {
-                HStack {
-                    Spacer()
-                    VStack {
-                        Spacer()
-                        Button(action: {
-                            currentPage += 1
-                        }) {
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.white)
-                                .frame(width: 32, height: 32)
-                                .background(Color.black.opacity(0.4))
-                                .clipShape(Circle())
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        Spacer()
-                    }
-                    .padding(.trailing, 16)
-                }
-            }
+         
         }
     }
 
