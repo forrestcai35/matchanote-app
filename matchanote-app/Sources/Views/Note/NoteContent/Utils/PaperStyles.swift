@@ -41,17 +41,15 @@ extension WrittenNoteView {
                 height: perPageSize(pageIndex).height
             )
             .overlay {
-                GeometryReader { geometry in
-                    switch note.paperStyle {
-                    case .grid:
-                        gridOverlay(size: geometry.size, isDarkBackground: shouldUseDarkBackground)
-                    case .dotted:
-                        dottedOverlay(size: geometry.size, isDarkBackground: shouldUseDarkBackground)
-                    case .lined:
-                        linedOverlay(size: geometry.size, isDarkBackground: shouldUseDarkBackground)
-                    case .blank:
-                        EmptyView()
-                    }
+                switch note.paperStyle {
+                case .grid:
+                    gridOverlay(size: perPageSize(pageIndex), isDarkBackground: shouldUseDarkBackground)
+                case .dotted:
+                    dottedOverlay(size: perPageSize(pageIndex), isDarkBackground: shouldUseDarkBackground)
+                case .lined:
+                    linedOverlay(size: perPageSize(pageIndex), isDarkBackground: shouldUseDarkBackground)
+                case .blank:
+                    EmptyView()
                 }
             }
     }
