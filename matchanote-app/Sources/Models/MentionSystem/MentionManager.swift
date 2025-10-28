@@ -22,25 +22,45 @@ class MentionManager: ObservableObject {
     func detectMentionQuery(in text: String, cursorPosition: String.Index? = nil) -> String? {
         let position = cursorPosition ?? text.endIndex
 
-        // Find the last @ before cursor
-        guard let lastAtIndex = text[..<position].lastIndex(of: "@") else {
+        guard position > text.startIndex else {
             return nil
         }
 
-        // Get text after @
-        let afterAt = String(text[text.index(after: lastAtIndex)..<position])
+        // Find the start of the current word (search backwards for whitespace/newline or start of text)
+        var wordStart = text.startIndex
+        var searchIndex = text.index(before: position)
 
-        // Check if there's a space after @ (which would end the mention)
-        if afterAt.contains(" ") {
+        while searchIndex > text.startIndex {
+            let char = text[searchIndex]
+            if char.isWhitespace || char.isNewline {
+                wordStart = text.index(after: searchIndex)
+                break
+            }
+            searchIndex = text.index(before: searchIndex)
+        }
+
+        // Check if current word starts with @
+        guard wordStart < position && text[wordStart] == "@" else {
             return nil
         }
 
-        // Return the query (text after @)
-        return afterAt
+        // Get the text after @ within the current word
+        let queryStartIndex = text.index(after: wordStart)
+        guard queryStartIndex <= position else {
+            return nil
+        }
+
+        let query = String(text[queryStartIndex..<position])
+
+        // Return the query (can be empty string for just "@")
+        return query
     }
 
     /// Updates suggestions based on the current query
     func updateSuggestions(query: String) {
+        // Force synchronous update on main thread
+        objectWillChange.send()
+
         currentMentionQuery = query
 
         if query.isEmpty {
@@ -389,6 +409,7 @@ class MentionManager: ObservableObject {
     // MARK: - Clear State
 
     func clearSuggestions() {
+        objectWillChange.send()
         suggestions = []
         isShowingSuggestions = false
         currentMentionQuery = ""

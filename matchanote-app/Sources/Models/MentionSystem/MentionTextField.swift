@@ -12,10 +12,22 @@ struct MentionTextField: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
+    // Custom binding that immediately processes text changes
+    private var textBinding: Binding<String> {
+        Binding(
+            get: { text },
+            set: { newValue in
+                text = newValue
+                // Immediately process the text change synchronously
+                handleTextChange(newValue)
+            }
+        )
+    }
+
     var body: some View {
         // The main text editor without suggestions
         GrowingTextEditor(
-            text: $text,
+            text: textBinding,
             isTextEditorFocused: $isTextEditorFocused,
             placeholderText: placeholderText,
             submitsOnReturn: submitsOnReturn,
@@ -25,9 +37,6 @@ struct MentionTextField: View {
                 onSubmit()
             }
         )
-        .onChange(of: text) { _, newValue in
-            handleTextChange(newValue)
-        }
         .onChange(of: isTextEditorFocused) { _, newValue in
             if !newValue {
                 // Clear suggestions when focus is lost
