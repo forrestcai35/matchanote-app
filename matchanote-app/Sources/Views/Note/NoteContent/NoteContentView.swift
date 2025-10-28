@@ -335,6 +335,27 @@ struct WrittenNoteView: View {
                     onDrawingChange: { isEdited = true }
                 )
                 .offset(x: centerOffsetX, y: centerOffsetY)
+                // TAP GESTURE FOR TAP TO ADD
+                .simultaneousGesture(
+                    // Add tap gesture for textbox tool that works alongside pan/pinch
+                    currentTool == .textbox ?
+                    DragGesture(minimumDistance: 0)
+                        .onEnded { value in
+                            // Only handle if it's a tap (minimal movement)
+                            let distance = hypot(value.translation.width, value.translation.height)
+                            if distance < 5 && !textBoxManager.hasSelectedTextBox {
+                                // Convert tap location to canvas coordinates
+                                let currentScale = relativeZoomLevel * fitScale
+                                let tapX = (value.location.x - centerOffsetX + unifiedContentOffset.x) / currentScale
+                                let tapY = (value.location.y - centerOffsetY + unifiedContentOffset.y) / currentScale
+                                let canvasLocation = CGPoint(x: tapX, y: tapY)
+
+                                // Add textbox at tap location
+                                textBoxManager.addTextBox(to: pageIndex, at: canvasLocation)
+                            }
+                        }
+                    : nil
+                )
                 .background {
                     GeometryReader { _ in
                         ZStack(alignment: .topLeading) {
