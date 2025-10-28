@@ -47,8 +47,7 @@ struct NewWrittenNoteView: View {
               .font(.jost(.headline()))
               .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
             
-            TextField("Enter note title", text: $title)
-              .textFieldStyle(ModernTextFieldStyle())
+            ClearableTextField(placeholder: "Enter note title", text: $title)
           }
           
           // Paper style selection
@@ -459,8 +458,7 @@ struct NewFolderView: View {
               .font(.jost(.headline()))
               .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
             
-            TextField("Enter folder name", text: $name)
-              .textFieldStyle(ModernTextFieldStyle())
+            ClearableTextField(placeholder: "Enter folder name", text: $name)
           }
           
           
