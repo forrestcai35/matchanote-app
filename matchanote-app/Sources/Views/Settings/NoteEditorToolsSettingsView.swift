@@ -145,14 +145,14 @@ struct NoteEditorToolsSettingsView: View {
 
     private func iconName(for toolId: String) -> String {
         switch toolId {
-        case "pen": return "pen_fill"
-        case "marker": return "highlighter_fill"
-        case "eraser": return "eraser_fill"
+        case "pen": return "pen_outline"
+        case "marker": return "highlighter_outline"
+        case "eraser": return "eraser_outline"
         case "lasso": return "lasso_fill"
-        case "photo": return "photo_fill"
-        case "textbox": return "textbox_fill"
-        case "shape": return "shapes_fill"
-        default: return "pen_fill"
+        case "photo": return "photo_outline"
+        case "textbox": return "textbox_outline"
+        case "shape": return "shapes_outline"
+        default: return "pen_outline"
         }
     }
 }
