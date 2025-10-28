@@ -83,6 +83,9 @@ class AIAssistantState: ObservableObject {
     @Published var studyModeMessage: String?
     @Published var studyStorage = StudyStorageManager.shared
 
+    // Mention system for @-tagging notes, folders, subjects
+    var mentionManager: MentionManager?
+
     // Callback for saving canvas data before AI analysis
     var saveCanvasDataCallback: (() -> Void)?
 
@@ -606,17 +609,67 @@ struct AIAssistantView: View {
 
     // MARK: - Chat Mode Content
     private var chatModeContent: some View {
-        VStack(spacing: 0) {
-            if state.messages.isEmpty {
-                inputSection
-                    .padding(.top, inputOuterPadding)
-                chatHistorySection
-                    .padding(.bottom, max(0, keyboardHeight.isFinite ? keyboardHeight : 0))
-            } else {
-                chatHistorySection
-                    .padding(.bottom, max(0, keyboardHeight.isFinite ? keyboardHeight : 0))
-                inputSection
-                    .padding(.top, 12)
+        ZStack {
+            VStack(spacing: 0) {
+                if state.messages.isEmpty {
+                    inputSection
+                        .padding(.top, inputOuterPadding)
+                    chatHistorySection
+                        .padding(.bottom, max(0, keyboardHeight.isFinite ? keyboardHeight : 0))
+                } else {
+                    chatHistorySection
+                        .padding(.bottom, max(0, keyboardHeight.isFinite ? keyboardHeight : 0))
+                    inputSection
+                        .padding(.top, 12)
+                }
+            }
+
+            // Overlay mention suggestions above the input
+            if let mentionManager = state.mentionManager,
+               mentionManager.isShowingSuggestions && !mentionManager.suggestions.isEmpty {
+
+                // Position based on whether messages exist
+                if state.messages.isEmpty {
+                    // When empty, input is at top - align dropdown to top
+                    VStack(spacing: 0) {
+                        MentionSuggestionsView(
+                            suggestions: mentionManager.suggestions,
+                            onSelect: { mention in
+                                let newText = mentionManager.insertMention(mention, into: state.userInput)
+                                state.userInput = newText
+                                mentionManager.clearSuggestions()
+                            }
+                        )
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 16)
+                        .padding(.top, inputOuterPadding + 100)
+
+                        Spacer()
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .animation(.easeInOut(duration: 0.2), value: mentionManager.isShowingSuggestions)
+                } else {
+                    // When messages exist, input is at bottom - align dropdown to bottom
+                    VStack(spacing: 0) {
+                        Spacer()
+
+                        MentionSuggestionsView(
+                            suggestions: mentionManager.suggestions,
+                            onSelect: { mention in
+                                let newText = mentionManager.insertMention(mention, into: state.userInput)
+                                state.userInput = newText
+                                mentionManager.clearSuggestions()
+                            }
+                        )
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 100)
+                    }
+                    .offset(y: -max(0, keyboardHeight.isFinite ? keyboardHeight : 0))
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .animation(.easeInOut(duration: 0.2), value: mentionManager.isShowingSuggestions)
+                    .animation(.easeInOut(duration: 0.3), value: keyboardHeight)
+                }
             }
         }
     }
@@ -657,13 +710,18 @@ struct AIAssistantView: View {
             // Set initial model immediately to avoid delay
             setInitialModel()
             refreshAvailableModels()
-            
+
+            // Initialize mention manager
+            if state.mentionManager == nil {
+                state.mentionManager = MentionManager(storageManager: storageManager)
+            }
+
             // Ensure free users are always in chat mode
             let userTier = state.subscriptionManager.userProfile?.subscriptionTier ?? .free
             if userTier == .free && state.currentMode == .study {
                 state.currentMode = .chat
             }
-            
+
             // Start a new conversation if none exists
             if state.chatStorage.currentConversation == nil && state.messages.isEmpty {
                 state.startNewConversation()
@@ -918,21 +976,39 @@ struct AIAssistantView: View {
             .padding(.horizontal)
             
             ZStack(alignment: .bottomTrailing) {
-                GrowingTextEditor(
-                    text: $state.userInput,
-                    isTextEditorFocused: $isTextEditorFocused,
-                    placeholderText: "Ask me about your notes...",
-                    submitsOnReturn: true,
-                    onSubmit: {
-                        if (!state.userInput.isEmpty || !state.tempMediaItems.isEmpty) && !state.isLoading {
-                            sendIntelligentMessage()
-                        }
+                Group {
+                    // Use MentionTextField if mentionManager is available, otherwise fallback to GrowingTextEditor
+                    if let mentionManager = state.mentionManager {
+                        MentionTextField(
+                            text: $state.userInput,
+                            isTextEditorFocused: $isTextEditorFocused,
+                            mentionManager: mentionManager,
+                            placeholderText: "Ask me about your notes...",
+                            submitsOnReturn: true,
+                            onSubmit: {
+                                if (!state.userInput.isEmpty || !state.tempMediaItems.isEmpty) && !state.isLoading {
+                                    sendIntelligentMessage()
+                                }
+                            }
+                        )
+                    } else {
+                        GrowingTextEditor(
+                            text: $state.userInput,
+                            isTextEditorFocused: $isTextEditorFocused,
+                            placeholderText: "Ask me about your notes...",
+                            submitsOnReturn: true,
+                            onSubmit: {
+                                if (!state.userInput.isEmpty || !state.tempMediaItems.isEmpty) && !state.isLoading {
+                                    sendIntelligentMessage()
+                                }
+                            }
+                        )
                     }
-                )
-                    .font(.jost(.callout(14)))
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .padding(.trailing, 40)
+                }
+                .font(.jost(.callout(14)))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .padding(.trailing, 40)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
                             .fill(.ultraThinMaterial)
@@ -1196,25 +1272,28 @@ struct AIAssistantView: View {
         let input = state.userInput
         let mediaItems = state.tempMediaItems
         let selectedModel = state.selectedModel
-        
+
+        // Extract mentions from the input
+        let mentions = state.mentionManager?.extractMentions(from: input) ?? []
+
         // Check if we have anything to send
-        guard !input.isEmpty || !mediaItems.isEmpty else { 
+        guard !input.isEmpty || !mediaItems.isEmpty else {
             print("❌ Send button pressed but no input or media items")
-            return 
+            return
         }
-        
+
         // Clear input immediately to prevent double-sending
         state.userInput = ""
         state.tempMediaItems = []
         state.isLoading = true
         state.errorMessage = nil
-        
+
         // Trigger scroll immediately when user submits
         shouldScrollToUserMessage = true
         userScrollTrigger &+= 1
         
         guard let note = state.currentNote else {
-            sendRegularMessage(input: input, mediaItems: mediaItems, selectedModel: selectedModel)
+            sendRegularMessage(input: input, mediaItems: mediaItems, selectedModel: selectedModel, mentions: mentions)
             return
         }
         
@@ -1256,7 +1335,16 @@ struct AIAssistantView: View {
                 
                 var contextualPrompt = input
                 var finalMediaItems = mediaItems
-                
+
+                // Prepare mention context (will be added at the end)
+                var mentionContext = ""
+                if !mentions.isEmpty, let mentionManager = state.mentionManager {
+                    let context = mentionManager.getContextForMentions(mentions)
+                    if !context.isEmpty {
+                        mentionContext = "\n\n--- Referenced Items ---\(context)"
+                    }
+                }
+
                 // If needed, analyze the note first to provide context
                 if needsAnalysis {
                     // Get the latest saved note from storage (same pattern as export)
@@ -1267,21 +1355,26 @@ struct AIAssistantView: View {
                         }
                         return
                     }
-                    
+
                     // Convert the latest saved note to images for visual analysis
                     let noteImages = await convertNoteToImages(latestNote)
                     finalMediaItems.append(contentsOf: noteImages)
-                    
+
                     // Create rich context prompt using the latest note data
                     contextualPrompt = """
                     User question: \(input)
-                    
+
                     I've provided images of the note for visual analysis. Please examine the note content (both typed text and handwritten content) and answer the user's question based on what you can see in the note.
-                    
+
                     Note details:
                     Title: \(latestNote.title)
                     Subject: \(latestNote.subject)
                     """
+                }
+
+                // Add mention context at the end (after needsAnalysis processing)
+                if !mentionContext.isEmpty {
+                    contextualPrompt += mentionContext
                 }
                 
                 // Send to AI with context and images
@@ -1315,10 +1408,10 @@ struct AIAssistantView: View {
         }
     }
     
-    private func sendRegularMessage(input: String, mediaItems: [MediaItem], selectedModel: String) {
+    private func sendRegularMessage(input: String, mediaItems: [MediaItem], selectedModel: String, mentions: [Mention] = []) {
         // Fallback to regular chat without note context
         guard !input.isEmpty else { return }
-        
+
         let isPremium = ModelConfiguration.isPremiumModel(selectedModel)
         let requestType: RequestType = isPremium ? .premium : .normal
         guard state.subscriptionManager.canMakeRequest(type: requestType) else {
@@ -1326,14 +1419,14 @@ struct AIAssistantView: View {
             state.isLoading = false
             return
         }
-        
+
         let userMessage = ChatMessage(
             content: input,
             isUser: true,
             mediaItems: mediaItems.isEmpty ? nil : mediaItems
         )
         state.messages.append(userMessage)
-        
+
         Task {
             do {
                 let success = await state.subscriptionManager.consumeRequest(
@@ -1345,9 +1438,18 @@ struct AIAssistantView: View {
                     }
                     return
                 }
-                
+
+                // Add context from mentioned items
+                var contextualInput = input
+                if !mentions.isEmpty, let mentionManager = state.mentionManager {
+                    let mentionContext = mentionManager.getContextForMentions(mentions)
+                    if !mentionContext.isEmpty {
+                        contextualInput += "\n\n--- Referenced Items ---\(mentionContext)"
+                    }
+                }
+
                 let response = try await LlmAPI.sendMessage(
-                    userMessage: input,
+                    userMessage: contextualInput,
                     model_string: selectedModel,
                     mediaItems: mediaItems.isEmpty ? nil : mediaItems,
                     conversationHistory: state.messages
