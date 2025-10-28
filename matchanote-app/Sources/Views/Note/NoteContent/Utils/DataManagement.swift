@@ -79,10 +79,9 @@ extension WrittenNoteView {
                 canvasImageData[pageKey] = canvasImages
             }
         }
-
-        // Load only canvas images into the image manager
+        DispatchQueue.main.async {
         imageManager.loadImagesData(canvasImageData)
-
+        }
         // Load textbox data
         // PERFORMANCE FIX: Defer textbox loading to next run loop to avoid interfering with zoom state
         DispatchQueue.main.async {
