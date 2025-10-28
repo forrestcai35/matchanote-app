@@ -107,7 +107,7 @@ struct WrittenNoteView: View {
             // Paper orientation changed - reload canvas views to apply new dimensions
             if currentNoteId == note.id {
                 // Reset zoom and offset states for page mode before reloading
-                relativeZoomLevel = 0.95  // Reset to initial fit
+                relativeZoomLevel = ZoomConstants.initialFitZoom // Reset to initial fit
                 unifiedContentOffset = .zero
 
                 loadDrawingData()
