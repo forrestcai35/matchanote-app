@@ -32,7 +32,7 @@ struct WrittenNoteView: View {
 
     // Separate state for vertical scroll mode
     @State var verticalZoomLevel: CGFloat = ZoomConstants.initialFitZoom
-    @State var verticalContentOffsets: [Int: CGPoint] = [:]  // Per-page offsets
+    @State var verticalUnifiedContentOffset: CGPoint = .zero  // Unified offset shared across all pages
     @State var isProgrammaticScroll: Bool = false  // Flag to prevent automatic currentPage updates during programmatic scrolls
     @State var scrollPosition: Int?
 
@@ -755,14 +755,15 @@ struct WrittenNoteView: View {
             }
         )
 
-        // Create per-page offset binding
+        // Use unified offset binding shared across ALL pages
+        // This makes all pages pan together when zoomed
         let pageOffsetBinding = Binding<CGPoint>(
-            get: { verticalContentOffsets[pageIndex] ?? .zero },
+            get: { verticalUnifiedContentOffset },
             set: { newValue in
                 var transaction = Transaction()
                 transaction.disablesAnimations = true
                 withTransaction(transaction) {
-                    verticalContentOffsets[pageIndex] = newValue
+                    verticalUnifiedContentOffset = newValue
                 }
             }
         )
@@ -773,8 +774,8 @@ struct WrittenNoteView: View {
         let scaledHeight = contentSize.height * currentScale
         let centerOffsetX = max((viewportSize.width - scaledWidth) / 2, 0)
 
-        // Get the current page's offset
-        let pageOffset = verticalContentOffsets[pageIndex] ?? .zero
+        // Use unified offset for all pages
+        let pageOffset = verticalUnifiedContentOffset
 
         if pageIndex < canvasViews.count {
             // Page content
