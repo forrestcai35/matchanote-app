@@ -220,16 +220,26 @@ struct NativeScrollCanvasView: UIViewRepresentable {
 
                 if let currentTool = parent.currentTool {
                     if currentTool == .eraser {
-                        parent.currentTool = previousTool
-                        canvas.tool = previousTool.toolInstance()
+                        // Switch back from eraser to previous tool
+                        let toolToRestore = previousTool
+                        DispatchQueue.main.async {
+                            self.parent.currentTool = toolToRestore
+                        }
+                        canvas.tool = toolToRestore.toolInstance()
                     } else {
+                        // Switch to eraser
                         previousTool = currentTool
-                        parent.currentTool = .eraser
+                        DispatchQueue.main.async {
+                            self.parent.currentTool = .eraser
+                        }
                         canvas.tool = PenTool.eraser.toolInstance()
                     }
                 } else {
+                    // No current tool, switch to eraser
                     previousTool = .pen
-                    parent.currentTool = .eraser
+                    DispatchQueue.main.async {
+                        self.parent.currentTool = .eraser
+                    }
                     canvas.tool = PenTool.eraser.toolInstance()
                 }
             }
