@@ -1170,35 +1170,41 @@ struct WrittenNoteToolbar: View {
 
   private func updateCanvasTool() {
     guard currentPage < canvasViews.count, let tool = currentTool else { return }
-    let canvas = canvasViews[currentPage]
+    let currentCanvas = canvasViews[currentPage]
 
     // Ensure image manager has the correct undo manager
-    imageManager.setUndoManager(canvas.undoManager)
+    imageManager.setUndoManager(currentCanvas.undoManager)
 
-    switch tool {
-    case .pen:
-      let width = toolState.penWidthPresets[safe: toolState.selectedPenPresetIndex] ?? 3.0
-      canvas.tool = tool.toolInstance(color: toolState.penColor, width: width)
-    case .marker:
-      let width = toolState.markerWidthPresets[safe: toolState.selectedMarkerPresetIndex] ?? 6.0
-      canvas.tool = tool.toolInstance(color: toolState.markerColor, width: width)
-    case .eraser:
-      let requestedWidth =
-        toolState.eraserType == .area
-        ? toolState.eraserAreaWidthPresets[safe: toolState.selectedEraserAreaPresetIndex] ?? 16.0
-        : 1.0
-      // Clamp to a safe maximum so PencilKit behavior aligns with UI
-      let appliedWidth = min(requestedWidth, eraserBitmapMaxWidth)
-      canvas.tool = tool.toolInstance(width: appliedWidth, eraserType: toolState.eraserType)
-    case .lasso:
-      canvas.tool = tool.toolInstance()
-    case .photo:
-      canvas.tool = tool.toolInstance()
-    case .textbox:
-      canvas.tool = tool.toolInstance()
-    case .shape:
-      let width = toolState.penWidthPresets[safe: toolState.selectedPenPresetIndex] ?? 3.0
-      canvas.tool = tool.toolInstance(color: toolState.penColor, width: width)
+    // In vertical scroll mode, all canvases are visible, so update all of them
+    // In page mode, only update the current canvas
+    let canvasesToUpdate = preferencesManager.noteEditorVerticalScrollMode ? canvasViews : [currentCanvas]
+
+    for canvas in canvasesToUpdate {
+      switch tool {
+      case .pen:
+        let width = toolState.penWidthPresets[safe: toolState.selectedPenPresetIndex] ?? 3.0
+        canvas.tool = tool.toolInstance(color: toolState.penColor, width: width)
+      case .marker:
+        let width = toolState.markerWidthPresets[safe: toolState.selectedMarkerPresetIndex] ?? 6.0
+        canvas.tool = tool.toolInstance(color: toolState.markerColor, width: width)
+      case .eraser:
+        let requestedWidth =
+          toolState.eraserType == .area
+          ? toolState.eraserAreaWidthPresets[safe: toolState.selectedEraserAreaPresetIndex] ?? 16.0
+          : 1.0
+        // Clamp to a safe maximum so PencilKit behavior aligns with UI
+        let appliedWidth = min(requestedWidth, eraserBitmapMaxWidth)
+        canvas.tool = tool.toolInstance(width: appliedWidth, eraserType: toolState.eraserType)
+      case .lasso:
+        canvas.tool = tool.toolInstance()
+      case .photo:
+        canvas.tool = tool.toolInstance()
+      case .textbox:
+        canvas.tool = tool.toolInstance()
+      case .shape:
+        let width = toolState.penWidthPresets[safe: toolState.selectedPenPresetIndex] ?? 3.0
+        canvas.tool = tool.toolInstance(color: toolState.penColor, width: width)
+      }
     }
   }
 
