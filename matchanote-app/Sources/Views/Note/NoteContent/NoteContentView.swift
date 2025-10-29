@@ -41,6 +41,8 @@ struct WrittenNoteView: View {
 
     // Debounce timer for saving operations
     @State var saveTimer: Timer?
+    // Auto-save timer for periodic saves every 10 seconds
+    @State var autoSaveTimer: Timer?
     // Ensure we only auto-fit once per note load
     @State var didApplyInitialFit: Bool = false
 
@@ -85,6 +87,7 @@ struct WrittenNoteView: View {
                 loadDrawingData()
             }
             setupToolPicker()
+            startAutoSaveTimer()
         }
         .onChange(of: note.id) { _, newNoteId in
             // Note changed, load new drawing data
@@ -95,6 +98,8 @@ struct WrittenNoteView: View {
                 }
                 currentNoteId = newNoteId
                 loadDrawingData()
+                // Restart auto-save timer for new note
+                startAutoSaveTimer()
             }
         }
         .onChange(of: note.dateModified) { _, _ in
@@ -166,6 +171,8 @@ struct WrittenNoteView: View {
         .onDisappear {
             // Save any unsaved drawing data when view disappears
             saveCurrentDrawingData()
+            // Stop auto-save timer when view disappears
+            stopAutoSaveTimer()
         }
         .onChange(of: preferencesManager.noteEditorDarkModeForWhitePaper) { _, _ in
             // Update all canvases when the dark mode preference changes

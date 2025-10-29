@@ -73,6 +73,7 @@ struct CanvasImageView: View {
                         selectionControls()
                     }
                 }
+                .rotationEffect(.degrees(image.rotation))
                 .position(
                     x: currentPosition.x,
                     y: currentPosition.y
@@ -88,6 +89,14 @@ struct CanvasImageView: View {
     private func selectionControls() -> some View {
         let imageWidth = currentSize.width > 0 ? currentSize.width : image.size.width
         let imageHeight = currentSize.height > 0 ? currentSize.height : image.size.height
+        let rotationHandleOffset = CGVector(
+            dx: -imageWidth / 2 - 14,
+            dy: -imageHeight / 2 - 14
+        )
+        let centerPoint = CGPoint(
+            x: image.position.x + imageWidth / 2,
+            y: image.position.y + imageHeight / 2
+        )
         
         ZStack {
             // Delete button (top-right corner)
@@ -127,6 +136,28 @@ struct CanvasImageView: View {
                 }
             )
             .offset(x: imageWidth/2 + 14, y: imageHeight/2 + 14)
+            .allowsHitTesting(true)
+
+            RotationHandle(
+                center: centerPoint,
+                initialVector: rotationHandleOffset,
+                coordinateSpaceName: CanvasCoordinateSpace.canvas,
+                onBegan: {
+                    imageManager.beginDragging()
+                },
+                onChanged: { newRotation in
+                    var updatedImage = image
+                    updatedImage.rotation = newRotation
+                    imageManager.updateImage(updatedImage, isDragging: true)
+                },
+                onEnded: { finalRotation in
+                    var updatedImage = image
+                    updatedImage.rotation = finalRotation
+                    imageManager.updateImage(updatedImage, isDragging: false)
+                    imageManager.endDragging()
+                }
+            )
+            .offset(x: rotationHandleOffset.dx, y: rotationHandleOffset.dy)
             .allowsHitTesting(true)
         }
     }
@@ -206,6 +237,7 @@ struct CanvasImageOverlay: View {
         }
         .frame(width: canvasSize.width, height: canvasSize.height)
         .clipped()
+        .coordinateSpace(name: CanvasCoordinateSpace.canvas)
     }
 }
 

@@ -276,4 +276,33 @@ extension WrittenNoteView {
             }
         }
     }
+
+    // MARK: - Auto-Save Timer
+
+    // Start auto-save timer that saves every 10 seconds
+    func startAutoSaveTimer() {
+        // Stop any existing timer first
+        stopAutoSaveTimer()
+
+        // Capture values needed for the timer closure
+        let noteId = note.id
+        let tabManagerRef = tabManager
+
+        // Create new timer that repeats every 10 seconds
+        autoSaveTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { [self] _ in
+            // Only save if this note is the currently active tab
+            if let activeTab = tabManagerRef.getActiveTab(),
+               activeTab.note.id == noteId {
+                // Save current drawing data in background
+                // No need to dispatch to main queue - saveCurrentDrawingData already handles threading
+                saveCurrentDrawingData()
+            }
+        }
+    }
+
+    // Stop auto-save timer
+    func stopAutoSaveTimer() {
+        autoSaveTimer?.invalidate()
+        autoSaveTimer = nil
+    }
 }

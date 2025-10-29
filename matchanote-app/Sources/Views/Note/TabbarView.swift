@@ -356,7 +356,8 @@ struct TabItemView: View {
             .foregroundColor(
               colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
             )
-            .padding(4)
+            .padding(6)
+            .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
 

@@ -253,6 +253,14 @@ struct TextBoxView: View {
     private func selectionControls() -> some View {
         let boxWidth = currentSize.width > 0 ? currentSize.width : textBox.size.width
         let boxHeight = currentSize.height > 0 ? currentSize.height : textBox.size.height
+        let rotationHandleOffset = CGVector(
+            dx: -boxWidth / 2 - 14,
+            dy: -boxHeight / 2 - 14
+        )
+        let centerPoint = CGPoint(
+            x: textBox.position.x + dragOffset.width + boxWidth / 2,
+            y: textBox.position.y + dragOffset.height + boxHeight / 2
+        )
 
         ZStack {
             // Selection border
@@ -296,6 +304,25 @@ struct TextBoxView: View {
                 }
             )
             .offset(x: boxWidth/2 + 14, y: boxHeight/2 + 14)
+            .allowsHitTesting(true)
+
+            RotationHandle(
+                center: centerPoint,
+                initialVector: rotationHandleOffset,
+                coordinateSpaceName: CanvasCoordinateSpace.canvas,
+                onBegan: {},
+                onChanged: { newRotation in
+                    var updatedTextBox = textBox
+                    updatedTextBox.rotation = newRotation
+                    textBoxManager.updateTextBox(updatedTextBox)
+                },
+                onEnded: { finalRotation in
+                    var updatedTextBox = textBox
+                    updatedTextBox.rotation = finalRotation
+                    textBoxManager.updateTextBox(updatedTextBox)
+                }
+            )
+            .offset(x: rotationHandleOffset.dx, y: rotationHandleOffset.dy)
             .allowsHitTesting(true)
         }
     }
