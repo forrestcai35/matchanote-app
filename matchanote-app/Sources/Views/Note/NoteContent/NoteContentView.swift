@@ -848,8 +848,28 @@ struct WrittenNoteView: View {
                             .background(Color.clear)  // Provide hit testing surface for tap gesture
                             .contentShape(Rectangle())  // Ensure entire frame is tappable
                             .frame(width: contentSize.width, height: contentSize.height)
-                        .scaleEffect(verticalZoomLevel * unifiedFitScale, anchor: .topLeading)
-                        .offset(x: -pageOffset.x + centerOffsetX, y: -pageOffset.y)
+                            .scaleEffect(verticalZoomLevel * unifiedFitScale, anchor: .topLeading)
+                            .offset(x: -pageOffset.x + centerOffsetX, y: -pageOffset.y)
+                            // TAP GESTURE FOR TAP TO ADD - Now on the overlay for full viewport coverage
+                            .simultaneousGesture(
+                                currentTool == .textbox ?
+                                DragGesture(minimumDistance: 0)
+                                    .onEnded { value in
+                                        // Only handle if it's a tap (minimal movement)
+                                        let distance = hypot(value.translation.width, value.translation.height)
+                                        if distance < 5 && !textBoxManager.hasSelectedTextBox {
+                                            // Convert tap location to canvas coordinates
+                                            let currentScale = verticalZoomLevel * unifiedFitScale
+                                            let tapX = (value.location.x - centerOffsetX + pageOffset.x) / currentScale
+                                            let tapY = (value.location.y + pageOffset.y) / currentScale
+                                            let canvasLocation = CGPoint(x: tapX, y: tapY)
+
+                                            // Add textbox at tap location
+                                            textBoxManager.addTextBox(to: pageIndex, at: canvasLocation)
+                                        }
+                                    }
+                                : nil
+                            )
                         }
                     }
                 }
