@@ -153,6 +153,14 @@ public struct GridItemView: View {
         return colorScheme == .dark ? Color.white.opacity(0.4) : Color.black.opacity(0.2)
     }
 
+    private var previewSize: CGSize {
+        // Portrait: standard size (160x200)
+        // Landscape: same as folder size (175x140)
+        return note.paperOrientation == .landscape
+            ? CGSize(width: 175, height: 140)
+            : CGSize(width: 160, height: 200)
+    }
+
     // Optimized preview view with async loading and caching
     @ViewBuilder
     private var notePreview: some View {
@@ -175,12 +183,12 @@ public struct GridItemView: View {
 
     public var body: some View {
         VStack(spacing: 2) {
-            // Note card
+            // Note card - add padding for landscape to align with folders
             ZStack {
                 // Background
                 RoundedRectangle(cornerRadius: note.noteType == .written ? 10 : 0)
                     .fill(note.color)
-                    .frame(width: 160, height: 200)
+                    .frame(width: previewSize.width, height: previewSize.height)
                     .shadow(
                         color: itemShadow(in: colorScheme),
                         radius: note.noteType == .written ? 5 : 6,
@@ -190,7 +198,7 @@ public struct GridItemView: View {
 
                 // Content preview - using cached async preview generation
                 notePreview
-                    .frame(width: 160, height: 200)
+                    .frame(width: previewSize.width, height: previewSize.height)
                     .clipShape(RoundedRectangle(cornerRadius: note.noteType == .written ? 10 : 0))
                     .task(id: note.dateModified) {
                         // Load preview asynchronously when note changes
@@ -204,6 +212,7 @@ public struct GridItemView: View {
                         }
                     }
 
+                // Favorite button
                 Button(action: {
                     var updatedNote = note
                     updatedNote.isFavorite.toggle()
@@ -218,8 +227,6 @@ public struct GridItemView: View {
                 .buttonStyle(PlainButtonStyle())
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
 
-               
-                
                 // Selection indicator - centered circle with checkmark
                 if isSelectionMode {
                     ZStack {
@@ -227,7 +234,7 @@ public struct GridItemView: View {
                             .fill(Color.white)
                             .frame(width: 24, height: 24)
                             .shadow(radius: 2)
-                        
+
                         if isSelected {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundColor(
@@ -242,6 +249,7 @@ public struct GridItemView: View {
                     }
                 }
             }
+            .padding(.top, note.paperOrientation == .landscape ? 60 : 0)
 
             Button(action: {
                 newTitle = note.title

@@ -129,7 +129,10 @@ class PreviewCache: ObservableObject {
   /// Generate preview on background thread with cached image decoding
   private func generatePreviewBackground(for note: Note, size: PreviewGenerator.PreviewSize) async -> UIImage {
     // This runs on background thread
-    let paperSize = PaperUtilities.paperSize(for: note.paperSize)
+    let paperSize = PaperUtilities.paperSize(
+      for: note.paperSize,
+      orientation: note.paperOrientation
+    )
     let pageIndex = 0 // First page for preview
 
     // Extract drawing data

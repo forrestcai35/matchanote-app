@@ -9,6 +9,10 @@ extension WrittenNoteView {
     // MARK: - Page Management Functions
 
     func addPageAtPosition(_ position: PagePlacement) {
+        // Clear any selection states that could block interactions
+        imageManager.deselectImage()
+        textBoxManager.deselectAllTextBoxes()
+
         // Preserve current relative zoom level and scroll position during page addition
         let currentZoom = relativeZoomLevel
         let currentOffset = unifiedContentOffset

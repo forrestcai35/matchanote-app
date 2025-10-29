@@ -25,20 +25,61 @@ public struct ListItemView: View {
             Image(uiImage: preview)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
-                .frame(width: 32, height: 40)
+                .frame(width: previewSize.width, height: previewSize.height)
                 .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: note.noteType == .written ? 6 : 2))
+                .clipShape(RoundedRectangle(cornerRadius: previewCornerRadius))
         } else {
             // Clean placeholder while loading - no spinner needed as preloading handles it
-            RoundedRectangle(cornerRadius: note.noteType == .written ? 6 : 2)
+            RoundedRectangle(cornerRadius: previewCornerRadius)
                 .fill(note.color.opacity(0.15))
-                .frame(width: 32, height: 40)
+                .frame(width: previewSize.width, height: previewSize.height)
                 .overlay(
                     Image(systemName: note.noteType == .written ? "doc.text" : "photo")
                         .font(.system(size: 12))
                         .foregroundColor(.gray.opacity(0.4))
                 )
         }
+    }
+
+    private var previewCornerRadius: CGFloat {
+        note.noteType == .written ? 6 : 2
+    }
+
+    private var noteAspectRatio: CGFloat {
+        PaperUtilities.paperAspectRatio(
+            for: note.paperSize,
+            orientation: note.paperOrientation
+        )
+    }
+
+    private var previewSize: CGSize {
+        let baseSize: CGSize = note.paperOrientation == .landscape
+            ? CGSize(width: 40, height: 32)
+            : CGSize(width: 32, height: 40)
+        let area = baseSize.width * baseSize.height
+        guard noteAspectRatio > 0, area > 0 else { return baseSize }
+        let width = sqrt(area * noteAspectRatio)
+        let height = area / width
+        return CGSize(width: width, height: height)
+    }
+
+    private var isLandscape: Bool {
+        note.paperOrientation == .landscape
+    }
+
+    private var favoriteButton: some View {
+        Button(action: {
+            var updatedNote = note
+            updatedNote.isFavorite.toggle()
+            updatedNote.dateModified = Date()
+            let savedNote = storageManager.saveNote(updatedNote)
+            TabManager.shared.updateNote(savedNote)
+        }) {
+            Image(systemName: note.isFavorite ? "star.fill" : "star")
+                .foregroundColor(note.isFavorite ? .yellow : .gray)
+                .font(.caption)
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 
     public var body: some View {
@@ -132,18 +173,15 @@ public struct ListItemView: View {
                 Spacer()
 
                 // Star indicator for notes
-                Button(action: {
-                    var updatedNote = note
-                    updatedNote.isFavorite.toggle()
-                    updatedNote.dateModified = Date()
-                    let savedNote = storageManager.saveNote(updatedNote)
-                    TabManager.shared.updateNote(savedNote)
-                }) {
-                    Image(systemName: note.isFavorite ? "star.fill" : "star")
-                        .foregroundColor(note.isFavorite ? .yellow : .gray)
-                        .font(.caption)
+                if isLandscape {
+                    VStack {
+                        Spacer()
+                        favoriteButton
+                    }
+                    .frame(height: 56)
+                } else {
+                    favoriteButton
                 }
-                .buttonStyle(PlainButtonStyle())
             }
             .frame(maxWidth: .infinity)
             .frame(height: 56)

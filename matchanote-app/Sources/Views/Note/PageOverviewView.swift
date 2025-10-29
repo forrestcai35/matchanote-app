@@ -416,7 +416,10 @@ struct PageThumbnailView: View {
   }
   
   private var paperAspectRatio: CGFloat {
-    return PaperUtilities.paperAspectRatio(for: note.paperSize)
+    PaperUtilities.paperAspectRatio(
+      for: note.paperSize,
+      orientation: note.paperOrientation
+    )
   }
 
   private func paperAspectRatio(for pageIndex: Int) -> CGFloat {
@@ -433,11 +436,10 @@ struct PageThumbnailView: View {
   }
   
   private func getPaperWidth(for size: PaperSize) -> CGFloat {
-    return PaperUtilities.getPaperWidth(for: size)
+    PaperUtilities.getPaperWidth(for: size, orientation: note.paperOrientation)
   }
   
   private func getPaperHeight(for size: PaperSize) -> CGFloat {
-    return PaperUtilities.getPaperHeight(for: size)
+    PaperUtilities.getPaperHeight(for: size, orientation: note.paperOrientation)
   }
 }
-

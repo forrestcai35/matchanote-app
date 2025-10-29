@@ -86,7 +86,7 @@ struct ExportOptionsView: View {
                     
                     // Grid of page checkboxes
                     ScrollView {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 12) {
+                        LazyVGrid(columns: pageGridColumns, spacing: 16) {
                             ForEach(0..<totalPages, id: \.self) { pageIndex in
                                 PageSelectButton(
                                     pageNumber: pageIndex + 1,
@@ -108,6 +108,7 @@ struct ExportOptionsView: View {
                             }
                         }
                         .padding(.horizontal)
+                        .padding(.vertical, 8)
                     }
                 }
                 
@@ -156,6 +157,10 @@ struct ExportOptionsView: View {
             selectedPages = Set(0..<totalPages)
         }
     }
+    
+    private var pageGridColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 110), spacing: 16)]
+    }
 }
 
 struct PageSelectButton: View {
@@ -169,6 +174,27 @@ struct PageSelectButton: View {
     @State private var previewImage: UIImage?
     @State private var isGeneratingPreview = false
     
+    private var noteAspectRatio: CGFloat {
+        PaperUtilities.paperAspectRatio(
+            for: note.paperSize,
+            orientation: note.paperOrientation
+        )
+    }
+    
+    private var previewBaseSize: CGSize {
+        note.paperOrientation == .landscape
+            ? CGSize(width: 90, height: 70)
+            : CGSize(width: 70, height: 90)
+    }
+    
+    private var previewSize: CGSize {
+        let area = previewBaseSize.width * previewBaseSize.height
+        guard noteAspectRatio > 0, area > 0 else { return previewBaseSize }
+        let width = sqrt(area * noteAspectRatio)
+        let height = area / width
+        return CGSize(width: width, height: height)
+    }
+    
     var body: some View {
         Button(action: action) {
             VStack(spacing: 4) {
@@ -176,14 +202,14 @@ struct PageSelectButton: View {
                     // Base paper background
                     RoundedRectangle(cornerRadius: 8)
                         .fill(getPaperBackgroundColor(for: note.paperColor))
-                        .frame(width: 70, height: 90)
+                        .frame(width: previewSize.width, height: previewSize.height)
                     
                     // Preview image overlay
                     if let previewImage = previewImage {
                         Image(uiImage: previewImage)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
-                            .frame(width: 70, height: 90)
+                            .frame(width: previewSize.width, height: previewSize.height)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                     } else if isGeneratingPreview {
                         ProgressView()
@@ -194,7 +220,7 @@ struct PageSelectButton: View {
                     if isSelected {
                         RoundedRectangle(cornerRadius: 8)
                             .fill(Color.black.opacity(0.3))
-                            .frame(width: 70, height: 90)
+                            .frame(width: previewSize.width, height: previewSize.height)
                         
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundColor(colorScheme == .dark ? Color.matchalight_dark : Color.matchalight_light)
@@ -239,7 +265,7 @@ struct PageSelectButton: View {
             let preview = PreviewGenerator.generatePreview(
                 for: note,
                 pageIndex: pageIndex,
-                size: .custom(CGSize(width: 70, height: 90))
+                size: .custom(previewSize)
             )
             
             DispatchQueue.main.async {
@@ -253,4 +279,3 @@ struct PageSelectButton: View {
         return PaperUtilities.getPaperBackgroundColor(for: color)
     }
 }
-

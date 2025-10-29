@@ -58,8 +58,24 @@ struct PreviewGenerator {
     cornerRadius: CGFloat? = nil
   ) -> UIImage {
     
-    // Get paper dimensions
-    let paperSize = PaperUtilities.paperSize(for: note.paperSize)
+    // Get paper dimensions with orientation
+    let paperSize = PaperUtilities.paperSize(
+      for: note.paperSize,
+      orientation: note.paperOrientation
+    )
+    let aspectRatio = PaperUtilities.paperAspectRatio(
+      for: note.paperSize,
+      orientation: note.paperOrientation
+    )
+    
+    func adjustedSize(for baseSize: CGSize) -> CGSize {
+      guard aspectRatio > 0 else { return baseSize }
+      let area = baseSize.width * baseSize.height
+      guard area > 0 else { return baseSize }
+      let width = sqrt(area * aspectRatio)
+      let height = area / width
+      return CGSize(width: width, height: height)
+    }
     
     // Extract drawing data for this page
     let drawing = extractDrawing(from: note, pageIndex: pageIndex)
@@ -81,8 +97,8 @@ struct PreviewGenerator {
     case .custom(let customSize):
       targetSize = customSize
       scale = size.scale
-    default:
-      targetSize = size.dimensions
+    case .grid, .list:
+      targetSize = adjustedSize(for: size.dimensions)
       scale = size.scale
     }
     
