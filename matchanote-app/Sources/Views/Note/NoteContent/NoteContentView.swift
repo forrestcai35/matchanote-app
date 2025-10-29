@@ -44,6 +44,9 @@ struct WrittenNoteView: View {
     // Ensure we only auto-fit once per note load
     @State var didApplyInitialFit: Bool = false
 
+    // Track view mode changes to force TabView recreation when switching modes
+    @State var viewModeIdentifier: UUID = UUID()
+
     var body: some View {
         VStack(spacing: 0) {
             if preferencesManager.noteEditorVerticalScrollMode {
@@ -60,6 +63,7 @@ struct WrittenNoteView: View {
                         }
                     }
                 }
+                .id(viewModeIdentifier) // Force recreation when switching modes
                 .shadow(color: Color.black.opacity(0.3), radius: 3, x: 0, y: 1)
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .clipped()
@@ -718,9 +722,13 @@ struct WrittenNoteView: View {
                     scrollPosition = currentPage
                 }
                 .onChange(of: preferencesManager.noteEditorVerticalScrollMode) { _, isVertical in
-                    // Set scroll position when switching to vertical mode
                     if isVertical {
+                        // Set scroll position when switching to vertical mode
                         scrollPosition = currentPage
+                    } else {
+                        // When switching back to page mode, force TabView recreation
+                        // to ensure it displays the correct page
+                        viewModeIdentifier = UUID()
                     }
                 }
                 .onChange(of: note.id) { _, _ in
