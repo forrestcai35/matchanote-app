@@ -52,11 +52,11 @@ enum EraserType: CaseIterable {
     }
   }
 
-  // Use custom asset names instead of SF Symbols
+  // Use SF Symbols for distinct eraser types
   var icon: String {
     switch self {
-    case .object: return "eraser_outline"
-    case .area: return "eraser_fill"
+    case .object: return "eraser.line.dashed"
+    case .area: return "eraser.fill"
     }
   }
 }
@@ -352,6 +352,7 @@ struct WrittenNoteToolbar: View {
   @State private var expandedPenPresetIndex: Int? = nil
   @State private var expandedMarkerPresetIndex: Int? = nil
   @State private var expandedEraserPresetIndex: Int? = nil
+  @State private var showEraserTypeDropdown = false
 
   // Undo/Redo state
   @State private var canUndo: Bool = false
@@ -843,104 +844,81 @@ struct WrittenNoteToolbar: View {
       }
 
     case .eraser:
-      HStack(spacing: 12) {
-        // Eraser type select
-        HStack(spacing: 6) {
-          ForEach(EraserType.allCases, id: \.self) { type in
-            Button(action: {
-              toolState.eraserType = type
-              withAnimation { expandedEraserPresetIndex = nil }
-              updateCanvasTool()
-            }) {
-              Image(type.icon)
-                .renderingMode(.template)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 24, height: 24)
-                .opacity(toolState.eraserType == type ? 1.0 : 0.5)
-                .foregroundColor(toolState.eraserType == type ? (colorScheme == .dark ? .white : .black) : (colorScheme == .dark ? .gray : .gray))
-            }
-          }
-        }
-
-        // Fixed width container to prevent toolbar movement
+      if toolState.eraserType == .area {
+        // Area eraser: three quick presets with dropdown slider (capped)
         HStack(spacing: 12) {
-          if toolState.eraserType == .area {
-            // Area eraser: three quick presets with dropdown slider (capped)
-            HStack(spacing: 12) {
-              ForEach(0..<toolState.eraserAreaWidthPresets.count, id: \.self) { i in
-                Button {
-                  if toolState.selectedEraserAreaPresetIndex != i {
-                    toolState.selectedEraserAreaPresetIndex = i
-                    withAnimation { expandedEraserPresetIndex = nil }
-                    updateCanvasTool()
-                  } else {
-                    withAnimation {
-                      expandedEraserPresetIndex = (expandedEraserPresetIndex == i ? nil : i)
-                    }
-                  }
-                } label: {
-                  ZStack {
-    
-                    // Inner circle that changes size based on tool width
-                    Circle()
-                      .fill(
-                        toolState.selectedEraserAreaPresetIndex == i
-                          ? Color.matchalight_dark : Color.gray.opacity(0.5)
-                      )
-                      .frame(
-                        width: toolState.eraserAreaDotSizes[safe: i]
-                          ?? dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: eraserBitmapMaxWidth),
-                        height: toolState.eraserAreaDotSizes[safe: i]
-                          ?? dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: eraserBitmapMaxWidth)
-                      )
-                  }
-                }
-                .buttonStyle(PlainButtonStyle())
-                .overlay(alignment: .bottom) {
-                  if expandedEraserPresetIndex == i {
-                    VStack(spacing: 12) {
-                      HStack(spacing: 6) {
-                        Image(systemName: "circle.lefthalf.filled")
-                          .font(.jost(.caption()))
-                          .foregroundColor(.gray)
-                        let binding = Binding<CGFloat>(
-                          get: { toolState.eraserAreaWidthPresets[i] },
-                          set: { newValue in
-                            let clamped = max(4.0, min(newValue, eraserBitmapMaxWidth))
-                            toolState.eraserAreaWidthPresets[i] = clamped
-                            if toolState.selectedEraserAreaPresetIndex == i { updateCanvasTool() }
-                          }
-                        )
-                        Slider(value: binding, in: 4...20, step: 1)
-                          .frame(width: 200)
-                      }
-                    }
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 12)
-                    .background(Color(.systemBackground))
-                    .cornerRadius(8)
-                    .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
-                    .offset(y: 36)
-                    .onTapGesture { }
-                  }
+          ForEach(0..<toolState.eraserAreaWidthPresets.count, id: \.self) { i in
+            Button {
+              if toolState.selectedEraserAreaPresetIndex != i {
+                toolState.selectedEraserAreaPresetIndex = i
+                withAnimation { expandedEraserPresetIndex = nil }
+                updateCanvasTool()
+              } else {
+                withAnimation {
+                  expandedEraserPresetIndex = (expandedEraserPresetIndex == i ? nil : i)
                 }
               }
+            } label: {
+              ZStack {
+
+                // Inner circle that changes size based on tool width
+                Circle()
+                  .fill(
+                    toolState.selectedEraserAreaPresetIndex == i
+                      ? Color.matchalight_dark : Color.gray.opacity(0.5)
+                  )
+                  .frame(
+                    width: toolState.eraserAreaDotSizes[safe: i]
+                      ?? dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: eraserBitmapMaxWidth),
+                    height: toolState.eraserAreaDotSizes[safe: i]
+                      ?? dotDiameter(for: toolState.eraserAreaWidthPresets[i], maxRange: eraserBitmapMaxWidth)
+                  )
+              }
             }
-          } else {
-            // Object eraser: show text with same spacing as area eraser controls
-            HStack {
-              Text("Erase entire strokes")
-                .font(.jost(.caption()))
-                .foregroundColor(colorScheme == .dark ? .white : .gray)
+            .buttonStyle(PlainButtonStyle())
+            .overlay(alignment: .bottom) {
+              if expandedEraserPresetIndex == i {
+                VStack(spacing: 12) {
+                  HStack(spacing: 6) {
+                    Image(systemName: "circle.lefthalf.filled")
+                      .font(.jost(.caption()))
+                      .foregroundColor(.gray)
+                    let binding = Binding<CGFloat>(
+                      get: { toolState.eraserAreaWidthPresets[i] },
+                      set: { newValue in
+                        let clamped = max(4.0, min(newValue, eraserBitmapMaxWidth))
+                        toolState.eraserAreaWidthPresets[i] = clamped
+                        if toolState.selectedEraserAreaPresetIndex == i { updateCanvasTool() }
+                      }
+                    )
+                    Slider(value: binding, in: 4...20, step: 1)
+                      .frame(width: 200)
+                  }
+                }
+                .padding(.vertical, 12)
+                .padding(.horizontal, 12)
+                .background(Color(.systemBackground))
+                .cornerRadius(8)
+                .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
+                .offset(y: 36)
+                .onTapGesture { }
+              }
             }
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(Color.matchalight_dark.opacity(0.1))
-            .cornerRadius(8)
           }
         }
+        .frame(width: 250) // Fixed width to prevent toolbar movement
+      } else {
+        // Object eraser: show text with same spacing as area eraser controls
+        HStack {
+          Text("Erase entire strokes")
+            .font(.jost(.caption()))
+            .foregroundColor(colorScheme == .dark ? .white : .gray)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color.matchalight_dark.opacity(0.1))
+        .cornerRadius(8)
         .frame(width: 250) // Fixed width to prevent toolbar movement
       }
 
@@ -1398,7 +1376,46 @@ struct WrittenNoteToolbar: View {
     case "marker":
       Button(action: { selectTool(.marker) }) { renderMarkerIcon(isActive: currentTool == .marker) }
     case "eraser":
-      Button(action: { selectTool(.eraser) }) { renderEraserIcon(isActive: currentTool == .eraser) }
+      Button(action: {
+        if currentTool == .eraser {
+          // If already active, show dropdown to switch eraser type
+          showEraserTypeDropdown.toggle()
+        } else {
+          // If not active, select the eraser tool
+          selectTool(.eraser)
+        }
+      }) { renderEraserIcon(isActive: currentTool == .eraser) }
+      .popover(isPresented: $showEraserTypeDropdown) {
+        VStack(spacing: 8) {
+          ForEach(EraserType.allCases, id: \.self) { type in
+            Button(action: {
+              toolState.eraserType = type
+              showEraserTypeDropdown = false
+              updateCanvasTool()
+            }) {
+              HStack {
+                Image(systemName: type.icon)
+                  .resizable()
+                  .scaledToFit()
+                  .frame(width: 20, height: 20)
+                  .foregroundColor(colorScheme == .dark ? .white : .black)
+                Text(type.displayName)
+                  .foregroundColor(colorScheme == .dark ? .white : .black)
+                Spacer()
+                if toolState.eraserType == type {
+                  Image(systemName: "checkmark")
+                    .foregroundColor(colorScheme == .dark ? .white : .black)
+                }
+              }
+              .padding(.horizontal, 12)
+              .padding(.vertical, 8)
+            }
+            .buttonStyle(PlainButtonStyle())
+          }
+        }
+        .padding(8)
+        .frame(width: 150)
+      }
     case "lasso":
       Button(action: {
         if currentTool == .lasso { selectTool(.pen) } else { selectTool(.lasso) }
