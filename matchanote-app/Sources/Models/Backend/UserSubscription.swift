@@ -21,7 +21,7 @@ struct UserProfile: Codable, Identifiable {
     var notes: Data? { return notesJson }
     var folders: Data? { return foldersJson }
     var premiumRequests: Int16
-    var normalRequests: Int64
+    var normalRequests: Int16
     var subscriptionTier: SubscriptionTier
     let subscriptionStartDate: Date?
     let stripeCustomerId: String?
@@ -64,7 +64,7 @@ struct UserProfile: Codable, Identifiable {
 
         updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
         premiumRequests = try container.decodeIfPresent(Int16.self, forKey: .premiumRequests) ?? 0
-        normalRequests = try container.decodeIfPresent(Int64.self, forKey: .normalRequests) ?? 0
+        normalRequests = try container.decodeIfPresent(Int16.self, forKey: .normalRequests) ?? 0
 
         let tierString = try container.decodeIfPresent(String.self, forKey: .subscriptionTier) ?? SubscriptionTier.free.rawValue
         subscriptionTier = SubscriptionTier(rawValue: tierString) ?? .free
@@ -96,7 +96,7 @@ struct UserProfile: Codable, Identifiable {
     }
     
     // Custom initializer for creating UserProfile directly
-    init(createdAt: Date?, userId: UUID, notesJson: Data?, foldersJson: Data?, updatedAt: Date?, premiumRequests: Int16, normalRequests: Int64, subscriptionTier: SubscriptionTier, subscriptionStartDate: Date?, stripeCustomerId: String?, stripeSubscriptionId: String?) {
+    init(createdAt: Date?, userId: UUID, notesJson: Data?, foldersJson: Data?, updatedAt: Date?, premiumRequests: Int16, normalRequests: Int16, subscriptionTier: SubscriptionTier, subscriptionStartDate: Date?, stripeCustomerId: String?, stripeSubscriptionId: String?) {
         self.createdAt = createdAt
         self.userId = userId
         self.notesJson = notesJson
@@ -165,7 +165,7 @@ class SubscriptionManager: ObservableObject {
             var subscriptionStartDate: Date? = nil
             var stripeCustomerId: String? = nil
             var stripeSubscriptionId: String? = nil
-            var normalRequests: Int64 = 0
+            var normalRequests: Int16 = 0
             var premiumRequests: Int16 = 0
             
             if let subscriptionData = try? JSONSerialization.jsonObject(with: subscriptionResponse.data) as? [[String: Any]],
@@ -177,7 +177,7 @@ class SubscriptionManager: ObservableObject {
                 stripeSubscriptionId = subscriptionRecord["stripe_subscription_id"] as? String
                 
                 // Request counts are also stored in user_subscription table
-                normalRequests = subscriptionRecord["normal_requests"] as? Int64 ?? 0
+                normalRequests = subscriptionRecord["normal_requests"] as? Int16 ?? 0
                 premiumRequests = subscriptionRecord["premium_requests"] as? Int16 ?? 0
             }
             
@@ -300,7 +300,7 @@ class SubscriptionManager: ObservableObject {
                     .execute()
             
                 // Parse updated data from user_subscription table
-                var updatedNormalRequests: Int64 = profile.normalRequests
+                var updatedNormalRequests: Int16 = profile.normalRequests
                 var updatedPremiumRequests: Int16 = profile.premiumRequests
                 var subscriptionTier: SubscriptionTier = profile.subscriptionTier
                 var subscriptionStartDate: Date? = profile.subscriptionStartDate
@@ -310,7 +310,7 @@ class SubscriptionManager: ObservableObject {
                 if let subscriptionData = try? JSONSerialization.jsonObject(with: subscriptionResponse.data) as? [[String: Any]],
                    let subscriptionRecord = subscriptionData.first {
                     // Get updated request counts
-                    updatedNormalRequests = subscriptionRecord["normal_requests"] as? Int64 ?? profile.normalRequests
+                    updatedNormalRequests = subscriptionRecord["normal_requests"] as? Int16 ?? profile.normalRequests
                     updatedPremiumRequests = subscriptionRecord["premium_requests"] as? Int16 ?? profile.premiumRequests
                     
                     // Get subscription data

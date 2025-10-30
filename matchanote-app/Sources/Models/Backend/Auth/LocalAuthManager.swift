@@ -49,13 +49,37 @@ class LocalAuthManager: ObservableObject {
   
   // MARK: - Session Validation
   
-  /// Validates the current session with Supabase
+  /// Validates the current session with Supabase and ensures account still exists
   func validateSession() async {
     do {
-      _ = try await auth.session
-      // If we can get the session without error, it's valid
-      // The session object itself indicates validity
-      print("✅ Session validation successful")
+      let session = try await auth.session
+      let userId = session.user.id.uuidString
+
+      // Ensure the corresponding account record still exists in our DB
+      do {
+        let response = try await supabase
+          .from("user_subscription")
+          .select("*")
+          .eq("user_id", value: userId)
+          .limit(1)
+          .execute()
+
+        let rows = (try? JSONSerialization.jsonObject(with: response.data) as? [[String: Any]]) ?? []
+        if rows.isEmpty {
+          print("❌ No user record found for current session (userId=\(userId)). Forcing sign out.")
+          await MainActor.run {
+            logout()
+          }
+          return
+        }
+
+        print("✅ Session and account validation successful")
+      } catch {
+        print("❌ Account lookup failed: \(error). Forcing sign out for safety.")
+           print("⚠️ Account lookup failed: \(error). Keeping session and retrying later.")
+          return
+       
+      }
     } catch {
       // Session is invalid or expired
       print("❌ Session validation failed: \(error)")
@@ -76,4 +100,4 @@ class LocalAuthManager: ObservableObject {
     // Clear any additional session data if needed
     userDefaults.removeObject(forKey: "userSessionData")
   }
-}
+} 
