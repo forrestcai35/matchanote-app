@@ -24,7 +24,11 @@ let supabase = {
     supabaseURL: URL(string: supabaseUrl)!,
     supabaseKey: supabaseKey,
     options: .init(
-      db: .init(encoder: encoder, decoder: decoder)
+      db: .init(encoder: encoder, decoder: decoder),
+      auth: .init(
+        storage: KeychainLocalStorage(),
+        autoRefreshToken: true
+      )
     )
   )
 }()
@@ -64,11 +68,6 @@ let supabaseAdmin = {
       )
     )
   )
-  
-  // Ensure no session context by clearing any existing session
-  Task {
-    try? await adminClient.auth.signOut()
-  }
-  
+
   return adminClient
 }()
