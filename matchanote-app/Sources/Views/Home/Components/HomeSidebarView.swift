@@ -35,7 +35,7 @@ struct HomeSidebarView: View {
                     .frame(width: 24, height: 24)
                     
                 Text("Matcha")
-                    .font(.geosans(isCompactWidth ? .title3(26) : .title(18)))
+                    .font(.geosans(isCompactWidth ? .title3(24) : .title(22)))
                     .foregroundColor(
                         colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
  
