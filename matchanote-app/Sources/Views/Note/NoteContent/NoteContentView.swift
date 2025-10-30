@@ -50,137 +50,172 @@ struct WrittenNoteView: View {
     @State var viewModeIdentifier: UUID = UUID()
 
     var body: some View {
+        mainContentView
+            .background(backgroundColorView)
+            .ignoresSafeArea(.all, edges: .bottom)
+            .onAppear(perform: handleInitialAppear)
+            .onChange(of: note.id) { oldValue, newValue in
+                handleNoteIdChange(oldValue: oldValue, newValue: newValue)
+            }
+            .onChange(of: note.dateModified) { oldValue, newValue in
+                handleNoteDateModifiedChange(oldValue: oldValue, newValue: newValue)
+            }
+            .onChange(of: note.paperOrientation) { oldValue, newValue in
+                handlePaperOrientationChange(oldValue: oldValue, newValue: newValue)
+            }
+            .onChange(of: toolPickerIsVisible) { oldValue, newValue in
+                handleToolPickerVisibilityChange(oldValue: oldValue, newValue: newValue)
+            }
+            .onChange(of: currentPage) { oldValue, newValue in
+                handleCurrentPageChange(oldValue: oldValue, newValue: newValue)
+            }
+            .onChange(of: currentTool) { oldValue, newValue in
+                handleCurrentToolChange(oldValue: oldValue, newValue: newValue)
+            }
+            .onChange(of: isEdited) { oldValue, newValue in
+                handleIsEditedChange(oldValue: oldValue, newValue: newValue)
+            }
+            .onReceive(textBoxManager.objectWillChange) { _ in
+                handleTextBoxManagerChange()
+            }
+            .onReceive(imageManager.objectWillChange) { _ in
+                handleImageManagerChange()
+            }
+            .onAppear(perform: exposeCallbacks)
+            .onDisappear(perform: handleDisappear)
+            .onChange(of: preferencesManager.noteEditorDarkModeForWhitePaper) { oldValue, newValue in
+                handleDarkModePreferenceChange(oldValue: oldValue, newValue: newValue)
+            }
+    }
+
+    // MARK: - View Components
+
+    @ViewBuilder
+    private var mainContentView: some View {
         VStack(spacing: 0) {
             if preferencesManager.noteEditorVerticalScrollMode {
-                // Vertical scroll mode - all pages in a continuous scroll view
                 verticalScrollContent()
             } else {
-                // Page mode - horizontal tabbed pages
-                TabView(selection: $currentPage) {
-                    ForEach(Array(pageIdentifiers.enumerated()), id: \.element) { index, pageId in
-                        if index < pageCount {
-                            pageContent(pageIndex: index, isInfinite: false)
-                                .tag(index)
-                                .id(pageId)
-                        }
-                    }
-                }
-                .id(viewModeIdentifier) // Force recreation when switching modes
-                .shadow(color: Color.black.opacity(0.3), radius: 3, x: 0, y: 1)
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .clipped()
-                .ignoresSafeArea(.all, edges: .bottom)
-                .overlay(alignment: .bottomTrailing) {
-                    controlsOverlay
+                pageTabView
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var pageTabView: some View {
+        TabView(selection: $currentPage) {
+            ForEach(Array(pageIdentifiers.enumerated()), id: \.element) { index, pageId in
+                if index < pageCount {
+                    pageContent(pageIndex: index, isInfinite: false)
+                        .tag(index)
+                        .id(pageId)
                 }
             }
         }
-        .background(
-            (colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light)
-        )
+        .id(viewModeIdentifier)
+        .shadow(color: Color.black.opacity(0.3), radius: 3, x: 0, y: 1)
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        .clipped()
         .ignoresSafeArea(.all, edges: .bottom)
+        .overlay(alignment: .bottomTrailing) {
+            controlsOverlay
+        }
+    }
 
-        .onAppear {
-            // Only load if this is a different note
-            if currentNoteId != note.id {
-                currentNoteId = note.id
-                loadDrawingData()
+    private var backgroundColorView: some View {
+        colorScheme == .dark ? Color.matchabackground_dark : Color.matchabackground_light
+    }
+
+    // MARK: - Event Handlers
+
+    private func handleInitialAppear() {
+        if currentNoteId != note.id {
+            currentNoteId = note.id
+            loadDrawingData()
+        }
+        setupToolPicker()
+        startAutoSaveTimer()
+    }
+
+    private func handleNoteIdChange(oldValue: UUID, newValue: UUID) {
+        if currentNoteId != newValue {
+            if let currentId = currentNoteId {
+                saveDrawingDataForNote(noteId: currentId)
             }
-            setupToolPicker()
+            currentNoteId = newValue
+            loadDrawingData()
             startAutoSaveTimer()
         }
-        .onChange(of: note.id) { _, newNoteId in
-            // Note changed, load new drawing data
-            if currentNoteId != newNoteId {
-                // Save current note data before switching
-                if let currentId = currentNoteId {
-                    saveDrawingDataForNote(noteId: currentId)
-                }
-                currentNoteId = newNoteId
-                loadDrawingData()
-                // Restart auto-save timer for new note
-                startAutoSaveTimer()
-            }
-        }
-        .onChange(of: note.dateModified) { _, _ in
-            // Note was modified (e.g., pages deleted from PageOverviewView)
-            // Only reload if the page count has changed to avoid interfering with normal drawing changes
-            if currentNoteId == note.id {
-                let newPageCount = calculatePageCountFromNote()
-                if newPageCount != pageCount {
-                    loadDrawingData()
-                }
-            }
-        }
-        .onChange(of: note.paperOrientation) { _, _ in
-            // Paper orientation changed - reload canvas views to apply new dimensions
-            if currentNoteId == note.id {
-                // Reset zoom and offset states for page mode before reloading
-                relativeZoomLevel = ZoomConstants.initialFitZoom // Reset to initial fit
-                unifiedContentOffset = .zero
+    }
 
+    private func handleNoteDateModifiedChange(oldValue: Date, newValue: Date) {
+        if currentNoteId == note.id {
+            let newPageCount = calculatePageCountFromNote()
+            if newPageCount != pageCount {
                 loadDrawingData()
             }
         }
-        .onChange(of: toolPickerIsVisible) { _, newValue in
-            updateToolPickerVisibility(newValue)
-        }
-        .onChange(of: currentPage) { oldPage, newPage in
-            // Maintain zoom level but reset content offset to center the new page
-            // This provides continuity while preventing confusing scroll positions
+    }
+
+    private func handlePaperOrientationChange(oldValue: PaperOrientation, newValue: PaperOrientation) {
+        if currentNoteId == note.id {
+            relativeZoomLevel = ZoomConstants.initialFitZoom
             unifiedContentOffset = .zero
-            
-            updateActiveCanvas()
+            loadDrawingData()
         }
-        .onChange(of: currentTool) { _, newTool in
-            updateCanvasTool()
-            // Deselect textboxes when switching away from textbox tool
-            if newTool != .textbox {
-                textBoxManager.deselectAllTextBoxes()
-            }
-        }
-        .onChange(of: isEdited) { _, newValue in
-            if newValue {
-                saveCurrentDrawingDataDebounced()
-            }
-        }
-        .onReceive(textBoxManager.objectWillChange) { _ in
-            // Save when textboxes change
-            isEdited = true
-        }
-        .onReceive(imageManager.objectWillChange) { _ in
-            // Save when images change
-            isEdited = true
-        }
-        .onAppear {
-            // Expose the add page functionality to the parent
-            onAddPageCallback? { placement in
-                addPageAtPosition(placement)
-            }
+    }
 
-            // Expose the delete page functionality to the parent
-            onDeletePageCallback? { pageIndex in
-                deletePage(at: pageIndex)
-            }
+    private func handleToolPickerVisibilityChange(oldValue: Bool, newValue: Bool) {
+        updateToolPickerVisibility(newValue)
+    }
 
-            // Expose the save functionality to the parent
-            onSaveCallback? {
-                saveCurrentDrawingData()
-            }
-        }
-        .onDisappear {
-            // Clean up empty textboxes before saving
+    private func handleCurrentPageChange(oldValue: Int, newValue: Int) {
+        unifiedContentOffset = .zero
+        updateActiveCanvas()
+    }
+
+    private func handleCurrentToolChange(oldValue: PenTool?, newValue: PenTool?) {
+        updateCanvasTool()
+        if newValue != .textbox {
             textBoxManager.deselectAllTextBoxes()
-            imageManager.deselectAllImages()
-            // Save any unsaved drawing data when view disappears
+        }
+    }
+
+    private func handleIsEditedChange(oldValue: Bool, newValue: Bool) {
+        if newValue {
+            saveCurrentDrawingDataDebounced()
+        }
+    }
+
+    private func handleTextBoxManagerChange() {
+        isEdited = true
+    }
+
+    private func handleImageManagerChange() {
+        isEdited = true
+    }
+
+    private func exposeCallbacks() {
+        onAddPageCallback? { placement in
+            addPageAtPosition(placement)
+        }
+        onDeletePageCallback? { pageIndex in
+            deletePage(at: pageIndex)
+        }
+        onSaveCallback? {
             saveCurrentDrawingData()
-            // Stop auto-save timer when view disappears
-            stopAutoSaveTimer()
         }
-        .onChange(of: preferencesManager.noteEditorDarkModeForWhitePaper) { _, _ in
-            // Update all canvases when the dark mode preference changes
-            updateCanvasInterfaceStyles()
-        }
+    }
+
+    private func handleDisappear() {
+        textBoxManager.deselectAllTextBoxes()
+        imageManager.deselectImage()
+        saveCurrentDrawingData()
+        stopAutoSaveTimer()
+    }
+
+    private func handleDarkModePreferenceChange(oldValue: Bool, newValue: Bool) {
+        updateCanvasInterfaceStyles()
     }
 
     // MARK: - Tool Picker & Canvas Setup
