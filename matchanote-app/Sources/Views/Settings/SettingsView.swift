@@ -1,4 +1,5 @@
 import SwiftUI
+import Supabase
 
 struct SettingsView: View {
     @Environment(\.colorScheme) private var colorScheme
@@ -8,6 +9,7 @@ struct SettingsView: View {
     @StateObject private var subscriptionManager = SubscriptionManager()
     
     enum SettingsSection {
+        case account
         case preferences
         case trash
         case models
@@ -20,6 +22,8 @@ struct SettingsView: View {
                 if let section = selectedSection {
                     // Show the selected section
                     switch section {
+                    case .account:
+                        AccountSettingsView()
                     case .preferences:
                         PreferencesView()
                     case .noteEditor:
@@ -87,13 +91,11 @@ struct SettingsView: View {
             // Settings content (non-scrollable, no subheadings)
             VStack(alignment: .leading, spacing: 12) {
                 SettingsItemView(item: SettingsItem(
-                    title: "Account Settings",
-                    subtitle: "Manage your account and subscription",
+                    title: "Account",
+                    subtitle: "Manage your account",
                     icon: "person.circle",
                     action: {
-                        if let url = URL(string: "https://matchanote.app/app/settings") {
-                            UIApplication.shared.open(url)
-                        }
+                        selectedSection = .account
                     }
                 ))
 
@@ -145,7 +147,11 @@ struct SettingsView: View {
                     icon: "arrow.right.square",
                     isDestructive: true,
                     action: {
-                        LocalAuthManager.shared.logout()
+                        Task {
+                            // Sign out from Supabase and clear local auth state
+                            do { try await auth.signOut() } catch { print("Supabase signOut error: \(error)") }
+                            LocalAuthManager.shared.logout()
+                        }
                     }
                 ))
 
@@ -168,9 +174,8 @@ struct SettingsView: View {
         .alert("Premium Feature", isPresented: $showingPremiumAlert) {
             Button("OK", role: .cancel) { }
             Button("Upgrade") {
-                if let url = URL(string: "https://matchanote.app/app/settings") {
-                    UIApplication.shared.open(url)
-                }
+                // Take user to the Account page for upgrade options
+                selectedSection = .account
             }
         } message: {
             Text("Model configuration is a premium feature. Upgrade to Pro to customize your AI models.")
