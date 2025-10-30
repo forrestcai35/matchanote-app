@@ -209,7 +209,6 @@ struct WrittenNoteView: View {
 
     private func handleDisappear() {
         textBoxManager.deselectAllTextBoxes()
-        imageManager.deselectImage()
         saveCurrentDrawingData()
         stopAutoSaveTimer()
     }
