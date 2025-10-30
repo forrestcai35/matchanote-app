@@ -169,6 +169,9 @@ struct WrittenNoteView: View {
             }
         }
         .onDisappear {
+            // Clean up empty textboxes before saving
+            textBoxManager.deselectAllTextBoxes()
+            imageManager.deselectAllImages()
             // Save any unsaved drawing data when view disappears
             saveCurrentDrawingData()
             // Stop auto-save timer when view disappears
