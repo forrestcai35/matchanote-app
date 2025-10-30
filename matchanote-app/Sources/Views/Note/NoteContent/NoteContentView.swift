@@ -354,15 +354,15 @@ struct WrittenNoteView: View {
                         .onEnded { value in
                             // Only handle if it's a tap (minimal movement)
                             let distance = hypot(value.translation.width, value.translation.height)
-                            if distance < 5 && !textBoxManager.hasSelectedTextBox {
-                                // Convert tap location to canvas coordinates
-                                let currentScale = relativeZoomLevel * fitScale
-                                let tapX = (value.location.x - centerOffsetX + unifiedContentOffset.x) / currentScale
-                                let tapY = (value.location.y - centerOffsetY + unifiedContentOffset.y) / currentScale
-                                let canvasLocation = CGPoint(x: tapX, y: tapY)
-
-                                // Add textbox at tap location
-                                textBoxManager.addTextBox(to: pageIndex, at: canvasLocation)
+                            if distance < 5 {
+                                addTextboxOnTap(
+                                    pageIndex: pageIndex,
+                                    viewTap: value.location,
+                                    centerOffsetX: centerOffsetX,
+                                    centerOffsetY: centerOffsetY,
+                                    scale: relativeZoomLevel * fitScale,
+                                    contentOffset: unifiedContentOffset
+                                )
                             }
                         }
                     : nil
@@ -502,6 +502,26 @@ struct WrittenNoteView: View {
         } else if relativeZoomLevel > ZoomConstants.maxZoom {
             relativeZoomLevel = ZoomConstants.maxZoom
         }
+    }
+
+    // MARK: - Textbox Tap Handling (shared between page and vertical modes)
+    private func addTextboxOnTap(
+        pageIndex: Int,
+        viewTap: CGPoint,
+        centerOffsetX: CGFloat,
+        centerOffsetY: CGFloat,
+        scale: CGFloat,
+        contentOffset: CGPoint
+    ) {
+        // Only when textbox tool is active and nothing selected
+        guard currentTool == .textbox, !textBoxManager.hasSelectedTextBox else { return }
+
+        // Convert tap location to canvas coordinates
+        let canvasX = (viewTap.x - centerOffsetX + contentOffset.x) / max(scale, 0.0001)
+        let canvasY = (viewTap.y - centerOffsetY + contentOffset.y) / max(scale, 0.0001)
+        let canvasLocation = CGPoint(x: canvasX, y: canvasY)
+
+        textBoxManager.addTextBox(to: pageIndex, at: canvasLocation)
     }
     
     // Page boundary indicators to show page edges when zoomed in
@@ -793,8 +813,7 @@ struct WrittenNoteView: View {
         let pageOffset = verticalUnifiedContentOffset
 
         if pageIndex < canvasViews.count {
-            // Page content
-            // All canvases active so any visible page can handle zoom
+            // Page content - match page mode structure exactly
             NativeScrollCanvasView(
                     canvasView: canvasViews[pageIndex],
                     contentSize: contentSize,
@@ -808,6 +827,25 @@ struct WrittenNoteView: View {
                 )
                 .frame(width: viewportSize.width, height: scaledHeight)
                 .offset(x: centerOffsetX, y: 0)
+                // TAP GESTURE FOR TAP TO ADD (same placement as page mode)
+                .simultaneousGesture(
+                    currentTool == .textbox ?
+                    DragGesture(minimumDistance: 0)
+                        .onEnded { value in
+                            let distance = hypot(value.translation.width, value.translation.height)
+                            if distance < 5 {
+                                addTextboxOnTap(
+                                    pageIndex: pageIndex,
+                                    viewTap: value.location,
+                                    centerOffsetX: centerOffsetX,
+                                    centerOffsetY: 0,
+                                    scale: verticalZoomLevel * unifiedFitScale,
+                                    contentOffset: pageOffset
+                                )
+                            }
+                        }
+                    : nil
+                )
                 .background {
                     GeometryReader { _ in
                         ZStack(alignment: .topLeading) {
@@ -861,31 +899,9 @@ struct WrittenNoteView: View {
                                     isTextBoxToolActive: currentTool == .textbox
                                 )
                             }
-                            .background(Color.clear)  // Provide hit testing surface for tap gesture
-                            .contentShape(Rectangle())  // Ensure entire frame is tappable
                             .frame(width: contentSize.width, height: contentSize.height)
                             .scaleEffect(verticalZoomLevel * unifiedFitScale, anchor: .topLeading)
                             .offset(x: -pageOffset.x + centerOffsetX, y: -pageOffset.y)
-                            // TAP GESTURE FOR TAP TO ADD - Now on the overlay for full viewport coverage
-                            .simultaneousGesture(
-                                currentTool == .textbox ?
-                                DragGesture(minimumDistance: 0)
-                                    .onEnded { value in
-                                        // Only handle if it's a tap (minimal movement)
-                                        let distance = hypot(value.translation.width, value.translation.height)
-                                        if distance < 5 && !textBoxManager.hasSelectedTextBox {
-                                            // Convert tap location to canvas coordinates
-                                            let currentScale = verticalZoomLevel * unifiedFitScale
-                                            let tapX = (value.location.x - centerOffsetX + pageOffset.x) / currentScale
-                                            let tapY = (value.location.y + pageOffset.y) / currentScale
-                                            let canvasLocation = CGPoint(x: tapX, y: tapY)
-
-                                            // Add textbox at tap location
-                                            textBoxManager.addTextBox(to: pageIndex, at: canvasLocation)
-                                        }
-                                    }
-                                : nil
-                            )
                         }
                     }
                 }
