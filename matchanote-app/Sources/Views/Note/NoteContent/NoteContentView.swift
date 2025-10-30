@@ -385,22 +385,19 @@ struct WrittenNoteView: View {
                 .offset(x: centerOffsetX, y: centerOffsetY)
                 // TAP GESTURE FOR TAP TO ADD
                 .simultaneousGesture(
-                    // Add tap gesture for textbox tool that works alongside pan/pinch
+                    // Add tap gesture for textbox tool that works alongside pan gestures
+                    // SpatialTapGesture allows panning to work simultaneously
                     currentTool == .textbox ?
-                    DragGesture(minimumDistance: 0)
+                    SpatialTapGesture()
                         .onEnded { value in
-                            // Only handle if it's a tap (minimal movement)
-                            let distance = hypot(value.translation.width, value.translation.height)
-                            if distance < 5 {
-                                addTextboxOnTap(
-                                    pageIndex: pageIndex,
-                                    viewTap: value.location,
-                                    centerOffsetX: centerOffsetX,
-                                    centerOffsetY: centerOffsetY,
-                                    scale: relativeZoomLevel * fitScale,
-                                    contentOffset: unifiedContentOffset
-                                )
-                            }
+                            addTextboxOnTap(
+                                pageIndex: pageIndex,
+                                viewTap: value.location,
+                                centerOffsetX: centerOffsetX,
+                                centerOffsetY: centerOffsetY,
+                                scale: relativeZoomLevel * fitScale,
+                                contentOffset: unifiedContentOffset
+                            )
                         }
                     : nil
                 )
@@ -867,19 +864,16 @@ struct WrittenNoteView: View {
                 // TAP GESTURE FOR TAP TO ADD (same placement as page mode)
                 .simultaneousGesture(
                     currentTool == .textbox ?
-                    DragGesture(minimumDistance: 0)
+                    SpatialTapGesture()
                         .onEnded { value in
-                            let distance = hypot(value.translation.width, value.translation.height)
-                            if distance < 5 {
-                                addTextboxOnTap(
-                                    pageIndex: pageIndex,
-                                    viewTap: value.location,
-                                    centerOffsetX: centerOffsetX,
-                                    centerOffsetY: 0,
-                                    scale: verticalZoomLevel * unifiedFitScale,
-                                    contentOffset: pageOffset
-                                )
-                            }
+                            addTextboxOnTap(
+                                pageIndex: pageIndex,
+                                viewTap: value.location,
+                                centerOffsetX: centerOffsetX,
+                                centerOffsetY: 0,
+                                scale: verticalZoomLevel * unifiedFitScale,
+                                contentOffset: pageOffset
+                            )
                         }
                     : nil
                 )
