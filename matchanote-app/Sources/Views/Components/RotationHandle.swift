@@ -57,7 +57,7 @@ struct RotationHandle: View {
 
         let currentAngle = atan2(vector.dy, vector.dx)
         let rotationRadians = currentAngle - baseAngle
-        let rotationDegrees = -(rotationRadians * 180 / .pi)
+        let rotationDegrees = (rotationRadians * 180 / .pi)
 
         return normalizeAngle(rotationDegrees)
     }
@@ -71,4 +71,16 @@ struct RotationHandle: View {
         }
         return normalized
     }
+}
+
+// Helper function to rotate a vector by an angle in degrees
+func rotateVector(_ vector: CGVector, byDegrees degrees: Double) -> CGVector {
+    let radians = degrees * .pi / 180.0
+    let cos = Foundation.cos(radians)
+    let sin = Foundation.sin(radians)
+
+    return CGVector(
+        dx: vector.dx * cos - vector.dy * sin,
+        dy: vector.dx * sin + vector.dy * cos
+    )
 }

@@ -83,6 +83,7 @@ struct TextBoxOverlay: View {
         .frame(width: canvasSize.width, height: canvasSize.height)
         .allowsHitTesting(allowHitTesting)
         .clipped()
+        .coordinateSpace(name: CanvasCoordinateSpace.canvas)
     }
 }
 
@@ -258,8 +259,8 @@ struct TextBoxView: View {
             dy: -boxHeight / 2 - 14
         )
         let centerPoint = CGPoint(
-            x: textBox.position.x + dragOffset.width + boxWidth / 2,
-            y: textBox.position.y + dragOffset.height + boxHeight / 2
+            x: textBox.position.x + boxWidth / 2,
+            y: textBox.position.y + boxHeight / 2
         )
 
         ZStack {

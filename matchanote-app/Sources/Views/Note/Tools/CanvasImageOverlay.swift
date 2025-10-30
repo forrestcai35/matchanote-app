@@ -89,10 +89,11 @@ struct CanvasImageView: View {
     private func selectionControls() -> some View {
         let imageWidth = currentSize.width > 0 ? currentSize.width : image.size.width
         let imageHeight = currentSize.height > 0 ? currentSize.height : image.size.height
-        let rotationHandleOffset = CGVector(
+        let baseRotationHandleOffset = CGVector(
             dx: -imageWidth / 2 - 14,
             dy: -imageHeight / 2 - 14
         )
+        let rotationHandleOffset = rotateVector(baseRotationHandleOffset, byDegrees: image.rotation)
         let centerPoint = CGPoint(
             x: image.position.x + imageWidth / 2,
             y: image.position.y + imageHeight / 2
