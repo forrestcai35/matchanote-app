@@ -161,6 +161,7 @@ struct WrittenNoteView: View {
         if currentNoteId == note.id {
             relativeZoomLevel = ZoomConstants.initialFitZoom
             unifiedContentOffset = .zero
+            viewModeIdentifier = UUID()
             loadDrawingData()
         }
     }
