@@ -138,14 +138,14 @@ public struct ListItemView: View {
                             Text("Rename Note")
                                 .font(.jost(.headline()))
 
-                            TextField("Note name", text: $newTitle)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                            ClearableTextField(placeholder: "Note name", text: $newTitle)
                                 .frame(width: 200)
 
                             HStack {
                                 Button("Cancel") {
                                     showRenamePopover = false
                                 }
+                                .font(.jost(.body()))
                                 .foregroundColor(.red)
 
                                 Spacer()
@@ -158,6 +158,7 @@ public struct ListItemView: View {
                                     TabManager.shared.updateNote(savedNote)
                                     showRenamePopover = false
                                 }
+                                .font(.jost(.body()))
                                 .disabled(newTitle.isEmpty)
                             }
                         }
@@ -271,14 +272,14 @@ public struct ListFolderItemView: View {
                                 Text("Rename Folder")
                                     .font(.jost(.headline()))
 
-                                TextField("Folder name", text: $newName)
-                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                                ClearableTextField(placeholder: "Folder name", text: $newName)
                                     .frame(width: 200)
 
                                 HStack {
                                     Button("Cancel") {
                                         showRenamePopover = false
                                     }
+                                    .font(.jost(.body()))
                                     .foregroundColor(.red)
 
                                     Spacer()
@@ -289,6 +290,7 @@ public struct ListFolderItemView: View {
                                         }
                                         showRenamePopover = false
                                     }
+                                    .font(.jost(.body()))
                                     .disabled(newName.isEmpty)
                                 }
                             }

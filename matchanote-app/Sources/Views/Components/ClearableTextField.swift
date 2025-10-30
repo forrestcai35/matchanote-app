@@ -17,6 +17,7 @@ struct ClearableTextField: View {
     var body: some View {
         HStack(spacing: 8) {
             TextField(placeholder, text: $text)
+                .font(.jost(.callout(14)))
 
             // Clear button - only visible when there's text
             if !text.isEmpty {

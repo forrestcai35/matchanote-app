@@ -92,7 +92,7 @@ class ExportManager {
         if pagesToExport.count == 1 {
             let page = pagesToExport[0]
             let pageKey = String(page)
-            var size = PaperUtilities.paperSize(for: noteToExport.paperSize)
+            var size = PaperUtilities.paperSize(for: noteToExport.paperSize, orientation: noteToExport.paperOrientation)
             if let imageData = noteToExport.imageDataByPage[pageKey]?.first, let uiImage = UIImage(data: imageData) {
                 size = uiImage.size
             }
@@ -168,9 +168,9 @@ class ExportManager {
         
         // Create a temporary note with only the selected pages if needed
         let noteToExport = selectedPages != nil ? createNoteWithSelectedPages(note, selectedPages: selectedPages!) : note
-        
-        // Use the same export logic for all exports
-        let pageBounds = CGRect(origin: .zero, size: PaperUtilities.paperSize(for: noteToExport.paperSize))
+
+        // Use the same export logic for all exports - respect orientation
+        let pageBounds = CGRect(origin: .zero, size: PaperUtilities.paperSize(for: noteToExport.paperSize, orientation: noteToExport.paperOrientation))
         let renderer = UIGraphicsPDFRenderer(bounds: pageBounds)
         let sanitizedTitle = ExportManager.sanitizeTitle(noteToExport.title)
         
@@ -179,9 +179,9 @@ class ExportManager {
         do {
             try renderer.writePDF(to: tempURL) { context in
                 for page in pagesToExport {
-                    // Determine per-page size using background image when available
+                    // Determine per-page size using background image when available, respecting orientation
                     let pageKey = String(page)
-                    var size = PaperUtilities.paperSize(for: noteToExport.paperSize)
+                    var size = PaperUtilities.paperSize(for: noteToExport.paperSize, orientation: noteToExport.paperOrientation)
                     if let imageData = noteToExport.imageDataByPage[pageKey]?.first, let uiImage = UIImage(data: imageData) {
                         size = uiImage.size
                     }
@@ -209,20 +209,78 @@ class ExportManager {
                     // Draw paper pattern on top of background images
                     PaperUtilities.drawPaperPattern(context: context.cgContext, paperStyle: noteToExport.paperStyle, size: bounds.size)
 
-                    // Draw strokes next (under overlays to match UI layering)
+                    // Draw strokes as vectors for infinite zoom quality
+                    // Note: Using average width per stroke (uniform) until we solve variable width issue
                     if let drawing = drawingForPage(page, note: noteToExport) {
-                        let image = drawing.image(from: bounds, scale: 2)
-                        image.draw(in: bounds)
+                        for stroke in drawing.strokes {
+                            let strokePath = stroke.path
+                            guard strokePath.count > 0 else { continue }
+
+                            let color = stroke.ink.color
+                            context.cgContext.setStrokeColor(color.cgColor)
+                            context.cgContext.setLineCap(.round)
+                            context.cgContext.setLineJoin(.round)
+
+                            // Calculate average width for this stroke
+                            var totalWidth: CGFloat = 0
+                            for i in 0..<strokePath.count {
+                                totalWidth += strokePath[i].size.width
+                            }
+                            let avgWidth = totalWidth / CGFloat(strokePath.count)
+                            context.cgContext.setLineWidth(avgWidth)
+
+                            // Build smooth path through stroke points
+                            let path = CGMutablePath()
+                            path.move(to: strokePath[0].location)
+                            for i in 1..<strokePath.count {
+                                path.addLine(to: strokePath[i].location)
+                            }
+                            context.cgContext.addPath(path)
+                            context.cgContext.strokePath()
+                        }
                     }
 
-                    // Draw overlay canvas images (positioned and z-ordered)
+                    // Draw overlay canvas images (positioned and z-ordered) as vectors
                     if !overlayCanvasImages.isEmpty {
                         // Sort by zIndex ascending so higher zIndex draws later (on top)
                         let sorted = overlayCanvasImages.sorted { $0.zIndex < $1.zIndex }
                         for item in sorted {
                             if let uiImage = ImageUtilities.dataToImage(item.imageData) {
+                                context.cgContext.saveGState()
+
+                                // Apply rotation if needed
+                                if item.rotation != 0 {
+                                    let centerX = item.position.x + item.size.width / 2
+                                    let centerY = item.position.y + item.size.height / 2
+                                    context.cgContext.translateBy(x: centerX, y: centerY)
+                                    context.cgContext.rotate(by: item.rotation)
+                                    context.cgContext.translateBy(x: -centerX, y: -centerY)
+                                }
+
                                 let rect = CGRect(origin: item.position, size: item.size)
                                 uiImage.draw(in: rect)
+
+                                context.cgContext.restoreGState()
+                            }
+                        }
+                    }
+
+                    // Draw textboxes on top
+                    if let textBoxDataArray = noteToExport.textBoxDataByPage[pageKey] {
+                        for data in textBoxDataArray {
+                            if let textBox = try? JSONDecoder().decode(TextBox.self, from: data) {
+                                // Draw text as vector (PDF text object)
+                                let textRect = CGRect(origin: textBox.position, size: textBox.size)
+                                let paragraphStyle = NSMutableParagraphStyle()
+                                paragraphStyle.alignment = .left
+
+                                let attributes: [NSAttributedString.Key: Any] = [
+                                    .font: UIFont.systemFont(ofSize: textBox.fontSize),
+                                    .foregroundColor: UIColor(textBox.textColor),
+                                    .paragraphStyle: paragraphStyle
+                                ]
+
+                                textBox.text.draw(in: textRect, withAttributes: attributes)
                             }
                         }
                     }

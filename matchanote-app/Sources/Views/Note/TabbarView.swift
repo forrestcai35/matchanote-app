@@ -314,8 +314,7 @@ struct TabItemView: View {
             VStack(spacing: 12) {
               Text("Rename Note")
                 .font(.jost(.headline()))
-              TextField("Note name", text: $newTitle)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
+              ClearableTextField(placeholder: "Note name", text: $newTitle)
                 .frame(width: 200)
               HStack {
                 Button("Cancel") {

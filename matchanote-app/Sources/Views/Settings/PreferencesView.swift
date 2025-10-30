@@ -3,7 +3,7 @@ import SwiftUI
 struct PreferencesView: View {
     @ObservedObject private var preferencesManager = PreferencesManager.shared
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.dismiss) private var dismiss
+
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -26,6 +26,7 @@ struct PreferencesView: View {
             
             // Preferences list
             List {
+                // Force list to refresh its styling when theme changes
                 // Appearance Section
                 Section {
                     HStack {
@@ -149,9 +150,22 @@ struct PreferencesView: View {
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
+            .id(preferencesManager.theme)
         }
         .background(
             colorScheme == .dark
                 ? Color.matchabackground_dark : Color.matchabackground_light)
+        // Ensure this view subtree respects the selected theme immediately
+        .preferredColorScheme(colorSchemeForTheme(preferencesManager.theme))
+    }
+
+
+    // Map AppTheme -> ColorScheme used for preferredColorScheme
+    private func colorSchemeForTheme(_ theme: AppTheme) -> ColorScheme? {
+        switch theme {
+        case .light: return .light
+        case .dark: return .dark
+        case .system: return nil
+        }
     }
 }
