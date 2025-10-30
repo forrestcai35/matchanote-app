@@ -17,6 +17,7 @@ struct TabBarView: View {
   @ObservedObject private var tabManager = TabManager.shared
   @ObservedObject private var preferencesManager = PreferencesManager.shared
   @Environment(\.colorScheme) private var colorScheme
+  @EnvironmentObject private var storageManager: StorageManager
 
   var dismiss: DismissAction
   var clearPageAction: (() -> Void)?
@@ -35,6 +36,9 @@ struct TabBarView: View {
   @State private var showAddPopover: Bool = false
   @State private var showExportPopover: Bool = false
   @State private var showMorePopover: Bool = false
+  @State private var showDeleteNoteAlert: Bool = false
+  @State private var pendingDeleteNoteId: UUID?
+  @State private var showDeletePageAlert: Bool = false
 
   var body: some View {
     HStack(spacing: 8) {
@@ -252,7 +256,19 @@ struct TabBarView: View {
             }
             .foregroundColor(.red)
             Button(action: {
-              deletePageAction?()
+              // Intercept delete to check if this would remove the final page
+              if let activeTab = tabManager.getActiveTab() {
+                let note = activeTab.note
+                let total = totalPages(for: note)
+                if total <= 1 {
+                  pendingDeleteNoteId = note.id
+                  showDeleteNoteAlert = true
+                } else {
+                  showDeletePageAlert = true
+                }
+              } else {
+                showDeletePageAlert = true
+              }
               showMorePopover = false
             }) {
               Label("Delete Page", systemImage: "trash.fill")
@@ -273,6 +289,33 @@ struct TabBarView: View {
     .background(
       colorScheme == .dark ? Color.tabbar_background_dark : Color.tabbar_background_light
     )
+    .alert("Delete Note", isPresented: $showDeleteNoteAlert) {
+      Button("Cancel", role: .cancel) { }
+      Button("Delete Note", role: .destructive) {
+        if let id = pendingDeleteNoteId {
+          storageManager.deleteNote(withID: id)
+          pendingDeleteNoteId = nil
+        }
+      }
+    } message: {
+      Text("Deleting the last page will remove the entire note. This action cannot be undone. Continue?")
+    }
+    .alert("Delete Page", isPresented: $showDeletePageAlert) {
+      Button("Cancel", role: .cancel) { }
+      Button("Delete", role: .destructive) {
+        deletePageAction?()
+      }
+    } message: {
+      Text("Are you sure you want to delete this page? This action cannot be undone.")
+    }
+  }
+
+  // MARK: - Helpers
+  private func totalPages(for note: Note) -> Int {
+    let maxDrawingPage = note.drawingDataByPage.keys.compactMap { Int($0) }.max() ?? 0
+    let maxImagePage = note.imageDataByPage.keys.compactMap { Int($0) }.max() ?? 0
+    let maxPage = max(maxDrawingPage, maxImagePage)
+    return max(1, maxPage + 1)
   }
 
 }

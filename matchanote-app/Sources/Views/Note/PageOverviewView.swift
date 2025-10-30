@@ -15,6 +15,7 @@ struct PageOverviewView: View {
   @State private var selectedPages: Set<Int> = []
   @State private var showingExportSheet = false
   @State private var showingDeleteAlert = false
+  @State private var showingDeleteNoteAlert = false
   
   private let columns = Array(repeating: GridItem(.flexible(), spacing: 16), count: 3)
   
@@ -43,14 +44,17 @@ struct PageOverviewView: View {
                 .font(.jost(.subheadline()))
                 .foregroundColor(colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
                 
-                // Only show delete button if there's more than one page
-                if totalPages > 1 {
-                  Button("Delete") {
+                Button("Delete") {
+                  // If user selected all pages, show the Delete Note alert directly
+                  if selectedPages.count >= totalPages {
+                    showingDeleteAlert = false
+                    showingDeleteNoteAlert = true
+                  } else {
                     showingDeleteAlert = true
                   }
-                  .font(.jost(.subheadline()))
-                  .foregroundColor(.red)
                 }
+                .font(.jost(.subheadline()))
+                .foregroundColor(.red)
               }
             } else {
               Button("Select") {
@@ -128,6 +132,17 @@ struct PageOverviewView: View {
     } message: {
       Text("Are you sure you want to delete \(selectedPages.count) page\(selectedPages.count == 1 ? "" : "s")? This action cannot be undone.")
     }
+    .alert("Delete Note", isPresented: $showingDeleteNoteAlert) {
+      Button("Cancel", role: .cancel) { }
+      
+      Button("Delete Note", role: .destructive) {
+        // Delete the entire note and close its tabs
+        storageManager.deleteNote(withID: note.id)
+        isPresented = false
+      }
+    } message: {
+      Text("Deleting all pages will remove the entire note. This action cannot be undone. Continue?")
+    }
     .onChange(of: showingExportSheet) { _, newValue in
       if newValue {
         exportSelectedPages()
@@ -191,11 +206,11 @@ struct PageOverviewView: View {
   private func deleteSelectedPages() {
     guard !selectedPages.isEmpty else { return }
     
-    // Prevent deletion if there's only one page total
-    guard totalPages > 1 else { return }
-    
-    // Prevent deletion if trying to delete all pages - must keep at least one
-    guard selectedPages.count < totalPages else { return }
+    // If deletion would remove all pages, confirm deleting the entire note
+    if selectedPages.count >= totalPages {
+      showingDeleteNoteAlert = true
+      return
+    }
     
     // Create updated note with selected pages removed
     var updatedNote = note
