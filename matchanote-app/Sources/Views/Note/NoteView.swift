@@ -345,7 +345,11 @@ struct NoteView: View {
             clearPageAction: clearCurrentPage,
             deletePageAction: { deletePageCallback?(currentPage) },
             quickExportAction: { handleQuickExport() },
-            exportOptionsAction: { showExportOptionsView = true },
+            exportOptionsAction: { 
+              // Save note before opening export options (same as quick export)
+              saveCurrentCanvasData()
+              showExportOptionsView = true 
+            },
             printCurrentPageAction: { handlePrint(pages: [currentPage]) },
             printAllPagesAction: { handlePrint(pages: Array(0..<totalPages)) },
             onAddPage: { placement in

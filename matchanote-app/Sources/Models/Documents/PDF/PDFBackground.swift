@@ -5,9 +5,6 @@ import UIKit
 // MARK: - PDF Background Model
 // Encoded into note.imageDataByPage as JSON to represent a vector PDF page background
 struct PDFPageBackground: Codable {
-    // Identifier to help with debugging and potential future migrations
-    let kind: String = "pdfBackground"
-
     // Relative path under the app's Documents directory (e.g. "Attachments/uuid_name.pdf")
     let relativePath: String
 
@@ -97,4 +94,3 @@ enum PDFDrawingUtils {
         context.restoreGState()
     }
 }
-

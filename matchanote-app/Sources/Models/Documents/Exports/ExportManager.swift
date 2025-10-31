@@ -101,10 +101,8 @@ class ExportManager {
         for page in pagesToExport {
             let pageKey = String(page)
             var size = PaperUtilities.paperSize(for: noteToExport.paperSize, orientation: noteToExport.paperOrientation)
-            var pdfBackground: PDFPageBackground?
             if let firstData = noteToExport.imageDataByPage[pageKey]?.first {
                 if let bg = try? JSONDecoder().decode(PDFPageBackground.self, from: firstData) {
-                    pdfBackground = bg
                     size = CGSize(width: bg.width, height: bg.height)
                 } else if let uiImage = UIImage(data: firstData) {
                     size = uiImage.size
@@ -212,11 +210,17 @@ class ExportManager {
     // Now rasterizes each page: draws all content into a high-res image,
     // then embeds that image into the PDF page for consistent appearance.
     func exportNoteAsPDF(_ note: Note, selectedPages: [Int]? = nil) -> URL? {
-        // If no specific pages selected, export all pages
-        let pagesToExport = selectedPages ?? getAllPagesForNote(note)
-        
-        // Create a temporary note with only the selected pages if needed
-        let noteToExport = selectedPages != nil ? createNoteWithSelectedPages(note, selectedPages: selectedPages!) : note
+        // Map pages consistently. If selecting a subset, reindex pages to 0..n-1
+        let noteToExport: Note
+        let pagesToExport: [Int]
+        if let selected = selectedPages, !selected.isEmpty {
+            let sorted = selected.sorted()
+            noteToExport = createNoteWithSelectedPages(note, selectedPages: sorted)
+            pagesToExport = Array(0..<sorted.count)
+        } else {
+            noteToExport = note
+            pagesToExport = getAllPagesForNote(note)
+        }
 
         // Use the same export logic for all exports - respect orientation
         let pageBounds = CGRect(origin: .zero, size: PaperUtilities.paperSize(for: noteToExport.paperSize, orientation: noteToExport.paperOrientation))
