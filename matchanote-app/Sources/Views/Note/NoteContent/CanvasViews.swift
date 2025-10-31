@@ -28,6 +28,9 @@ struct NativeScrollCanvasView: UIViewRepresentable {
     @Binding var currentTool: PenTool?
     @ObservedObject var preferencesManager = PreferencesManager.shared
     var showScrollIndicators: Bool = false
+    // Whether this view is the active page (in TabView mode). When false, it
+    // will not push/pull unified content offsets to avoid flashing during transitions.
+    var isActivePage: Bool = true
 
     let onDrawingChange: () -> Void
 
@@ -45,6 +48,8 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         canvasView.showsVerticalScrollIndicator = showScrollIndicators
         canvasView.showsHorizontalScrollIndicator = showScrollIndicators
         canvasView.backgroundColor = .clear
+        canvasView.decelerationRate = .fast
+        canvasView.clipsToBounds = true
 
         // Disable automatic content inset adjustment to prevent auto-centering
         canvasView.contentInsetAdjustmentBehavior = .never
@@ -92,9 +97,7 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         // HACK: Trigger a micro-zoom to force PKCanvasView to enforce contentSize bounds
         // This simulates what a pinch gesture does
         DispatchQueue.main.async {
-            let originalZoom = canvasView.zoomScale
-            canvasView.zoomScale = originalZoom * 1.00001
-            canvasView.zoomScale = originalZoom
+            applyMicroZoomSync(to: canvasView)
         }
 
         return canvasView
@@ -109,9 +112,12 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         // Always disable drawing when textbox or photo tool is active (regardless of interaction state)
         uiView.drawingGestureRecognizer.isEnabled = (currentTool != .textbox && currentTool != .photo)
         
+        // Disable native scrolling on non-active pages to avoid fighting with page transitions
+        uiView.isScrollEnabled = isActivePage
+        
         // Synchronize zoom and offset when they change (e.g., when switching pages)
         // Only update if not currently being modified by user interaction
-        if !context.coordinator.isUserInteracting {
+        if !context.coordinator.isUserInteracting && isActivePage {
             // Update zoom scale if it differs significantly from binding
             if abs(uiView.zoomScale - currentScale) > 0.01 {
                 uiView.setZoomScale(currentScale, animated: false)
@@ -137,6 +143,8 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         private var previousTool: PenTool = .pen
         var isUpdatingZoom: Bool = false
         var isUserInteracting: Bool = false
+        private var panWasEnabledBeforeZoom: Bool = true
+        private var lastPublishedOffset: CGPoint = .zero
 
         init(_ parent: NativeScrollCanvasView) {
             self.parent = parent
@@ -156,6 +164,9 @@ struct NativeScrollCanvasView: UIViewRepresentable {
 
         func scrollViewWillBeginZooming(_ scrollView: UIScrollView, with view: UIView?) {
             isUserInteracting = true
+            // Reduce micro panning noise during pinch by disabling pan temporarily
+            panWasEnabledBeforeZoom = scrollView.panGestureRecognizer.isEnabled
+            scrollView.panGestureRecognizer.isEnabled = false
         }
 
         func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
@@ -175,6 +186,8 @@ struct NativeScrollCanvasView: UIViewRepresentable {
 
         func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
             isUserInteracting = false
+            // Restore pan gesture
+            scrollView.panGestureRecognizer.isEnabled = panWasEnabledBeforeZoom
             // Full tile refresh by reassigning drawing
             if let canvas = canvasView {
                 let current = canvas.drawing
@@ -191,6 +204,8 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         }
 
         private func updateZoomOffset(_ scrollView: UIScrollView) {
+            // Ignore updates from non-active pages to prevent offset contention
+            guard parent.isActivePage else { return }
             guard !isUpdatingZoom else { return }
             isUpdatingZoom = true
             
@@ -198,7 +213,15 @@ struct NativeScrollCanvasView: UIViewRepresentable {
             var transaction = Transaction()
             transaction.disablesAnimations = true
             withTransaction(transaction) {
-                self.parent.contentOffset = scrollView.contentOffset
+                // Publish offset with a small deadzone while zooming to avoid jitter from micro finger movements
+                let newOffset = scrollView.contentOffset
+                let threshold: CGFloat = 0.5
+                let dx = abs(newOffset.x - lastPublishedOffset.x)
+                let dy = abs(newOffset.y - lastPublishedOffset.y)
+                if !scrollView.isZooming || dx > threshold || dy > threshold {
+                    self.parent.contentOffset = newOffset
+                    lastPublishedOffset = newOffset
+                }
                 self.parent.currentScale = scrollView.zoomScale
             }
             

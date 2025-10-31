@@ -48,6 +48,8 @@ struct WrittenNoteView: View {
 
     // Track view mode changes to force TabView recreation when switching modes
     @State var viewModeIdentifier: UUID = UUID()
+    // Track which page is currently transitioning out to control layering/offset
+    @State private var transitioningPageIndex: Int? = nil
 
     var body: some View {
         mainContentView
@@ -107,6 +109,7 @@ struct WrittenNoteView: View {
             ForEach(Array(pageIdentifiers.enumerated()), id: \.element) { index, pageId in
                 if index < pageCount {
                     pageContent(pageIndex: index, isInfinite: false)
+                        .zIndex(currentPage == index ? 2 : 0)
                         .tag(index)
                         .id(pageId)
                 }
@@ -171,8 +174,13 @@ struct WrittenNoteView: View {
     }
 
     private func handleCurrentPageChange(oldValue: Int, newValue: Int) {
-        unifiedContentOffset = .zero
+        // Track the outgoing page index for a short transition window
+        transitioningPageIndex = oldValue
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            transitioningPageIndex = nil
+        }
         updateActiveCanvas()
+
     }
 
     private func handleCurrentToolChange(oldValue: PenTool?, newValue: PenTool?) {
@@ -371,6 +379,10 @@ struct WrittenNoteView: View {
             let centerOffsetX = max((viewportSize.width - scaledWidth) / 2, 0)
             let centerOffsetY = max((viewportSize.height - scaledHeight) / 2, 0)
 
+            // Determine active/transitioning state for layering and offsets
+            let isActive = (pageIndex == currentPage)
+            let isTransitioning = (pageIndex == transitioningPageIndex)
+
             if pageIndex < canvasViews.count {
                 NativeScrollCanvasView(
                     canvasView: canvasViews[pageIndex],
@@ -381,6 +393,7 @@ struct WrittenNoteView: View {
                     contentOffset: $unifiedContentOffset,
                     currentTool: $currentTool,
                     showScrollIndicators: preferencesManager.noteEditorPageBoundaryIndicatorMode == .scrollBars,
+                    isActivePage: isActive,
                     onDrawingChange: { isEdited = true }
                 )
                 .offset(x: centerOffsetX, y: centerOffsetY)
@@ -475,6 +488,13 @@ struct WrittenNoteView: View {
                         }
                     }
                 }
+                // Layering only: keep the active page above others
+                .zIndex(isActive ? 2 : (isTransitioning ? 1 : 0))
+                // Only the active page should receive gestures/drops
+                .allowsHitTesting(pageIndex == currentPage)
+                
+                // Prevent any bleed outside page bounds
+                .clipped()
                 .onDrop(of: [.plainText], isTargeted: nil) { providers, location in
                     // Handle dropped text from AI assistant
                     guard let provider = providers.first else { return false }
@@ -519,8 +539,35 @@ struct WrittenNoteView: View {
                         unifiedContentOffset = .zero
                     }
                 }
-                .onChange(of: currentPage) { _, _ in
+                .onChange(of: currentPage) { oldPage, newPage in
+                    // Keep zoom within bounds
                     clampRelativeZoomIfNeeded()
+
+                    // Only adjust offset for the page we navigated to
+                    guard pageIndex == newPage else { return }
+
+                    // Determine swipe direction
+                    let movingBackward = newPage < oldPage
+
+                    // Compute target horizontal offset: snap to nearest edge to avoid flashing
+                    let scale = relativeZoomLevel * fitScale
+                    let scaledWidth = contentSize.width * scale
+                    let viewportWidth = geometry.size.width
+
+                    // Left edge when moving forward, right edge when moving back
+                    let targetX: CGFloat = movingBackward ? max(0, scaledWidth - viewportWidth) : 0
+
+                    // Preserve vertical offset but clamp within bounds
+                    let scaledHeight = contentSize.height * scale
+                    let viewportHeight = geometry.size.height
+                    let maxY = max(0, scaledHeight - viewportHeight)
+                    let targetY = min(max(0, unifiedContentOffset.y), maxY)
+
+                    var transaction = Transaction()
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) {
+                        unifiedContentOffset = CGPoint(x: targetX, y: targetY)
+                    }
                 }
                 .edgesIgnoringSafeArea(.bottom)
             } else {
