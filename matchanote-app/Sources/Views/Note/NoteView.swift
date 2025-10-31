@@ -894,12 +894,13 @@ extension NoteView {
       return
     }
     
-    guard let url = ExportManager.shared.exportNote(latestNote, selectedPages: pages, exportType: exportType) else {
-      print("Failed to create export file")
+    // Use centralized export for all types; it returns one or more URLs
+    guard let urls = ExportManager.shared.exportNote(latestNote, selectedPages: pages, exportType: exportType), !urls.isEmpty else {
+      print("Failed to create export file(s)")
       return
     }
     
-    let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+    let controller = UIActivityViewController(activityItems: urls, applicationActivities: nil)
     if let popover = controller.popoverPresentationController {
       if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
          let window = scene.windows.first(where: { $0.isKeyWindow }) {

@@ -44,12 +44,15 @@ class ExportManager {
     }
     
     // MARK: - Main Export Function with Type Selection
-    func exportNote(_ note: Note, selectedPages: [Int]? = nil, exportType: ExportType = .pdf) -> URL? {
+    // Returns one or more URLs depending on export type
+    func exportNote(_ note: Note, selectedPages: [Int]? = nil, exportType: ExportType = .pdf) -> [URL]? {
         switch exportType {
         case .pdf:
-            return exportNoteAsPDF(note, selectedPages: selectedPages)
+            if let url = exportNoteAsPDF(note, selectedPages: selectedPages) { return [url] }
+            return nil
         case .matcha:
-            return exportNoteAsMatcha(note, selectedPages: selectedPages)
+            if let url = exportNoteAsMatcha(note, selectedPages: selectedPages) { return [url] }
+            return nil
         case .image:
             return exportNoteAsImage(note, selectedPages: selectedPages)
         }
@@ -79,94 +82,123 @@ class ExportManager {
     }
     
     // MARK: - Export as Image (PNG)
-    func exportNoteAsImage(_ note: Note, selectedPages: [Int]? = nil) -> URL? {
-        // If no specific pages selected, export all pages
-        let pagesToExport = selectedPages ?? getAllPagesForNote(note)
-        
-        // Create a temporary note with only the selected pages if needed
-        let noteToExport = selectedPages != nil ? createNoteWithSelectedPages(note, selectedPages: selectedPages!) : note
-        
+    // Creates a PNG per selected page; returns all URLs (or nil on failure)
+    func exportNoteAsImage(_ note: Note, selectedPages: [Int]? = nil) -> [URL]? {
+        // Determine pages and construct note with only selected pages when applicable
+        let noteToExport: Note
+        let pagesToExport: [Int]
+        if let selected = selectedPages, !selected.isEmpty {
+            noteToExport = createNoteWithSelectedPages(note, selectedPages: selected)
+            pagesToExport = Array(0..<selected.count)
+        } else {
+            noteToExport = note
+            pagesToExport = getAllPagesForNote(noteToExport)
+        }
+
         let sanitizedTitle = ExportManager.sanitizeTitle(noteToExport.title)
-        
-        // If exporting a single page, create a single PNG
-        if pagesToExport.count == 1 {
-            let page = pagesToExport[0]
+        var urls: [URL] = []
+
+        for page in pagesToExport {
             let pageKey = String(page)
             var size = PaperUtilities.paperSize(for: noteToExport.paperSize, orientation: noteToExport.paperOrientation)
             if let imageData = noteToExport.imageDataByPage[pageKey]?.first, let uiImage = UIImage(data: imageData) {
                 size = uiImage.size
             }
-            
+
             let bounds = CGRect(origin: .zero, size: size)
             let renderer = UIGraphicsImageRenderer(bounds: bounds)
-            
+
             let image = renderer.image { context in
                 // Fill background
                 UIColor(PaperUtilities.getPaperBackgroundColor(for: noteToExport.paperColor)).setFill()
                 UIRectFill(bounds)
-                
-                // Draw background images
+
+                // Separate raw background images and encoded CanvasImage overlays
                 var overlayCanvasImages: [CanvasImage] = []
                 if let imageDataArray = noteToExport.imageDataByPage[pageKey] {
                     for data in imageDataArray {
                         if let bg = UIImage(data: data) {
+                            // Raw background image – draw full-bleed
                             bg.draw(in: bounds)
                         } else if let canvasImage = try? JSONDecoder().decode(CanvasImage.self, from: data) {
                             overlayCanvasImages.append(canvasImage)
                         }
                     }
                 }
-                
-                // Draw paper pattern using editor-matched spacing
+
+                // Paper pattern
                 drawExportPaperPattern(context: context.cgContext,
                                        paperStyle: noteToExport.paperStyle,
                                        paperColor: noteToExport.paperColor,
                                        size: bounds.size)
-                
-                // Draw strokes (force light appearance so ink renders dark)
+
+                // Strokes in light mode
                 if let drawing = drawingForPage(page, note: noteToExport) {
                     let lightTrait = UITraitCollection(userInterfaceStyle: .light)
                     var drawingImage: UIImage!
                     lightTrait.performAsCurrent {
-                        drawingImage = drawing.image(from: bounds, scale: 2)
+                        drawingImage = drawing.image(from: bounds, scale: 3.0)
                     }
                     drawingImage.draw(in: bounds)
                 }
-                
-                // Draw overlay canvas images
+
+                // Overlay canvas images with rotation and z-order
                 if !overlayCanvasImages.isEmpty {
                     let sorted = overlayCanvasImages.sorted { $0.zIndex < $1.zIndex }
                     for item in sorted {
                         if let uiImage = ImageUtilities.dataToImage(item.imageData) {
+                            context.cgContext.saveGState()
+
+                            if item.rotation != 0 {
+                                let centerX = item.position.x + item.size.width / 2
+                                let centerY = item.position.y + item.size.height / 2
+                                context.cgContext.translateBy(x: centerX, y: centerY)
+                                context.cgContext.rotate(by: item.rotation)
+                                context.cgContext.translateBy(x: -centerX, y: -centerY)
+                            }
+
                             let rect = CGRect(origin: item.position, size: item.size)
                             uiImage.draw(in: rect)
+
+                            context.cgContext.restoreGState()
+                        }
+                    }
+                }
+
+                // Text boxes
+                if let textBoxDataArray = noteToExport.textBoxDataByPage[pageKey] {
+                    for data in textBoxDataArray {
+                        if let textBox = try? JSONDecoder().decode(TextBox.self, from: data) {
+                            let textRect = CGRect(origin: textBox.position, size: textBox.size)
+                            let paragraphStyle = NSMutableParagraphStyle()
+                            paragraphStyle.alignment = .left
+
+                            let attributes: [NSAttributedString.Key: Any] = [
+                                .font: UIFont.systemFont(ofSize: textBox.fontSize),
+                                .foregroundColor: UIColor(textBox.textColor),
+                                .paragraphStyle: paragraphStyle
+                            ]
+
+                            textBox.text.draw(in: textRect, withAttributes: attributes)
                         }
                     }
                 }
             }
-            
-            // Save as PNG
+
             let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(sanitizedTitle)_page_\(page + 1).png")
             if let pngData = image.pngData() {
                 do {
                     try pngData.write(to: tempURL)
-                    return tempURL
+                    urls.append(tempURL)
                 } catch {
-                    print("Failed to write PNG: \(error)")
-                    return nil
+                    print("Failed to write PNG for page \(page): \(error)")
                 }
             }
-        } else {
-            // Export multiple pages as separate PNGs in a zip file
-            // For now, we'll export the first page as the representative image
-            // You could enhance this to create a zip file or combine pages
-            if let firstPage = pagesToExport.first {
-                return exportNoteAsImage(noteToExport, selectedPages: [firstPage])
-            }
         }
-        
-        return nil
+
+        return urls.isEmpty ? nil : urls
     }
+
     
     // MARK: - Export as PDF function    
     // Now rasterizes each page: draws all content into a high-res image,
@@ -411,12 +443,12 @@ class ExportManager {
             return
         }
         
-        guard let url = exportNote(note, selectedPages: selectedPages, exportType: exportType) else { return }
+        guard let urls = exportNote(note, selectedPages: selectedPages, exportType: exportType), !urls.isEmpty else { return }
         
         isPresenting = true
         lastExportTime = Date()
         
-        let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        let controller = UIActivityViewController(activityItems: urls, applicationActivities: nil)
         
         // Configure popover for iPad
         if let popover = controller.popoverPresentationController {
