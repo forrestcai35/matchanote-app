@@ -642,8 +642,8 @@ struct WrittenNoteView: View {
         let bottomEdgeVisible = !isScrollableVertically || unifiedContentOffset.y >= maxScrollY - bottomEdgeTolerance
         
         ZStack {
-            // Left edge indicator
-            if !leftEdgeVisible {
+            // Left edge indicator (show when at left edge and horizontally scrollable)
+            if isScrollableHorizontally && leftEdgeVisible {
                 HStack {
                     Rectangle()
                         .fill(
@@ -661,8 +661,8 @@ struct WrittenNoteView: View {
                 }
             }
             
-            // Right edge indicator
-            if !rightEdgeVisible {
+            // Right edge indicator (show when at right edge and horizontally scrollable)
+            if isScrollableHorizontally && rightEdgeVisible {
                 HStack {
                     Spacer()
                     Rectangle()
@@ -680,8 +680,8 @@ struct WrittenNoteView: View {
                 }
             }
             
-            // Top edge indicator
-            if !topEdgeVisible {
+            // Top edge indicator (show when at top edge and vertically scrollable)
+            if isScrollableVertically && topEdgeVisible {
                 VStack {
                     Rectangle()
                         .fill(
@@ -699,8 +699,8 @@ struct WrittenNoteView: View {
                 }
             }
             
-            // Bottom edge indicator
-            if !bottomEdgeVisible {
+            // Bottom edge indicator (show when at bottom edge and vertically scrollable)
+            if isScrollableVertically && bottomEdgeVisible {
                 VStack {
                     Spacer()
                     Rectangle()
