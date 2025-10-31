@@ -116,18 +116,10 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         uiView.isScrollEnabled = isActivePage
         
         // Synchronize zoom and offset when they change (e.g., when switching pages)
-        // Only update if not currently being modified by user interaction
-        if !context.coordinator.isUserInteracting && isActivePage {
+        if !context.coordinator.isUserInteracting {
             // Update zoom scale if it differs significantly from binding
             if abs(uiView.zoomScale - currentScale) > 0.01 {
                 uiView.setZoomScale(currentScale, animated: false)
-            }
-            
-            // Update content offset if it differs significantly from binding
-            let offsetDiff = sqrt(pow(uiView.contentOffset.x - contentOffset.x, 2) + 
-                                 pow(uiView.contentOffset.y - contentOffset.y, 2))
-            if offsetDiff > 1.0 {
-                uiView.setContentOffset(contentOffset, animated: false)
             }
         }
     }

@@ -539,35 +539,9 @@ struct WrittenNoteView: View {
                         unifiedContentOffset = .zero
                     }
                 }
-                .onChange(of: currentPage) { oldPage, newPage in
+                .onChange(of: currentPage) { _, _ in
                     // Keep zoom within bounds
                     clampRelativeZoomIfNeeded()
-
-                    // Only adjust offset for the page we navigated to
-                    guard pageIndex == newPage else { return }
-
-                    // Determine swipe direction
-                    let movingBackward = newPage < oldPage
-
-                    // Compute target horizontal offset: snap to nearest edge to avoid flashing
-                    let scale = relativeZoomLevel * fitScale
-                    let scaledWidth = contentSize.width * scale
-                    let viewportWidth = geometry.size.width
-
-                    // Left edge when moving forward, right edge when moving back
-                    let targetX: CGFloat = movingBackward ? max(0, scaledWidth - viewportWidth) : 0
-
-                    // Preserve vertical offset but clamp within bounds
-                    let scaledHeight = contentSize.height * scale
-                    let viewportHeight = geometry.size.height
-                    let maxY = max(0, scaledHeight - viewportHeight)
-                    let targetY = min(max(0, unifiedContentOffset.y), maxY)
-
-                    var transaction = Transaction()
-                    transaction.disablesAnimations = true
-                    withTransaction(transaction) {
-                        unifiedContentOffset = CGPoint(x: targetX, y: targetY)
-                    }
                 }
                 .edgesIgnoringSafeArea(.bottom)
             } else {
