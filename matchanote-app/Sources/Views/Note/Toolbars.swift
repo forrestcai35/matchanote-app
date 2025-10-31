@@ -389,7 +389,7 @@ struct WrittenNoteToolbar: View {
         // Options panel for the current tool - fixed width to prevent movement
         if let activeTool = currentTool {
           toolOptionsPanel(for: activeTool)
-            .frame(width: 320) // Fixed width to match tool buttons section
+            .frame(width: 360) // Slightly wider to give palettes more room
             .clipped()
         }
       }
@@ -676,9 +676,9 @@ struct WrittenNoteToolbar: View {
                 )
               }
             }
-            .padding(.horizontal, 4)
+            .padding(.horizontal, 8)
           }
-          .frame(maxWidth: 240)
+          .frame(maxWidth: 260)
           .mask(
             HStack(spacing: 0) {
               LinearGradient(
@@ -686,7 +686,7 @@ struct WrittenNoteToolbar: View {
                 startPoint: .leading,
                 endPoint: .trailing
               )
-              .frame(width: 8)
+              .frame(width: 6)
               
               Rectangle()
                 .fill(Color.black)
@@ -696,7 +696,7 @@ struct WrittenNoteToolbar: View {
                 startPoint: .leading,
                 endPoint: .trailing
               )
-              .frame(width: 8)
+              .frame(width: 6)
             }
           )
       }
@@ -818,9 +818,9 @@ struct WrittenNoteToolbar: View {
                 )
               }
             }
-            .padding(.horizontal, 4)
+            .padding(.horizontal, 8)
           }
-          .frame(maxWidth: 220)
+          .frame(maxWidth: 240)
           .mask(
             HStack(spacing: 0) {
               LinearGradient(
@@ -828,7 +828,7 @@ struct WrittenNoteToolbar: View {
                 startPoint: .leading,
                 endPoint: .trailing
               )
-              .frame(width: 8)
+              .frame(width: 6)
               
               Rectangle()
                 .fill(Color.black)
@@ -838,7 +838,7 @@ struct WrittenNoteToolbar: View {
                 startPoint: .leading,
                 endPoint: .trailing
               )
-              .frame(width: 8)
+              .frame(width: 6)
             }
           )
       }
@@ -1114,9 +1114,9 @@ struct WrittenNoteToolbar: View {
                 )
               }
             }
-            .padding(.horizontal, 4)
+            .padding(.horizontal, 8)
           }
-          .frame(maxWidth: 220)
+          .frame(maxWidth: 260)
           .mask(
             HStack(spacing: 0) {
               LinearGradient(
@@ -1124,7 +1124,7 @@ struct WrittenNoteToolbar: View {
                 startPoint: .leading,
                 endPoint: .trailing
               )
-              .frame(width: 8)
+              .frame(width: 6)
               
               Rectangle()
                 .fill(Color.black)
@@ -1134,7 +1134,7 @@ struct WrittenNoteToolbar: View {
                 startPoint: .leading,
                 endPoint: .trailing
               )
-              .frame(width: 8)
+              .frame(width: 6)
             }
           )
       }
@@ -1915,4 +1915,3 @@ extension Array {
     return self[index]
   }
 }
-

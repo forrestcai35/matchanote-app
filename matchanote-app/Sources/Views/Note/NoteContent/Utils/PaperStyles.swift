@@ -7,19 +7,28 @@ extension WrittenNoteView {
 
     @ViewBuilder
     func backgroundImagesView(pageIndex: Int) -> some View {
-        // Display images from note.imageDataByPage as backgrounds
+        // Display vector PDF background if present; otherwise fall back to raster image
         if let imageDataArray = note.imageDataByPage[String(pageIndex)],
-           let imageData = imageDataArray.first,
-           let uiImage = UIImage(data: imageData) {
-            Image(uiImage: uiImage)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(
-                    width: perPageSize(pageIndex).width,
-                    height: perPageSize(pageIndex).height
-                )
-                .clipped()
-
+           let firstData = imageDataArray.first {
+            if let pdfBg = try? JSONDecoder().decode(PDFPageBackground.self, from: firstData) {
+                PDFPageBackgroundView(background: pdfBg)
+                    .frame(
+                        width: perPageSize(pageIndex).width,
+                        height: perPageSize(pageIndex).height
+                    )
+                    .clipped()
+            } else if let uiImage = UIImage(data: firstData) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(
+                        width: perPageSize(pageIndex).width,
+                        height: perPageSize(pageIndex).height
+                    )
+                    .clipped()
+            } else {
+                EmptyView()
+            }
         } else {
             EmptyView()
         }
@@ -56,19 +65,18 @@ extension WrittenNoteView {
 
     // Determine per-page size from background image if present; fallback to note paper size
     func perPageSize(_ pageIndex: Int) -> CGSize {
-        let baseSize: CGSize
         if let imageDataArray = note.imageDataByPage[String(pageIndex)],
-           let imageData = imageDataArray.first,
-           let uiImage = UIImage(data: imageData) {
-            baseSize = uiImage.size
-        } else {
-            baseSize = CGSize(
-                width: getPaperWidth(for: note.paperSize, orientation: note.paperOrientation),
-                height: getPaperHeight(for: note.paperSize, orientation: note.paperOrientation)
-            )
+           let firstData = imageDataArray.first {
+            if let pdfBg = try? JSONDecoder().decode(PDFPageBackground.self, from: firstData) {
+                return pdfBg.size
+            } else if let uiImage = UIImage(data: firstData) {
+                return uiImage.size
+            }
         }
-        // Render at natural size; rely on UIScreen scale for crispness
-        return baseSize
+        return CGSize(
+            width: getPaperWidth(for: note.paperSize, orientation: note.paperOrientation),
+            height: getPaperHeight(for: note.paperSize, orientation: note.paperOrientation)
+        )
     }
 
     @ViewBuilder

@@ -101,8 +101,14 @@ class ExportManager {
         for page in pagesToExport {
             let pageKey = String(page)
             var size = PaperUtilities.paperSize(for: noteToExport.paperSize, orientation: noteToExport.paperOrientation)
-            if let imageData = noteToExport.imageDataByPage[pageKey]?.first, let uiImage = UIImage(data: imageData) {
-                size = uiImage.size
+            var pdfBackground: PDFPageBackground?
+            if let firstData = noteToExport.imageDataByPage[pageKey]?.first {
+                if let bg = try? JSONDecoder().decode(PDFPageBackground.self, from: firstData) {
+                    pdfBackground = bg
+                    size = CGSize(width: bg.width, height: bg.height)
+                } else if let uiImage = UIImage(data: firstData) {
+                    size = uiImage.size
+                }
             }
 
             let bounds = CGRect(origin: .zero, size: size)
@@ -117,8 +123,10 @@ class ExportManager {
                 var overlayCanvasImages: [CanvasImage] = []
                 if let imageDataArray = noteToExport.imageDataByPage[pageKey] {
                     for data in imageDataArray {
-                        if let bg = UIImage(data: data) {
-                            // Raw background image – draw full-bleed
+                        if let pdfBg = try? JSONDecoder().decode(PDFPageBackground.self, from: data) {
+                            let fileURL = AttachmentManager.fileURL(for: pdfBg.relativePath)
+                            PDFDrawingUtils.draw(pdf: fileURL, pageIndex: pdfBg.pageIndex, in: context.cgContext, bounds: bounds, backgroundColor: .white)
+                        } else if let bg = UIImage(data: data) {
                             bg.draw(in: bounds)
                         } else if let canvasImage = try? JSONDecoder().decode(CanvasImage.self, from: data) {
                             overlayCanvasImages.append(canvasImage)
@@ -219,50 +227,53 @@ class ExportManager {
         
         do {
             try renderer.writePDF(to: tempURL) { context in
-                // Choose a raster scale. 2.0 balances clarity and size; adjust if needed.
+                // Choose a raster scale when rasterizing
                 let rasterScale: CGFloat = 2.0
 
                 for page in pagesToExport {
-                    // Determine per-page size using background image when available, respecting orientation
                     let pageKey = String(page)
+
+                    // Detect PDF vector background (preferred)
+                    var pdfBackground: PDFPageBackground?
                     var size = PaperUtilities.paperSize(for: noteToExport.paperSize, orientation: noteToExport.paperOrientation)
-                    if let imageData = noteToExport.imageDataByPage[pageKey]?.first, let uiImage = UIImage(data: imageData) {
-                        size = uiImage.size
+                    if let firstData = noteToExport.imageDataByPage[pageKey]?.first {
+                        if let bg = try? JSONDecoder().decode(PDFPageBackground.self, from: firstData) {
+                            pdfBackground = bg
+                            size = CGSize(width: bg.width, height: bg.height)
+                        } else if let uiImage = UIImage(data: firstData) {
+                            size = uiImage.size
+                        }
                     }
 
                     let bounds = CGRect(origin: .zero, size: size)
 
-                    // Rasterize all content for this page first
-                    let format = UIGraphicsImageRendererFormat.default()
-                    format.opaque = true
-                    format.scale = rasterScale
-                    let imageRenderer = UIGraphicsImageRenderer(bounds: bounds, format: format)
+                    if let pdfBackground = pdfBackground {
+                        // Vector path: draw directly into PDF context
+                        context.beginPage(withBounds: bounds, pageInfo: [:])
+                        guard let cg = UIGraphicsGetCurrentContext() else { continue }
 
-                    let pageImage = imageRenderer.image { imgContext in
                         // Fill background
                         UIColor(PaperUtilities.getPaperBackgroundColor(for: noteToExport.paperColor)).setFill()
-                        UIRectFill(bounds)
+                        cg.fill(bounds)
 
-                        // Separate raw background images and encoded CanvasImage overlays
+                        // Draw the PDF page preserving aspect ratio
+                        let fileURL = AttachmentManager.fileURL(for: pdfBackground.relativePath)
+                        PDFDrawingUtils.draw(pdf: fileURL, pageIndex: pdfBackground.pageIndex, in: cg, bounds: bounds, backgroundColor: .white)
+
+                        // Separate overlay CanvasImage objects from other image data
                         var overlayCanvasImages: [CanvasImage] = []
                         if let imageDataArray = noteToExport.imageDataByPage[pageKey] {
                             for data in imageDataArray {
-                                if let bg = UIImage(data: data) {
-                                    // Raw background image – draw full-bleed
-                                    bg.draw(in: bounds)
-                                } else if let canvasImage = try? JSONDecoder().decode(CanvasImage.self, from: data) {
+                                if let canvasImage = try? JSONDecoder().decode(CanvasImage.self, from: data) {
                                     overlayCanvasImages.append(canvasImage)
                                 }
                             }
                         }
 
-                        // Draw paper pattern using editor-matched spacing
-                        drawExportPaperPattern(context: imgContext.cgContext,
-                                               paperStyle: noteToExport.paperStyle,
-                                               paperColor: noteToExport.paperColor,
-                                               size: bounds.size)
+                        // Paper pattern overlay (grid/dots/lines) on top of background
+                        drawExportPaperPattern(context: cg, paperStyle: noteToExport.paperStyle, paperColor: noteToExport.paperColor, size: bounds.size)
 
-                        // Draw strokes (rendered as bitmap from PencilKit) in light mode
+                        // Strokes
                         if let drawing = drawingForPage(page, note: noteToExport) {
                             let lightTrait = UITraitCollection(userInterfaceStyle: .light)
                             var drawingImage: UIImage!
@@ -272,55 +283,121 @@ class ExportManager {
                             drawingImage.draw(in: bounds)
                         }
 
-                        // Draw overlay canvas images with rotation and z-order
+                        // Overlay images
                         if !overlayCanvasImages.isEmpty {
                             let sorted = overlayCanvasImages.sorted { $0.zIndex < $1.zIndex }
                             for item in sorted {
                                 if let uiImage = ImageUtilities.dataToImage(item.imageData) {
-                                    imgContext.cgContext.saveGState()
-
+                                    cg.saveGState()
                                     if item.rotation != 0 {
                                         let centerX = item.position.x + item.size.width / 2
                                         let centerY = item.position.y + item.size.height / 2
-                                        imgContext.cgContext.translateBy(x: centerX, y: centerY)
-                                        imgContext.cgContext.rotate(by: item.rotation)
-                                        imgContext.cgContext.translateBy(x: -centerX, y: -centerY)
+                                        cg.translateBy(x: centerX, y: centerY)
+                                        cg.rotate(by: item.rotation)
+                                        cg.translateBy(x: -centerX, y: -centerY)
                                     }
-
                                     let rect = CGRect(origin: item.position, size: item.size)
                                     uiImage.draw(in: rect)
-
-                                    imgContext.cgContext.restoreGState()
+                                    cg.restoreGState()
                                 }
                             }
                         }
 
-                        // Draw textboxes on top (rasterized into the image)
+                        // Text boxes
                         if let textBoxDataArray = noteToExport.textBoxDataByPage[pageKey] {
                             for data in textBoxDataArray {
                                 if let textBox = try? JSONDecoder().decode(TextBox.self, from: data) {
                                     let textRect = CGRect(origin: textBox.position, size: textBox.size)
                                     let paragraphStyle = NSMutableParagraphStyle()
                                     paragraphStyle.alignment = .left
-
                                     let attributes: [NSAttributedString.Key: Any] = [
                                         .font: UIFont.systemFont(ofSize: textBox.fontSize),
                                         .foregroundColor: UIColor(textBox.textColor),
                                         .paragraphStyle: paragraphStyle
                                     ]
-
                                     textBox.text.draw(in: textRect, withAttributes: attributes)
                                 }
                             }
                         }
-                    }
-
-                    // Begin PDF page and embed the rasterized image as lossless PNG when possible
-                    context.beginPage(withBounds: bounds, pageInfo: [:])
-                    if let pngData = pageImage.pngData(), let pngImage = UIImage(data: pngData) {
-                        pngImage.draw(in: bounds)
                     } else {
-                        pageImage.draw(in: bounds)
+                        // Legacy raster path
+                        let format = UIGraphicsImageRendererFormat.default()
+                        format.opaque = true
+                        format.scale = rasterScale
+                        let imageRenderer = UIGraphicsImageRenderer(bounds: bounds, format: format)
+                        let pageImage = imageRenderer.image { imgContext in
+                            // Fill background
+                            UIColor(PaperUtilities.getPaperBackgroundColor(for: noteToExport.paperColor)).setFill()
+                            UIRectFill(bounds)
+
+                            // Separate raw background images and encoded CanvasImage overlays
+                            var overlayCanvasImages: [CanvasImage] = []
+                            if let imageDataArray = noteToExport.imageDataByPage[pageKey] {
+                                for data in imageDataArray {
+                                    if let bg = UIImage(data: data) {
+                                        bg.draw(in: bounds)
+                                    } else if let canvasImage = try? JSONDecoder().decode(CanvasImage.self, from: data) {
+                                        overlayCanvasImages.append(canvasImage)
+                                    }
+                                }
+                            }
+
+                            // Paper pattern
+                            drawExportPaperPattern(context: imgContext.cgContext, paperStyle: noteToExport.paperStyle, paperColor: noteToExport.paperColor, size: bounds.size)
+
+                            // Strokes
+                            if let drawing = drawingForPage(page, note: noteToExport) {
+                                let lightTrait = UITraitCollection(userInterfaceStyle: .light)
+                                var drawingImage: UIImage!
+                                lightTrait.performAsCurrent {
+                                    drawingImage = drawing.image(from: bounds, scale: 3.0)
+                                }
+                                drawingImage.draw(in: bounds)
+                            }
+
+                            // Overlay images
+                            if !overlayCanvasImages.isEmpty {
+                                let sorted = overlayCanvasImages.sorted { $0.zIndex < $1.zIndex }
+                                for item in sorted {
+                                    if let uiImage = ImageUtilities.dataToImage(item.imageData) {
+                                        imgContext.cgContext.saveGState()
+                                        if item.rotation != 0 {
+                                            let centerX = item.position.x + item.size.width / 2
+                                            let centerY = item.position.y + item.size.height / 2
+                                            imgContext.cgContext.translateBy(x: centerX, y: centerY)
+                                            imgContext.cgContext.rotate(by: item.rotation)
+                                            imgContext.cgContext.translateBy(x: -centerX, y: -centerY)
+                                        }
+                                        let rect = CGRect(origin: item.position, size: item.size)
+                                        uiImage.draw(in: rect)
+                                        imgContext.cgContext.restoreGState()
+                                    }
+                                }
+                            }
+
+                            // Text boxes
+                            if let textBoxDataArray = noteToExport.textBoxDataByPage[pageKey] {
+                                for data in textBoxDataArray {
+                                    if let textBox = try? JSONDecoder().decode(TextBox.self, from: data) {
+                                        let textRect = CGRect(origin: textBox.position, size: textBox.size)
+                                        let paragraphStyle = NSMutableParagraphStyle()
+                                        paragraphStyle.alignment = .left
+                                        let attributes: [NSAttributedString.Key: Any] = [
+                                            .font: UIFont.systemFont(ofSize: textBox.fontSize),
+                                            .foregroundColor: UIColor(textBox.textColor),
+                                            .paragraphStyle: paragraphStyle
+                                        ]
+                                        textBox.text.draw(in: textRect, withAttributes: attributes)
+                                    }
+                                }
+                            }
+                        }
+                        context.beginPage(withBounds: bounds, pageInfo: [:])
+                        if let pngData = pageImage.pngData(), let pngImage = UIImage(data: pngData) {
+                            pngImage.draw(in: bounds)
+                        } else {
+                            pageImage.draw(in: bounds)
+                        }
                     }
                 }
             }

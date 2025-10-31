@@ -1232,11 +1232,15 @@ extension NoteView {
   // MARK: - Import Normalization Helpers
 
   // Normalize imported background images to match the current note's paper size at 1.0 scale.
-  // CanvasImage overlays (JSON-encoded) are passed through unchanged.
+  // CanvasImage overlays (JSON-encoded) and PDFPageBackgrounds are passed through unchanged.
   private func normalizeImportedImages(_ images: [Data], targetSize: CGSize) -> [Data] {
     return images.compactMap { data in
       // Detect CanvasImage (JSON) and pass through unchanged
       if (try? JSONDecoder().decode(CanvasImage.self, from: data)) != nil {
+        return data
+      }
+      // Detect PDF vector background and pass through unchanged
+      if (try? JSONDecoder().decode(PDFPageBackground.self, from: data)) != nil {
         return data
       }
       // Background image: resample to targetSize at 1.0 scale

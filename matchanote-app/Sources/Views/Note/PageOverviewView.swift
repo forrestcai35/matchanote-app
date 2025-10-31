@@ -439,9 +439,12 @@ struct PageThumbnailView: View {
 
   private func paperAspectRatio(for pageIndex: Int) -> CGFloat {
     if let imageDataArray = note.imageDataByPage[String(pageIndex)],
-       let imageData = imageDataArray.first,
-       let uiImage = UIImage(data: imageData) {
-      return uiImage.size.width / uiImage.size.height
+       let first = imageDataArray.first {
+      if let pdfBg = try? JSONDecoder().decode(PDFPageBackground.self, from: first) {
+        return CGFloat(pdfBg.width / pdfBg.height)
+      } else if let uiImage = UIImage(data: first) {
+        return uiImage.size.width / uiImage.size.height
+      }
     }
     return paperAspectRatio
   }

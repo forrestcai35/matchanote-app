@@ -166,6 +166,13 @@ class PreviewCache: ObservableObject {
     // Extract textboxes
     let textBoxes = extractTextBoxes(from: note.textBoxDataByPage, for: pageIndex)
 
+    // Detect vector PDF background (first item only)
+    var pdfBackground: PDFPageBackground? = nil
+    if let firstData = note.imageDataByPage[String(pageIndex)]?.first,
+       let bg = try? JSONDecoder().decode(PDFPageBackground.self, from: firstData) {
+      pdfBackground = bg
+    }
+
     // Generate the preview
     return await Task.detached(priority: .userInitiated) {
       self.renderPreview(
@@ -177,6 +184,7 @@ class PreviewCache: ObservableObject {
         backgroundImages: backgroundImages,
         overlayImages: overlayImages,
         textBoxes: textBoxes,
+        pdfBackground: pdfBackground,
         cornerRadius: note.noteType == .written ? (size == .grid ? 10 : 6) : (size == .grid ? 0 : 2)
       )
     }.value
@@ -232,6 +240,7 @@ class PreviewCache: ObservableObject {
     backgroundImages: [UIImage],
     overlayImages: [(image: UIImage, canvasImage: CanvasImage)],
     textBoxes: [TextBox],
+    pdfBackground: PDFPageBackground?,
     cornerRadius: CGFloat?
   ) -> UIImage {
     let scale = size.scale
@@ -260,9 +269,14 @@ class PreviewCache: ObservableObject {
     UIColor(paperBackgroundColor).setFill()
     context.fill(CGRect(origin: .zero, size: thumbnailSize))
 
-    // Draw background images (already decoded)
-    for backgroundImage in backgroundImages {
-      backgroundImage.draw(in: CGRect(origin: .zero, size: thumbnailSize), blendMode: .normal, alpha: 1.0)
+    // Draw PDF background if present, else draw background images
+    if let pdfBackground = pdfBackground {
+      let fileURL = AttachmentManager.fileURL(for: pdfBackground.relativePath)
+      PDFDrawingUtils.draw(pdf: fileURL, pageIndex: pdfBackground.pageIndex, in: context, bounds: CGRect(origin: .zero, size: thumbnailSize), backgroundColor: .white)
+    } else {
+      for backgroundImage in backgroundImages {
+        backgroundImage.draw(in: CGRect(origin: .zero, size: thumbnailSize), blendMode: .normal, alpha: 1.0)
+      }
     }
 
     // Draw paper pattern

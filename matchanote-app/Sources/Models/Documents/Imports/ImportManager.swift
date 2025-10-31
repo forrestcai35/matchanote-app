@@ -167,42 +167,36 @@ class ImportManager {
         currentFolderID: UUID?,
         selectedSubject: String?
     ) -> Note? {
-        guard let pdf = CGPDFDocument(url as CFURL) else {
-            print("Error: Could not load PDF from \(url)")
+        // Store original PDF as attachment and reference pages as vector backgrounds
+        guard let pdfData = try? Data(contentsOf: url) else {
+            print("Error: Could not read PDF data from \(url)")
             return nil
         }
 
-        let pageCount = pdf.numberOfPages
         var imageDataByPage: [String: [Data]] = [:]
-        
-
-        // Extract each page as an image at native page size (1.0 scale to match paper points)
-        for pageIndex in 1...pageCount {
-            guard let page = pdf.page(at: pageIndex) else { continue }
-
-            let pageRect = page.getBoxRect(.mediaBox)
-            // Use a renderer with explicit 1.0 scale so the resulting image's
-            // pixel dimensions match PDF point dimensions. This avoids DPI
-            // mismatches when adding pages later.
-            let format = UIGraphicsImageRendererFormat.default()
-            format.scale = 1.0
-            format.opaque = true
-            let renderer = UIGraphicsImageRenderer(size: pageRect.size, format: format)
-            let image = renderer.image { context in
-                UIColor.white.set()
-                context.fill(CGRect(origin: .zero, size: pageRect.size))
-
-                context.cgContext.saveGState()
-                context.cgContext.translateBy(x: 0, y: pageRect.size.height)
-                context.cgContext.scaleBy(x: 1.0, y: -1.0)
-                context.cgContext.drawPDFPage(page)
-                context.cgContext.restoreGState()
+        do {
+            let relativePath = try AttachmentManager.save(data: pdfData, preferredFileName: fileName, fileExtension: "pdf")
+            guard let pdf = CGPDFDocument(AttachmentManager.fileURL(for: relativePath) as CFURL) else {
+                print("Error: Could not load saved PDF document")
+                return nil
             }
-
-            if let imageData = image.jpegData(compressionQuality: 0.8) {
-                imageDataByPage[String(pageIndex - 1)] = [imageData]
+            let pageCount = pdf.numberOfPages
+            for pageIndex in 1...pageCount {
+                guard let page = pdf.page(at: pageIndex) else { continue }
+                let pageRect = page.getBoxRect(.mediaBox)
+                let bg = PDFPageBackground(
+                    relativePath: relativePath,
+                    pageIndex: pageIndex,
+                    width: pageRect.size.width,
+                    height: pageRect.size.height
+                )
+                if let data = try? JSONEncoder().encode(bg) {
+                    imageDataByPage[String(pageIndex - 1)] = [data]
+                }
             }
-            
+        } catch {
+            print("Error saving PDF attachment: \(error)")
+            return nil
         }
 
         // Create a better title from the filename
@@ -452,39 +446,35 @@ class ImportManager {
         fileName: String,
         storageManager: StorageManager
     ) -> Note? {
-        guard let pdf = CGPDFDocument(url as CFURL) else {
-            print("Error: Could not load PDF from \(url)")
+        guard let pdfData = try? Data(contentsOf: url) else {
+            print("Error: Could not read PDF data from \(url)")
             return nil
         }
 
-        let pageCount = pdf.numberOfPages
         var imageDataByPage: [String: [Data]] = [:]
-        
-
-        // Extract each page as an image at native page size (1.0 scale)
-        for pageIndex in 1...pageCount {
-            guard let page = pdf.page(at: pageIndex) else { continue }
-
-            let pageRect = page.getBoxRect(.mediaBox)
-            let format = UIGraphicsImageRendererFormat.default()
-            format.scale = 1.0
-            format.opaque = true
-            let renderer = UIGraphicsImageRenderer(size: pageRect.size, format: format)
-            let image = renderer.image { context in
-                UIColor.white.set()
-                context.fill(CGRect(origin: .zero, size: pageRect.size))
-
-                context.cgContext.saveGState()
-                context.cgContext.translateBy(x: 0, y: pageRect.size.height)
-                context.cgContext.scaleBy(x: 1.0, y: -1.0)
-                context.cgContext.drawPDFPage(page)
-                context.cgContext.restoreGState()
+        do {
+            let relativePath = try AttachmentManager.save(data: pdfData, preferredFileName: fileName, fileExtension: "pdf")
+            guard let pdf = CGPDFDocument(AttachmentManager.fileURL(for: relativePath) as CFURL) else {
+                print("Error: Could not load saved PDF document")
+                return nil
             }
-
-            if let imageData = image.jpegData(compressionQuality: 0.8) {
-                imageDataByPage[String(pageIndex - 1)] = [imageData]
+            let pageCount = pdf.numberOfPages
+            for pageIndex in 1...pageCount {
+                guard let page = pdf.page(at: pageIndex) else { continue }
+                let pageRect = page.getBoxRect(.mediaBox)
+                let bg = PDFPageBackground(
+                    relativePath: relativePath,
+                    pageIndex: pageIndex,
+                    width: pageRect.size.width,
+                    height: pageRect.size.height
+                )
+                if let data = try? JSONEncoder().encode(bg) {
+                    imageDataByPage[String(pageIndex - 1)] = [data]
+                }
             }
-            
+        } catch {
+            print("Error saving PDF attachment: \(error)")
+            return nil
         }
 
         // Create a better title from the filename
@@ -602,39 +592,35 @@ class ImportManager {
         url: URL,
         fileName: String
     ) -> Note? {
-        guard let pdf = CGPDFDocument(url as CFURL) else {
-            print("Error: Could not load PDF from \(url)")
+        guard let pdfData = try? Data(contentsOf: url) else {
+            print("Error: Could not read PDF data from \(url)")
             return nil
         }
 
-        let pageCount = pdf.numberOfPages
         var imageDataByPage: [String: [Data]] = [:]
-        
-
-        // Extract each page as an image at native page size (1.0 scale)
-        for pageIndex in 1...pageCount {
-            guard let page = pdf.page(at: pageIndex) else { continue }
-
-            let pageRect = page.getBoxRect(.mediaBox)
-            let format = UIGraphicsImageRendererFormat.default()
-            format.scale = 1.0
-            format.opaque = true
-            let renderer = UIGraphicsImageRenderer(size: pageRect.size, format: format)
-            let image = renderer.image { context in
-                UIColor.white.set()
-                context.fill(CGRect(origin: .zero, size: pageRect.size))
-
-                context.cgContext.saveGState()
-                context.cgContext.translateBy(x: 0, y: pageRect.size.height)
-                context.cgContext.scaleBy(x: 1.0, y: -1.0)
-                context.cgContext.drawPDFPage(page)
-                context.cgContext.restoreGState()
+        do {
+            let relativePath = try AttachmentManager.save(data: pdfData, preferredFileName: fileName, fileExtension: "pdf")
+            guard let pdf = CGPDFDocument(AttachmentManager.fileURL(for: relativePath) as CFURL) else {
+                print("Error: Could not load saved PDF document")
+                return nil
             }
-
-            if let imageData = image.jpegData(compressionQuality: 0.8) {
-                imageDataByPage[String(pageIndex - 1)] = [imageData]
+            let pageCount = pdf.numberOfPages
+            for pageIndex in 1...pageCount {
+                guard let page = pdf.page(at: pageIndex) else { continue }
+                let pageRect = page.getBoxRect(.mediaBox)
+                let bg = PDFPageBackground(
+                    relativePath: relativePath,
+                    pageIndex: pageIndex,
+                    width: pageRect.size.width,
+                    height: pageRect.size.height
+                )
+                if let data = try? JSONEncoder().encode(bg) {
+                    imageDataByPage[String(pageIndex - 1)] = [data]
+                }
             }
-            
+        } catch {
+            print("Error saving PDF attachment: \(error)")
+            return nil
         }
 
         // Create a better title from the filename

@@ -102,16 +102,89 @@ struct PreviewGenerator {
       scale = size.scale
     }
     
-    // Generate the preview using PaperUtilities
-    let preview = PaperUtilities.generatePreviewWithBackground(
-      drawing: drawing,
-      paperSize: paperSize,
-      paperColor: note.paperColor,
-      paperStyle: note.paperStyle,
-      scale: scale,
-      backgroundImages: backgroundImages,
-      overlayImages: overlayImages
-    )
+    // If the background is a vector PDF, render it explicitly to preserve crispness
+    var preview: UIImage
+    if let firstData = note.imageDataByPage[String(pageIndex)]?.first,
+       let pdfBg = try? JSONDecoder().decode(PDFPageBackground.self, from: firstData) {
+      let thumbnailSize = CGSize(width: paperSize.width * scale, height: paperSize.height * scale)
+      let screenScale: CGFloat = 2.0
+      UIGraphicsBeginImageContextWithOptions(thumbnailSize, false, screenScale)
+      defer { UIGraphicsEndImageContext() }
+      guard let ctx = UIGraphicsGetCurrentContext() else { return UIImage() }
+
+      // Background color
+      UIColor(PaperUtilities.getPaperBackgroundColor(for: note.paperColor)).setFill()
+      ctx.fill(CGRect(origin: .zero, size: thumbnailSize))
+
+      // PDF background
+      let fileURL = AttachmentManager.fileURL(for: pdfBg.relativePath)
+      PDFDrawingUtils.draw(pdf: fileURL, pageIndex: pdfBg.pageIndex, in: ctx, bounds: CGRect(origin: .zero, size: thumbnailSize), backgroundColor: .white)
+
+      // Paper pattern
+      PaperUtilities.drawPaperPattern(context: ctx, paperStyle: note.paperStyle, size: thumbnailSize)
+
+      // Overlay images
+      for canvasImage in overlayImages {
+        if let overlayUIImage = UIImage(data: canvasImage.imageData) {
+          if canvasImage.rotation != 0 {
+            ctx.saveGState()
+            let centerX = canvasImage.position.x * scale + (canvasImage.size.width * scale) / 2
+            let centerY = canvasImage.position.y * scale + (canvasImage.size.height * scale) / 2
+            ctx.translateBy(x: centerX, y: centerY)
+            ctx.rotate(by: canvasImage.rotation)
+            ctx.translateBy(x: -centerX, y: -centerY)
+          }
+          let rect = CGRect(x: canvasImage.position.x * scale,
+                            y: canvasImage.position.y * scale,
+                            width: canvasImage.size.width * scale,
+                            height: canvasImage.size.height * scale)
+          overlayUIImage.draw(in: rect)
+          if canvasImage.rotation != 0 { ctx.restoreGState() }
+        }
+      }
+
+      // Text boxes
+      if let textBoxes = note.textBoxDataByPage[String(pageIndex)] {
+        for data in textBoxes {
+          if let textBox = try? JSONDecoder().decode(TextBox.self, from: data) {
+            let scaledRect = CGRect(x: textBox.position.x * scale,
+                                    y: textBox.position.y * scale,
+                                    width: textBox.size.width * scale,
+                                    height: textBox.size.height * scale)
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.alignment = .left
+            let attributes: [NSAttributedString.Key: Any] = [
+              .font: UIFont.systemFont(ofSize: textBox.fontSize * scale),
+              .foregroundColor: UIColor(textBox.textColor),
+              .paragraphStyle: paragraphStyle
+            ]
+            textBox.text.draw(in: scaledRect, withAttributes: attributes)
+          }
+        }
+      }
+
+      // Drawing
+      let fullPageBounds = CGRect(origin: .zero, size: paperSize)
+      let lightTraitCollection = UITraitCollection(userInterfaceStyle: .light)
+      var drawingImage: UIImage!
+      lightTraitCollection.performAsCurrent {
+        drawingImage = drawing.image(from: fullPageBounds, scale: 3.0)
+      }
+      drawingImage.draw(in: CGRect(origin: .zero, size: thumbnailSize))
+
+      preview = UIGraphicsGetImageFromCurrentImageContext() ?? UIImage()
+    } else {
+      // Generate the preview using PaperUtilities (raster backgrounds)
+      preview = PaperUtilities.generatePreviewWithBackground(
+        drawing: drawing,
+        paperSize: paperSize,
+        paperColor: note.paperColor,
+        paperStyle: note.paperStyle,
+        scale: scale,
+        backgroundImages: backgroundImages,
+        overlayImages: overlayImages
+      )
+    }
     
     // Apply corner radius if specified
     if let radius = cornerRadius {
@@ -258,4 +331,3 @@ struct PreviewGenerator {
     }
   }
 }
-
