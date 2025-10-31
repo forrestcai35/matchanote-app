@@ -117,12 +117,19 @@ class ExportManager {
                     }
                 }
                 
-                // Draw paper pattern
-                PaperUtilities.drawPaperPattern(context: context.cgContext, paperStyle: noteToExport.paperStyle, size: bounds.size)
+                // Draw paper pattern using editor-matched spacing
+                drawExportPaperPattern(context: context.cgContext,
+                                       paperStyle: noteToExport.paperStyle,
+                                       paperColor: noteToExport.paperColor,
+                                       size: bounds.size)
                 
-                // Draw strokes
+                // Draw strokes (force light appearance so ink renders dark)
                 if let drawing = drawingForPage(page, note: noteToExport) {
-                    let drawingImage = drawing.image(from: bounds, scale: 2)
+                    let lightTrait = UITraitCollection(userInterfaceStyle: .light)
+                    var drawingImage: UIImage!
+                    lightTrait.performAsCurrent {
+                        drawingImage = drawing.image(from: bounds, scale: 2)
+                    }
                     drawingImage.draw(in: bounds)
                 }
                 
@@ -162,6 +169,8 @@ class ExportManager {
     }
     
     // MARK: - Export as PDF function    
+    // Now rasterizes each page: draws all content into a high-res image,
+    // then embeds that image into the PDF page for consistent appearance.
     func exportNoteAsPDF(_ note: Note, selectedPages: [Int]? = nil) -> URL? {
         // If no specific pages selected, export all pages
         let pagesToExport = selectedPages ?? getAllPagesForNote(note)
@@ -178,6 +187,9 @@ class ExportManager {
         
         do {
             try renderer.writePDF(to: tempURL) { context in
+                // Choose a raster scale. 2.0 balances clarity and size; adjust if needed.
+                let rasterScale: CGFloat = 2.0
+
                 for page in pagesToExport {
                     // Determine per-page size using background image when available, respecting orientation
                     let pageKey = String(page)
@@ -187,102 +199,96 @@ class ExportManager {
                     }
 
                     let bounds = CGRect(origin: .zero, size: size)
-                    context.beginPage(withBounds: bounds, pageInfo: [:])
 
-                    // Fill background
-                    UIColor(PaperUtilities.getPaperBackgroundColor(for: noteToExport.paperColor)).setFill()
-                    UIRectFill(bounds)
+                    // Rasterize all content for this page first
+                    let format = UIGraphicsImageRendererFormat.default()
+                    format.opaque = true
+                    format.scale = rasterScale
+                    let imageRenderer = UIGraphicsImageRenderer(bounds: bounds, format: format)
 
-                    // Separate raw background images and encoded CanvasImage overlays
-                    var overlayCanvasImages: [CanvasImage] = []
-                    if let imageDataArray = noteToExport.imageDataByPage[pageKey] {
-                        for data in imageDataArray {
-                            if let bg = UIImage(data: data) {
-                                // Raw background image – draw full-bleed
-                                bg.draw(in: bounds)
-                            } else if let canvasImage = try? JSONDecoder().decode(CanvasImage.self, from: data) {
-                                overlayCanvasImages.append(canvasImage)
-                            }
-                        }
-                    }
+                    let pageImage = imageRenderer.image { imgContext in
+                        // Fill background
+                        UIColor(PaperUtilities.getPaperBackgroundColor(for: noteToExport.paperColor)).setFill()
+                        UIRectFill(bounds)
 
-                    // Draw paper pattern on top of background images
-                    PaperUtilities.drawPaperPattern(context: context.cgContext, paperStyle: noteToExport.paperStyle, size: bounds.size)
-
-                    // Draw strokes as vectors for infinite zoom quality
-                    // Note: Using average width per stroke (uniform) until we solve variable width issue
-                    if let drawing = drawingForPage(page, note: noteToExport) {
-                        for stroke in drawing.strokes {
-                            let strokePath = stroke.path
-                            guard strokePath.count > 0 else { continue }
-
-                            let color = stroke.ink.color
-                            context.cgContext.setStrokeColor(color.cgColor)
-                            context.cgContext.setLineCap(.round)
-                            context.cgContext.setLineJoin(.round)
-
-                            // Calculate average width for this stroke
-                            var totalWidth: CGFloat = 0
-                            for i in 0..<strokePath.count {
-                                totalWidth += strokePath[i].size.width
-                            }
-                            let avgWidth = totalWidth / CGFloat(strokePath.count)
-                            context.cgContext.setLineWidth(avgWidth)
-
-                            // Build smooth path through stroke points
-                            let path = CGMutablePath()
-                            path.move(to: strokePath[0].location)
-                            for i in 1..<strokePath.count {
-                                path.addLine(to: strokePath[i].location)
-                            }
-                            context.cgContext.addPath(path)
-                            context.cgContext.strokePath()
-                        }
-                    }
-
-                    // Draw overlay canvas images (positioned and z-ordered) as vectors
-                    if !overlayCanvasImages.isEmpty {
-                        // Sort by zIndex ascending so higher zIndex draws later (on top)
-                        let sorted = overlayCanvasImages.sorted { $0.zIndex < $1.zIndex }
-                        for item in sorted {
-                            if let uiImage = ImageUtilities.dataToImage(item.imageData) {
-                                context.cgContext.saveGState()
-
-                                // Apply rotation if needed
-                                if item.rotation != 0 {
-                                    let centerX = item.position.x + item.size.width / 2
-                                    let centerY = item.position.y + item.size.height / 2
-                                    context.cgContext.translateBy(x: centerX, y: centerY)
-                                    context.cgContext.rotate(by: item.rotation)
-                                    context.cgContext.translateBy(x: -centerX, y: -centerY)
+                        // Separate raw background images and encoded CanvasImage overlays
+                        var overlayCanvasImages: [CanvasImage] = []
+                        if let imageDataArray = noteToExport.imageDataByPage[pageKey] {
+                            for data in imageDataArray {
+                                if let bg = UIImage(data: data) {
+                                    // Raw background image – draw full-bleed
+                                    bg.draw(in: bounds)
+                                } else if let canvasImage = try? JSONDecoder().decode(CanvasImage.self, from: data) {
+                                    overlayCanvasImages.append(canvasImage)
                                 }
+                            }
+                        }
 
-                                let rect = CGRect(origin: item.position, size: item.size)
-                                uiImage.draw(in: rect)
+                        // Draw paper pattern using editor-matched spacing
+                        drawExportPaperPattern(context: imgContext.cgContext,
+                                               paperStyle: noteToExport.paperStyle,
+                                               paperColor: noteToExport.paperColor,
+                                               size: bounds.size)
 
-                                context.cgContext.restoreGState()
+                        // Draw strokes (rendered as bitmap from PencilKit) in light mode
+                        if let drawing = drawingForPage(page, note: noteToExport) {
+                            let lightTrait = UITraitCollection(userInterfaceStyle: .light)
+                            var drawingImage: UIImage!
+                            lightTrait.performAsCurrent {
+                                drawingImage = drawing.image(from: bounds, scale: 3.0)
+                            }
+                            drawingImage.draw(in: bounds)
+                        }
+
+                        // Draw overlay canvas images with rotation and z-order
+                        if !overlayCanvasImages.isEmpty {
+                            let sorted = overlayCanvasImages.sorted { $0.zIndex < $1.zIndex }
+                            for item in sorted {
+                                if let uiImage = ImageUtilities.dataToImage(item.imageData) {
+                                    imgContext.cgContext.saveGState()
+
+                                    if item.rotation != 0 {
+                                        let centerX = item.position.x + item.size.width / 2
+                                        let centerY = item.position.y + item.size.height / 2
+                                        imgContext.cgContext.translateBy(x: centerX, y: centerY)
+                                        imgContext.cgContext.rotate(by: item.rotation)
+                                        imgContext.cgContext.translateBy(x: -centerX, y: -centerY)
+                                    }
+
+                                    let rect = CGRect(origin: item.position, size: item.size)
+                                    uiImage.draw(in: rect)
+
+                                    imgContext.cgContext.restoreGState()
+                                }
+                            }
+                        }
+
+                        // Draw textboxes on top (rasterized into the image)
+                        if let textBoxDataArray = noteToExport.textBoxDataByPage[pageKey] {
+                            for data in textBoxDataArray {
+                                if let textBox = try? JSONDecoder().decode(TextBox.self, from: data) {
+                                    let textRect = CGRect(origin: textBox.position, size: textBox.size)
+                                    let paragraphStyle = NSMutableParagraphStyle()
+                                    paragraphStyle.alignment = .left
+
+                                    let attributes: [NSAttributedString.Key: Any] = [
+                                        .font: UIFont.systemFont(ofSize: textBox.fontSize),
+                                        .foregroundColor: UIColor(textBox.textColor),
+                                        .paragraphStyle: paragraphStyle
+                                    ]
+
+                                    textBox.text.draw(in: textRect, withAttributes: attributes)
+                                }
                             }
                         }
                     }
 
-                    // Draw textboxes on top
-                    if let textBoxDataArray = noteToExport.textBoxDataByPage[pageKey] {
-                        for data in textBoxDataArray {
-                            if let textBox = try? JSONDecoder().decode(TextBox.self, from: data) {
-                                // Draw text as vector (PDF text object)
-                                let textRect = CGRect(origin: textBox.position, size: textBox.size)
-                                let paragraphStyle = NSMutableParagraphStyle()
-                                paragraphStyle.alignment = .left
-
-                                let attributes: [NSAttributedString.Key: Any] = [
-                                    .font: UIFont.systemFont(ofSize: textBox.fontSize),
-                                    .foregroundColor: UIColor(textBox.textColor),
-                                    .paragraphStyle: paragraphStyle
-                                ]
-
-                                textBox.text.draw(in: textRect, withAttributes: attributes)
-                            }
-                        }
+                    // Begin PDF page and embed the rasterized image as lossless PNG when possible
+                    context.beginPage(withBounds: bounds, pageInfo: [:])
+                    if let pngData = pageImage.pngData(), let pngImage = UIImage(data: pngData) {
+                        pngImage.draw(in: bounds)
+                    } else {
+                        pageImage.draw(in: bounds)
                     }
                 }
             }
@@ -290,6 +296,93 @@ class ExportManager {
         } catch {
             print("Failed to write PDF: \(error)")
             return nil
+        }
+    }
+
+    // MARK: - Editor-matched paper pattern for export
+    private func drawExportPaperPattern(context: CGContext, paperStyle: PaperStyle, paperColor: PaperColor, size: CGSize) {
+        switch paperStyle {
+        case .blank:
+            return
+        case .grid:
+            let gridSpacing: CGFloat = 20
+            let lineWidth: CGFloat = 0.75
+            let isDarkPaper = (paperColor == .dark)
+            let uiColor = isDarkPaper ? UIColor.white.withAlphaComponent(0.3) : UIColor.gray.withAlphaComponent(0.3)
+
+            context.saveGState()
+            context.setStrokeColor(uiColor.cgColor)
+            context.setLineWidth(lineWidth)
+
+            // Horizontal lines
+            for i in 0...Int(size.height / gridSpacing) {
+                let y = CGFloat(i) * gridSpacing
+                context.move(to: CGPoint(x: 0, y: y))
+                context.addLine(to: CGPoint(x: size.width, y: y))
+            }
+
+            // Vertical lines
+            for i in 0...Int(size.width / gridSpacing) {
+                let x = CGFloat(i) * gridSpacing
+                context.move(to: CGPoint(x: x, y: 0))
+                context.addLine(to: CGPoint(x: x, y: size.height))
+            }
+
+            context.strokePath()
+            context.restoreGState()
+
+        case .dotted:
+            let baseSpacing: CGFloat = 18
+            let dotRadius: CGFloat = 1
+            let margin: CGFloat = baseSpacing
+            let isDarkPaper = (paperColor == .dark)
+            let uiColor = isDarkPaper ? UIColor.white.withAlphaComponent(0.35) : UIColor.gray.withAlphaComponent(0.35)
+
+            context.saveGState()
+            context.setFillColor(uiColor.cgColor)
+
+            // Available space after margins
+            let availableWidth = size.width - 2 * margin
+            let availableHeight = size.height - 2 * margin
+
+            // Intervals that fit
+            let horizontalIntervals = max(1, Int(availableWidth / baseSpacing))
+            let verticalIntervals = max(1, Int(availableHeight / baseSpacing))
+
+            // Dynamic spacing to fill available width like the editor overlay
+            let horizontalSpacing = availableWidth / CGFloat(horizontalIntervals)
+            let verticalSpacing = availableHeight / CGFloat(verticalIntervals)
+
+            for row in 0...verticalIntervals {
+                for col in 0...horizontalIntervals {
+                    let x = margin + CGFloat(col) * horizontalSpacing
+                    let y = margin + CGFloat(row) * verticalSpacing
+                    let dotRect = CGRect(x: x - dotRadius, y: y - dotRadius, width: dotRadius * 2, height: dotRadius * 2)
+                    context.fillEllipse(in: dotRect)
+                }
+            }
+
+            context.restoreGState()
+
+        case .lined:
+            let lineSpacing: CGFloat = 24
+            let marginTop: CGFloat = 30
+            let lineWidth: CGFloat = 0.75
+            let isDarkPaper = (paperColor == .dark)
+            let uiColor = isDarkPaper ? UIColor.white.withAlphaComponent(0.3) : UIColor.gray.withAlphaComponent(0.3)
+
+            context.saveGState()
+            context.setStrokeColor(uiColor.cgColor)
+            context.setLineWidth(lineWidth)
+
+            let count = Int((size.height - marginTop) / lineSpacing)
+            for i in 0...count {
+                let y = marginTop + CGFloat(i) * lineSpacing
+                context.move(to: CGPoint(x: 0, y: y))
+                context.addLine(to: CGPoint(x: size.width, y: y))
+            }
+            context.strokePath()
+            context.restoreGState()
         }
     }
     
