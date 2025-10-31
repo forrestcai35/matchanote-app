@@ -57,14 +57,14 @@ let supabaseAdmin = {
   encoder.dateEncodingStrategy = .iso8601
   
   // Create a completely separate client instance with service role key
-  // This client will have no session context and operate purely as service_role
   let adminClient = SupabaseClient(
     supabaseURL: URL(string: supabaseUrl)!,
     supabaseKey: serviceRoleKey,
     options: .init(
       db: .init(encoder: encoder, decoder: decoder),
       auth: .init(
-        autoRefreshToken: false
+        storage: MemoryLocalStorage(),
+        autoRefreshToken: false,
       )
     )
   )
