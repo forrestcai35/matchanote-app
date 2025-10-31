@@ -43,8 +43,6 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         canvasView.zoomScale = currentScale
         canvasView.contentOffset = contentOffset
         canvasView.delegate = context.coordinator
-
-        print("📐 makeUIView - AFTER: contentSize=\(canvasView.contentSize), isScrollEnabled=\(canvasView.isScrollEnabled)")
         canvasView.showsVerticalScrollIndicator = showScrollIndicators
         canvasView.showsHorizontalScrollIndicator = showScrollIndicators
         canvasView.backgroundColor = .clear
