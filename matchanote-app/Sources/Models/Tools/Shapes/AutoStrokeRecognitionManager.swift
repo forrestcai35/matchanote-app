@@ -7,6 +7,9 @@ class AutoStrokeRecognitionManager_v2: NSObject, ObservableObject {
     private weak var canvasView: PKCanvasView?
     private var lastProcessedStrokeCount = 0
 
+    // When true, only replace strokes recognized as straight lines
+    @Published var restrictToLinesOnly: Bool = false
+
 
     @Published var isEnabled: Bool = true {
         didSet {
@@ -114,7 +117,8 @@ class AutoStrokeRecognitionManager_v2: NSObject, ObservableObject {
             let result = strokeRecognizer.recognize(points: points)
 
             // Only update UI if recognition was successful and canvas still exists
-            if result.confidence >= confidenceThreshold && result.shapeName != "unknown" {
+            let isAllowedShape = (!self.restrictToLinesOnly) || (result.shapeName == "line")
+            if result.confidence >= confidenceThreshold && result.shapeName != "unknown" && isAllowedShape {
                 await MainActor.run {
                     // Check canvas still exists before processing
                     guard canvasView != nil else { return }
@@ -345,4 +349,3 @@ class AutoStrokeRecognitionManager_v2: NSObject, ObservableObject {
         return PKStroke(ink: stroke.ink, path: path)
     }
 }
-
