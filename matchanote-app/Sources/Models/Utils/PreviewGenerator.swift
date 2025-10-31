@@ -116,9 +116,16 @@ struct PreviewGenerator {
       UIColor(PaperUtilities.getPaperBackgroundColor(for: note.paperColor)).setFill()
       ctx.fill(CGRect(origin: .zero, size: thumbnailSize))
 
-      // PDF background
+      // PDF background (top aligned for previews)
       let fileURL = AttachmentManager.fileURL(for: pdfBg.relativePath)
-      PDFDrawingUtils.draw(pdf: fileURL, pageIndex: pdfBg.pageIndex, in: ctx, bounds: CGRect(origin: .zero, size: thumbnailSize), backgroundColor: .white)
+      PDFDrawingUtils.draw(
+        pdf: fileURL,
+        pageIndex: pdfBg.pageIndex,
+        in: ctx,
+        bounds: CGRect(origin: .zero, size: thumbnailSize),
+        backgroundColor: .white,
+        verticalAlignment: .top
+      )
 
       // Paper pattern
       PaperUtilities.drawPaperPattern(context: ctx, paperStyle: note.paperStyle, size: thumbnailSize)

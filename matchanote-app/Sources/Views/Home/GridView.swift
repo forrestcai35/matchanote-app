@@ -166,10 +166,7 @@ public struct GridItemView: View {
     @ViewBuilder
     private var notePreview: some View {
         if let preview = previewImage {
-            Image(uiImage: preview)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .clipped()
+            TopAlignedFillImage(image: preview, targetSize: previewSize)
         } else {
             // Clean placeholder while loading - no spinner needed as preloading handles it
             RoundedRectangle(cornerRadius: note.noteType == .written ? 10 : 0)
@@ -317,4 +314,26 @@ public struct GridItemView: View {
     }
 
  
+}
+
+// Helper view to render a UIImage scaled to fill and top-aligned within a target size
+private struct TopAlignedFillImage: View {
+    let image: UIImage
+    let targetSize: CGSize
+
+    var body: some View {
+        GeometryReader { proxy in
+            let frame = proxy.size
+            let imgSize = image.size
+            // Compute scale to cover the frame (fill)
+            let scale = max(frame.width / max(imgSize.width, 1), frame.height / max(imgSize.height, 1))
+            let scaledHeight = imgSize.height * scale
+
+            Image(uiImage: image)
+                .resizable()
+                .frame(width: frame.width, height: scaledHeight)
+                .clipped()
+        }
+        .frame(width: targetSize.width, height: targetSize.height)
+    }
 }

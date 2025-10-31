@@ -272,7 +272,15 @@ class PreviewCache: ObservableObject {
     // Draw PDF background if present, else draw background images
     if let pdfBackground = pdfBackground {
       let fileURL = AttachmentManager.fileURL(for: pdfBackground.relativePath)
-      PDFDrawingUtils.draw(pdf: fileURL, pageIndex: pdfBackground.pageIndex, in: context, bounds: CGRect(origin: .zero, size: thumbnailSize), backgroundColor: .white)
+      // Top-align PDF content within the page for previews so the top is visible in crops
+      PDFDrawingUtils.draw(
+        pdf: fileURL,
+        pageIndex: pdfBackground.pageIndex,
+        in: context,
+        bounds: CGRect(origin: .zero, size: thumbnailSize),
+        backgroundColor: .white,
+        verticalAlignment: .top
+      )
     } else {
       for backgroundImage in backgroundImages {
         backgroundImage.draw(in: CGRect(origin: .zero, size: thumbnailSize), blendMode: .normal, alpha: 1.0)

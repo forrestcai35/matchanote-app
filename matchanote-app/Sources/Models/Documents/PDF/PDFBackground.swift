@@ -63,8 +63,22 @@ enum AttachmentManager {
 
 // MARK: - PDF Drawing Helpers
 enum PDFDrawingUtils {
+    enum VerticalAlignment {
+        case top
+        case center
+    }
+
     // Draw a CGPDF page to fit the given rect, preserving aspect ratio (letterboxed if needed)
-    static func draw(pdf url: URL, pageIndex: Int, in context: CGContext, bounds: CGRect, backgroundColor: UIColor? = .white) {
+    // Added verticalAlignment to allow top-aligned rendering for previews while
+    // keeping center alignment as the default for other contexts.
+    static func draw(
+        pdf url: URL,
+        pageIndex: Int,
+        in context: CGContext,
+        bounds: CGRect,
+        backgroundColor: UIColor? = .white,
+        verticalAlignment: VerticalAlignment = .center
+    ) {
         guard let doc = CGPDFDocument(url as CFURL),
               let page = doc.page(at: pageIndex) else { return }
 
@@ -84,7 +98,15 @@ enum PDFDrawingUtils {
         let scaledWidth = pageRect.width * scale
         let scaledHeight = pageRect.height * scale
         let offsetX = bounds.minX + (bounds.width - scaledWidth) / 2
-        let offsetY = bounds.minY + (bounds.height - scaledHeight) / 2
+        // For top alignment, place the page so its top edge sits at bounds.minY.
+        // For center alignment, keep equal top/bottom letterboxing.
+        let offsetY: CGFloat
+        switch verticalAlignment {
+        case .top:
+            offsetY = bounds.minY
+        case .center:
+            offsetY = bounds.minY + (bounds.height - scaledHeight) / 2
+        }
 
         context.saveGState()
         // PDF coordinate system is bottom-left origin; flip to iOS coordinates

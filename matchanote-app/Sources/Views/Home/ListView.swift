@@ -25,7 +25,8 @@ public struct ListItemView: View {
             Image(uiImage: preview)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
-                .frame(width: previewSize.width, height: previewSize.height)
+                // Keep top of the preview visible and crop bottom
+                .frame(width: previewSize.width, height: previewSize.height, alignment: .top)
                 .clipped()
                 .clipShape(RoundedRectangle(cornerRadius: previewCornerRadius))
         } else {
