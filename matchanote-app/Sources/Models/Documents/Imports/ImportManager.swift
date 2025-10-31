@@ -1,6 +1,7 @@
 
 import SwiftUI
 import PencilKit
+import UIKit
 
 // MARK: - Import Type Enum
 enum ImportType: String, CaseIterable, Identifiable {
@@ -173,13 +174,20 @@ class ImportManager {
 
         let pageCount = pdf.numberOfPages
         var imageDataByPage: [String: [Data]] = [:]
+        
 
-        // Extract each page as an image at native page size
+        // Extract each page as an image at native page size (1.0 scale to match paper points)
         for pageIndex in 1...pageCount {
             guard let page = pdf.page(at: pageIndex) else { continue }
 
             let pageRect = page.getBoxRect(.mediaBox)
-            let renderer = UIGraphicsImageRenderer(size: pageRect.size)
+            // Use a renderer with explicit 1.0 scale so the resulting image's
+            // pixel dimensions match PDF point dimensions. This avoids DPI
+            // mismatches when adding pages later.
+            let format = UIGraphicsImageRendererFormat.default()
+            format.scale = 1.0
+            format.opaque = true
+            let renderer = UIGraphicsImageRenderer(size: pageRect.size, format: format)
             let image = renderer.image { context in
                 UIColor.white.set()
                 context.fill(CGRect(origin: .zero, size: pageRect.size))
@@ -194,6 +202,7 @@ class ImportManager {
             if let imageData = image.jpegData(compressionQuality: 0.8) {
                 imageDataByPage[String(pageIndex - 1)] = [imageData]
             }
+            
         }
 
         // Create a better title from the filename
@@ -232,8 +241,15 @@ class ImportManager {
             return nil
         }
 
-        // Create a note with the image as background on the first page
-        let imageDataByPage: [String: [Data]] = ["0": [imageData]]
+        // Normalize imported image to default paper size at 1.0 scale to avoid DPI desync
+        let targetSize = CGSize(
+            width: PaperUtilities.getPaperWidth(for: .a4, orientation: .portrait),
+            height: PaperUtilities.getPaperHeight(for: .a4, orientation: .portrait)
+        )
+        let normalizedData = Self.normalizeImageDataToSize(imageData, targetSize: targetSize) ?? imageData
+
+        // Create a note with the normalized image as background on the first page
+        let imageDataByPage: [String: [Data]] = ["0": [normalizedData]]
 
         // Create a better title from the filename
         let noteTitle = createNoteTitle(from: fileName, type: "Image")
@@ -443,13 +459,17 @@ class ImportManager {
 
         let pageCount = pdf.numberOfPages
         var imageDataByPage: [String: [Data]] = [:]
+        
 
-        // Extract each page as an image at native page size
+        // Extract each page as an image at native page size (1.0 scale)
         for pageIndex in 1...pageCount {
             guard let page = pdf.page(at: pageIndex) else { continue }
 
             let pageRect = page.getBoxRect(.mediaBox)
-            let renderer = UIGraphicsImageRenderer(size: pageRect.size)
+            let format = UIGraphicsImageRendererFormat.default()
+            format.scale = 1.0
+            format.opaque = true
+            let renderer = UIGraphicsImageRenderer(size: pageRect.size, format: format)
             let image = renderer.image { context in
                 UIColor.white.set()
                 context.fill(CGRect(origin: .zero, size: pageRect.size))
@@ -464,6 +484,7 @@ class ImportManager {
             if let imageData = image.jpegData(compressionQuality: 0.8) {
                 imageDataByPage[String(pageIndex - 1)] = [imageData]
             }
+            
         }
 
         // Create a better title from the filename
@@ -500,7 +521,8 @@ class ImportManager {
             return nil
         }
 
-        // Create a note with the image as background on the first page
+        // Keep original image data here; when merging into a current note,
+        // we'll normalize to that note's paper size. This avoids guessing here.
         let imageDataByPage: [String: [Data]] = ["0": [imageData]]
 
         // Create a better title from the filename
@@ -587,13 +609,17 @@ class ImportManager {
 
         let pageCount = pdf.numberOfPages
         var imageDataByPage: [String: [Data]] = [:]
+        
 
-        // Extract each page as an image at native page size
+        // Extract each page as an image at native page size (1.0 scale)
         for pageIndex in 1...pageCount {
             guard let page = pdf.page(at: pageIndex) else { continue }
 
             let pageRect = page.getBoxRect(.mediaBox)
-            let renderer = UIGraphicsImageRenderer(size: pageRect.size)
+            let format = UIGraphicsImageRendererFormat.default()
+            format.scale = 1.0
+            format.opaque = true
+            let renderer = UIGraphicsImageRenderer(size: pageRect.size, format: format)
             let image = renderer.image { context in
                 UIColor.white.set()
                 context.fill(CGRect(origin: .zero, size: pageRect.size))
@@ -608,6 +634,7 @@ class ImportManager {
             if let imageData = image.jpegData(compressionQuality: 0.8) {
                 imageDataByPage[String(pageIndex - 1)] = [imageData]
             }
+            
         }
 
         // Create a better title from the filename
@@ -638,7 +665,7 @@ class ImportManager {
             return nil
         }
 
-        // Create a note with the image as background on the first page
+        // Keep original here; normalization happens when merging into current note
         let imageDataByPage: [String: [Data]] = ["0": [imageData]]
 
         // Create a better title from the filename
@@ -706,4 +733,40 @@ class ImportManager {
             return nil
         }
     }
+}
+
+// MARK: - Image Normalization Utilities
+extension ImportManager {
+    /// Resample and letterbox an image Data to a given target size at 1.0 scale.
+    /// - Parameters:
+    ///   - data: Original image data
+    ///   - targetSize: Target canvas size in points (72 dpi base)
+    /// - Returns: JPEG data of the normalized image, or nil on failure
+    static func normalizeImageDataToSize(_ data: Data, targetSize: CGSize) -> Data? {
+        guard let image = UIImage(data: data) else { return nil }
+
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1.0
+        format.opaque = true
+
+        let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
+        let rendered = renderer.image { ctx in
+            UIColor.white.setFill()
+            ctx.fill(CGRect(origin: .zero, size: targetSize))
+
+            // Aspect-fit the image within the target size
+            let sourceSize = image.size
+            guard sourceSize.width > 0 && sourceSize.height > 0 else { return }
+            let scale = min(targetSize.width / sourceSize.width, targetSize.height / sourceSize.height)
+            let drawSize = CGSize(width: sourceSize.width * scale, height: sourceSize.height * scale)
+            let origin = CGPoint(
+                x: (targetSize.width - drawSize.width) / 2,
+                y: (targetSize.height - drawSize.height) / 2
+            )
+            image.draw(in: CGRect(origin: origin, size: drawSize))
+        }
+        return rendered.jpegData(compressionQuality: 0.9)
+    }
+
+    // Vector PDF generation helper removed per request.
 }

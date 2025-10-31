@@ -1057,18 +1057,21 @@ extension NoteView {
         
         // Add any images from the imported note's first page
         if let imageData = importedNote.imageDataByPage["0"] {
+          // Normalize background images to current note's paper size to avoid DPI desync
+          let targetSize = PaperUtilities.paperSize(for: updatedNote.paperSize, orientation: updatedNote.paperOrientation)
+          let normalized = self.normalizeImportedImages(imageData, targetSize: targetSize)
 
           if updatedNote.imageDataByPage[targetPageKey] == nil {
             updatedNote.imageDataByPage[targetPageKey] = []
           }
-          updatedNote.imageDataByPage[targetPageKey]?.append(contentsOf: imageData)
+          updatedNote.imageDataByPage[targetPageKey]?.append(contentsOf: normalized)
         }
         
         // Add any drawing data
         if let drawingData = importedNote.drawingDataByPage["0"] {
           updatedNote.drawingDataByPage[targetPageKey] = drawingData
         }
-        
+
         // Add any text box data
         if let textBoxData = importedNote.textBoxDataByPage["0"] {
           if updatedNote.textBoxDataByPage[targetPageKey] == nil {
@@ -1076,6 +1079,8 @@ extension NoteView {
           }
           updatedNote.textBoxDataByPage[targetPageKey]?.append(contentsOf: textBoxData)
         }
+
+        // Vector PDF backgrounds were removed per request.
         
         // Update the note
         updatedNote.dateModified = Date()
@@ -1112,10 +1117,12 @@ extension NoteView {
           
           // Merge images if exist
           if let imageData = importedNote.imageDataByPage[pageKey] {
+              let targetSize = PaperUtilities.paperSize(for: updatedNote.paperSize, orientation: updatedNote.paperOrientation)
+              let normalized = self.normalizeImportedImages(imageData, targetSize: targetSize)
               if updatedNote.imageDataByPage[targetPageKey] == nil {
                 updatedNote.imageDataByPage[targetPageKey] = []
-            }
-              updatedNote.imageDataByPage[targetPageKey]?.append(contentsOf: imageData)
+              }
+              updatedNote.imageDataByPage[targetPageKey]?.append(contentsOf: normalized)
           }
           
           // Merge text boxes if exist
@@ -1125,6 +1132,8 @@ extension NoteView {
               }
               updatedNote.textBoxDataByPage[targetPageKey]?.append(contentsOf: textBoxData)
             }
+
+          // Vector PDF backgrounds were removed per request.
             
             // Update the note
             updatedNote.dateModified = Date()
@@ -1156,13 +1165,17 @@ extension NoteView {
             
             // Add images
             if let imageData = importedNote.imageDataByPage[pageKey] {
-              currentNote.imageDataByPage[newPageKey] = imageData
+              let targetSize = PaperUtilities.paperSize(for: currentNote.paperSize, orientation: currentNote.paperOrientation)
+              let normalized = self.normalizeImportedImages(imageData, targetSize: targetSize)
+              currentNote.imageDataByPage[newPageKey] = normalized
             }
             
             // Add text boxes
             if let textBoxData = importedNote.textBoxDataByPage[pageKey] {
               currentNote.textBoxDataByPage[newPageKey] = textBoxData
             }
+
+            // Vector PDF backgrounds were removed per request.
             
             currentNote.dateModified = Date()
             let savedNote = self.storageManager.saveNote(currentNote)
@@ -1214,6 +1227,21 @@ extension NoteView {
       }
     }
     
+  }
+
+  // MARK: - Import Normalization Helpers
+
+  // Normalize imported background images to match the current note's paper size at 1.0 scale.
+  // CanvasImage overlays (JSON-encoded) are passed through unchanged.
+  private func normalizeImportedImages(_ images: [Data], targetSize: CGSize) -> [Data] {
+    return images.compactMap { data in
+      // Detect CanvasImage (JSON) and pass through unchanged
+      if (try? JSONDecoder().decode(CanvasImage.self, from: data)) != nil {
+        return data
+      }
+      // Background image: resample to targetSize at 1.0 scale
+      return ImportManager.normalizeImageDataToSize(data, targetSize: targetSize) ?? data
+    }
   }
   
 // MARK: - Document Picker Coordinator
