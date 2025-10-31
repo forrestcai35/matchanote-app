@@ -289,7 +289,7 @@ class PreferencesManager: ObservableObject {
             self.noteEditorPageBoundaryIndicatorMode = oldBooleanValue ? .blueBorder : .none
         } else {
             // Default to blueBorder for new installs
-            self.noteEditorPageBoundaryIndicatorMode = .blueBorder
+            self.noteEditorPageBoundaryIndicatorMode = .none
         }
 
         // Load dark mode for white paper preference or default to false (disabled)
