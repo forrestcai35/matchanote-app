@@ -110,43 +110,8 @@ struct PreferencesView: View {
                     }
                 }
                 
-                // Storage Section
-                Section {
-                    HStack(spacing: 10) {
-                        Image(systemName: "icloud.fill")
-                            .foregroundColor(.blue)
-                            .font(.system(size: 16))
-                        
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("Cloud Sync")
-                                .font(.jost(.subheadline()))
-                                .foregroundColor(.primary)
-                            
-                            Text("Sync your notes and folders to the cloud (Premium feature)")
-                                .font(.jost(.caption2()))
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        Spacer()
-                        
-                        Toggle("", isOn: $preferencesManager.supabaseStorageEnabled)
-                            .labelsHidden()
-                    }
-                    .padding(.vertical, 4)
-                } header: {
-                    HStack {
-                        Image(systemName: "externaldrive.fill")
-                            .foregroundColor(
-                                colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
-                            .font(.system(size: 14))
-                        Text("Storage")
-                            .font(.jost(.subheadline()))
-                            .foregroundColor(
-                                colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
-                    }
-                }
-                
-                // Models moved to dedicated Models settings view
+               
+
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
