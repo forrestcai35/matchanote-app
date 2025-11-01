@@ -121,6 +121,9 @@ public class TextBoxManager: ObservableObject {
     @Published public var editingTextBoxId: UUID?
     @Published public var currentEditingText: String = "" // Track current text being edited
 
+    // Undo manager for textbox operations
+    public weak var undoManager: UndoManager?
+
     // Available font families
     public let availableFonts = [
         "System",
@@ -139,6 +142,11 @@ public class TextBoxManager: ObservableObject {
     public let fontSizePresets: [CGFloat] = [12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 60, 72]
 
     public init() {}
+
+    // Set the undo manager for textbox operations
+    public func setUndoManager(_ undoManager: UndoManager?) {
+        self.undoManager = undoManager
+    }
 
     // Add a new textbox to a specific page
     public func addTextBox(to pageIndex: Int, at position: CGPoint = CGPoint(x: 100, y: 100), withText text: String = "") {
@@ -226,11 +234,29 @@ public class TextBoxManager: ObservableObject {
     }
 
     // Delete a textbox
-    public func deleteTextBox(withId id: UUID, fromPage pageIndex: Int) {
+    public func deleteTextBox(withId id: UUID, fromPage pageIndex: Int, skipUndo: Bool = false) {
         guard let pageTextBoxes = textBoxesByPage[pageIndex] else { return }
 
         if let index = pageTextBoxes.firstIndex(where: { $0.id == id }) {
+            let deletedTextBox = pageTextBoxes[index]
             textBoxesByPage[pageIndex]?.remove(at: index)
+
+            // Register undo action (unless we're already in an undo operation)
+            if !skipUndo {
+                undoManager?.registerUndo(withTarget: self) { target in
+                    // Restore the deleted textbox
+                    if target.textBoxesByPage[pageIndex] == nil {
+                        target.textBoxesByPage[pageIndex] = []
+                    }
+                    target.textBoxesByPage[pageIndex]?.append(deletedTextBox)
+
+                    // Register redo (delete again)
+                    target.undoManager?.registerUndo(withTarget: target) { redoTarget in
+                        redoTarget.deleteTextBox(withId: id, fromPage: pageIndex, skipUndo: true)
+                    }
+                }
+                undoManager?.setActionName("Delete Text Box")
+            }
 
             // Clear selection if this was the selected textbox
             if selectedTextBoxId == id {

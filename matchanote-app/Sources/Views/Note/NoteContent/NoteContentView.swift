@@ -288,6 +288,9 @@ struct WrittenNoteView: View {
         // Set the image manager's undo manager to match current canvas
         imageManager.setUndoManager(currentCanvas.undoManager)
 
+        // Set the textbox manager's undo manager to match current canvas
+        textBoxManager.setUndoManager(currentCanvas.undoManager)
+
         // Let the PencilKit system handle drawing policies
         toolPicker.setVisible(toolPickerIsVisible, forFirstResponder: currentCanvas)
         toolPicker.addObserver(currentCanvas)
@@ -309,6 +312,9 @@ struct WrittenNoteView: View {
 
         // Update image manager's undo manager to match current canvas
         imageManager.setUndoManager(currentCanvas.undoManager)
+
+        // Update textbox manager's undo manager to match current canvas
+        textBoxManager.setUndoManager(currentCanvas.undoManager)
 
         // Update visibility for current canvas
         toolPicker.setVisible(toolPickerIsVisible, forFirstResponder: currentCanvas)

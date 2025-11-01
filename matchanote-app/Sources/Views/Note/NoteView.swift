@@ -9,26 +9,16 @@ import PDFKit
 
 
 // Per-note undo history storage
-struct NoteUndoHistory {
-  var pageUndoStates: [Int: [PKDrawing]] = [:] // Page index -> undo stack
-  var pageRedoStates: [Int: [PKDrawing]] = [:] // Page index -> redo stack
-  var maxHistorySize: Int = 50 // Limit memory usage
-}
-
-// Canvas manager to track canvas views per note with isolated undo/redo
+// Canvas manager to track canvas views per note
 class CanvasManager: ObservableObject {
   @Published var canvasViews: [PKCanvasView] = []
   @Published var imageManager = CanvasImageManager()
-
-  // Per-note undo history - NOT cleared when switching notes
-  private var undoHistories: [UUID: NoteUndoHistory] = [:]
-  private var currentNoteId: UUID?
 
   init() {
     // PERFORMANCE FIX: Defer canvas creation until actually needed
     canvasViews = []
   }
-  
+
   // PERFORMANCE FIX: Lazy canvas creation
   func ensureCanvasExists(for pageIndex: Int) {
     while canvasViews.count <= pageIndex {
@@ -38,158 +28,6 @@ class CanvasManager: ObservableObject {
       canvasViews.append(canvas)
     }
   }
-
-  // Set current note and load its undo history
-  func setCurrentNote(_ noteId: UUID) {
-    // Save current note's undo state before switching
-    if let currentId = currentNoteId {
-      saveUndoStateForNote(currentId)
-    }
-
-    currentNoteId = noteId
-
-    // Initialize undo history for new note if needed
-    if undoHistories[noteId] == nil {
-      undoHistories[noteId] = NoteUndoHistory()
-    }
-
-    // Load undo state for new note
-    loadUndoStateForNote(noteId)
-  }
-
-  // PERFORMANCE FIX: Only save undo state for canvases that actually exist
-  private func saveUndoStateForNote(_ noteId: UUID) {
-    guard var history = undoHistories[noteId] else { return }
-    guard !canvasViews.isEmpty else { return }
-
-    // Save current drawing states for each page
-    for (pageIndex, canvas) in canvasViews.enumerated() {
-      let currentDrawing = canvas.drawing
-
-      // Initialize page history if needed
-      if history.pageUndoStates[pageIndex] == nil {
-        history.pageUndoStates[pageIndex] = []
-      }
-
-      // Add current state to undo stack (limit size)
-      history.pageUndoStates[pageIndex]?.append(currentDrawing)
-      if let count = history.pageUndoStates[pageIndex]?.count, count > history.maxHistorySize {
-        history.pageUndoStates[pageIndex]?.removeFirst()
-      }
-    }
-
-    undoHistories[noteId] = history
-  }
-
-  // Load undo state for a specific note
-  private func loadUndoStateForNote(_ noteId: UUID) {
-    // Clear current undo managers without removing actions
-    for _ in canvasViews {
-      // Don't clear - let the system handle it naturally
-      // We'll track our own undo state
-    }
-  }
-
-  // Perform undo for current note and page
-  func performUndo(for pageIndex: Int) -> Bool {
-    guard let noteId = currentNoteId,
-          var history = undoHistories[noteId],
-          let undoStack = history.pageUndoStates[pageIndex],
-          undoStack.count > 1 else { return false }
-
-    // PERFORMANCE FIX: Ensure canvas exists before accessing
-    ensureCanvasExists(for: pageIndex)
-    guard pageIndex < canvasViews.count else { return false }
-    
-    let canvas = canvasViews[pageIndex]
-    let currentDrawing = canvas.drawing
-
-    // Move current state to redo stack
-    if history.pageRedoStates[pageIndex] == nil {
-      history.pageRedoStates[pageIndex] = []
-    }
-    history.pageRedoStates[pageIndex]?.append(currentDrawing)
-
-    // Limit redo stack size
-    if let redoCount = history.pageRedoStates[pageIndex]?.count, redoCount > history.maxHistorySize {
-      history.pageRedoStates[pageIndex]?.removeFirst()
-    }
-
-    // Remove current state from undo stack and apply previous
-    var newUndoStack = undoStack
-    newUndoStack.removeLast()
-
-    if let previousDrawing = newUndoStack.last {
-      canvas.drawing = previousDrawing
-    }
-
-    history.pageUndoStates[pageIndex] = newUndoStack
-    undoHistories[noteId] = history
-
-    return true
-  }
-
-  // Perform redo for current note and page
-  func performRedo(for pageIndex: Int) -> Bool {
-    guard let noteId = currentNoteId,
-          var history = undoHistories[noteId],
-          let redoStack = history.pageRedoStates[pageIndex],
-          !redoStack.isEmpty else { return false }
-
-    // PERFORMANCE FIX: Ensure canvas exists before accessing
-    ensureCanvasExists(for: pageIndex)
-    guard pageIndex < canvasViews.count else { return false }
-    
-    let canvas = canvasViews[pageIndex]
-    let currentDrawing = canvas.drawing
-
-    // Move current state to undo stack
-    if history.pageUndoStates[pageIndex] == nil {
-      history.pageUndoStates[pageIndex] = []
-    }
-    history.pageUndoStates[pageIndex]?.append(currentDrawing)
-
-    // Get next state from redo stack
-    var newRedoStack = redoStack
-    let nextDrawing = newRedoStack.removeLast()
-    canvas.drawing = nextDrawing
-
-    history.pageRedoStates[pageIndex] = newRedoStack
-    undoHistories[noteId] = history
-
-    return true
-  }
-
-  // Add new undo state when user makes changes
-  func addUndoState(for pageIndex: Int, drawing: PKDrawing) {
-    guard let noteId = currentNoteId else { return }
-
-    if undoHistories[noteId] == nil {
-      undoHistories[noteId] = NoteUndoHistory()
-    }
-
-    var history = undoHistories[noteId]!
-
-    // Clear redo stack when new action is made
-    history.pageRedoStates[pageIndex] = []
-
-    // Add to undo stack
-    if history.pageUndoStates[pageIndex] == nil {
-      history.pageUndoStates[pageIndex] = []
-    }
-
-    history.pageUndoStates[pageIndex]?.append(drawing)
-
-    // Limit stack size
-    if let count = history.pageUndoStates[pageIndex]?.count, count > history.maxHistorySize {
-      history.pageUndoStates[pageIndex]?.removeFirst()
-    }
-
-    undoHistories[noteId] = history
-  }
-
-
-  // REMOVED: No longer clear undo managers - maintain per-note history
 }
 
 struct NoteView: View {
@@ -463,7 +301,6 @@ struct NoteView: View {
       .onAppear {
         // PERFORMANCE OPTIMIZED: Immediate essential operations only
         openNoteInTab()
-        canvasManager.setCurrentNote(note.id)
         tabManager.onAllTabsClosed = { dismiss() }
 
         // PERFORMANCE OPTIMIZED: Defer all heavy operations with lower priority

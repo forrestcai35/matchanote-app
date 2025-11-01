@@ -965,17 +965,19 @@ struct WrittenNoteToolbar: View {
         }
         .frame(width: 250) // Fixed width to prevent toolbar movement
       } else {
-        // Object eraser: show text with same spacing as area eraser controls
+        // Object eraser: show text and span full options width
         HStack {
           Text("Erase entire strokes")
             .font(.jost(.caption()))
             .foregroundColor(colorScheme == .dark ? .white : .gray)
+            .frame(maxWidth: .infinity)
+            .multilineTextAlignment(.center)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.matchalight_dark.opacity(0.1))
         .cornerRadius(8)
-        // Left-aligned, background hugs content
       }
 
 
@@ -985,10 +987,12 @@ struct WrittenNoteToolbar: View {
         Text("Selection Mode")
           .font(.jost(.caption()))
           .foregroundColor(.gray)
+          .frame(maxWidth: .infinity)
+          .multilineTextAlignment(.center)
       }
-      // Left-aligned, background hugs content
       .padding(.horizontal, 8)
       .padding(.vertical, 4)
+      .frame(maxWidth: .infinity, alignment: .leading)
       .background(Color.matchalight_dark.opacity(0.1))
       .cornerRadius(8)
 
@@ -1046,13 +1050,16 @@ struct WrittenNoteToolbar: View {
           TextBoxFormattingControls(textBoxManager: textBoxManager)
         }
         else {
-                  // Hint text for user
-        Text("Tap anywhere to create a text box")
-          .font(.jost(.caption()))
-          .foregroundColor(.gray)
-          .padding(.horizontal, 8)
+          // Hint text for user
+          Text("Tap anywhere to create a text box")
+            .font(.jost(.caption()))
+            .foregroundColor(.gray)
+            .padding(.horizontal, 8)
+            .frame(maxWidth: .infinity)
+            .multilineTextAlignment(.center)
         }
       }
+      .frame(maxWidth: .infinity, alignment: .leading)
     case .shape:
       HStack(spacing: 12) {
         // Width presets with dropdown segmented control (same as pen)
@@ -1221,6 +1228,9 @@ struct WrittenNoteToolbar: View {
 
     // Ensure image manager has the correct undo manager
     imageManager.setUndoManager(currentCanvas.undoManager)
+
+    // Ensure textbox manager has the correct undo manager
+    textBoxManager.setUndoManager(currentCanvas.undoManager)
 
     // In vertical scroll mode, all canvases are visible, so update all of them
     // In page mode, only update the current canvas
