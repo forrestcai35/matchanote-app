@@ -816,7 +816,7 @@ struct WrittenNoteToolbar: View {
                         if toolState.selectedMarkerPresetIndex == i { updateCanvasTool() }
                       }
                     )
-                    Slider(value: binding, in: 0.5...20, step: 0.5)
+                    Slider(value: binding, in: 4...20, step: 0.5)
                       .frame(width: 200)
                   }
                   .padding(.vertical, 12)
@@ -1246,7 +1246,7 @@ struct WrittenNoteToolbar: View {
           canvas.tool = tool.toolInstance(color: toolState.penColor, width: width)
         }
       case .marker:
-        let width = toolState.markerWidthPresets[safe: toolState.selectedMarkerPresetIndex] ?? 6.0
+        let width = max(4.0, toolState.markerWidthPresets[safe: toolState.selectedMarkerPresetIndex] ?? 6.0)
         canvas.tool = tool.toolInstance(color: toolState.markerColor, width: width)
       case .eraser:
         let requestedWidth =
@@ -1329,7 +1329,7 @@ struct WrittenNoteToolbar: View {
   private func highlighterDotDiameter(for width: CGFloat, maxRange: CGFloat) -> CGFloat {
     let minDiam: CGFloat = 8
     let maxDiam: CGFloat = 26
-    let clamped = max(0.5, min(width, maxRange))
+    let clamped = max(4.0, min(width, maxRange))
     // Use square root scaling for highlighter to better show size differences
     let fraction = sqrt(clamped / maxRange)
     return minDiam + fraction * (maxDiam - minDiam)
