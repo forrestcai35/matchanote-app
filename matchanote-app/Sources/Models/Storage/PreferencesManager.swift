@@ -106,6 +106,7 @@ class PreferencesManager: ObservableObject {
         static let noteEditorToolPhoto = "preferences.noteEditor.tools.photo"
         static let noteEditorToolTextbox = "preferences.noteEditor.tools.textbox"
         static let noteEditorToolShape = "preferences.noteEditor.tools.shape"
+        static let noteEditorToolRuler = "preferences.noteEditor.tools.ruler"
         static let noteEditorVerticalScrollMode = "preferences.noteEditor.verticalScrollMode"
         static let noteEditorPageBoundaryIndicatorMode = "preferences.noteEditor.pageBoundaryIndicatorMode"
         static let noteEditorDarkModeForWhitePaper = "preferences.noteEditor.darkModeForWhitePaper"
@@ -217,6 +218,12 @@ class PreferencesManager: ObservableObject {
         }
     }
     
+    @Published var noteEditorToolRuler: Bool {
+        didSet {
+            userDefaults.set(noteEditorToolRuler, forKey: DefaultsKeys.noteEditorToolRuler)
+        }
+    }
+    
     @Published var noteEditorVerticalScrollMode: Bool {
         didSet {
             userDefaults.set(noteEditorVerticalScrollMode, forKey: DefaultsKeys.noteEditorVerticalScrollMode)
@@ -265,7 +272,7 @@ class PreferencesManager: ObservableObject {
         if let savedToolsOrder = userDefaults.string(forKey: DefaultsKeys.noteEditorToolsOrder) {
             self.noteEditorToolsOrder = savedToolsOrder.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         } else {
-            self.noteEditorToolsOrder = ["pen", "marker", "eraser", "lasso", "photo", "textbox", "shape"]
+            self.noteEditorToolsOrder = ["pen", "marker", "eraser", "lasso", "photo", "textbox", "shape", "ruler"]
         }
         
         // Load tool visibility preferences or default to all enabled
@@ -276,6 +283,7 @@ class PreferencesManager: ObservableObject {
         self.noteEditorToolPhoto = userDefaults.object(forKey: DefaultsKeys.noteEditorToolPhoto) as? Bool ?? true
         self.noteEditorToolTextbox = userDefaults.object(forKey: DefaultsKeys.noteEditorToolTextbox) as? Bool ?? true
         self.noteEditorToolShape = userDefaults.object(forKey: DefaultsKeys.noteEditorToolShape) as? Bool ?? true
+        self.noteEditorToolRuler = userDefaults.object(forKey: DefaultsKeys.noteEditorToolRuler) as? Bool ?? true
         
         // Load vertical scroll mode preference or default to false (page mode)
         self.noteEditorVerticalScrollMode = userDefaults.object(forKey: DefaultsKeys.noteEditorVerticalScrollMode) as? Bool ?? false
@@ -443,6 +451,7 @@ class PreferencesManager: ObservableObject {
         case "photo": return noteEditorToolPhoto
         case "textbox": return noteEditorToolTextbox
         case "shape": return noteEditorToolShape
+        case "ruler": return noteEditorToolRuler
         default: return false
         }
     }
@@ -461,6 +470,7 @@ class PreferencesManager: ObservableObject {
         case "photo": noteEditorToolPhoto = enabled
         case "textbox": noteEditorToolTextbox = enabled
         case "shape": noteEditorToolShape = enabled
+        case "ruler": noteEditorToolRuler = enabled
         default: break
         }
     }

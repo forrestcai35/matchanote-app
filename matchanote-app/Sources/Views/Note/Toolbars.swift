@@ -10,6 +10,7 @@ enum PenTool {
   case photo
   case textbox
   case shape
+  case ruler
 
   func toolInstance(color: Color = .black, width: CGFloat = 1.0, eraserType: EraserType = .object)
     -> PKTool
@@ -37,6 +38,9 @@ enum PenTool {
     case .shape:
       // Shape tool works exactly like pen but with recognition enabled
       return PKInkingTool(.monoline, color: UIColor(color), width: width)
+    case .ruler:
+      // Ruler is not a PKTool; toggling handled via PKCanvasView.isRulerActive
+      return PKLassoTool()
     }
   }
 }
@@ -55,8 +59,8 @@ enum EraserType: CaseIterable {
   // Use SF Symbols for distinct eraser types
   var icon: String {
     switch self {
-    case .object: return "eraser.line.dashed"
-    case .area: return "eraser.fill"
+    case .object: return "stroke.line.diagonal.slash"
+    case .area: return "circle.fill"
     }
   }
 }
@@ -366,6 +370,14 @@ struct WrittenNoteToolbar: View {
   @State private var expandedEraserPresetIndex: Int? = nil
   @State private var showEraserTypeDropdown = false
   @State private var showMarkerModeDropdown = false
+  @State private var showPenSubtoolDropdown = false
+  // Pen subtool selection (Pen vs Pencil)
+  private enum PenSubtool { case pen, pencil }
+  @State private var selectedPenSubtool: PenSubtool = .pen
+  // Ruler active flag to refresh UI
+  @State private var isRulerActiveState: Bool = false
+  private let penSubtoolDefaultsKey = "tool.penSubtool.selected"
+  private let rulerActiveDefaultsKey = "tool.rulerActive"
 
   // Undo/Redo state
   @State private var canUndo: Bool = false
@@ -402,7 +414,7 @@ struct WrittenNoteToolbar: View {
         // Options panel for the current tool - fixed width to prevent movement
         if let activeTool = currentTool {
           toolOptionsPanel(for: activeTool)
-            .frame(width: 360) // Slightly wider to give palettes more room
+            .frame(width: 360, alignment: .leading) // Left-align contents within fixed width
             .clipped()
         }
       }
@@ -439,6 +451,18 @@ struct WrittenNoteToolbar: View {
       }
       // Sync auto stroke settings (includes shape tool enabling)
       syncAutoStrokeSettings()
+      // Apply persisted ruler state across canvases
+      if currentPage < canvasViews.count {
+        let persisted = UserDefaults.standard.object(forKey: rulerActiveDefaultsKey) as? Bool ?? false
+        let canvasesToUpdate = preferencesManager.noteEditorVerticalScrollMode ? canvasViews : [canvasViews[currentPage]]
+        for canvas in canvasesToUpdate {
+          canvas.isRulerActive = persisted
+        }
+        isRulerActiveState = persisted
+      }
+      // Load persisted pen/pencil subtool selection
+      loadPersistedPenSubtoolSelection()
+      if currentTool == .pen { updateCanvasTool() }
     }
     .onDisappear {
       stopUndoRedoTimer()
@@ -450,6 +474,13 @@ struct WrittenNoteToolbar: View {
       if currentPage < canvasViews.count {
         autoStrokeManager.attachToCanvas(canvasViews[currentPage])
       }
+      // Update ruler state to match current canvas
+      if currentPage < canvasViews.count {
+        isRulerActiveState = canvasViews[currentPage].isRulerActive
+      }
+    }
+    .onChange(of: selectedPenSubtool) { _, _ in
+      persistPenSubtoolSelection()
     }
     .onChange(of: currentTool) { _, _ in
       // Collapse dropdowns when switching tools and re-apply tool
@@ -586,6 +617,7 @@ struct WrittenNoteToolbar: View {
     case .pen:
       HStack(spacing: 12) {
         // Width presets with dropdown segmented control
+        // Width presets with dropdown segmented control
         HStack(spacing: 12) {
           ForEach(0..<toolState.penWidthPresets.count, id: \.self) { i in
                 Button {
@@ -653,7 +685,8 @@ struct WrittenNoteToolbar: View {
         Divider()
           .frame(height: 20)
         
-        // Colors (with delete and add) - Scrollable with max width
+        // Colors (with delete and add) - hidden when Pencil selected
+        if selectedPenSubtool == .pen {
           ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
               ForEach(Array(toolState.penPalette.enumerated()), id: \.offset) { index, color in
@@ -722,6 +755,7 @@ struct WrittenNoteToolbar: View {
               .frame(width: 6)
             }
           )
+        }
       }
 
     case .marker:
@@ -937,12 +971,11 @@ struct WrittenNoteToolbar: View {
             .font(.jost(.caption()))
             .foregroundColor(colorScheme == .dark ? .white : .gray)
         }
-        .frame(maxWidth: .infinity)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(Color.matchalight_dark.opacity(0.1))
         .cornerRadius(8)
-        .frame(width: 250) // Fixed width to prevent toolbar movement
+        // Left-aligned, background hugs content
       }
 
 
@@ -953,7 +986,7 @@ struct WrittenNoteToolbar: View {
           .font(.jost(.caption()))
           .foregroundColor(.gray)
       }
-      .frame(maxWidth: .infinity)
+      // Left-aligned, background hugs content
       .padding(.horizontal, 8)
       .padding(.vertical, 4)
       .background(Color.matchalight_dark.opacity(0.1))
@@ -999,7 +1032,7 @@ struct WrittenNoteToolbar: View {
           .cornerRadius(6)
         }
       }
-      .frame(maxWidth: .infinity)
+      // Left-aligned, background hugs content
       .padding(.horizontal, 8)
       .padding(.vertical, 4)
 
@@ -1161,6 +1194,19 @@ struct WrittenNoteToolbar: View {
             }
           )
       }
+
+    case .ruler:
+      // Minimal options panel to match other tools
+      HStack {
+        Text("Ruler active")
+          .font(.jost(.caption()))
+          .foregroundColor(.gray)
+      }
+      // Left-aligned, background hugs content
+      .padding(.horizontal, 8)
+      .padding(.vertical, 4)
+      .background(Color.matchalight_dark.opacity(0.1))
+      .cornerRadius(8)
     }
   }
 
@@ -1184,7 +1230,11 @@ struct WrittenNoteToolbar: View {
       switch tool {
       case .pen:
         let width = toolState.penWidthPresets[safe: toolState.selectedPenPresetIndex] ?? 3.0
-        canvas.tool = tool.toolInstance(color: toolState.penColor, width: width)
+        if selectedPenSubtool == .pencil {
+          canvas.tool = PKInkingTool(.pencil, color: UIColor(toolState.penColor), width: width)
+        } else {
+          canvas.tool = tool.toolInstance(color: toolState.penColor, width: width)
+        }
       case .marker:
         let width = toolState.markerWidthPresets[safe: toolState.selectedMarkerPresetIndex] ?? 6.0
         canvas.tool = tool.toolInstance(color: toolState.markerColor, width: width)
@@ -1205,8 +1255,22 @@ struct WrittenNoteToolbar: View {
       case .shape:
         let width = toolState.penWidthPresets[safe: toolState.selectedPenPresetIndex] ?? 3.0
         canvas.tool = tool.toolInstance(color: toolState.penColor, width: width)
+      case .ruler:
+        // Keep non-inking tool while ruler is active
+        canvas.tool = tool.toolInstance()
       }
     }
+  }
+
+  // MARK: - Pen subtool persistence
+  private func loadPersistedPenSubtoolSelection() {
+    let raw = UserDefaults.standard.string(forKey: penSubtoolDefaultsKey) ?? "pen"
+    selectedPenSubtool = (raw == "pencil") ? .pencil : .pen
+  }
+
+  private func persistPenSubtoolSelection() {
+    let raw = (selectedPenSubtool == .pencil) ? "pencil" : "pen"
+    UserDefaults.standard.set(raw, forKey: penSubtoolDefaultsKey)
   }
 
   private func deletePenColor(at index: Int) {
@@ -1357,8 +1421,9 @@ struct WrittenNoteToolbar: View {
   // Determine first enabled tool based on user preferences
   private func firstEnabledTool() -> PenTool? {
     let orderedTools: [PenTool] = preferencesManager.noteEditorToolsOrder.compactMap { id in toolFromId(id) }
-    for tool in (orderedTools.isEmpty ? [.pen, .marker, .eraser, .lasso, .photo, .textbox, .shape] : orderedTools) {
-      if isToolEnabled(tool) {
+    for tool in (orderedTools.isEmpty ? [.pen, .marker, .eraser, .lasso, .photo, .textbox, .shape, .ruler] : orderedTools) {
+      // Skip ruler for default drawing tool selection
+      if tool != .ruler && isToolEnabled(tool) {
         return tool
       }
     }
@@ -1375,6 +1440,7 @@ struct WrittenNoteToolbar: View {
     case .photo: return preferencesManager.noteEditorToolPhoto
     case .textbox: return preferencesManager.noteEditorToolTextbox
     case .shape: return preferencesManager.noteEditorToolShape
+    case .ruler: return preferencesManager.noteEditorToolRuler
     }
   }
 
@@ -1391,6 +1457,7 @@ struct WrittenNoteToolbar: View {
     case "photo": return .photo
     case "textbox": return .textbox
     case "shape": return .shape
+    case "ruler": return .ruler
     default: return nil
     }
   }
@@ -1399,7 +1466,54 @@ struct WrittenNoteToolbar: View {
   private func renderToolButton(_ id: String) -> some View {
     switch id {
     case "pen":
-      Button(action: { selectTool(.pen) }) { renderPenIcon(isActive: currentTool == .pen) }
+      Button(action: {
+        if currentTool == .pen {
+          showPenSubtoolDropdown.toggle()
+        } else {
+          selectTool(.pen)
+        }
+      }) { renderPenIcon(isActive: currentTool == .pen) }
+      .popover(isPresented: $showPenSubtoolDropdown) {
+        VStack(spacing: 8) {
+          Button(action: {
+            selectedPenSubtool = .pen
+            showPenSubtoolDropdown = false
+            updateCanvasTool()
+          }) {
+            HStack {
+              renderPenSubIcon(isActive: selectedPenSubtool == .pen)
+                .frame(width: 20, height: 20)
+              Text("Pen")
+                .foregroundColor(colorScheme == .dark ? .white : .black)
+              Spacer()
+              if selectedPenSubtool == .pen { Image(systemName: "checkmark") }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+          }
+          .buttonStyle(PlainButtonStyle())
+
+          Button(action: {
+            selectedPenSubtool = .pencil
+            showPenSubtoolDropdown = false
+            updateCanvasTool()
+          }) {
+            HStack {
+              renderPencilSubIcon(isActive: selectedPenSubtool == .pencil)
+                .frame(width: 20, height: 20)
+              Text("Pencil")
+                .foregroundColor(colorScheme == .dark ? .white : .black)
+              Spacer()
+              if selectedPenSubtool == .pencil { Image(systemName: "checkmark") }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+          }
+          .buttonStyle(PlainButtonStyle())
+        }
+        .padding(8)
+        .frame(width: 160)
+      }
     case "marker":
       Button(action: {
         if currentTool == .marker {
@@ -1488,6 +1602,8 @@ struct WrittenNoteToolbar: View {
       Button(action: { selectTool(.textbox) }) { renderTextboxIcon(isActive: currentTool == .textbox) }
     case "shape":
       Button(action: { selectTool(.shape) }) { renderShapeIcon(isActive: currentTool == .shape) }
+    case "ruler":
+      Button(action: { toggleRuler() }) { renderRulerIcon(isActive: isRulerActiveState) }
     default:
       EmptyView()
     }
@@ -1507,30 +1623,51 @@ struct WrittenNoteToolbar: View {
 
   // MARK: - Icon Renderers
   @ViewBuilder private func renderPenIcon(isActive: Bool) -> some View {
+    let usePencil = (selectedPenSubtool == .pencil)
     if isActive {
       ZStack {
-        if let fillImage = UIImage(named: "pen_fill") {
-          Image(uiImage: fillImage)
+        if usePencil {
+          if let fillImage = UIImage(named: "pencil_fill") {
+            Image(uiImage: fillImage)
+              .renderingMode(.original)
+              .resizable()
+              .scaledToFit()
+              .frame(width: 26, height: 26)
+          }
+        
+        } else {
+          if let fillImage = UIImage(named: "pen_fill") {
+            Image(uiImage: fillImage)
+              .renderingMode(.template)
+              .resizable()
+              .scaledToFit()
+              .frame(width: 26, height: 26)
+              .foregroundColor(toolState.penColor)
+          }
+          Image("pen_outline")
             .renderingMode(.template)
             .resizable()
             .scaledToFit()
             .frame(width: 26, height: 26)
-            .foregroundColor(toolState.penColor)
+            .foregroundColor(colorScheme == .dark ? .white : .black)
         }
+      }
+    } else {
+      if usePencil {
+        Image("pencil_outline")
+          .renderingMode(.template)
+          .resizable()
+          .scaledToFit()
+          .frame(width: 26, height: 26)
+          .foregroundColor(colorScheme == .dark ? .gray : .black)
+      } else {
         Image("pen_outline")
           .renderingMode(.template)
           .resizable()
           .scaledToFit()
           .frame(width: 26, height: 26)
-          .foregroundColor(colorScheme == .dark ? .white : .black)
+          .foregroundColor(colorScheme == .dark ? .gray : .black)
       }
-    } else {
-      Image("pen_outline")
-        .renderingMode(.template)
-        .resizable()
-        .scaledToFit()
-        .frame(width: 26, height: 26)
-        .foregroundColor(colorScheme == .dark ? .gray : .black)
     }
   }
 
@@ -1564,6 +1701,25 @@ struct WrittenNoteToolbar: View {
         .frame(width: 26, height: 26)
         .foregroundColor(colorScheme == .dark ? .gray : .black)
     }
+  }
+
+  // Suboption icons (dropdown): always outline for Pen/Pencil
+  @ViewBuilder private func renderPenSubIcon(isActive: Bool) -> some View {
+    Image("pen_outline")
+      .renderingMode(.template)
+      .resizable()
+      .scaledToFit()
+      .frame(width: 26, height: 26)
+      .foregroundColor(colorScheme == .dark ? .white : .black)
+  }
+
+  @ViewBuilder private func renderPencilSubIcon(isActive: Bool) -> some View {
+    Image("pencil_outline")
+      .renderingMode(.template)
+      .resizable()
+      .scaledToFit()
+      .frame(width: 26, height: 26)
+      .foregroundColor(colorScheme == .dark ? .white : .black)
   }
 
   @ViewBuilder private func renderEraserIcon(isActive: Bool) -> some View {
@@ -1649,6 +1805,40 @@ struct WrittenNoteToolbar: View {
         .frame(width: 26, height: 26)
         .foregroundColor(colorScheme == .dark ? .gray : .black)
     }
+  }
+
+  // Ruler icon renderer
+  @ViewBuilder private func renderRulerIcon(isActive: Bool) -> some View {
+    if isActive {
+      Image("ruler_fill")
+        .renderingMode(.original)
+        .resizable()
+        .scaledToFit()
+        .frame(width: 26, height: 26)
+    } else {
+      Image("ruler_outline")
+        .renderingMode(.template)
+        .resizable()
+        .scaledToFit()
+        .frame(width: 26, height: 26)
+        .foregroundColor(colorScheme == .dark ? .gray : .black)
+    }
+  }
+
+  private var isRulerActive: Bool {
+    guard currentPage < canvasViews.count else { return false }
+    return canvasViews[currentPage].isRulerActive
+  }
+
+  private func toggleRuler() {
+    guard currentPage < canvasViews.count else { return }
+    let newState = !isRulerActive
+    let canvasesToUpdate = preferencesManager.noteEditorVerticalScrollMode ? canvasViews : [canvasViews[currentPage]]
+    for canvas in canvasesToUpdate {
+      canvas.isRulerActive = newState
+    }
+    isRulerActiveState = newState
+    UserDefaults.standard.set(newState, forKey: rulerActiveDefaultsKey)
   }
 }
 

@@ -139,6 +139,7 @@ struct NoteEditorToolsSettingsView: View {
         case "photo": return "Photo"
         case "textbox": return "Textbox"
         case "shape": return "Shape"
+        case "ruler": return "Ruler"
         default: return toolId.capitalized
         }
     }
@@ -152,9 +153,9 @@ struct NoteEditorToolsSettingsView: View {
         case "photo": return "photo_outline"
         case "textbox": return "textbox_outline"
         case "shape": return "shapes_outline"
+        case "ruler": return "ruler_outline"
         default: return "pen_outline"
         }
     }
 }
-
 
