@@ -153,8 +153,9 @@ struct PageOverviewView: View {
   
   private var totalPages: Int {
     let maxDrawingPage = note.drawingDataByPage.keys.compactMap { Int($0) }.max() ?? -1
-    let canvasPageCount = canvasViews.count
-    return max(1, max(maxDrawingPage + 1, canvasPageCount))
+    let maxImagePage = note.imageDataByPage.keys.compactMap { Int($0) }.max() ?? -1
+    let maxTextBoxPage = note.textBoxDataByPage.keys.compactMap { Int($0) }.max() ?? -1
+    return max(1, max(maxDrawingPage, max(maxImagePage, maxTextBoxPage)) + 1)
   }
   
   private func navigateToPage(_ pageIndex: Int) {
@@ -226,13 +227,24 @@ struct PageOverviewView: View {
     
     // Adjust remaining page indices
     var adjustedNote = adjustPageIndicesAfterDeletion(updatedNote, deletedPages: selectedPagesArray)
-    
+
+    // Adjust currentPage if necessary
+    if selectedPages.contains(currentPage) {
+      // Current page was deleted, move to the nearest remaining page
+      currentPage = 0
+    } else {
+      // Current page wasn't deleted, adjust its index based on how many pages before it were deleted
+      let deletedBefore = selectedPagesArray.filter { $0 < currentPage }.count
+      currentPage = max(0, currentPage - deletedBefore)
+    }
+
     // Set modified date on the adjusted note
     adjustedNote.dateModified = Date()
     let savedNote = storageManager.saveNote(adjustedNote)
     tabManager.updateNote(savedNote)
 
-    // Canvas views will be automatically reloaded by WrittenNoteView's onChange(of: note.dateModified) handler
+    // Close the overview to show the updated note
+    isPresented = false
   }
   
   
@@ -242,9 +254,15 @@ struct PageOverviewView: View {
     var newImageData: [String: [Data]] = [:]
     var newTextBoxData: [String: [Data]] = [:]
     var newBookmarkedPages: Set<Int> = []
-    
+
+    // Calculate total pages from the Note data being adjusted (before deletion was applied)
+    let maxDrawingPage = note.drawingDataByPage.keys.compactMap { Int($0) }.max() ?? -1
+    let maxImagePage = note.imageDataByPage.keys.compactMap { Int($0) }.max() ?? -1
+    let maxTextBoxPage = note.textBoxDataByPage.keys.compactMap { Int($0) }.max() ?? -1
+    let maxPage = max(maxDrawingPage, max(maxImagePage, maxTextBoxPage))
+
     // Get all remaining pages (not deleted)
-    let allPages = Set(0..<totalPages)
+    let allPages = Set(0...max(0, maxPage))
     let remainingPages = allPages.subtracting(Set(deletedPages)).sorted()
     
     // Reindex remaining pages
