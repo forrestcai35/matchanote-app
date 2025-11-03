@@ -401,11 +401,9 @@ struct PageThumbnailView: View {
       .task {
         // Check content immediately on appear (fast check)
         hasContentCache = PreviewGenerator.hasContent(note: note, pageIndex: pageIndex)
-        
-        // Generate preview asynchronously if there's content
-        if hasContentCache == true {
-          await generatePreview()
-        }
+
+        // Always generate preview to show paper pattern even on blank pages
+        await generatePreview()
       }
       
       // Page number and bookmark button
