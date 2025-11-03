@@ -334,23 +334,19 @@ struct NoteView: View {
         removeAppLifecycleObservers()
       }
       .onChange(of: tabManager.getActiveTab()?.note.id) { _, newNoteId in
-        // When switching tabs, restore the current page for the new note
+        // When switching tabs, restore the current page from the active tab
         if let activeTab = tabManager.getActiveTab() {
-          let savedPage = activeTab.note.currentPage
-          let pageCount = max(1, activeTab.note.drawingDataByPage.keys.compactMap { Int($0) }.max().map { $0 + 1 } ?? 1)
-          // Ensure the saved page is within valid bounds
-          currentPage = min(max(0, savedPage), pageCount - 1)
+          currentPage = activeTab.currentPage
         }
       }
       .onChange(of: currentPage) { oldPage, newPage in
-        // Save immediately when page changes so it persists even if app is force-closed
+        // Sync page changes back to tab manager and storage
         guard let activeTab = tabManager.getActiveTab() else { return }
 
-        // Skip save if currentPage in storage already matches (prevents conflicting saves during page add/delete)
-        if activeTab.note.currentPage == newPage {
-          return
-        }
+        // Update tab manager
+        tabManager.updateCurrentPage(tabId: activeTab.id, page: newPage)
 
+        // Save to storage
         var updatedNote = activeTab.note
         updatedNote.currentPage = newPage
         updatedNote.dateModified = Date()

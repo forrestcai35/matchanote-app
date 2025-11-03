@@ -5,6 +5,7 @@ struct NoteTab: Identifiable {
   var id = UUID()
   var note: Note
   var isActive: Bool = false
+  var currentPage: Int = 0
 }
 
 // Tab manager to handle shared tab state across the app using a singleton pattern
@@ -22,11 +23,33 @@ class TabManager: ObservableObject {
   // Debounce timer for saving operations
   private var saveTimer: Timer?
 
+  // Helper method to get valid page count for a note
+  private func getPageCount(for note: Note) -> Int {
+    return max(1, note.drawingDataByPage.keys.compactMap { Int($0) }.max().map { $0 + 1 } ?? 1)
+  }
+
+  // Helper method to validate and get valid page index for a note
+  private func getValidPageIndex(for note: Note, requestedPage: Int) -> Int {
+    let pageCount = getPageCount(for: note)
+    return min(max(0, requestedPage), pageCount - 1)
+  }
+
+  // Update the current page for a specific tab
+  func updateCurrentPage(tabId: UUID, page: Int) {
+    if let index = tabs.firstIndex(where: { $0.id == tabId }) {
+      let validPage = getValidPageIndex(for: tabs[index].note, requestedPage: page)
+      tabs[index].currentPage = validPage
+    }
+  }
+
   func openTab(note: Note) {
     // Check if tab with this note already exists
     if let existingIndex = tabs.firstIndex(where: { $0.note.id == note.id }) {
       // Update the note data in the existing tab to ensure it's current
       tabs[existingIndex].note = note
+      // Validate and update current page in case note was modified
+      let validPage = getValidPageIndex(for: note, requestedPage: tabs[existingIndex].currentPage)
+      tabs[existingIndex].currentPage = validPage
       // Set this tab as active
       setActiveTab(at: existingIndex)
     } else {
@@ -35,8 +58,9 @@ class TabManager: ObservableObject {
         tabs[i].isActive = false
       }
 
-      // Add new tab as active
-      let newTab = NoteTab(note: note, isActive: true)
+      // Add new tab as active with validated current page from note
+      let validPage = getValidPageIndex(for: note, requestedPage: note.currentPage)
+      let newTab = NoteTab(note: note, isActive: true, currentPage: validPage)
       tabs.append(newTab)
     }
   }
@@ -84,6 +108,9 @@ class TabManager: ObservableObject {
       for i in 0..<self.tabs.count {
         if self.tabs[i].note.id == updatedNote.id {
           self.tabs[i].note = updatedNote
+          // Revalidate current page in case page count changed
+          let validPage = self.getValidPageIndex(for: updatedNote, requestedPage: self.tabs[i].currentPage)
+          self.tabs[i].currentPage = validPage
         }
       }
     }
