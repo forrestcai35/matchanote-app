@@ -6,6 +6,7 @@ import PencilKit
 // MARK: - Canvas Image View
 struct CanvasImageView: View {
     @ObservedObject var imageManager: CanvasImageManager
+    @ObservedObject var textBoxManager: TextBoxManager
     let image: CanvasImage
     let pageIndex: Int
     let canvasSize: CGSize
@@ -44,6 +45,7 @@ struct CanvasImageView: View {
                             if isSelected {
                                 imageManager.deselectImage()
                             } else {
+                                textBoxManager.deselectAllTextBoxes()
                                 imageManager.selectImage(withId: image.id)
                             }
                         }
@@ -129,7 +131,17 @@ struct CanvasImageView: View {
                 onEnd: {
                     if currentSize.width > 0 && currentSize.height > 0 {
                         var updatedImage = image
+                        // Calculate the center point before resize
+                        let centerX = image.position.x + image.size.width / 2
+                        let centerY = image.position.y + image.size.height / 2
+
+                        // Update size
                         updatedImage.resize(to: currentSize)
+
+                        // Adjust position to keep center point stable
+                        updatedImage.position.x = centerX - currentSize.width / 2
+                        updatedImage.position.y = centerY - currentSize.height / 2
+
                         // PERFORMANCE: Use non-dragging update for resize completion
                         imageManager.updateImage(updatedImage, isDragging: false)
                     }
@@ -206,6 +218,7 @@ struct ProportionalResizeHandle: View {
 // MARK: - Canvas Image Overlay Container
 struct CanvasImageOverlay: View {
     @ObservedObject var imageManager: CanvasImageManager
+    @ObservedObject var textBoxManager: TextBoxManager
     let pageIndex: Int
     let canvasSize: CGSize
     var isPhotoToolActive: Bool = false
@@ -230,6 +243,7 @@ struct CanvasImageOverlay: View {
             ForEach(imageManager.getImagesForPage(pageIndex), id: \.id) { image in
                 CanvasImageView(
                     imageManager: imageManager,
+                    textBoxManager: textBoxManager,
                     image: image,
                     pageIndex: pageIndex,
                     canvasSize: canvasSize

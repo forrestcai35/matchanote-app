@@ -188,6 +188,9 @@ struct WrittenNoteView: View {
         if newValue != .textbox {
             textBoxManager.deselectAllTextBoxes()
         }
+        if newValue != .photo {
+            imageManager.deselectImage()
+        }
     }
 
     private func handleIsEditedChange(oldValue: Bool, newValue: Bool) {
@@ -435,6 +438,7 @@ struct WrittenNoteView: View {
                             if currentTool != .textbox && currentTool != .photo {
                                 CanvasImageOverlay(
                                     imageManager: imageManager,
+                                    textBoxManager: textBoxManager,
                                     pageIndex: pageIndex,
                                     canvasSize: contentSize,
                                     isPhotoToolActive: false,
@@ -443,6 +447,7 @@ struct WrittenNoteView: View {
 
                                 TextBoxOverlay(
                                     textBoxManager: textBoxManager,
+                                    imageManager: imageManager,
                                     pageIndex: pageIndex,
                                     canvasSize: contentSize,
                                     isTextBoxToolActive: false
@@ -461,6 +466,7 @@ struct WrittenNoteView: View {
                             ZStack(alignment: .topLeading) {
                                 CanvasImageOverlay(
                                     imageManager: imageManager,
+                                    textBoxManager: textBoxManager,
                                     pageIndex: pageIndex,
                                     canvasSize: contentSize,
                                     isPhotoToolActive: currentTool == .photo,
@@ -469,6 +475,7 @@ struct WrittenNoteView: View {
 
                                 TextBoxOverlay(
                                     textBoxManager: textBoxManager,
+                                    imageManager: imageManager,
                                     pageIndex: pageIndex,
                                     canvasSize: contentSize,
                                     isTextBoxToolActive: currentTool == .textbox
@@ -919,14 +926,16 @@ struct WrittenNoteView: View {
                             if currentTool != .textbox && currentTool != .photo {
                                 CanvasImageOverlay(
                                     imageManager: imageManager,
+                                    textBoxManager: textBoxManager,
                                     pageIndex: pageIndex,
                                     canvasSize: contentSize,
                                     isPhotoToolActive: false,
                                     isTextBoxToolActive: false
                                 )
-                                
+
                                 TextBoxOverlay(
                                     textBoxManager: textBoxManager,
+                                    imageManager: imageManager,
                                     pageIndex: pageIndex,
                                     canvasSize: contentSize,
                                     isTextBoxToolActive: false
@@ -945,6 +954,7 @@ struct WrittenNoteView: View {
                             ZStack(alignment: .topLeading) {
                                 CanvasImageOverlay(
                                     imageManager: imageManager,
+                                    textBoxManager: textBoxManager,
                                     pageIndex: pageIndex,
                                     canvasSize: contentSize,
                                     isPhotoToolActive: currentTool == .photo,
@@ -953,6 +963,7 @@ struct WrittenNoteView: View {
 
                                 TextBoxOverlay(
                                     textBoxManager: textBoxManager,
+                                    imageManager: imageManager,
                                     pageIndex: pageIndex,
                                     canvasSize: contentSize,
                                     isTextBoxToolActive: currentTool == .textbox

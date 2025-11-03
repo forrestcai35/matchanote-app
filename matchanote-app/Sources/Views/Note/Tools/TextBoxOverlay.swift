@@ -44,6 +44,7 @@ struct TextBoxUtilities {
 
 struct TextBoxOverlay: View {
     @ObservedObject var textBoxManager: TextBoxManager
+    @ObservedObject var imageManager: CanvasImageManager
     let pageIndex: Int
     let canvasSize: CGSize
     var isTextBoxToolActive: Bool = false
@@ -75,6 +76,7 @@ struct TextBoxOverlay: View {
                 TextBoxView(
                     textBox: textBox,
                     textBoxManager: textBoxManager,
+                    imageManager: imageManager,
                     pageIndex: pageIndex,
                     canvasSize: canvasSize
                 )
@@ -90,6 +92,7 @@ struct TextBoxOverlay: View {
 struct TextBoxView: View {
     let textBox: TextBox
     @ObservedObject var textBoxManager: TextBoxManager
+    @ObservedObject var imageManager: CanvasImageManager
     let pageIndex: Int
     let canvasSize: CGSize
 
@@ -205,6 +208,7 @@ struct TextBoxView: View {
             print("👆 TAP on textbox \(textBox.id), isSelected: \(isSelected), isEditing: \(isEditing)")
             if !isSelected {
                 print("  → Selecting textbox")
+                imageManager.deselectImage()
                 textBoxManager.selectTextBox(withId: textBox.id)
             } else if !isEditing {
                 print("  → Starting edit mode")
