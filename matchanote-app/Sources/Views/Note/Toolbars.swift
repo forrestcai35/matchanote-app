@@ -391,46 +391,48 @@ struct WrittenNoteToolbar: View {
   private let eraserBitmapMaxWidth: CGFloat = 120.0
 
   var body: some View {
-    HStack {
-      // Left side buttons (swap based on left-hand mode)
-      if preferencesManager.noteEditorLeftHandMode {
-        rightSideButtons
-      } else {
-        leftSideButtons
-      }
-
-      // Flexible spacer to center the main toolbar content
-      Spacer()
-
-      // Centered toolbar content - two equal-width sections
+    GeometryReader { geometry in
       HStack(spacing: 12) {
-        // Tool buttons (icons only) - ordered by settings
-        toolButtonsView
-        Divider()
-          .frame(height: 24)
+        // Left side buttons (swap based on left-hand mode)
+        if preferencesManager.noteEditorLeftHandMode {
+          rightSideButtons
+        } else {
+          leftSideButtons
+        }
 
-        // Shape recognition toggle removed
+        // Centered scrollable content
+        ScrollView(.horizontal, showsIndicators: false) {
+          HStack(spacing: 12) {
+            // Tool buttons (icons only) - ordered by settings
+            toolButtonsView
 
-        // Options panel for the current tool - fixed width to prevent movement
-        if let activeTool = currentTool {
-          toolOptionsPanel(for: activeTool)
-            .frame(width: 360, alignment: .leading) // Left-align contents within fixed width
-            .clipped()
+            if currentTool != nil {
+              Divider()
+                .frame(height: 24)
+            }
+
+            // Options panel for the current tool - fixed width to prevent movement
+            if let activeTool = currentTool {
+              toolOptionsPanel(for: activeTool)
+                .frame(width: 360, alignment: .leading)
+                .clipped()
+            }
+          }
+          .frame(minWidth: geometry.size.width - 200) // Center when space available
+        }
+        .frame(maxWidth: .infinity)
+
+        // Right side buttons (swap based on left-hand mode)
+        if preferencesManager.noteEditorLeftHandMode {
+          leftSideButtons
+        } else {
+          rightSideButtons
         }
       }
-
-      // Flexible spacer to balance the left side
-      Spacer()
-
-      // Right side buttons (swap based on left-hand mode)
-      if preferencesManager.noteEditorLeftHandMode {
-        leftSideButtons
-      } else {
-        rightSideButtons
-      }
+      .padding(.horizontal, 12)
+      .padding(.vertical, 8)
+      .frame(width: geometry.size.width, height: 40)
     }
-    .padding(.horizontal, 12)  // Reduced from 20 to prevent overflow
-    .padding(.vertical, 8)
     .frame(height: 40)
     .buttonStyle(PlainButtonStyle())
     .background(colorScheme == .dark ? Color.toolbar_background_dark : Color.toolbar_background_light)
@@ -1218,7 +1220,11 @@ struct WrittenNoteToolbar: View {
   }
 
   private func selectTool(_ tool: PenTool) {
-    currentTool = tool
+    var transaction = Transaction()
+    transaction.disablesAnimations = true
+    withTransaction(transaction) {
+      currentTool = tool
+    }
     updateCanvasTool()
   }
 
@@ -1626,6 +1632,7 @@ struct WrittenNoteToolbar: View {
       ForEach(preferencesManager.noteEditorToolsOrder, id: \.self) { id in
         if isToolEnabled(id) {
           renderToolButton(id)
+            .id("\(id.rawValue)_button") // Stable ID to prevent re-renders
         }
       }
     }

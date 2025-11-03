@@ -39,36 +39,64 @@ struct TabBarView: View {
   @State private var showDeleteNoteAlert: Bool = false
   @State private var pendingDeleteNoteId: UUID?
   @State private var showDeletePageAlert: Bool = false
+  @State private var showSingleTabRenamePopover: Bool = false
+  @State private var singleTabNewTitle: String = ""
 
   var body: some View {
-    HStack(spacing: 8) {
-      // Static Home Button (outside ScrollView)
-      Button(action: {
-        dismiss()
-      }) {
-        Image(systemName: "house")
-          .foregroundColor(
-            colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
-          )
-          .font(.system(size: 18))
-          .frame(width: 32, height: 32)
-          .contentShape(Rectangle())
-      }
-      .buttonStyle(PlainButtonStyle())
-
-      // Scrollable Tabs Section
-      ScrollView(.horizontal, showsIndicators: false) {
-        HStack(spacing: 2) {
-          // Existing tabs
-          ForEach(tabManager.tabs) { tab in
-            TabItemView(tab: tab, onTabSwitch: onTabSwitch)
+    GeometryReader { geometry in
+      ZStack {
+        // Base HStack with buttons
+        HStack(spacing: 8) {
+          // Static Home Button
+          Button(action: {
+            dismiss()
+          }) {
+            Image(systemName: "house")
+              .foregroundColor(
+                colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+              )
+              .font(.system(size: 18))
+              .frame(width: 32, height: 32)
+              .contentShape(Rectangle())
           }
-        }
-        .padding(.horizontal, 4)
-      }
+          .buttonStyle(PlainButtonStyle())
 
-      // Static Action Buttons (outside ScrollView)
-      HStack(spacing: 4) {
+          // Center Section - Show title when single tab, tabs when multiple
+          if tabManager.tabs.count == 1 {
+            // Empty spacer when single tab (title overlaid in ZStack)
+            Spacer()
+          } else {
+          // Multiple tabs: show scrollable tabs
+          GeometryReader { scrollGeometry in
+            ScrollViewReader { proxy in
+              ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 2) {
+                  // Existing tabs
+                  ForEach(tabManager.tabs) { tab in
+                    TabItemView(tab: tab, onTabSwitch: onTabSwitch)
+                      .id(tab.id)
+                      .onAppear {
+                        // When a new tab appears and it's active, scroll to show it
+                        if tab.isActive {
+                          DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            withAnimation {
+                              proxy.scrollTo(tab.id, anchor: .trailing)
+                            }
+                          }
+                        }
+                      }
+                  }
+                }
+                .frame(minWidth: scrollGeometry.size.width - 8) // Account for horizontal padding
+                .padding(.horizontal, 4)
+              }
+            }
+          }
+          .frame(maxWidth: .infinity)
+        }
+
+        // Static Action Buttons
+        HStack(spacing: 4) {
         // Add / Upload popover
         Button(action: { showAddPopover.toggle() }) {
           Image(systemName: "plus.circle")
@@ -281,11 +309,66 @@ struct TabBarView: View {
           .frame(minWidth: 240)
         }
       }
+      }
+      .padding(.top, 6)
+      .padding(.horizontal, 12)
+      .frame(width: geometry.size.width, height: 40)
+
+      // Overlay centered title for single tab (positioned absolutely in center)
+      if tabManager.tabs.count == 1, let singleTab = tabManager.tabs.first {
+        Button(action: {
+          singleTabNewTitle = singleTab.note.title
+          showSingleTabRenamePopover = true
+        }) {
+          HStack(spacing: 4) {
+            Text(singleTab.note.title)
+              .font(.jost(.body()))
+              .lineLimit(1)
+            Image(systemName: "chevron.down")
+              .font(.system(size: 10))
+              .foregroundColor(.gray)
+          }
+          .foregroundColor(
+            colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light
+          )
+          .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+        .popover(isPresented: $showSingleTabRenamePopover) {
+          VStack(spacing: 12) {
+            Text("Rename Note")
+              .font(.jost(.headline()))
+            ClearableTextField(placeholder: "Note name", text: $singleTabNewTitle)
+              .frame(width: 200)
+            HStack {
+              Button("Cancel") {
+                showSingleTabRenamePopover = false
+              }
+              .font(.jost(.body()))
+              .foregroundColor(.red)
+              Spacer()
+              Button("Save") {
+                var updatedNote = singleTab.note
+                updatedNote.title = singleTabNewTitle
+                updatedNote.dateModified = Date()
+                let savedNote = storageManager.saveNote(updatedNote)
+                TabManager.shared.updateNote(savedNote)
+                showSingleTabRenamePopover = false
+              }
+              .font(.jost(.body()))
+              .foregroundColor(.blue)
+            }
+          }
+          .padding(.horizontal, 12)
+          .padding(.vertical, 12)
+          .frame(minWidth: 240)
+        }
+        .frame(width: geometry.size.width, height: 40)
+        .allowsHitTesting(true)
+      }
+      }
     }
-    .padding(.top, 6)
-    .padding(.horizontal, 12)
     .frame(height: 40)
-    .frame(maxWidth: .infinity, alignment: .center)
     .background(
       colorScheme == .dark ? Color.tabbar_background_dark : Color.tabbar_background_light
     )

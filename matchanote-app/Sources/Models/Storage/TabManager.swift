@@ -16,7 +16,7 @@ class TabManager: ObservableObject {
   private init() {}
 
   @Published var tabs: [NoteTab] = []
-  
+
   // Callback to trigger when all tabs are closed
   var onAllTabsClosed: (() -> Void)?
   
