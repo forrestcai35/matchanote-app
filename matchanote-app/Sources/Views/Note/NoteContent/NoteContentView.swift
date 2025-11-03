@@ -755,8 +755,8 @@ struct WrittenNoteView: View {
             // Wrap content with zoom-enabled container
             VerticalScrollViewWithZoom(
                 zoomLevel: $verticalZoomLevel,
-                minZoom: 0.75,
-                maxZoom: 5.0,
+                minZoom: ZoomConstants.minZoom,
+                maxZoom: ZoomConstants.maxZoom,
                 unifiedFitScale: unifiedFitScale
             ) {
                 ScrollView(.vertical, showsIndicators: false) {
