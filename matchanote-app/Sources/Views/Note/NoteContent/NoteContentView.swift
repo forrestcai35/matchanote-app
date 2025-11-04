@@ -505,9 +505,7 @@ struct WrittenNoteView: View {
                 .zIndex(isActive ? 2 : (isTransitioning ? 1 : 0))
                 // Only the active page should receive gestures/drops
                 .allowsHitTesting(pageIndex == currentPage)
-                
-                // Prevent any bleed outside page bounds
-                .clipped()
+      
                 .onDrop(of: [.plainText], isTargeted: nil) { providers, location in
                     // Handle dropped text from AI assistant
                     guard let provider = providers.first else { return false }
