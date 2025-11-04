@@ -110,7 +110,11 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         
         // Disable native scrolling on non-active pages to avoid fighting with page transitions
         uiView.isScrollEnabled = isActivePage
-        
+
+        // Update zoom bounds when they change (e.g., orientation change updates fitScale)
+        uiView.minimumZoomScale = minScale
+        uiView.maximumZoomScale = maxScale
+
         // Synchronize zoom and offset when they change (e.g., when switching pages)
         if !context.coordinator.isUserInteracting {
             // Update zoom scale if it differs significantly from binding
