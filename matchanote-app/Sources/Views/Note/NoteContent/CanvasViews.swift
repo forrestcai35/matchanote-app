@@ -94,9 +94,7 @@ struct NativeScrollCanvasView: UIViewRepresentable {
 
         // HACK: Trigger a micro-zoom to force PKCanvasView to enforce contentSize bounds
         // This simulates what a pinch gesture does
-        DispatchQueue.main.async {
-            applyMicroZoomSync(to: canvasView)
-        }
+        applyMicroZoomSync(to: canvasView)
 
         return canvasView
     }
