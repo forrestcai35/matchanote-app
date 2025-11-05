@@ -14,7 +14,10 @@ extension WrittenNoteView {
         textBoxManager.deselectAllTextBoxes()
 
 
-
+   // Preserve current relative zoom level and scroll position during page addition
+        let currentZoom = relativeZoomLevel
+        let currentOffset = unifiedContentOffset
+        
         var insertIndex: Int
         switch position {
         case .before:
@@ -46,11 +49,7 @@ extension WrittenNoteView {
 
         // Navigate to the new page if it's before or after current
         if position == .before || position == .after {
-            // Reset zoom and offset when navigating to the new blank page
-            // This prevents the old page's zoom offset from bleeding into the new page's view
-            relativeZoomLevel = ZoomConstants.initialFitZoom
-            unifiedContentOffset = .zero
-
+       
             // Force UI update by using DispatchQueue.main.async
             DispatchQueue.main.async {
                 self.currentPage = insertIndex
@@ -59,6 +58,12 @@ extension WrittenNoteView {
 
         // Update active canvas after page change
         updateActiveCanvas()
+          // Restore relative zoom level and scroll position to prevent view jumping
+        DispatchQueue.main.async {
+            relativeZoomLevel = currentZoom
+            unifiedContentOffset = currentOffset
+        }
+
     }
 
 
