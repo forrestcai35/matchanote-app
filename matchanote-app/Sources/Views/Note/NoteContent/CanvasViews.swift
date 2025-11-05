@@ -17,7 +17,6 @@ struct Line: Shape {
 
 // MARK: - Native Scroll Canvas View
 
-// Native scroll canvas view with PKCanvasView's built-in scrolling
 struct NativeScrollCanvasView: UIViewRepresentable {
     let canvasView: PKCanvasView
     let contentSize: CGSize
