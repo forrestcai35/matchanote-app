@@ -548,6 +548,8 @@ struct WrittenNoteView: View {
                     clampRelativeZoomIfNeeded()
                     if oldSize != .zero && abs(oldSize.width - newSize.width) > 100 {
                         unifiedContentOffset = .zero
+                        // Recreate canvases with updated geometry after orientation change
+                        loadDrawingData()
                     }
                 }
                 .onChange(of: currentPage) { _, _ in
