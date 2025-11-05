@@ -133,15 +133,15 @@ class AutoStrokeRecognitionManager_v2: NSObject, ObservableObject {
     private func performAutoReplacement(originalStroke: PKStroke, detectedShape: String) {
         guard let canvas = canvasView else { return }
 
-        if let perfectStroke = createPerfectShape(detectedShape, from: originalStroke) {
+        if let perfectStrokes = createPerfectShape(detectedShape, from: originalStroke) {
             // Store the current drawing state for undo
             let currentDrawing = canvas.drawing
 
-            // Create new drawing with perfect shape
+            // Create new drawing with perfect shape(s)
             var strokes = Array(currentDrawing.strokes)
             if !strokes.isEmpty {
                 strokes.removeLast() // Remove original stroke
-                strokes.append(perfectStroke) // Add perfect stroke
+                strokes.append(contentsOf: perfectStrokes) // Add perfect stroke(s)
                 let newDrawing = PKDrawing(strokes: strokes)
 
                 // Register undo action before making the change
@@ -170,19 +170,24 @@ class AutoStrokeRecognitionManager_v2: NSObject, ObservableObject {
         return points
     }
 
-    private func createPerfectShape(_ shapeName: String, from stroke: PKStroke) -> PKStroke? {
+    private func createPerfectShape(_ shapeName: String, from stroke: PKStroke) -> [PKStroke]? {
         switch shapeName.lowercased() {
         case "circle":
-            return createPerfectCircle(from: stroke)
+            if let s = createPerfectCircle(from: stroke) { return [s] }
+        case "ellipse":
+            if let s = createPerfectEllipse(from: stroke) { return [s] }
         case "rectangle":
-            return createPerfectRectangle(from: stroke)
+            if let s = createPerfectRectangle(from: stroke) { return [s] }
         case "triangle":
-            return createPerfectTriangle(from: stroke)
+            if let s = createPerfectTriangle(from: stroke) { return [s] }
         case "line":
-            return createPerfectLine(from: stroke)
+            if let s = createPerfectLine(from: stroke) { return [s] }
+        case "angle":
+            return createPerfectAngledLines(from: stroke)
         default:
             return nil
         }
+        return nil
     }
 
     private func createPerfectCircle(from stroke: PKStroke) -> PKStroke? {
@@ -347,5 +352,137 @@ class AutoStrokeRecognitionManager_v2: NSObject, ObservableObject {
 
         let path = PKStrokePath(controlPoints: trianglePoints, creationDate: Date())
         return PKStroke(ink: stroke.ink, path: path)
+    }
+
+    private func createPerfectEllipse(from stroke: PKStroke) -> PKStroke? {
+        let points = convertStrokeToPoints(stroke)
+        guard !points.isEmpty else { return nil }
+
+        let minX = points.map(\.x).min()!
+        let maxX = points.map(\.x).max()!
+        let minY = points.map(\.y).min()!
+        let maxY = points.map(\.y).max()!
+
+        let center = CGPoint(x: (minX + maxX) / 2, y: (minY + maxY) / 2)
+        let radiusX = (maxX - minX) / 2
+        let radiusY = (maxY - minY) / 2
+
+        var ellipsePoints: [PKStrokePoint] = []
+        let pointCount = 32
+        let originalPoint = stroke.path[0]
+
+        for i in 0...pointCount {
+            let angle = Double(i) * 2.0 * .pi / Double(pointCount)
+            let x = center.x + radiusX * cos(angle)
+            let y = center.y + radiusY * sin(angle)
+
+            let point = PKStrokePoint(
+                location: CGPoint(x: x, y: y),
+                timeOffset: TimeInterval(i) * 0.01,
+                size: originalPoint.size,
+                opacity: originalPoint.opacity,
+                force: originalPoint.force,
+                azimuth: originalPoint.azimuth,
+                altitude: originalPoint.altitude
+            )
+            ellipsePoints.append(point)
+        }
+
+        let path = PKStrokePath(controlPoints: ellipsePoints, creationDate: Date())
+        return PKStroke(ink: stroke.ink, path: path)
+    }
+
+    private func createPerfectAngledLines(from stroke: PKStroke) -> [PKStroke]? {
+        let points = convertStrokeToPoints(stroke)
+        guard points.count >= 5 else { return nil }
+
+        // Find the corner point (where the angle changes most)
+        var maxAngleChange = 0.0
+        var cornerIndex = -1
+
+        let windowSize = max(3, points.count / 10)
+
+        for i in windowSize..<(points.count - windowSize) {
+            let prev = points[i - windowSize]
+            let curr = points[i]
+            let next = points[i + windowSize]
+
+            let v1 = CGPoint(x: curr.x - prev.x, y: curr.y - prev.y)
+            let v2 = CGPoint(x: next.x - curr.x, y: next.y - curr.y)
+
+            let angle = angleBetween(v1, v2)
+
+            if angle > maxAngleChange {
+                maxAngleChange = angle
+                cornerIndex = i
+            }
+        }
+
+        guard cornerIndex > 0 else { return nil }
+
+        // Get the three key points: start, corner, end
+        let startPoint = points.first!
+        let cornerPoint = points[cornerIndex]
+        let endPoint = points.last!
+
+        let originalPoint = stroke.path[0]
+        let pointsPerLine = 8
+
+        // Create FIRST LINE: start -> corner
+        var firstLinePoints: [PKStrokePoint] = []
+        for i in 0..<pointsPerLine {
+            let t = Double(i) / Double(pointsPerLine - 1)
+            let x = startPoint.x + CGFloat(t) * (cornerPoint.x - startPoint.x)
+            let y = startPoint.y + CGFloat(t) * (cornerPoint.y - startPoint.y)
+
+            let point = PKStrokePoint(
+                location: CGPoint(x: x, y: y),
+                timeOffset: TimeInterval(i) * 0.01,
+                size: originalPoint.size,
+                opacity: originalPoint.opacity,
+                force: originalPoint.force,
+                azimuth: originalPoint.azimuth,
+                altitude: originalPoint.altitude
+            )
+            firstLinePoints.append(point)
+        }
+
+        // Create SECOND LINE: corner -> end
+        var secondLinePoints: [PKStrokePoint] = []
+        for i in 0..<pointsPerLine {
+            let t = Double(i) / Double(pointsPerLine - 1)
+            let x = cornerPoint.x + CGFloat(t) * (endPoint.x - cornerPoint.x)
+            let y = cornerPoint.y + CGFloat(t) * (endPoint.y - cornerPoint.y)
+
+            let point = PKStrokePoint(
+                location: CGPoint(x: x, y: y),
+                timeOffset: TimeInterval(i) * 0.01,
+                size: originalPoint.size,
+                opacity: originalPoint.opacity,
+                force: originalPoint.force,
+                azimuth: originalPoint.azimuth,
+                altitude: originalPoint.altitude
+            )
+            secondLinePoints.append(point)
+        }
+
+        // Create two separate strokes - this ensures a SHARP corner!
+        let firstPath = PKStrokePath(controlPoints: firstLinePoints, creationDate: Date())
+        let firstStroke = PKStroke(ink: stroke.ink, path: firstPath)
+
+        let secondPath = PKStrokePath(controlPoints: secondLinePoints, creationDate: Date())
+        let secondStroke = PKStroke(ink: stroke.ink, path: secondPath)
+
+        return [firstStroke, secondStroke]
+    }
+
+    private func angleBetween(_ v1: CGPoint, _ v2: CGPoint) -> Double {
+        let d1 = sqrt(v1.x * v1.x + v1.y * v1.y)
+        let d2 = sqrt(v2.x * v2.x + v2.y * v2.y)
+        guard d1 > 0 && d2 > 0 else { return 0 }
+
+        let cosAngle = (v1.x * v2.x + v1.y * v2.y) / (d1 * d2)
+        let clampedCosAngle = max(-1.0, min(1.0, cosAngle))
+        return acos(clampedCosAngle)
     }
 }

@@ -43,6 +43,12 @@ class StrokeRecognizer {
             )
         }
 
+        // Pre-analyze shape characteristics
+        let circularity = calculateCircularity(points)
+        let aspectRatio = calculateAspectRatio(points)
+        let (hasSharpCorner, cornerAngle, isRightAngle) = detectSharpCorner(points)
+        let isClosed = isShapeClosed(points)
+
         let candidate = createTemplate(from: points)
 
         var bestIndex = -1
@@ -66,9 +72,93 @@ class StrokeRecognizer {
             )
         }
 
-        let confidence = max(0.0, 1.0 - bestDistance / halfDiagonal)
+        var shapeName = templates[bestIndex].name
+        var confidence = max(0.0, 1.0 - bestDistance / halfDiagonal)
+
+        // Debug logging
+        #if DEBUG
+        print("Recognition Debug:")
+        print("  Template match: \(shapeName) (confidence: \(String(format: "%.2f", confidence)))")
+        print("  Circularity: \(String(format: "%.2f", circularity))")
+        print("  Aspect ratio: \(String(format: "%.2f", aspectRatio))")
+        print("  Has corner: \(hasSharpCorner), angle: \(String(format: "%.1f", cornerAngle * 180 / .pi))°")
+        print("  Is right angle: \(isRightAngle)")
+        print("  Is closed: \(isClosed)")
+        #endif
+
+        // PRIORITY 1: Right angles (L-shapes, corners, etc.)
+        // These are VERY common in note-taking, so prioritize them heavily
+        if hasSharpCorner && !isClosed && circularity < 0.50 {
+            // Strong preference for right angles (80-100 degrees)
+            if isRightAngle {
+                shapeName = "angle"
+                confidence = 0.90 // Very high confidence for right angles
+                #if DEBUG
+                print("  -> Override to RIGHT ANGLE (90° corner detected!)")
+                #endif
+            } else if cornerAngle > (.pi / 4) { // Any angle > 45 degrees
+                shapeName = "angle"
+                confidence = max(0.75, confidence)
+                #if DEBUG
+                print("  -> Override to angled lines (corner angle: \(String(format: "%.1f", cornerAngle * 180 / .pi))°)")
+                #endif
+            }
+        }
+        // PRIORITY 2: Circle vs Ellipse distinction
+        else if shapeName == "circle" && confidence > 0.65 {
+            // Aspect ratio < 0.85 means one dimension is 15%+ smaller -> ellipse
+            if aspectRatio < 0.85 {
+                shapeName = "ellipse"
+                #if DEBUG
+                print("  -> Override circle to ellipse (elongated aspect: \(String(format: "%.2f", aspectRatio)))")
+                #endif
+            } else {
+                #if DEBUG
+                print("  -> Keep circle from template (round aspect: \(String(format: "%.2f", aspectRatio)))")
+                #endif
+            }
+        }
+        // PRIORITY 3: High confidence template matches
+        else if confidence > 0.75 {
+            #if DEBUG
+            print("  -> Keep \(shapeName) from template (high confidence)")
+            #endif
+        }
+        // PRIORITY 4: Lower confidence - use geometric hints
+        else {
+            // Very circular shapes -> circle/ellipse
+            if circularity > 0.65 && !hasSharpCorner {
+                if aspectRatio >= 0.85 {
+                    shapeName = "circle"
+                    confidence = max(circularity * 0.95, confidence)
+                    #if DEBUG
+                    print("  -> Override to circle (high circularity, round aspect)")
+                    #endif
+                } else {
+                    shapeName = "ellipse"
+                    confidence = max(circularity * 0.90, confidence)
+                    #if DEBUG
+                    print("  -> Override to ellipse (high circularity, elongated aspect: \(String(format: "%.2f", aspectRatio)))")
+                    #endif
+                }
+            }
+            // Open triangle -> line (unless it has good circularity)
+            else if shapeName == "triangle" && !isClosed && circularity < 0.60 {
+                shapeName = "line"
+                confidence = max(0.60, confidence * 0.9)
+                #if DEBUG
+                print("  -> Override open triangle to line")
+                #endif
+            }
+            else {
+                #if DEBUG
+                print("  -> Keep \(shapeName) from template")
+                #endif
+            }
+        }
+
         return RecognitionResult(
-            shapeName: templates[bestIndex].name,
+            shapeName: shapeName,
             confidence: confidence,
             processingTime: processingTime
         )
@@ -139,6 +229,9 @@ class StrokeRecognizer {
         // Line template (horizontal)
         let linePoints = createLineTemplate()
 
+        // Note: No separate ellipse templates!
+        // The $1 recognizer uses the circle template for both circles and ellipses,
+        // then distinguishes them based on aspect ratio
         templates = [
             createUnistrokeTemplate(name: "circle", points: circlePoints),
             createUnistrokeTemplate(name: "rectangle", points: rectanglePoints),
@@ -359,5 +452,127 @@ class StrokeRecognizer {
         }
 
         return distance / Double(points1.count)
+    }
+
+    // MARK: - Geometric Analysis Functions
+
+    private func calculateCircularity(_ points: [CGPoint]) -> Double {
+        guard points.count > 2 else { return 0.0 }
+
+        let center = centroid(points)
+        var totalRadius = 0.0
+        for point in points {
+            totalRadius += distanceBetween(center, point)
+        }
+        let avgRadius = totalRadius / Double(points.count)
+
+        guard avgRadius > 0 else { return 0.0 }
+
+        // Calculate variance in radius
+        var variance = 0.0
+        for point in points {
+            let radius = distanceBetween(center, point)
+            let diff = radius - avgRadius
+            variance += diff * diff
+        }
+        variance /= Double(points.count)
+
+        let stdDev = sqrt(variance)
+        let normalizedStdDev = stdDev / avgRadius
+
+        // Lenient threshold for hand-drawn circles
+        let circularity = max(0.0, 1.0 - normalizedStdDev * 2.0)
+
+        return circularity
+    }
+
+    private func calculateAspectRatio(_ points: [CGPoint]) -> Double {
+        guard !points.isEmpty else { return 1.0 }
+
+        let bbox = boundingBox(points)
+        guard bbox.width > 0 && bbox.height > 0 else { return 1.0 }
+
+        let width = Double(bbox.width)
+        let height = Double(bbox.height)
+
+        // Return ratio as min/max to always be <= 1.0
+        return min(width, height) / max(width, height)
+    }
+
+    private func detectSharpCorner(_ points: [CGPoint]) -> (hasCorner: Bool, angle: Double, isRightAngle: Bool) {
+        guard points.count >= 5 else { return (false, 0.0, false) }
+
+        let windowSize = max(3, points.count / 10)
+
+        var maxAngleChange = 0.0
+        var maxAngleIdx = -1
+
+        // Check every point as a potential corner (checking wider range for better detection)
+        let startIdx = max(windowSize, points.count / 6)
+        let endIdx = min(points.count - windowSize, 5 * points.count / 6)
+
+        for i in startIdx..<endIdx {
+            let prevIdx = i - windowSize
+            let nextIdx = i + windowSize
+
+            let prev = points[prevIdx]
+            let curr = points[i]
+            let next = points[nextIdx]
+
+            let v1 = CGVector(dx: curr.x - prev.x, dy: curr.y - prev.y)
+            let v2 = CGVector(dx: next.x - curr.x, dy: next.y - curr.y)
+
+            let angle = angleBetweenVectors(v1, v2)
+
+            if angle > maxAngleChange {
+                maxAngleChange = angle
+                maxAngleIdx = i
+            }
+        }
+
+        // More lenient corner detection (> 35 degrees)
+        let hasSignificantCorner = maxAngleChange > (.pi / 5.15) // ~35 degrees
+
+        // WIDER range for right angle detection (70-110 degrees) to make it easier
+        let isRightAngle = maxAngleChange >= (.pi / 2.57) && maxAngleChange <= (.pi / 1.64) // 70° to 110°
+
+        #if DEBUG
+        if hasSignificantCorner {
+            print("  Corner detection: maxAngle=\(String(format: "%.1f", maxAngleChange * 180 / .pi))° at index \(maxAngleIdx)")
+            if isRightAngle {
+                print("  -> This is a RIGHT ANGLE!")
+            }
+        }
+        #endif
+
+        return (hasSignificantCorner, maxAngleChange, isRightAngle)
+    }
+
+    private func isShapeClosed(_ points: [CGPoint]) -> Bool {
+        guard points.count >= 3 else { return false }
+
+        let startPoint = points.first!
+        let endPoint = points.last!
+
+        let distance = distanceBetween(startPoint, endPoint)
+
+        let bbox = boundingBox(points)
+        let diagonal = sqrt(Double(bbox.width * bbox.width + bbox.height * bbox.height))
+
+        guard diagonal > 0 else { return false }
+
+        // Shape is closed if endpoints are very close relative to shape size
+        let closureRatio = distance / diagonal
+        return closureRatio < 0.20 // Within 20% of diagonal
+    }
+
+    private func angleBetweenVectors(_ v1: CGVector, _ v2: CGVector) -> Double {
+        let d1 = sqrt(Double(v1.dx * v1.dx + v1.dy * v1.dy))
+        let d2 = sqrt(Double(v2.dx * v2.dx + v2.dy * v2.dy))
+        guard d1 > 0 && d2 > 0 else { return 0 }
+
+        var cosAngle = (Double(v1.dx) * Double(v2.dx) + Double(v1.dy) * Double(v2.dy)) / (d1 * d2)
+        cosAngle = max(-1.0, min(1.0, cosAngle)) // Clamp to valid range
+        return acos(cosAngle)
     }
 }
