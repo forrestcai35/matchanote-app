@@ -1,5 +1,6 @@
 import SwiftUI
 import PencilKit
+import Foundation
 
 #if canImport(UIKit)
   import UIKit
@@ -158,36 +159,8 @@ class AIAssistantState: ObservableObject {
             }
         }
 
-        // Convert note pages to images for visual analysis
-        var noteImages: [MediaItem] = []
-        let pageKeys = Array(latestNote.drawingDataByPage.keys).sorted { key1, key2 in
-            guard let page1 = Int(key1), let page2 = Int(key2) else { return key1 < key2 }
-            return page1 < page2
-        }
-
-        for pageKey in pageKeys {
-            guard let pageIndex = Int(pageKey),
-                  let drawingData = latestNote.drawingDataByPage[pageKey],
-                  let drawing = try? PKDrawing(data: drawingData) else { continue }
-
-            let paperSize = PaperUtilities.paperSize(for: latestNote.paperSize)
-            let backgroundImages = latestNote.imageDataByPage[pageKey] ?? []
-            let overlayImages = PaperUtilities.extractCanvasImages(from: latestNote.imageDataByPage, for: pageIndex)
-
-            let previewImage = PaperUtilities.generatePreviewWithBackground(
-                drawing: drawing,
-                paperSize: paperSize,
-                paperColor: latestNote.paperColor,
-                paperStyle: latestNote.paperStyle,
-                scale: 0.5,
-                backgroundImages: backgroundImages,
-                overlayImages: overlayImages
-            )
-
-            if let imageData = previewImage.jpegData(compressionQuality: 0.8) {
-                noteImages.append(MediaItem(data: imageData, type: .image))
-            }
-        }
+        // Convert note pages to images for visual analysis (overview query for study mode analysis)
+        let noteImages = await convertNoteToImages(latestNote, userQuery: "overview of educational content")
 
         // Use LLM with contentAnalysis prompt to analyze if content is educational
         do {
@@ -249,36 +222,8 @@ class AIAssistantState: ObservableObject {
             }
         }
 
-        // Convert note pages to images for visual analysis
-        var noteImages: [MediaItem] = []
-        let pageKeys = Array(latestNote.drawingDataByPage.keys).sorted { key1, key2 in
-            guard let page1 = Int(key1), let page2 = Int(key2) else { return key1 < key2 }
-            return page1 < page2
-        }
-
-        for pageKey in pageKeys {
-            guard let pageIndex = Int(pageKey),
-                  let drawingData = latestNote.drawingDataByPage[pageKey],
-                  let drawing = try? PKDrawing(data: drawingData) else { continue }
-
-            let paperSize = PaperUtilities.paperSize(for: latestNote.paperSize)
-            let backgroundImages = latestNote.imageDataByPage[pageKey] ?? []
-            let overlayImages = PaperUtilities.extractCanvasImages(from: latestNote.imageDataByPage, for: pageIndex)
-
-            let previewImage = PaperUtilities.generatePreviewWithBackground(
-                drawing: drawing,
-                paperSize: paperSize,
-                paperColor: latestNote.paperColor,
-                paperStyle: latestNote.paperStyle,
-                scale: 0.5,
-                backgroundImages: backgroundImages,
-                overlayImages: overlayImages
-            )
-
-            if let imageData = previewImage.jpegData(compressionQuality: 0.8) {
-                noteImages.append(MediaItem(data: imageData, type: .image))
-            }
-        }
+        // Convert note pages to images for visual analysis (overview for quiz generation)
+        let noteImages = await convertNoteToImages(latestNote, userQuery: "generate quiz questions from all content")
 
         await MainActor.run {
             isLoading = true
@@ -358,36 +303,8 @@ class AIAssistantState: ObservableObject {
             }
         }
 
-        // Convert note pages to images for visual analysis
-        var noteImages: [MediaItem] = []
-        let pageKeys = Array(latestNote.drawingDataByPage.keys).sorted { key1, key2 in
-            guard let page1 = Int(key1), let page2 = Int(key2) else { return key1 < key2 }
-            return page1 < page2
-        }
-
-        for pageKey in pageKeys {
-            guard let pageIndex = Int(pageKey),
-                  let drawingData = latestNote.drawingDataByPage[pageKey],
-                  let drawing = try? PKDrawing(data: drawingData) else { continue }
-
-            let paperSize = PaperUtilities.paperSize(for: latestNote.paperSize)
-            let backgroundImages = latestNote.imageDataByPage[pageKey] ?? []
-            let overlayImages = PaperUtilities.extractCanvasImages(from: latestNote.imageDataByPage, for: pageIndex)
-
-            let previewImage = PaperUtilities.generatePreviewWithBackground(
-                drawing: drawing,
-                paperSize: paperSize,
-                paperColor: latestNote.paperColor,
-                paperStyle: latestNote.paperStyle,
-                scale: 0.5,
-                backgroundImages: backgroundImages,
-                overlayImages: overlayImages
-            )
-
-            if let imageData = previewImage.jpegData(compressionQuality: 0.8) {
-                noteImages.append(MediaItem(data: imageData, type: .image))
-            }
-        }
+        // Convert note pages to images for visual analysis (overview for flashcard generation)
+        let noteImages = await convertNoteToImages(latestNote, userQuery: "generate flashcards from all content")
 
         await MainActor.run {
             isLoading = true
@@ -552,6 +469,18 @@ class AIAssistantState: ObservableObject {
         }
         
         return nil
+    }
+
+    // MARK: - Note Context for AI (Delegated to AssistantContext module)
+
+    /// Convert note to images for AI analysis using centralized context provider
+    private func convertNoteToImages(_ note: Note, userQuery: String = "") async -> [MediaItem] {
+        return await NoteContextProvider.shared.generateMediaItems(
+            from: note,
+            userQuery: userQuery,
+            maxPages: 10,
+            scale: 0.6
+        )
     }
 }
 
@@ -1291,15 +1220,15 @@ struct AIAssistantView: View {
         // Trigger scroll immediately when user submits
         shouldScrollToUserMessage = true
         userScrollTrigger &+= 1
-        
+
         guard let note = state.currentNote else {
             sendRegularMessage(input: input, mediaItems: mediaItems, selectedModel: selectedModel, mentions: mentions)
             return
         }
-        
+
         // Save the note before analysis to ensure AI has access to latest content
         saveCurrentNote()
-        
+
         // Check if user can make this request type
         let isPremium = ModelConfiguration.isPremiumModel(selectedModel)
         let requestType: RequestType = isPremium ? .premium : .normal
@@ -1308,7 +1237,7 @@ struct AIAssistantView: View {
             state.isLoading = false
             return
         }
-        
+
         // Add user message to chat
         let userMessage = ChatMessage(
             content: input,
@@ -1316,10 +1245,7 @@ struct AIAssistantView: View {
             mediaItems: mediaItems.isEmpty ? nil : mediaItems
         )
         state.messages.append(userMessage)
-        
-        // Determine if we need to analyze the note first
-        let needsAnalysis = shouldAnalyzeNote(for: input)
-        
+
         Task {
             do {
                 // Consume request first
@@ -1332,59 +1258,19 @@ struct AIAssistantView: View {
                     }
                     return
                 }
-                
-                var contextualPrompt = input
-                var finalMediaItems = mediaItems
 
-                // Prepare mention context (will be added at the end)
-                var mentionContext = ""
-                if !mentions.isEmpty, let mentionManager = state.mentionManager {
-                    let context = mentionManager.getContextForMentions(mentions)
-                    if !context.isEmpty {
-                        mentionContext = "\n\n--- Referenced Items ---\(context)"
-                    }
-                }
-
-                // If needed, analyze the note first to provide context
-                if needsAnalysis {
-                    // Get the latest saved note from storage (same pattern as export)
-                    guard let latestNote = storageManager.notes.first(where: { $0.id == note.id }) else {
-                        await MainActor.run {
-                            state.errorMessage = "Could not find latest note data for analysis"
-                            state.isLoading = false
-                        }
-                        return
-                    }
-
-                    // Convert the latest saved note to images for visual analysis
-                    let noteImages = await convertNoteToImages(latestNote)
-                    finalMediaItems.append(contentsOf: noteImages)
-
-                    // Create rich context prompt using the latest note data
-                    contextualPrompt = """
-                    User question: \(input)
-
-                    I've provided images of the note for visual analysis. Please examine the note content (both typed text and handwritten content) and answer the user's question based on what you can see in the note.
-
-                    Note details:
-                    Title: \(latestNote.title)
-                    Subject: \(latestNote.subject)
-                    """
-                }
-
-                // Add mention context at the end (after needsAnalysis processing)
-                if !mentionContext.isEmpty {
-                    contextualPrompt += mentionContext
-                }
-                
-                // Send to AI with context and images
-                let response = try await LlmAPI.sendMessage(
-                    userMessage: contextualPrompt,
-                    model_string: selectedModel,
-                    mediaItems: finalMediaItems.isEmpty ? nil : finalMediaItems,
+                // Use AssistantMessageHandler for intelligent message routing and context building
+                let (response, _) = try await AssistantMessageHandler.shared.sendIntelligentMessage(
+                    input: input,
+                    note: note,
+                    storageManager: storageManager,
+                    mediaItems: mediaItems,
+                    mentions: mentions,
+                    mentionManager: state.mentionManager,
+                    selectedModel: selectedModel,
                     conversationHistory: state.messages
                 )
-                
+
                 await MainActor.run {
                     state.messages.append(
                         ChatMessage(
@@ -1394,11 +1280,11 @@ struct AIAssistantView: View {
                         )
                     )
                     state.isLoading = false
-                    
+
                     // Save conversation after receiving response
                     state.saveCurrentConversation()
                 }
-                
+
             } catch {
                 await MainActor.run {
                     state.errorMessage = "Error: \(error.localizedDescription)"
@@ -1476,158 +1362,7 @@ struct AIAssistantView: View {
             }
         }
     }
-    
-    private func shouldAnalyzeNote(for input: String) -> Bool {
-        let lowercaseInput = input.lowercased()
-        
-        // Direct analysis keywords
-        let directAnalysisKeywords = [
-            "analyze", "analysis", "gaps", "missing", "incomplete", "handwriting", 
-            "handwritten", "extract text", "suggestions", "improve", "connections", 
-            "related", "summary", "summarize", "main points", "key concepts", 
-            "review", "feedback", "critique"
-        ]
-        
-        // Note-specific possessive patterns
-        let notePossessivePatterns = [
-            "my note", "this note", "my notes", "these notes", "the note", "the notes"
-        ]
-        
-        // Action verbs that suggest note analysis
-        let analysisActionVerbs = [
-            "analyze", "summarize", "explain", "describe", "review", "check", 
-            "examine", "study", "extract", "find", "search", "look at"
-        ]
-        
-        // Content inquiry patterns
-        let contentInquiryPatterns = [
-            "what does", "what's in", "what did i write", "what did i", 
-            "what's written", "what's on", "what's about", "what contains"
-        ]
-        
-        // General question words that DON'T need analysis (unless note-specific)
-        let generalQuestionWords = [
-            "what is", "how do", "why does", "when should", "where can"
-        ]
-        
-        // Check for direct analysis keywords
-        let hasDirectAnalysis = directAnalysisKeywords.contains { keyword in
-            lowercaseInput.contains(keyword)
-        }
-        
-        // Check for note-specific possessive patterns
-        let hasNotePossessive = notePossessivePatterns.contains { pattern in
-            lowercaseInput.contains(pattern)
-        }
-        
-        // Check for action verbs + note context
-        let hasAnalysisAction = analysisActionVerbs.contains { verb in
-            lowercaseInput.contains(verb) && (
-                lowercaseInput.contains("note") || 
-                lowercaseInput.contains("writing") || 
-                lowercaseInput.contains("content") ||
-                lowercaseInput.contains("page") ||
-                lowercaseInput.contains("drawing")
-            )
-        }
-        
-        // Check for content inquiry patterns
-        let hasContentInquiry = contentInquiryPatterns.contains { pattern in
-            lowercaseInput.contains(pattern) && (
-                lowercaseInput.contains("note") || 
-                lowercaseInput.contains("writing") || 
-                lowercaseInput.contains("page") ||
-                lowercaseInput.contains("drawing") ||
-                lowercaseInput.contains("this") ||
-                lowercaseInput.contains("my")
-            )
-        }
-        
-        // Check if it's a general question without note context
-        let isGeneralQuestion = generalQuestionWords.contains { pattern in
-            lowercaseInput.hasPrefix(pattern)
-        } && !hasNotePossessive && !lowercaseInput.contains("note")
-        
-        // Advanced pattern matching for nuanced requests
-        let nuancedPatterns = [
-            // Questions about specific content
-            "what note", "what writing", "what page", "what drawing",
-            "how note", "how writing", "how page", "how drawing",
-            "can you note", "can you writing", "can you page", "can you drawing",
-            "help me note", "help me writing", "help me page", "help me drawing",
-            "show me note", "show me writing", "show me page", "show me drawing",
-            
-            // Requests for interpretation
-            "what does this mean", "what does this say", "what does this show", "what does this represent",
-            "what does my mean", "what does my say", "what does my show", "what does my represent",
-            "what does the mean", "what does the say", "what does the show", "what does the represent",
-            
-            // Requests for analysis
-            "can you analyze", "can you review", "can you check", "can you examine",
-            "help me understand", "help me figure out", "help me make sense",
-            "what do you think", "what do you see", "what do you notice", "what do you observe"
-        ]
-        
-        let hasNuancedPattern = nuancedPatterns.contains { pattern in
-            lowercaseInput.contains(pattern)
-        }
-        
-        // Don't analyze for general questions without note context
-        if isGeneralQuestion {
-            return false
-        }
-        
-        // Return true if any analysis trigger is detected
-        return hasDirectAnalysis || hasNotePossessive || hasAnalysisAction || 
-               hasContentInquiry || hasNuancedPattern
-    }
-    
-    private func convertNoteToImages(_ note: Note) async -> [MediaItem] {
-        var mediaItems: [MediaItem] = []
-        
-        // Get all pages from the note
-        let pageKeys = Array(note.drawingDataByPage.keys).sorted { key1, key2 in
-            guard let page1 = Int(key1), let page2 = Int(key2) else { return key1 < key2 }
-            return page1 < page2
-        }
-        
-        for pageKey in pageKeys {
-            guard let pageIndex = Int(pageKey) else { continue }
-            
-            // Get drawing data for this page
-            guard let drawingData = note.drawingDataByPage[pageKey],
-                  let drawing = try? PKDrawing(data: drawingData) else { continue }
-            
-            // Get paper size
-            let paperSize = PaperUtilities.paperSize(for: note.paperSize)
-            
-            // Get background images for this page
-            let backgroundImages = note.imageDataByPage[pageKey] ?? []
-            
-            // Get overlay images for this page
-            let overlayImages = PaperUtilities.extractCanvasImages(from: note.imageDataByPage, for: pageIndex)
-            
-            // Generate preview image
-            let previewImage = PaperUtilities.generatePreviewWithBackground(
-                drawing: drawing,
-                paperSize: paperSize,
-                paperColor: note.paperColor,
-                paperStyle: note.paperStyle,
-                scale: 0.5, // Use smaller scale for faster processing
-                backgroundImages: backgroundImages,
-                overlayImages: overlayImages
-            )
-            
-            // Convert to JPEG data
-            if let imageData = previewImage.jpegData(compressionQuality: 0.8) {
-                let mediaItem = MediaItem(data: imageData, type: .image)
-                mediaItems.append(mediaItem)
-            }
-        }
-        
-        return mediaItems
-    }
-    
+
     private func handleDroppedMedia(from url: URL) {
         do {
             let data = try Data(contentsOf: url)
