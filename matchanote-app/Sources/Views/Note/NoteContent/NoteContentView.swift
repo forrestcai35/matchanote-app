@@ -808,9 +808,6 @@ struct WrittenNoteView: View {
                 }
                 .clipped()
                 .ignoresSafeArea(.all, edges: .bottom)
-                .overlay(alignment: .bottomTrailing) {
-                    verticalScrollControlsOverlay
-                }
                 .onAppear {
                     // Set scroll position declaratively (like TabView selection)
                     scrollPosition = currentPage
@@ -830,6 +827,9 @@ struct WrittenNoteView: View {
                     guard preferencesManager.noteEditorVerticalScrollMode else { return }
                     scrollPosition = currentPage
                 }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                controlsOverlay
             }
         }
 
@@ -1009,32 +1009,6 @@ struct WrittenNoteView: View {
             Text("Error: Canvas not available for page \(pageIndex + 1)")
                 .foregroundColor(.red)
         }
-    }
-    
-    // Controls overlay for vertical scroll mode
-    @ViewBuilder
-    private var verticalScrollControlsOverlay: some View {
-        Button {
-            // Add page after the current page in vertical mode
-            addPageAtPosition(.after)
-        } label: {
-            VStack(spacing: 8) {
-                HStack {
-                    Text("\(currentPage + 1)/\(pageCount)")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                }
-                Image(systemName: "plus.circle.fill")
-                    .font(.caption)
-                    .foregroundColor(Color.matchalight_dark)
-            }
-            .padding(8)
-            .background(Color.white.opacity(0.9))
-            .cornerRadius(20)
-            .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 1)
-            .padding(16)
-        }
-        .buttonStyle(PlainButtonStyle())
     }
 }
 
