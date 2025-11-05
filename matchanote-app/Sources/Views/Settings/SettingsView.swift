@@ -151,6 +151,9 @@ struct SettingsView: View {
                             // Sign out from Supabase and clear local auth state
                             do { try await auth.signOut() } catch { print("Supabase signOut error: \(error)") }
                             LocalAuthManager.shared.logout()
+
+                            // Clear cached subscription profile
+                            subscriptionManager.clearProfileCache()
                         }
                     }
                 ))

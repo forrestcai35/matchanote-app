@@ -579,9 +579,9 @@ struct AIAssistantView: View {
 
     // MARK: - Mode Toggle Button
     private var modeToggleButton: some View {
-        Button(action: { 
+        Button(action: {
             // Only allow mode switching for premium/student users
-            let userTier = state.subscriptionManager.userProfile?.subscriptionTier ?? .free
+            let userTier = state.subscriptionManager.getEffectiveProfile()?.subscriptionTier ?? .free
             let canSwitchModes = userTier == .pro || userTier == .student
             
             if canSwitchModes {
@@ -717,7 +717,7 @@ struct AIAssistantView: View {
             }
 
             // Ensure free users are always in chat mode
-            let userTier = state.subscriptionManager.userProfile?.subscriptionTier ?? .free
+            let userTier = state.subscriptionManager.getEffectiveProfile()?.subscriptionTier ?? .free
             if userTier == .free && state.currentMode == .study {
                 state.currentMode = .chat
             }
@@ -1219,9 +1219,9 @@ struct AIAssistantView: View {
             await state.subscriptionManager.fetchUserProfile()
             await MainActor.run {
                 refreshAvailableModels()
-                
+
                 // Ensure free users are in chat mode after profile fetch
-                let userTier = state.subscriptionManager.userProfile?.subscriptionTier ?? .free
+                let userTier = state.subscriptionManager.getEffectiveProfile()?.subscriptionTier ?? .free
                 if userTier == .free && state.currentMode == .study {
                     state.currentMode = .chat
                 }

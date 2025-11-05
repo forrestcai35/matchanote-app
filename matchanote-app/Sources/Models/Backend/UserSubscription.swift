@@ -134,11 +134,34 @@ class SubscriptionManager: ObservableObject {
 
     private let supabase: SupabaseClient
 
+    // MARK: - UserDefaults Caching
+    private let userDefaults = UserDefaults.standard
+    private let cachedProfileKey = "user.profile.cache"
+    private let cacheTimestampKey = "user.profile.cacheTimestamp"
+    private let cacheExpirationDuration: TimeInterval = 3600 // 1 hour
+
+    private let encoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }()
+
+    private let decoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }()
+
     init(supabaseClient: SupabaseClient? = nil) {
         if let client = supabaseClient {
             self.supabase = client
         } else {
             self.supabase = globalSupabase
+        }
+
+        // Load cached profile on initialization
+        if let cached = loadCachedProfile() {
+            self.userProfile = cached
         }
     }
 
@@ -195,17 +218,29 @@ class SubscriptionManager: ObservableObject {
                 stripeCustomerId: stripeCustomerId,
                 stripeSubscriptionId: stripeSubscriptionId
             )
-            
+
+            // Save to cache for offline access
+            saveProfileToCache(combinedProfile)
+
             await MainActor.run {
                 userProfile = combinedProfile
             }
 
         } catch {
-            await MainActor.run {
-                if error.localizedDescription.contains("sessionMissing") {
-                    errorMessage = "Please sign in to view your subscription details"
-                } else {
-                    errorMessage = "Failed to fetch user profile: \(error.localizedDescription)"
+            // On error, try to use cached profile to maintain offline access
+            if let cachedProfile = loadCachedProfile() {
+                await MainActor.run {
+                    userProfile = cachedProfile
+                    errorMessage = "Using cached profile (offline mode)"
+                    print("⚠️ Using cached profile due to fetch error: \(error.localizedDescription)")
+                }
+            } else {
+                await MainActor.run {
+                    if error.localizedDescription.contains("sessionMissing") {
+                        errorMessage = "Please sign in to view your subscription details"
+                    } else {
+                        errorMessage = "Failed to fetch user profile: \(error.localizedDescription)"
+                    }
                 }
             }
         }
@@ -216,7 +251,8 @@ class SubscriptionManager: ObservableObject {
     }
 
     func canMakeRequest(type: RequestType) -> Bool {
-        guard let profile = userProfile else {
+        // Use cached profile as fallback if current profile is nil
+        guard let profile = getEffectiveProfile() else {
             return false
         }
 
@@ -398,7 +434,7 @@ class SubscriptionManager: ObservableObject {
     }
     
     // MARK: - Admin Client Verification
-    
+
     /// Verify that the admin client is operating with service role privileges
     func verifyAdminClientRole() async {
         do {
@@ -411,7 +447,67 @@ class SubscriptionManager: ObservableObject {
             print("🔍 Admin client has no user session (expected for service role): \(error)")
         }
     }
-    
+
+    // MARK: - Profile Caching
+
+    /// Save user profile to UserDefaults cache
+    private func saveProfileToCache(_ profile: UserProfile) {
+        do {
+            let data = try encoder.encode(profile)
+            userDefaults.set(data, forKey: cachedProfileKey)
+            userDefaults.set(Date(), forKey: cacheTimestampKey)
+            print("✅ Cached user profile (tier: \(profile.subscriptionTier.rawValue))")
+        } catch {
+            print("❌ Failed to cache user profile: \(error)")
+        }
+    }
+
+    /// Load cached user profile from UserDefaults
+    private func loadCachedProfile() -> UserProfile? {
+        // Check if cache is expired
+        if isCacheExpired() {
+            print("⏰ Profile cache expired, clearing...")
+            clearProfileCache()
+            return nil
+        }
+
+        guard let data = userDefaults.data(forKey: cachedProfileKey) else {
+            print("📭 No cached profile found")
+            return nil
+        }
+
+        do {
+            let profile = try decoder.decode(UserProfile.self, from: data)
+            print("✅ Loaded cached profile (tier: \(profile.subscriptionTier.rawValue))")
+            return profile
+        } catch {
+            print("❌ Failed to decode cached profile: \(error)")
+            clearProfileCache()
+            return nil
+        }
+    }
+
+    /// Check if the cached profile is expired
+    private func isCacheExpired() -> Bool {
+        guard let cacheDate = userDefaults.object(forKey: cacheTimestampKey) as? Date else {
+            return true
+        }
+        let timeSinceCache = Date().timeIntervalSince(cacheDate)
+        return timeSinceCache > cacheExpirationDuration
+    }
+
+    /// Clear cached profile (call on logout)
+    func clearProfileCache() {
+        userDefaults.removeObject(forKey: cachedProfileKey)
+        userDefaults.removeObject(forKey: cacheTimestampKey)
+        print("🗑️ Cleared profile cache")
+    }
+
+    /// Get effective profile (current or cached fallback)
+    func getEffectiveProfile() -> UserProfile? {
+        return userProfile ?? loadCachedProfile()
+    }
+
 }
 
 // MARK: - Errors
