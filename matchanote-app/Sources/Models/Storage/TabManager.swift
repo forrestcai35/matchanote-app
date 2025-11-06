@@ -6,6 +6,7 @@ struct NoteTab: Identifiable {
   var note: Note
   var isActive: Bool = false
   var currentPage: Int = 0
+  var scrollPosition: Int? = nil  // Per-tab scroll position for vertical scroll mode
 }
 
 // Tab manager to handle shared tab state across the app using a singleton pattern
@@ -42,14 +43,23 @@ class TabManager: ObservableObject {
     }
   }
 
+  // Update the scroll position for a specific tab (vertical scroll mode)
+  func updateScrollPosition(tabId: UUID, position: Int?) {
+    if let index = tabs.firstIndex(where: { $0.id == tabId }) {
+      tabs[index].scrollPosition = position
+    }
+  }
+
   func openTab(note: Note) {
     // Check if tab with this note already exists
     if let existingIndex = tabs.firstIndex(where: { $0.note.id == note.id }) {
       // Update the note data in the existing tab to ensure it's current
       tabs[existingIndex].note = note
-      // Validate and update current page in case note was modified
-      let validPage = getValidPageIndex(for: note, requestedPage: tabs[existingIndex].currentPage)
-      tabs[existingIndex].currentPage = validPage
+      // Don't change currentPage - each tab maintains its own independent page position
+      // Initialize scrollPosition if it's nil (for vertical scroll mode)
+      if tabs[existingIndex].scrollPosition == nil {
+        tabs[existingIndex].scrollPosition = tabs[existingIndex].currentPage
+      }
       // Set this tab as active
       setActiveTab(at: existingIndex)
     } else {
@@ -60,7 +70,7 @@ class TabManager: ObservableObject {
 
       // Add new tab as active with validated current page from note
       let validPage = getValidPageIndex(for: note, requestedPage: note.currentPage)
-      let newTab = NoteTab(note: note, isActive: true, currentPage: validPage)
+      let newTab = NoteTab(note: note, isActive: true, currentPage: validPage, scrollPosition: validPage)
       tabs.append(newTab)
     }
   }

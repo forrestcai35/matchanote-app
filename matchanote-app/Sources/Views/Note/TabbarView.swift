@@ -509,18 +509,15 @@ struct TabItemView: View {
 
   // Activate this tab
   private func activateTab() {
+    // Don't activate if already active
+    guard !tab.isActive else { return }
+
     // Save current canvas data before switching tabs
     onTabSwitch?()
 
-    // Make all tabs inactive first
-    for i in 0..<tabManager.tabs.count {
-      tabManager.tabs[i].isActive = false
-    }
-
-    // Then activate the selected tab
-    if let index = tabManager.tabs.firstIndex(where: { $0.id == tab.id }) {
-      tabManager.tabs[index].isActive = true
-    }
+    // Use TabManager's openTab to properly switch tabs
+    // This ensures proper state synchronization
+    tabManager.openTab(note: tab.note)
   }
 
   // Close this tab

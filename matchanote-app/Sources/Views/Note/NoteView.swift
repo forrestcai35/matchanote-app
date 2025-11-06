@@ -161,8 +161,9 @@ struct NoteView: View {
     // Collect textbox data
     updatedNote.textBoxDataByPage = textBoxManager.getAllTextBoxesData()
 
-    // Save current page position
-    updatedNote.currentPage = currentPage
+    // Save current page position from TabManager (not from @State variable)
+    // This ensures we save the correct page during tab switches
+    updatedNote.currentPage = activeTab.currentPage
 
     updatedNote.dateModified = Date()
 
@@ -390,10 +391,12 @@ struct NoteView: View {
         }
       }
       .onChange(of: currentPage) { oldPage, newPage in
-        // Sync page changes back to tab manager and storage
+        // Sync page changes back to tab manager only
+        // Don't save to storage - each tab maintains independent position
+        // currentPage is saved to storage in saveCurrentCanvasData() when needed
         guard let activeTab = tabManager.getActiveTab() else { return }
 
-        // Update tab manager
+        // Update tab manager with new page
         tabManager.updateCurrentPage(tabId: activeTab.id, page: newPage)
 
         // Save to storage

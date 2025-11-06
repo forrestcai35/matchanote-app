@@ -34,10 +34,24 @@ struct WrittenNoteView: View {
     @State var verticalZoomLevel: CGFloat = ZoomConstants.initialFitZoom
     @State var verticalUnifiedContentOffset: CGPoint = .zero  // Unified offset shared across all pages
     @State var isProgrammaticScroll: Bool = false  // Flag to prevent automatic currentPage updates during programmatic scrolls
-    @State var scrollPosition: Int?
 
     // Stable page identifiers to prevent view recreation
     @State var pageIdentifiers: [UUID] = [UUID()]
+
+    // Computed binding for scroll position that reads/writes to TabManager
+    // This ensures each tab maintains its own independent scroll position
+    private var scrollPosition: Binding<Int?> {
+        Binding(
+            get: {
+                tabManager.getActiveTab()?.scrollPosition
+            },
+            set: { newValue in
+                if let activeTab = tabManager.getActiveTab() {
+                    tabManager.updateScrollPosition(tabId: activeTab.id, position: newValue)
+                }
+            }
+        )
+    }
 
     // Debounce timer for saving operations
     @State var saveTimer: Timer?
@@ -115,7 +129,7 @@ struct WrittenNoteView: View {
                 }
             }
         }
-        .id(viewModeIdentifier)
+        .id("\(viewModeIdentifier)-\(note.id)")
         .shadow(color: Color.black.opacity(0.3), radius: 3, x: 0, y: 1)
         .tabViewStyle(.page(indexDisplayMode: .never))
         .clipped()
@@ -791,7 +805,7 @@ struct WrittenNoteView: View {
                     }
 
                 }
-                .scrollPosition(id: $scrollPosition, anchor: .top)
+                .scrollPosition(id: scrollPosition, anchor: .top)
                 .coordinateSpace(name: "scroll")
                 .onPreferenceChange(PageVisibilityPreferenceKey.self) { positions in
                     // Skip automatic currentPage updates during programmatic scrolls
@@ -805,7 +819,7 @@ struct WrittenNoteView: View {
                         }
                     }
                 }
-                .onChange(of: scrollPosition) { _, newPosition in
+                .onChange(of: scrollPosition.wrappedValue) { _, newPosition in
                     // Sync scrollPosition back to currentPage when user scrolls
                     if let newPosition = newPosition, newPosition != currentPage {
                         isProgrammaticScroll = true
@@ -820,12 +834,12 @@ struct WrittenNoteView: View {
                 .ignoresSafeArea(.all, edges: .bottom)
                 .onAppear {
                     // Set scroll position declaratively (like TabView selection)
-                    scrollPosition = currentPage
+                    scrollPosition.wrappedValue = currentPage
                 }
                 .onChange(of: preferencesManager.noteEditorVerticalScrollMode) { _, isVertical in
                     if isVertical {
                         // Set scroll position when switching to vertical mode
-                        scrollPosition = currentPage
+                        scrollPosition.wrappedValue = currentPage
                     } else {
                         // When switching back to page mode, force TabView recreation
                         // to ensure it displays the correct page
@@ -835,7 +849,11 @@ struct WrittenNoteView: View {
                 .onChange(of: note.id) { _, _ in
                     // Set scroll position when note changes
                     guard preferencesManager.noteEditorVerticalScrollMode else { return }
-                    scrollPosition = currentPage
+                    isProgrammaticScroll = true
+                    scrollPosition.wrappedValue = currentPage
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        isProgrammaticScroll = false
+                    }
                 }
             }
             .overlay(alignment: .bottomTrailing) {
