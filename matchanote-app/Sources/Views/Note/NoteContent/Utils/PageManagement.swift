@@ -148,17 +148,26 @@ extension WrittenNoteView {
         }
         pageCount -= 1
 
-        // Update current page if necessary
+        // Calculate the new current page
+        let newCurrentPage: Int
         if currentPage >= pageCount {
-            currentPage = pageCount - 1
+            newCurrentPage = pageCount - 1
         } else if currentPage >= pageIndex {
             // If we're on or after the deleted page, adjust the current page
-            currentPage = max(0, currentPage - (currentPage > pageIndex ? 1 : 0))
+            newCurrentPage = max(0, currentPage - (currentPage > pageIndex ? 1 : 0))
+        } else {
+            newCurrentPage = currentPage
         }
 
-        // Restructure data mappings
+        // Restructure data mappings first
         if let currentId = currentNoteId {
-            updateDrawingDataMappingsAfterDeletion(at: pageIndex, for: currentId)
+            updateDrawingDataMappingsAfterDeletion(at: pageIndex, for: currentId, newCurrentPage: newCurrentPage)
+        }
+
+        // Update current page after data mappings are updated
+        // Use DispatchQueue.main.async to ensure UI update happens after state is synchronized
+        DispatchQueue.main.async {
+            self.currentPage = newCurrentPage
         }
 
         // Update active canvas
@@ -166,7 +175,7 @@ extension WrittenNoteView {
     }
 
     // Update drawing data key mappings when a page is deleted
-    func updateDrawingDataMappingsAfterDeletion(at deletedIndex: Int, for noteId: UUID) {
+    func updateDrawingDataMappingsAfterDeletion(at deletedIndex: Int, for noteId: UUID, newCurrentPage: Int) {
         guard let noteToUpdate = storageManager.notes.first(where: { $0.id == noteId }) else {
             return
         }
@@ -212,7 +221,7 @@ extension WrittenNoteView {
         updatedNote.drawingDataByPage = newDrawingData
         updatedNote.imageDataByPage = newImageData
         updatedNote.bookmarkedPages = newBookmarkedPages
-        updatedNote.currentPage = currentPage
+        updatedNote.currentPage = newCurrentPage
         updatedNote.dateModified = Date()
 
         // Save the updated note
