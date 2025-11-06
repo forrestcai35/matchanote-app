@@ -15,7 +15,7 @@ extension WrittenNoteView {
     }
 
     // Load drawing data when view appears
-    func loadDrawingData() {
+    func loadDrawingData(preserveZoom: Bool = false) {
         // Clean up existing canvas views properly
         cleanupCanvasViews()
 
@@ -48,8 +48,10 @@ extension WrittenNoteView {
         // Restore saved page position, ensuring it's within valid range
         currentPage = min(max(0, note.currentPage), requiredPageCount - 1)
 
-        // Reset relative zoom level and content offset to center the canvas for new note
-        relativeZoomLevel = ZoomConstants.initialFitZoom
+        // Reset zoom only if not preserving it (e.g., during device rotation)
+        if !preserveZoom {
+            relativeZoomLevel = ZoomConstants.initialFitZoom
+        }
         unifiedContentOffset = .zero
         didApplyInitialFit = false
 

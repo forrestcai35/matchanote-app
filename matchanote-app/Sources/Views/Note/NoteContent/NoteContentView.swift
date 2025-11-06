@@ -545,11 +545,19 @@ struct WrittenNoteView: View {
                     }
                 }
                 .onChange(of: geometry.size) { oldSize, newSize in
-                    clampRelativeZoomIfNeeded()
                     if oldSize != .zero && abs(oldSize.width - newSize.width) > 100 {
-                        unifiedContentOffset = .zero
-                        // Recreate canvases with updated geometry after orientation change
-                        loadDrawingData()
+                        // Wrap entire orientation change in transaction to suppress all animations
+                        var transaction = Transaction()
+                        transaction.disablesAnimations = true
+                        withTransaction(transaction) {
+                            clampRelativeZoomIfNeeded()
+                            unifiedContentOffset = .zero
+                            // Recreate canvases with updated geometry after device rotation
+                            // Pass preserveZoom: true to maintain current zoom level
+                            loadDrawingData(preserveZoom: true)
+                        }
+                    } else {
+                        clampRelativeZoomIfNeeded()
                     }
                 }
                 .onChange(of: currentPage) { _, _ in
