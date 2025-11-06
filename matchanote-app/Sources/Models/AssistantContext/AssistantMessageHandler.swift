@@ -210,31 +210,28 @@ class AssistantMessageHandler {
         subscriptionManager: SubscriptionManager? = nil
     ) async throws -> (response: String, mediaItems: [MediaItem], autoFillResult: AutoFillResult?) {
 
-        // Check if auto-fill is enabled and requested
+        // Check if auto-fill is enabled and requested (PRO-only feature)
         if PreferencesManager.shared.assistantAutoFill,
            AutoFillHandler.shared.shouldAutoFill(input: input),
            let note = note {
 
-            // Check if user is PRO (auto-fill is PRO-only feature)
+            // Verify user is PRO (auto-fill is PRO-only)
             let userTier = subscriptionManager?.getEffectiveProfile()?.subscriptionTier ?? .free
-            guard userTier == .pro else {
-                // Return upgrade message for non-PRO users
-                let upgradeMessage = "Auto-fill is a PRO feature. Upgrade to PRO to automatically fill out worksheets and forms with AI assistance."
-                return (upgradeMessage, mediaItems, nil)
+            if userTier == .pro {
+                // Process auto-fill for PRO users
+                let autoFillResult = try await AutoFillHandler.shared.processAutoFill(
+                    note: note,
+                    query: input,
+                    model: selectedModel,
+                    storageManager: storageManager,
+                    existingTextBoxesByPage: existingTextBoxesByPage
+                )
+
+                // Return a simple confirmation message plus the auto-fill result
+                let confirmationMessage = "✓ \(autoFillResult.message). You can review and undo if needed."
+                return (confirmationMessage, mediaItems, autoFillResult)
             }
-
-            // Process auto-fill for PRO users
-            let autoFillResult = try await AutoFillHandler.shared.processAutoFill(
-                note: note,
-                query: input,
-                model: selectedModel,
-                storageManager: storageManager,
-                existingTextBoxesByPage: existingTextBoxesByPage
-            )
-
-            // Return a simple confirmation message plus the auto-fill result
-            let confirmationMessage = "✓ \(autoFillResult.message). You can review and undo if needed."
-            return (confirmationMessage, mediaItems, autoFillResult)
+            // For non-PRO users, silently skip auto-fill and proceed with normal conversation
         }
 
         // Determine if note analysis is needed
