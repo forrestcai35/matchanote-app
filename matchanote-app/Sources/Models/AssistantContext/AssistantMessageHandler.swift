@@ -194,7 +194,9 @@ class AssistantMessageHandler {
     ///   - mentionManager: Mention manager for context
     ///   - selectedModel: Model to use
     ///   - conversationHistory: Previous messages
-    /// - Returns: AI response and generated media items
+    ///   - existingTextBoxesByPage: Existing textboxes for collision detection (optional)
+    ///   - subscriptionManager: Subscription manager to check user tier (optional)
+    /// - Returns: AI response and generated media items, plus optional auto-fill result
     func sendIntelligentMessage(
         input: String,
         note: Note?,
@@ -203,8 +205,37 @@ class AssistantMessageHandler {
         mentions: [Mention],
         mentionManager: MentionManager?,
         selectedModel: String,
-        conversationHistory: [ChatMessage]
-    ) async throws -> (response: String, mediaItems: [MediaItem]) {
+        conversationHistory: [ChatMessage],
+        existingTextBoxesByPage: [Int: [TextBox]]? = nil,
+        subscriptionManager: SubscriptionManager? = nil
+    ) async throws -> (response: String, mediaItems: [MediaItem], autoFillResult: AutoFillResult?) {
+
+        // Check if auto-fill is enabled and requested
+        if PreferencesManager.shared.assistantAutoFill,
+           AutoFillHandler.shared.shouldAutoFill(input: input),
+           let note = note {
+
+            // Check if user is PRO (auto-fill is PRO-only feature)
+            let userTier = subscriptionManager?.getEffectiveProfile()?.subscriptionTier ?? .free
+            guard userTier == .pro else {
+                // Return upgrade message for non-PRO users
+                let upgradeMessage = "Auto-fill is a PRO feature. Upgrade to PRO to automatically fill out worksheets and forms with AI assistance."
+                return (upgradeMessage, mediaItems, nil)
+            }
+
+            // Process auto-fill for PRO users
+            let autoFillResult = try await AutoFillHandler.shared.processAutoFill(
+                note: note,
+                query: input,
+                model: selectedModel,
+                storageManager: storageManager,
+                existingTextBoxesByPage: existingTextBoxesByPage
+            )
+
+            // Return a simple confirmation message plus the auto-fill result
+            let confirmationMessage = "✓ \(autoFillResult.message). You can review and undo if needed."
+            return (confirmationMessage, mediaItems, autoFillResult)
+        }
 
         // Determine if note analysis is needed
         let needsAnalysis = shouldAnalyzeNote(input: input, hasNote: note != nil)
@@ -233,10 +264,11 @@ class AssistantMessageHandler {
             }
 
             // Generate note images with intelligent page selection
+            // Support up to 20 pages for large worksheets/notes
             let noteImages = await NoteContextProvider.shared.generateMediaItems(
                 from: latestNote,
                 userQuery: input,
-                maxPages: 10,
+                maxPages: 20,
                 scale: 0.6
             )
             finalMediaItems.append(contentsOf: noteImages)
@@ -264,6 +296,6 @@ class AssistantMessageHandler {
             conversationHistory: conversationHistory
         )
 
-        return (response, finalMediaItems)
+        return (response, finalMediaItems, nil)
     }
 }

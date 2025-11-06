@@ -88,6 +88,7 @@ class PreferencesManager: ObservableObject {
     // MARK: - Keys
     private enum DefaultsKeys {
         static let assistantDefaultOrientation = "preferences.assistantDefaultOrientation"
+        static let assistantAutoFill = "preferences.assistant.autoFill"
         static let theme = "preferences.theme"
         static let supabaseStorageEnabled = "preferences.supabaseStorageEnabled"
         static let enabledModels = "preferences.enabledModels"
@@ -116,6 +117,12 @@ class PreferencesManager: ObservableObject {
     @Published var assistantDefaultOrientation: AssistantOrientation {
         didSet {
             userDefaults.set(assistantDefaultOrientation.rawValue, forKey: DefaultsKeys.assistantDefaultOrientation)
+        }
+    }
+
+    @Published var assistantAutoFill: Bool {
+        didSet {
+            userDefaults.set(assistantAutoFill, forKey: DefaultsKeys.assistantAutoFill)
         }
     }
 
@@ -247,6 +254,9 @@ class PreferencesManager: ObservableObject {
         // Load saved orientation or default to left
         let savedOrientation = userDefaults.string(forKey: DefaultsKeys.assistantDefaultOrientation)
         self.assistantDefaultOrientation = AssistantOrientation(rawValue: savedOrientation ?? "left") ?? .left
+
+        // Load saved auto-fill preference or default to false (disabled)
+        self.assistantAutoFill = userDefaults.object(forKey: DefaultsKeys.assistantAutoFill) as? Bool ?? false
 
         // Load saved theme or default to system
         let savedTheme = userDefaults.string(forKey: DefaultsKeys.theme)

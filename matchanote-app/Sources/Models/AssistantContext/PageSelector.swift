@@ -56,7 +56,17 @@ struct PageSelector {
             )
         }
 
-        // Pattern 4: User asks to "answer these questions" or mentions "questions"
+        // Pattern 4: User asks to fill out worksheet/form (auto-fill)
+        // Send all pages since worksheets often span multiple pages
+        if isWorksheetFillingQuery(lowercaseQuery) {
+            let selectedPages = Array(allPageKeys.prefix(effectiveMaxPages))
+            return SelectionResult(
+                pageKeys: selectedPages,
+                reason: "Worksheet/form filling - all \(selectedPages.count) pages"
+            )
+        }
+
+        // Pattern 5: User asks to "answer these questions" or mentions "questions"
         // Assume questions are on first few pages unless specified otherwise
         if isQuestionAnsweringQuery(lowercaseQuery) {
             let selectedPages = Array(allPageKeys.prefix(min(5, effectiveMaxPages)))
@@ -101,6 +111,17 @@ struct PageSelector {
         let hasNoteReference = query.contains("note") || query.contains("page")
 
         return hasNoteReference && overviewPatterns.contains { query.contains($0) }
+    }
+
+    /// Check if query is asking to fill out a worksheet or form (auto-fill)
+    private static func isWorksheetFillingQuery(_ query: String) -> Bool {
+        let worksheetPatterns = [
+            "fill out", "fill in", "fill this", "fill the",
+            "complete the worksheet", "complete the form", "complete this worksheet",
+            "do this worksheet", "do this assignment", "do the worksheet"
+        ]
+
+        return worksheetPatterns.contains { query.contains($0) }
     }
 
     /// Check if query is asking to answer questions

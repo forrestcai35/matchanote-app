@@ -173,6 +173,57 @@ struct NoteView: View {
     print("✅ Canvas data saved successfully!")
   }
 
+  private func handleAutoFillResult(_ autoFillResult: AutoFillResult) {
+    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    // Textbox mode only (text-to-stroke logic removed)
+      print("📝 AUTO-FILL INSERTION: Starting to insert \(autoFillResult.textboxes.count) textboxes")
+      print("   Total requested: \(autoFillResult.totalRequested)")
+      print("   Skipped: \(autoFillResult.skippedCount)")
+
+      // Get current note for paper size reference
+      if let currentNote = tabManager.getActiveTab()?.note {
+        let paperSize = PaperUtilities.paperSize(for: currentNote.paperSize)
+        print("   Paper size: \(currentNote.paperSize.rawValue) (\(paperSize.width) x \(paperSize.height) pts)")
+      }
+
+      // Register undo group for all textbox insertions
+      textBoxManager.undoManager?.beginUndoGrouping()
+
+      // Insert each validated textbox
+      for (index, validatedBox) in autoFillResult.textboxes.enumerated() {
+        print("\n  [\(index + 1)/\(autoFillResult.textboxes.count)] Inserting textbox:")
+        print("    Page: \(validatedBox.pageIndex)")
+        print("    Position (CENTER point): (\(validatedBox.position.x), \(validatedBox.position.y))")
+        print("    Text: \"\(validatedBox.text)\"")
+        print("    Confidence: \(validatedBox.confidence)")
+
+        // Add textbox
+        textBoxManager.addTextBox(
+          to: validatedBox.pageIndex,
+          at: validatedBox.position,
+          withText: validatedBox.text
+        )
+
+        // Log the actual textbox that was created
+        if let createdBox = textBoxManager.textBoxesByPage[validatedBox.pageIndex]?.last {
+          print("    ✓ Created textbox:")
+          print("      Actual position (TOP-LEFT): (\(createdBox.position.x), \(createdBox.position.y))")
+          print("      Size: \(createdBox.size.width) x \(createdBox.size.height)")
+          print("      Offset from center: x-\(createdBox.size.width/2), y-\(createdBox.size.height/2)")
+        }
+      }
+
+      textBoxManager.undoManager?.endUndoGrouping()
+      textBoxManager.undoManager?.setActionName("Auto-Fill Worksheet")
+
+      // Mark as edited so changes are saved
+      isEdited = true
+
+      print("\n✅ AUTO-FILL COMPLETE: Inserted \(autoFillResult.textboxes.count) textboxes")
+      print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+    
+  }
+
   var body: some View {
     GeometryReader { geometry in
       ZStack {
@@ -221,26 +272,25 @@ struct NoteView: View {
               .foregroundColor(.red)
           }
 
-          // Main content with AI assistant overlay
-          ZStack {
-            // Main content
-            mainContentView()
-            
-            // AI ASSISTANT OVERLAY - constrained to main content area
+          // Main content with optional inline AI assistant that pushes content
+          Group {
             if isAssistantVisible {
               HStack(spacing: 0) {
-                // Left-side assistant
                 if assistantOrientation == .left {
                   assistantPanelView()
                 }
-                
-                Spacer()
-                
-                // Right-side assistant
+
+                // Main content expands to fill remaining space
+                mainContentView()
+                  .frame(maxWidth: .infinity, maxHeight: .infinity)
+
                 if assistantOrientation == .right {
                   assistantPanelView()
                 }
               }
+            } else {
+              // No assistant visible, just show main content
+              mainContentView()
             }
           }
         }
@@ -599,7 +649,14 @@ struct NoteView: View {
           print("📞 AI Analysis: saveCanvasDataCallback triggered!")
           self.saveCurrentCanvasData()
         }
-        print("✅ AI Assistant callback connected")
+
+        // Connect callback to handle auto-fill results
+        assistantState.autoFillCallback = { autoFillResult in
+          print("📝 Auto-fill callback triggered with \(autoFillResult.textboxes.count) textboxes")
+          self.handleAutoFillResult(autoFillResult)
+        }
+
+        print("✅ AI Assistant callbacks connected")
       }
       // Drag to flip orientation
       .gesture(

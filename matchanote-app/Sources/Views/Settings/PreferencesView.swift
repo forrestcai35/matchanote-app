@@ -97,6 +97,34 @@ struct PreferencesView: View {
                         }
                     }
                     .padding(.vertical, 4)
+
+                    // Auto-Fill toggle
+                    Toggle(isOn: $preferencesManager.assistantAutoFill) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 6) {
+                                Text("Auto-Fill Worksheets")
+                                    .font(.jost(.subheadline()))
+                                    .foregroundColor(.primary)
+
+                                // PRO badge
+                                Text("PRO")
+                                    .font(.jost(.caption2()))
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.accentColor)
+                                    .cornerRadius(4)
+                            }
+
+                            Text("Automatically insert answers into forms and worksheets (PRO feature)")
+                                .font(.jost(.caption2()))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+
+      
                 } header: {
                     HStack {
                         Image(systemName: "brain.head.profile")

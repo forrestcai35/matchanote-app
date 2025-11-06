@@ -90,6 +90,9 @@ class AIAssistantState: ObservableObject {
     // Callback for saving canvas data before AI analysis
     var saveCanvasDataCallback: (() -> Void)?
 
+    // Callback for handling auto-fill results
+    var autoFillCallback: ((AutoFillResult) -> Void)?
+
     // Performance optimization
     private var userInputDebounceTimer: Timer?
 
@@ -512,9 +515,9 @@ struct AIAssistantView: View {
             // Only allow mode switching for premium/student users
             let userTier = state.subscriptionManager.getEffectiveProfile()?.subscriptionTier ?? .free
             let canSwitchModes = userTier == .pro || userTier == .student
-            
+
             if canSwitchModes {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { 
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                     state.currentMode = state.currentMode == .chat ? .study : .chat
                 }
             }
@@ -534,6 +537,43 @@ struct AIAssistantView: View {
             )
         }
         .buttonStyle(PlainButtonStyle())
+    }
+
+    // MARK: - Header Action Buttons
+    private var headerActionButtons: some View {
+        HStack(spacing: 0) {
+            // New chat button - only show when messages exist
+            if !state.messages.isEmpty {
+                Button(action: {
+                    state.startNewConversation()
+                }) {
+                    Image(systemName: "plus.message")
+                        .font(.system(size: 14))
+                        .foregroundColor(.gray)
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+
+            // Chat history dropdown button
+            Button(action: {
+                // Clean up expired conversations when opening
+                if !state.showingChatHistory {
+                    state.chatStorage.cleanupExpiredConversations()
+                }
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    state.showingChatHistory.toggle()
+                }
+            }) {
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.system(size: 14))
+                    .foregroundColor(.gray)
+                    .frame(width: 32, height: 32)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
     }
 
     // MARK: - Chat Mode Content
@@ -605,19 +645,26 @@ struct AIAssistantView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Mode toggle button - position based on assistant orientation
+            // Header with mode toggle and action buttons
             HStack {
                 if assistantOrientation == .right {
+                    modeToggleButton
                     Spacer()
-                }
-                modeToggleButton
-                if assistantOrientation == .left {
+                    headerActionButtons
+                } else {
+                    headerActionButtons
                     Spacer()
+                    modeToggleButton
                 }
             }
-            .padding(.horizontal)
-            .padding(.top, 8)
-            .padding(.bottom, 6)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
+            .overlay(
+                Rectangle()
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(height: 0.5),
+                alignment: .bottom
+            )
 
             // Conditional content based on mode
             if state.currentMode == .chat {
@@ -863,44 +910,6 @@ struct AIAssistantView: View {
                 }
                 
                 Spacer()
-                
-                HStack(spacing: 0) {
-                    // New chat button with larger tap area (only show if messages exist)
-                    if !state.messages.isEmpty {
-                        Button(action: {
-                            state.startNewConversation()
-                        }) {
-                            Image(systemName: "plus.message")
-                                .font(.system(size: 14))
-                                .foregroundColor(
-                                   .gray
-                                )
-                                .frame(width: 32, height: 32)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                    
-                    // Chat history dropdown button with larger tap area
-                    Button(action: {
-                        // Clean up expired conversations when opening
-                        if !state.showingChatHistory {
-                            state.chatStorage.cleanupExpiredConversations()
-                        }
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            state.showingChatHistory.toggle()
-                        }
-                    }) {
-                        Image(systemName: "clock.arrow.circlepath")
-                            .font(.system(size: 14))
-                            .foregroundColor(
-                               .gray
-                            )
-                            .frame(width: 32, height: 32)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                }
             }
             .padding(.horizontal)
             
@@ -1247,7 +1256,19 @@ struct AIAssistantView: View {
         state.messages.append(userMessage)
 
         Task {
+            // Ensure isLoading is reset even if Task is cancelled
+            defer {
+                Task { @MainActor in
+                    if state.isLoading {
+                        state.isLoading = false
+                    }
+                }
+            }
+
             do {
+                // Check if task was cancelled before starting
+                try Task.checkCancellation()
+
                 // Consume request first
                 let success = await state.subscriptionManager.consumeRequest(
                     type: requestType, model: selectedModel)
@@ -1260,7 +1281,7 @@ struct AIAssistantView: View {
                 }
 
                 // Use AssistantMessageHandler for intelligent message routing and context building
-                let (response, _) = try await AssistantMessageHandler.shared.sendIntelligentMessage(
+                let (response, _, autoFillResult) = try await AssistantMessageHandler.shared.sendIntelligentMessage(
                     input: input,
                     note: note,
                     storageManager: storageManager,
@@ -1268,8 +1289,25 @@ struct AIAssistantView: View {
                     mentions: mentions,
                     mentionManager: state.mentionManager,
                     selectedModel: selectedModel,
-                    conversationHistory: state.messages
+                    conversationHistory: state.messages,
+                    existingTextBoxesByPage: note.textBoxDataByPage.reduce(into: [:]) { result, pair in
+                        if let pageIndex = Int(pair.key) {
+                            result[pageIndex] = pair.value.compactMap { try? JSONDecoder().decode(TextBox.self, from: $0) }
+                        }
+                    },
+                    subscriptionManager: state.subscriptionManager
                 )
+
+                // Handle auto-fill result by calling the callback
+                if let autoFillResult = autoFillResult {
+                    print("📝 Auto-fill generated \(autoFillResult.textboxes.count) textboxes")
+                    print("📍 Textbox positions: \(autoFillResult.textboxes.map { "(\($0.position.x), \($0.position.y)) on page \($0.pageIndex)" })")
+
+                    // Call the auto-fill callback to insert textboxes
+                    await MainActor.run {
+                        state.autoFillCallback?(autoFillResult)
+                    }
+                }
 
                 await MainActor.run {
                     state.messages.append(
