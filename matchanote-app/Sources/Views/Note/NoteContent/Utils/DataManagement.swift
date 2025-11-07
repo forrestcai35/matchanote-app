@@ -48,12 +48,12 @@ extension WrittenNoteView {
         // Restore saved page position, ensuring it's within valid range
         currentPage = min(max(0, note.currentPage), requiredPageCount - 1)
 
-        // Reset zoom only if not preserving it (e.g., during device rotation)
+        // Reset zoom/offset only if not preserving them (e.g., full reloads)
         if !preserveZoom {
             relativeZoomLevel = ZoomConstants.initialFitZoom
+            unifiedContentOffset = .zero
+            didApplyInitialFit = false
         }
-        unifiedContentOffset = .zero
-        didApplyInitialFit = false
 
 
         // Load image data

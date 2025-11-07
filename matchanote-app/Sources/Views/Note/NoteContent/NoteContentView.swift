@@ -64,6 +64,7 @@ struct WrittenNoteView: View {
     @State var viewModeIdentifier: UUID = UUID()
     // Track which page is currently transitioning out to control layering/offset
     @State private var transitioningPageIndex: Int? = nil
+    
 
     var body: some View {
         mainContentView
@@ -119,23 +120,49 @@ struct WrittenNoteView: View {
 
     @ViewBuilder
     private var pageTabView: some View {
-        TabView(selection: $currentPage) {
-            ForEach(Array(pageIdentifiers.enumerated()), id: \.element) { index, pageId in
-                if index < pageCount {
-                    pageContent(pageIndex: index, isInfinite: false)
-                        .zIndex(currentPage == index ? 2 : 0)
-                        .tag(index)
-                        .id(pageId)
+        GeometryReader { geo in
+            let width = geo.size.width
+            TabView(selection: $currentPage) {
+                ForEach(Array(pageIdentifiers.enumerated()), id: \.element) { index, pageId in
+                    if index < pageCount {
+                        pageContent(pageIndex: index)
+                            .zIndex(currentPage == index ? 2 : 0)
+                            .tag(index)
+                            .id(pageId)
+                    }
                 }
             }
-        }
-        .id("\(viewModeIdentifier)-\(note.id)")
-        .shadow(color: Color.black.opacity(0.3), radius: 3, x: 0, y: 1)
-        .tabViewStyle(.page(indexDisplayMode: .never))
-        .clipped()
-        .ignoresSafeArea(.all, edges: .bottom)
-        .overlay(alignment: .bottomTrailing) {
-            controlsOverlay
+            .id("\(viewModeIdentifier)-\(note.id)")
+            .shadow(color: Color.black.opacity(0.3), radius: 3, x: 0, y: 1)
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            // Disable implicit SwiftUI animations for TabView state updates to avoid
+            // orientation-change transition quirks from UIPageViewController bridging
+            .transaction { txn in
+                txn.disablesAnimations = true
+            }
+            .clipped()
+            .ignoresSafeArea(.all, edges: .bottom)
+            .overlay(alignment: .bottomTrailing) {
+                controlsOverlay
+            }
+            .onChange(of: width) { oldWidth, newWidth in
+                guard oldWidth != 0, abs(oldWidth - newWidth) > 100 else { return }
+                // Handle device rotation-like width changes at the TabView level to stabilize selection
+                let saved = currentPage
+                let goingNarrower = newWidth < oldWidth
+                // If going narrower (likely landscape -> portrait), UIPageViewController tends to keep the right page
+                // Snap back to left page of the pair (even index) to preserve expected page
+                let adjusted = goingNarrower && saved % 2 == 1 ? saved - 1 : saved
+                UIView.setAnimationsEnabled(false)
+                var tx = Transaction(); tx.disablesAnimations = true
+                withTransaction(tx) {
+                    viewModeIdentifier = UUID()
+                    currentPage = max(0, min(pageCount - 1, adjusted))
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    UIView.setAnimationsEnabled(true)
+                }
+            }
         }
     }
 
@@ -368,7 +395,7 @@ struct WrittenNoteView: View {
 
     // Extracted Page Content View Builder
     @ViewBuilder
-    private func pageContent(pageIndex: Int, isInfinite: Bool) -> some View {
+    private func pageContent(pageIndex: Int) -> some View {
         GeometryReader { geometry in
             // Calculate fit scale for this page dynamically
             let contentSize = perPageSize(pageIndex)
@@ -559,16 +586,17 @@ struct WrittenNoteView: View {
                     }
                 }
                 .onChange(of: geometry.size) { oldSize, newSize in
-                    if oldSize != .zero && abs(oldSize.width - newSize.width) > 100 {
-                        // Wrap entire orientation change in transaction to suppress all animations
+                    // Light-touch handling: avoid rebuilding canvases here to prevent page shifts
+                    if oldSize != .zero && abs(oldSize.width - newSize.width) > 100 && pageIndex == currentPage {
+                        UIView.setAnimationsEnabled(false)
                         var transaction = Transaction()
                         transaction.disablesAnimations = true
                         withTransaction(transaction) {
+                            // Keep zoom level and offset; only clamp within new bounds
                             clampRelativeZoomIfNeeded()
-                            unifiedContentOffset = .zero
-                            // Recreate canvases with updated geometry after device rotation
-                            // Pass preserveZoom: true to maintain current zoom level
-                            loadDrawingData(preserveZoom: true)
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            UIView.setAnimationsEnabled(true)
                         }
                     } else {
                         clampRelativeZoomIfNeeded()
