@@ -46,7 +46,9 @@ struct NativeScrollCanvasView: UIViewRepresentable {
         canvasView.showsHorizontalScrollIndicator = showScrollIndicators
         canvasView.backgroundColor = .clear
         canvasView.decelerationRate = .fast
-        canvasView.clipsToBounds = true
+        // Allow system-provided overlays (like the PencilKit ruler) to extend beyond
+        // the canvas bounds so they aren't visually clipped at the edges.
+        canvasView.clipsToBounds = false
 
         // Disable automatic content inset adjustment to prevent auto-centering
         canvasView.contentInsetAdjustmentBehavior = .never
