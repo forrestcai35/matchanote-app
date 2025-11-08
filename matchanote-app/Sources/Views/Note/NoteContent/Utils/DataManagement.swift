@@ -30,62 +30,38 @@ extension WrittenNoteView {
 
         // Check if we're in vertical scroll mode to use unified canvas
         if preferencesManager.noteEditorVerticalScrollMode {
-            print("🔵 [VERTICAL] Starting vertical scroll mode loading for \(requiredPageCount) pages")
-
             // VERTICAL MODE: Create a single unified canvas containing all pages
             let unifiedCanvas = createCanvas()
-            print("🔵 [VERTICAL] Created canvas")
 
             // Set content size to accommodate all pages vertically
-            print("🔵 [VERTICAL] About to call calculateTotalVerticalSize()")
             unifiedCanvas.contentSize = calculateTotalVerticalSize()
-            print("🔵 [VERTICAL] Set contentSize: \(unifiedCanvas.contentSize)")
 
-            // Load and combine all page drawings into a unified drawing SYNCHRONOUSLY
-            // (matching the synchronous approach used in page mode to avoid race conditions)
-            var unifiedDrawing = PKDrawing()
-            print("🔵 [VERTICAL] Created empty unified drawing")
-
+            // Load all page drawings and combine them into unified canvas
+            var tempCanvases: [PKCanvasView] = []
             for pageIndex in 0..<requiredPageCount {
-                print("🔵 [VERTICAL] Loading page \(pageIndex + 1)/\(requiredPageCount)")
+                let tempCanvas = PKCanvasView()
+
                 // Load drawing data if it exists for this page
                 if let drawingData = note.drawingDataByPage[String(pageIndex)] {
                     do {
-                        let pageDrawing = try PKDrawing(data: drawingData)
-                        print("🔵 [VERTICAL]   - Decoded drawing for page \(pageIndex)")
-
-                        let yOffset = pageYOffset(for: pageIndex)
-                        print("🔵 [VERTICAL]   - Calculated yOffset: \(yOffset)")
-
-                        // Transform and append to unified drawing
-                        let shiftedDrawing = pageDrawing.transformed(
-                            using: CGAffineTransform(translationX: 0, y: yOffset)
-                        )
-                        print("🔵 [VERTICAL]   - Transformed drawing")
-
-                        unifiedDrawing.append(shiftedDrawing)
-                        print("🔵 [VERTICAL]   - Appended to unified drawing")
+                        let drawing = try PKDrawing(data: drawingData)
+                        tempCanvas.drawing = drawing
                     } catch {
                         print("Error loading drawing for page \(pageIndex): \(error)")
                     }
                 }
+
+                tempCanvases.append(tempCanvas)
             }
-            print("🔵 [VERTICAL] Finished loading all drawings, total strokes: \(unifiedDrawing.strokes.count)")
 
-            // Set the unified drawing on the canvas
-            print("🔵 [VERTICAL] About to set unified drawing on canvas")
-            unifiedCanvas.drawing = unifiedDrawing
-            print("🔵 [VERTICAL] Set unified drawing on canvas")
+            // Temporarily assign temp canvases so createUnifiedDrawing can access them
+            canvasViews = tempCanvases
 
-            // Add canvas to views array AFTER drawing is fully loaded
-            print("🔵 [VERTICAL] About to set canvasViews array")
+            // Create unified drawing from all pages
+            unifiedCanvas.drawing = createUnifiedDrawing()
+
+            // Replace with single unified canvas
             canvasViews = [unifiedCanvas]
-            print("🔵 [VERTICAL] Set canvasViews array, count: \(canvasViews.count)")
-
-            // Reset isEdited flag since we just loaded (not modified) the drawing
-            // Prevent the drawing change observer from thinking this is a user edit
-            isEdited = false
-            print("🔵 [VERTICAL] Reset isEdited flag after load")
 
             // Reset zoom/offset for vertical mode if not preserving
             if !preserveZoom {
@@ -93,7 +69,6 @@ extension WrittenNoteView {
                 verticalUnifiedContentOffset = .zero
                 didApplyInitialFit = false
             }
-            print("🔵 [VERTICAL] Completed vertical scroll mode loading")
         } else {
             // PAGE MODE: Create separate canvas for each page (existing behavior)
             for pageIndex in 0..<requiredPageCount {

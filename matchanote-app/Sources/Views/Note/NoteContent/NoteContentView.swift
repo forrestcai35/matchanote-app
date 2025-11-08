@@ -103,10 +103,6 @@ struct WrittenNoteView: View {
             .onChange(of: preferencesManager.noteEditorDarkModeForWhitePaper) { oldValue, newValue in
                 handleDarkModePreferenceChange(oldValue: oldValue, newValue: newValue)
             }
-            .onChange(of: preferencesManager.noteEditorVerticalScrollMode) { oldValue, newValue in
-                // Reload canvas when switching between page and vertical modes
-                loadDrawingData(preserveZoom: true)
-            }
     }
 
     // MARK: - View Components
@@ -810,19 +806,12 @@ struct WrittenNoteView: View {
     // Helper to avoid ViewBuilder issues with guard/return
     @ViewBuilder
     private func verticalScrollContentBody(geometry: GeometryProxy, unifiedCanvas: PKCanvasView) -> some View {
-        let _ = print("🔴 [VIEW] verticalScrollContentBody called")
-        // BUG FIX: Don't read unifiedCanvas.contentSize - it changes on every render!
-        // Instead, calculate it ourselves using the stable calculateTotalVerticalSize()
-        let contentSize = calculateTotalVerticalSize()
-        let _ = print("🔴 [VIEW] Got contentSize: \(contentSize)")
+        let contentSize = unifiedCanvas.contentSize
         let viewportSize = geometry.size
-        let _ = print("🔴 [VIEW] Got viewportSize: \(viewportSize)")
 
         // Calculate unified fit scale based on a SINGLE page's dimensions, not total content
         // This ensures zoom levels make sense for individual pages
-        let _ = print("🔴 [VIEW] About to call perPageSize(0)")
         let referencePageSize = perPageSize(0)
-        let _ = print("🔴 [VIEW] Got referencePageSize: \(referencePageSize)")
         let unifiedFitScale = min(
             viewportSize.width / max(referencePageSize.width, 1),
             viewportSize.height / max(referencePageSize.height, 1)
@@ -836,7 +825,6 @@ struct WrittenNoteView: View {
         let absoluteScaleBinding = Binding<CGFloat>(
             get: { verticalZoomLevel * unifiedFitScale },
             set: { newValue in
-                // Use transaction to suppress the warning while keeping synchronous behavior
                 var transaction = Transaction()
                 transaction.disablesAnimations = true
                 withTransaction(transaction) {
@@ -845,24 +833,18 @@ struct WrittenNoteView: View {
             }
         )
 
-        // Calculate horizontal centering inset
-        let scale = verticalZoomLevel * unifiedFitScale
-        let scaledWidth = referencePageSize.width * scale
-        let centeringInset = max(0, (viewportSize.width - scaledWidth) / 2)
-
-        let _ = print("🔴 [VIEW] About to create NativeScrollCanvasView")
         // Use NativeScrollCanvasView with the unified canvas - gets us perfect zoom!
         NativeScrollCanvasView(
-                canvasView: unifiedCanvas,
-                contentSize: contentSize,
-                minScale: absoluteMinScale,
-                maxScale: absoluteMaxScale,
-                currentScale: absoluteScaleBinding,
-                contentOffset: $verticalUnifiedContentOffset,
-                currentTool: $currentTool,
-                showScrollIndicators: preferencesManager.noteEditorPageBoundaryIndicatorMode == .scrollBars,
-                isActivePage: true,
-                onDrawingChange: { isEdited = true }
+            canvasView: unifiedCanvas,
+            contentSize: contentSize,
+            minScale: absoluteMinScale,
+            maxScale: absoluteMaxScale,
+            currentScale: absoluteScaleBinding,
+            contentOffset: $verticalUnifiedContentOffset,
+            currentTool: $currentTool,
+            showScrollIndicators: preferencesManager.noteEditorPageBoundaryIndicatorMode == .scrollBars,
+            isActivePage: true,
+            onDrawingChange: { isEdited = true }
         )
         .background {
             GeometryReader { _ in
@@ -870,67 +852,72 @@ struct WrittenNoteView: View {
                     // Render unified background with all pages
                     unifiedVerticalBackground()
 
-                    // Render overlays only for current page (optimize performance)
+                    // Render overlays for each page (only in background when tools NOT active)
                     if currentTool != .textbox && currentTool != .photo {
-                        let pageSize = perPageSize(currentPage)
-                        let yOffset = pageYOffset(for: currentPage)
+                        ForEach(0..<pageCount, id: \.self) { pageIndex in
+                            let pageSize = perPageSize(pageIndex)
+                            let yOffset = pageYOffset(for: pageIndex)
 
-                        ZStack(alignment: .topLeading) {
-                            CanvasImageOverlay(
-                                imageManager: imageManager,
-                                textBoxManager: textBoxManager,
-                                pageIndex: currentPage,
-                                canvasSize: pageSize,
-                                isPhotoToolActive: false,
-                                isTextBoxToolActive: false
-                            )
+                            ZStack(alignment: .topLeading) {
+                                CanvasImageOverlay(
+                                    imageManager: imageManager,
+                                    textBoxManager: textBoxManager,
+                                    pageIndex: pageIndex,
+                                    canvasSize: pageSize,
+                                    isPhotoToolActive: false,
+                                    isTextBoxToolActive: false
+                                )
 
-                            TextBoxOverlay(
-                                textBoxManager: textBoxManager,
-                                imageManager: imageManager,
-                                pageIndex: currentPage,
-                                canvasSize: pageSize,
-                                isTextBoxToolActive: false
-                            )
+                                TextBoxOverlay(
+                                    textBoxManager: textBoxManager,
+                                    imageManager: imageManager,
+                                    pageIndex: pageIndex,
+                                    canvasSize: pageSize,
+                                    isTextBoxToolActive: false
+                                )
+                            }
+                            .frame(width: pageSize.width, height: pageSize.height)
+                            .offset(x: 0, y: yOffset)
                         }
-                        .frame(width: pageSize.width, height: pageSize.height)
-                        .offset(x: 0, y: yOffset)
                     }
                 }
                 .scaleEffect(verticalZoomLevel * unifiedFitScale, anchor: .topLeading)
-                .offset(x: centeringInset - verticalUnifiedContentOffset.x, y: -verticalUnifiedContentOffset.y)
+                .offset(x: -verticalUnifiedContentOffset.x, y: -verticalUnifiedContentOffset.y)
             }
         }
         .overlay {
             // Render overlays on top when tools ARE active (for gesture interception)
-            // Only render current page for performance
             if currentTool == .textbox || currentTool == .photo {
                 GeometryReader { _ in
-                    let pageSize = perPageSize(currentPage)
-                    let yOffset = pageYOffset(for: currentPage)
-
                     ZStack(alignment: .topLeading) {
-                        CanvasImageOverlay(
-                            imageManager: imageManager,
-                            textBoxManager: textBoxManager,
-                            pageIndex: currentPage,
-                            canvasSize: pageSize,
-                            isPhotoToolActive: currentTool == .photo,
-                            isTextBoxToolActive: currentTool == .textbox
-                        )
+                        ForEach(0..<pageCount, id: \.self) { pageIndex in
+                            let pageSize = perPageSize(pageIndex)
+                            let yOffset = pageYOffset(for: pageIndex)
 
-                        TextBoxOverlay(
-                            textBoxManager: textBoxManager,
-                            imageManager: imageManager,
-                            pageIndex: currentPage,
-                            canvasSize: pageSize,
-                            isTextBoxToolActive: currentTool == .textbox
-                        )
+                            ZStack(alignment: .topLeading) {
+                                CanvasImageOverlay(
+                                    imageManager: imageManager,
+                                    textBoxManager: textBoxManager,
+                                    pageIndex: pageIndex,
+                                    canvasSize: pageSize,
+                                    isPhotoToolActive: currentTool == .photo,
+                                    isTextBoxToolActive: currentTool == .textbox
+                                )
+
+                                TextBoxOverlay(
+                                    textBoxManager: textBoxManager,
+                                    imageManager: imageManager,
+                                    pageIndex: pageIndex,
+                                    canvasSize: pageSize,
+                                    isTextBoxToolActive: currentTool == .textbox
+                                )
+                            }
+                            .frame(width: pageSize.width, height: pageSize.height)
+                            .offset(x: 0, y: yOffset)
+                        }
                     }
-                    .frame(width: pageSize.width, height: pageSize.height)
-                    .offset(x: 0, y: yOffset)
                     .scaleEffect(verticalZoomLevel * unifiedFitScale, anchor: .topLeading)
-                    .offset(x: centeringInset - verticalUnifiedContentOffset.x, y: -verticalUnifiedContentOffset.y)
+                    .offset(x: -verticalUnifiedContentOffset.x, y: -verticalUnifiedContentOffset.y)
                 }
             }
         }
@@ -947,7 +934,7 @@ struct WrittenNoteView: View {
 
                     // Convert tap location to unified canvas coordinates
                     let scale = verticalZoomLevel * unifiedFitScale
-                    let canvasX = (value.location.x - centeringInset + verticalUnifiedContentOffset.x) / scale
+                    let canvasX = (value.location.x + verticalUnifiedContentOffset.x) / scale
                     let canvasY = (value.location.y + verticalUnifiedContentOffset.y) / scale
 
                     // Determine which page was tapped
@@ -971,7 +958,7 @@ struct WrittenNoteView: View {
 
                 // Convert drop location to unified canvas coordinates
                 let scale = verticalZoomLevel * unifiedFitScale
-                let canvasX = (location.x - centeringInset + verticalUnifiedContentOffset.x) / scale
+                let canvasX = (location.x + verticalUnifiedContentOffset.x) / scale
                 let canvasY = (location.y + verticalUnifiedContentOffset.y) / scale
 
                 // Determine which page was dropped on
@@ -1001,13 +988,9 @@ struct WrittenNoteView: View {
         }
         .clipped()
         .ignoresSafeArea(.all, edges: .bottom)
-        .onChange(of: verticalUnifiedContentOffset) { oldOffset, newOffset in
-            print("🟡 [VIEW] onChange(verticalUnifiedContentOffset) fired: \(oldOffset) -> \(newOffset)")
-            let detectedPage = detectCurrentPage(from: newOffset)
-            if detectedPage != currentPage {
-                print("🟡 [VIEW] Updating currentPage from \(currentPage) to \(detectedPage)")
-                currentPage = detectedPage
-            }
+        .onChange(of: verticalUnifiedContentOffset) { _, newOffset in
+            // Detect which page is currently visible based on scroll position
+            currentPage = detectCurrentPage(from: newOffset)
         }
         .onChange(of: preferencesManager.noteEditorVerticalScrollMode) { _, isVertical in
             if !isVertical {
@@ -1016,12 +999,10 @@ struct WrittenNoteView: View {
             }
         }
         .onAppear {
-            print("🟢 [VIEW] onAppear fired, didApplyInitialFit: \(didApplyInitialFit)")
             if !didApplyInitialFit {
                 verticalZoomLevel = ZoomConstants.initialFitZoom
                 verticalUnifiedContentOffset = .zero
                 didApplyInitialFit = true
-                print("🟢 [VIEW] Set initial zoom and offset")
             }
         }
     }
