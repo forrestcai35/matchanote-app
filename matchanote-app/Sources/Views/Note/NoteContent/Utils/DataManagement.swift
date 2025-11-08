@@ -25,35 +25,103 @@ extension WrittenNoteView {
         // Initialize page identifiers for required pages
         pageIdentifiers = Array(0..<requiredPageCount).map { _ in UUID() }
 
-        // Create canvas views for all required pages using centralized function
-        for pageIndex in 0..<requiredPageCount {
-            let canvas = createCanvas()
+        // Update page count first (needed for unified drawing calculations)
+        pageCount = requiredPageCount
 
-            // Load drawing data if it exists for this page
-            if let drawingData = note.drawingDataByPage[String(pageIndex)] {
-                do {
-                    let drawing = try PKDrawing(data: drawingData)
-                    canvas.drawing = drawing
-                } catch {
-                    print("Error loading drawing for page \(pageIndex): \(error)")
+        // Check if we're in vertical scroll mode to use unified canvas
+        if preferencesManager.noteEditorVerticalScrollMode {
+            print("🔵 [VERTICAL] Starting vertical scroll mode loading for \(requiredPageCount) pages")
+
+            // VERTICAL MODE: Create a single unified canvas containing all pages
+            let unifiedCanvas = createCanvas()
+            print("🔵 [VERTICAL] Created canvas")
+
+            // Set content size to accommodate all pages vertically
+            print("🔵 [VERTICAL] About to call calculateTotalVerticalSize()")
+            unifiedCanvas.contentSize = calculateTotalVerticalSize()
+            print("🔵 [VERTICAL] Set contentSize: \(unifiedCanvas.contentSize)")
+
+            // Load and combine all page drawings into a unified drawing SYNCHRONOUSLY
+            // (matching the synchronous approach used in page mode to avoid race conditions)
+            var unifiedDrawing = PKDrawing()
+            print("🔵 [VERTICAL] Created empty unified drawing")
+
+            for pageIndex in 0..<requiredPageCount {
+                print("🔵 [VERTICAL] Loading page \(pageIndex + 1)/\(requiredPageCount)")
+                // Load drawing data if it exists for this page
+                if let drawingData = note.drawingDataByPage[String(pageIndex)] {
+                    do {
+                        let pageDrawing = try PKDrawing(data: drawingData)
+                        print("🔵 [VERTICAL]   - Decoded drawing for page \(pageIndex)")
+
+                        let yOffset = pageYOffset(for: pageIndex)
+                        print("🔵 [VERTICAL]   - Calculated yOffset: \(yOffset)")
+
+                        // Transform and append to unified drawing
+                        let shiftedDrawing = pageDrawing.transformed(
+                            using: CGAffineTransform(translationX: 0, y: yOffset)
+                        )
+                        print("🔵 [VERTICAL]   - Transformed drawing")
+
+                        unifiedDrawing.append(shiftedDrawing)
+                        print("🔵 [VERTICAL]   - Appended to unified drawing")
+                    } catch {
+                        print("Error loading drawing for page \(pageIndex): \(error)")
+                    }
                 }
             }
+            print("🔵 [VERTICAL] Finished loading all drawings, total strokes: \(unifiedDrawing.strokes.count)")
 
-            canvasViews.append(canvas)
+            // Set the unified drawing on the canvas
+            print("🔵 [VERTICAL] About to set unified drawing on canvas")
+            unifiedCanvas.drawing = unifiedDrawing
+            print("🔵 [VERTICAL] Set unified drawing on canvas")
+
+            // Add canvas to views array AFTER drawing is fully loaded
+            print("🔵 [VERTICAL] About to set canvasViews array")
+            canvasViews = [unifiedCanvas]
+            print("🔵 [VERTICAL] Set canvasViews array, count: \(canvasViews.count)")
+
+            // Reset isEdited flag since we just loaded (not modified) the drawing
+            // Prevent the drawing change observer from thinking this is a user edit
+            isEdited = false
+            print("🔵 [VERTICAL] Reset isEdited flag after load")
+
+            // Reset zoom/offset for vertical mode if not preserving
+            if !preserveZoom {
+                verticalZoomLevel = ZoomConstants.initialFitZoom
+                verticalUnifiedContentOffset = .zero
+                didApplyInitialFit = false
+            }
+            print("🔵 [VERTICAL] Completed vertical scroll mode loading")
+        } else {
+            // PAGE MODE: Create separate canvas for each page (existing behavior)
+            for pageIndex in 0..<requiredPageCount {
+                let canvas = createCanvas()
+
+                // Load drawing data if it exists for this page
+                if let drawingData = note.drawingDataByPage[String(pageIndex)] {
+                    do {
+                        let drawing = try PKDrawing(data: drawingData)
+                        canvas.drawing = drawing
+                    } catch {
+                        print("Error loading drawing for page \(pageIndex): \(error)")
+                    }
+                }
+
+                canvasViews.append(canvas)
+            }
+
+            // Reset zoom/offset for page mode if not preserving
+            if !preserveZoom {
+                relativeZoomLevel = ZoomConstants.initialFitZoom
+                unifiedContentOffset = .zero
+                didApplyInitialFit = false
+            }
         }
-
-        // Update page count
-        pageCount = requiredPageCount
 
         // Restore saved page position, ensuring it's within valid range
         currentPage = min(max(0, note.currentPage), requiredPageCount - 1)
-
-        // Reset zoom/offset only if not preserving them (e.g., full reloads)
-        if !preserveZoom {
-            relativeZoomLevel = ZoomConstants.initialFitZoom
-            unifiedContentOffset = .zero
-            didApplyInitialFit = false
-        }
 
 
         // Load image data
@@ -149,10 +217,27 @@ extension WrittenNoteView {
 
         // Collect current drawing data from canvases
         var newDrawingData: [String: Data] = [:]
-        for index in 0..<min(pageCount, canvasViews.count) {
-            let canvas = canvasViews[index]
-            let drawingData = canvas.drawing.dataRepresentation()
-            newDrawingData[String(index)] = drawingData
+
+        // Check if we're in vertical scroll mode with unified canvas
+        if preferencesManager.noteEditorVerticalScrollMode && canvasViews.count == 1 {
+            // VERTICAL MODE: Split unified drawing back into individual pages
+            let unifiedDrawing = canvasViews[0].drawing
+            let pageDrawings = splitUnifiedDrawing(unifiedDrawing)
+
+            // Save each page's drawing
+            for (index, drawing) in pageDrawings.enumerated() {
+                if index < pageCount {
+                    let drawingData = drawing.dataRepresentation()
+                    newDrawingData[String(index)] = drawingData
+                }
+            }
+        } else {
+            // PAGE MODE: Save each canvas directly
+            for index in 0..<min(pageCount, canvasViews.count) {
+                let canvas = canvasViews[index]
+                let drawingData = canvas.drawing.dataRepresentation()
+                newDrawingData[String(index)] = drawingData
+            }
         }
 
         // FIX: Filter out old canvas images before merging to prevent duplicates
@@ -191,12 +276,29 @@ extension WrittenNoteView {
         var updatedNote = noteToSave
         var hasChanges = false
 
-        // Create new drawing data dictionary (only for pages with existing canvases)
+        // Create new drawing data dictionary
         var newDrawingData: [String: Data] = [:]
-        for index in 0..<min(pageCount, canvasViews.count) {
-            let canvas = canvasViews[index]
-            let drawingData = canvas.drawing.dataRepresentation()
-            newDrawingData[String(index)] = drawingData
+
+        // Check if we're in vertical scroll mode with unified canvas
+        if preferencesManager.noteEditorVerticalScrollMode && canvasViews.count == 1 {
+            // VERTICAL MODE: Split unified drawing back into individual pages
+            let unifiedDrawing = canvasViews[0].drawing
+            let pageDrawings = splitUnifiedDrawing(unifiedDrawing)
+
+            // Save each page's drawing
+            for (index, drawing) in pageDrawings.enumerated() {
+                if index < pageCount {
+                    let drawingData = drawing.dataRepresentation()
+                    newDrawingData[String(index)] = drawingData
+                }
+            }
+        } else {
+            // PAGE MODE: Save each canvas directly (existing behavior)
+            for index in 0..<min(pageCount, canvasViews.count) {
+                let canvas = canvasViews[index]
+                let drawingData = canvas.drawing.dataRepresentation()
+                newDrawingData[String(index)] = drawingData
+            }
         }
 
         // Quick check: if the number of pages with data changed

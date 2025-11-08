@@ -34,6 +34,34 @@ extension WrittenNoteView {
         }
     }
 
+    // MARK: - Unified Vertical Background Rendering
+
+    /// Render all page backgrounds stacked vertically for unified canvas mode
+    @ViewBuilder
+    func unifiedVerticalBackground() -> some View {
+        let totalSize = calculateTotalVerticalSize()
+
+        ZStack(alignment: .topLeading) {
+            ForEach(0..<pageCount, id: \.self) { pageIndex in
+                let yOffset = pageYOffset(for: pageIndex)
+
+                ZStack(alignment: .topLeading) {
+                    // Paper background for this page
+                    paperBackground(pageIndex: pageIndex)
+
+                    // Background image for this page (if any) overlaid on top
+                    backgroundImagesView(pageIndex: pageIndex)
+                }
+                .frame(
+                    width: perPageSize(pageIndex).width,
+                    height: perPageSize(pageIndex).height
+                )
+                .offset(x: 0, y: yOffset)
+            }
+        }
+        .frame(width: totalSize.width, height: totalSize.height, alignment: .topLeading)
+    }
+
     @ViewBuilder
     func paperBackground(pageIndex: Int) -> some View {
         // Determine if dark mode should apply to the paper background

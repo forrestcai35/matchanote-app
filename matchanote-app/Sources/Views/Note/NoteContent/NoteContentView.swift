@@ -103,6 +103,10 @@ struct WrittenNoteView: View {
             .onChange(of: preferencesManager.noteEditorDarkModeForWhitePaper) { oldValue, newValue in
                 handleDarkModePreferenceChange(oldValue: oldValue, newValue: newValue)
             }
+            .onChange(of: preferencesManager.noteEditorVerticalScrollMode) { oldValue, newValue in
+                // Reload canvas when switching between page and vertical modes
+                loadDrawingData(preserveZoom: true)
+            }
     }
 
     // MARK: - View Components
@@ -789,122 +793,50 @@ struct WrittenNoteView: View {
     }
     
     // MARK: - Vertical Scroll Content
-    
-    // Vertical scroll view displaying all pages continuously
+
+    // Vertical scroll view displaying all pages continuously using a single unified canvas
     @ViewBuilder
     private func verticalScrollContent() -> some View {
         GeometryReader { geometry in
-            // Calculate a unified fit scale based on the first page (or current page)
-            // This ensures all pages zoom consistently
-            let referenceContentSize = perPageSize(0)
-            let unifiedFitScale = min(
-                geometry.size.width / max(referenceContentSize.width, 1),
-                geometry.size.height / max(referenceContentSize.height, 1)
-            )
-
-            // Wrap content with zoom-enabled container
-            VerticalScrollViewWithZoom(
-                zoomLevel: $verticalZoomLevel,
-                minZoom: ZoomConstants.minZoom,
-                maxZoom: ZoomConstants.maxZoom,
-                unifiedFitScale: unifiedFitScale
-            ) {
-                ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(spacing: 8) {
-                        ForEach(Array(pageIdentifiers.enumerated()), id: \.element) { index, _ in
-                            if index < pageCount {
-                                verticalPageContent(
-                                    pageIndex: index,
-                                    viewportSize: geometry.size,
-                                    unifiedFitScale: unifiedFitScale
-                                )
-                                .id(index)
-                                .background(
-                                    // Track which page is in view
-                                    GeometryReader { pageGeometry in
-                                        Color.clear.preference(
-                                            key: PageVisibilityPreferenceKey.self,
-                                            value: [index: pageGeometry.frame(in: .named("scroll")).midY]
-                                        )
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                }
-                .scrollPosition(id: scrollPosition, anchor: .top)
-                .coordinateSpace(name: "scroll")
-                .onPreferenceChange(PageVisibilityPreferenceKey.self) { positions in
-                    // Skip automatic currentPage updates during programmatic scrolls
-                    guard !isProgrammaticScroll else { return }
-
-                    // Find the page closest to the center of the screen
-                    let screenCenter = geometry.size.height / 2
-                    if let closestPage = positions.min(by: { abs($0.value - screenCenter) < abs($1.value - screenCenter) }) {
-                        if currentPage != closestPage.key {
-                            currentPage = closestPage.key
-                        }
-                    }
-                }
-                .onChange(of: scrollPosition.wrappedValue) { _, newPosition in
-                    // Sync scrollPosition back to currentPage when user scrolls
-                    if let newPosition = newPosition, newPosition != currentPage {
-                        isProgrammaticScroll = true
-                        currentPage = newPosition
-                        // Clear flag after a brief delay
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            isProgrammaticScroll = false
-                        }
-                    }
-                }
-                .clipped()
-                .ignoresSafeArea(.all, edges: .bottom)
-                .onAppear {
-                    // Set scroll position declaratively (like TabView selection)
-                    scrollPosition.wrappedValue = currentPage
-                }
-                .onChange(of: preferencesManager.noteEditorVerticalScrollMode) { _, isVertical in
-                    if isVertical {
-                        // Set scroll position when switching to vertical mode
-                        scrollPosition.wrappedValue = currentPage
-                    } else {
-                        // When switching back to page mode, force TabView recreation
-                        // to ensure it displays the correct page
-                        viewModeIdentifier = UUID()
-                    }
-                }
-                .onChange(of: note.id) { _, _ in
-                    // Set scroll position when note changes
-                    guard preferencesManager.noteEditorVerticalScrollMode else { return }
-                    isProgrammaticScroll = true
-                    scrollPosition.wrappedValue = currentPage
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        isProgrammaticScroll = false
-                    }
-                }
-            }
-            .overlay(alignment: .bottomTrailing) {
-                controlsOverlay
+            if canvasViews.count == 1, let unifiedCanvas = canvasViews.first {
+                verticalScrollContentBody(geometry: geometry, unifiedCanvas: unifiedCanvas)
+            } else {
+                Text("Loading...")
+                    .foregroundColor(.gray)
             }
         }
-
     }
-    
-    // Individual page content for vertical scroll mode
+
+    // Helper to avoid ViewBuilder issues with guard/return
     @ViewBuilder
-    private func verticalPageContent(pageIndex: Int, viewportSize: CGSize, unifiedFitScale: CGFloat) -> some View {
-        let contentSize = perPageSize(pageIndex)
-        
-        // Use the unified fit scale for consistent zoom across all pages
+    private func verticalScrollContentBody(geometry: GeometryProxy, unifiedCanvas: PKCanvasView) -> some View {
+        let _ = print("🔴 [VIEW] verticalScrollContentBody called")
+        // BUG FIX: Don't read unifiedCanvas.contentSize - it changes on every render!
+        // Instead, calculate it ourselves using the stable calculateTotalVerticalSize()
+        let contentSize = calculateTotalVerticalSize()
+        let _ = print("🔴 [VIEW] Got contentSize: \(contentSize)")
+        let viewportSize = geometry.size
+        let _ = print("🔴 [VIEW] Got viewportSize: \(viewportSize)")
+
+        // Calculate unified fit scale based on a SINGLE page's dimensions, not total content
+        // This ensures zoom levels make sense for individual pages
+        let _ = print("🔴 [VIEW] About to call perPageSize(0)")
+        let referencePageSize = perPageSize(0)
+        let _ = print("🔴 [VIEW] Got referencePageSize: \(referencePageSize)")
+        let unifiedFitScale = min(
+            viewportSize.width / max(referencePageSize.width, 1),
+            viewportSize.height / max(referencePageSize.height, 1)
+        )
+
+        // Define zoom limits relative to fit scale
         let absoluteMinScale = unifiedFitScale * ZoomConstants.minZoom
         let absoluteMaxScale = unifiedFitScale * ZoomConstants.maxZoom
-        
-        // Create binding that converts between relative and absolute scale using unified fit scale
-        // Use separate vertical zoom state for vertical scroll mode
+
+        // Create binding that converts between relative and absolute scale
         let absoluteScaleBinding = Binding<CGFloat>(
             get: { verticalZoomLevel * unifiedFitScale },
             set: { newValue in
+                // Use transaction to suppress the warning while keeping synchronous behavior
                 var transaction = Transaction()
                 transaction.disablesAnimations = true
                 withTransaction(transaction) {
@@ -913,168 +845,184 @@ struct WrittenNoteView: View {
             }
         )
 
-        // Use unified offset binding shared across ALL pages
-        // This makes all pages pan together when zoomed
-        let pageOffsetBinding = Binding<CGPoint>(
-            get: { verticalUnifiedContentOffset },
-            set: { newValue in
-                var transaction = Transaction()
-                transaction.disablesAnimations = true
-                withTransaction(transaction) {
-                    verticalUnifiedContentOffset = newValue
+        // Calculate horizontal centering inset
+        let scale = verticalZoomLevel * unifiedFitScale
+        let scaledWidth = referencePageSize.width * scale
+        let centeringInset = max(0, (viewportSize.width - scaledWidth) / 2)
+
+        let _ = print("🔴 [VIEW] About to create NativeScrollCanvasView")
+        // Use NativeScrollCanvasView with the unified canvas - gets us perfect zoom!
+        NativeScrollCanvasView(
+                canvasView: unifiedCanvas,
+                contentSize: contentSize,
+                minScale: absoluteMinScale,
+                maxScale: absoluteMaxScale,
+                currentScale: absoluteScaleBinding,
+                contentOffset: $verticalUnifiedContentOffset,
+                currentTool: $currentTool,
+                showScrollIndicators: preferencesManager.noteEditorPageBoundaryIndicatorMode == .scrollBars,
+                isActivePage: true,
+                onDrawingChange: { isEdited = true }
+        )
+        .background {
+            GeometryReader { _ in
+                ZStack(alignment: .topLeading) {
+                    // Render unified background with all pages
+                    unifiedVerticalBackground()
+
+                    // Render overlays only for current page (optimize performance)
+                    if currentTool != .textbox && currentTool != .photo {
+                        let pageSize = perPageSize(currentPage)
+                        let yOffset = pageYOffset(for: currentPage)
+
+                        ZStack(alignment: .topLeading) {
+                            CanvasImageOverlay(
+                                imageManager: imageManager,
+                                textBoxManager: textBoxManager,
+                                pageIndex: currentPage,
+                                canvasSize: pageSize,
+                                isPhotoToolActive: false,
+                                isTextBoxToolActive: false
+                            )
+
+                            TextBoxOverlay(
+                                textBoxManager: textBoxManager,
+                                imageManager: imageManager,
+                                pageIndex: currentPage,
+                                canvasSize: pageSize,
+                                isTextBoxToolActive: false
+                            )
+                        }
+                        .frame(width: pageSize.width, height: pageSize.height)
+                        .offset(x: 0, y: yOffset)
+                    }
+                }
+                .scaleEffect(verticalZoomLevel * unifiedFitScale, anchor: .topLeading)
+                .offset(x: centeringInset - verticalUnifiedContentOffset.x, y: -verticalUnifiedContentOffset.y)
+            }
+        }
+        .overlay {
+            // Render overlays on top when tools ARE active (for gesture interception)
+            // Only render current page for performance
+            if currentTool == .textbox || currentTool == .photo {
+                GeometryReader { _ in
+                    let pageSize = perPageSize(currentPage)
+                    let yOffset = pageYOffset(for: currentPage)
+
+                    ZStack(alignment: .topLeading) {
+                        CanvasImageOverlay(
+                            imageManager: imageManager,
+                            textBoxManager: textBoxManager,
+                            pageIndex: currentPage,
+                            canvasSize: pageSize,
+                            isPhotoToolActive: currentTool == .photo,
+                            isTextBoxToolActive: currentTool == .textbox
+                        )
+
+                        TextBoxOverlay(
+                            textBoxManager: textBoxManager,
+                            imageManager: imageManager,
+                            pageIndex: currentPage,
+                            canvasSize: pageSize,
+                            isTextBoxToolActive: currentTool == .textbox
+                        )
+                    }
+                    .frame(width: pageSize.width, height: pageSize.height)
+                    .offset(x: 0, y: yOffset)
+                    .scaleEffect(verticalZoomLevel * unifiedFitScale, anchor: .topLeading)
+                    .offset(x: centeringInset - verticalUnifiedContentOffset.x, y: -verticalUnifiedContentOffset.y)
                 }
             }
-        )
-
-        // Calculate centering offset when content is smaller than viewport
-        let currentScale = verticalZoomLevel * unifiedFitScale
-        let scaledWidth = contentSize.width * currentScale
-        let scaledHeight = contentSize.height * currentScale
-        let centerOffsetX = max((viewportSize.width - scaledWidth) / 2, 0)
-
-        // Use unified offset for all pages
-        let pageOffset = verticalUnifiedContentOffset
-
-        if pageIndex < canvasViews.count {
-            // Page content - match page mode structure exactly
-            NativeScrollCanvasView(
-                    canvasView: canvasViews[pageIndex],
-                    contentSize: contentSize,
-                    minScale: absoluteMinScale,
-                    maxScale: absoluteMaxScale,
-                    currentScale: absoluteScaleBinding,
-                    contentOffset: pageOffsetBinding,
-                    currentTool: $currentTool,
-                    showScrollIndicators: preferencesManager.noteEditorPageBoundaryIndicatorMode == .scrollBars,
-                    onDrawingChange: { isEdited = true }
-                )
-                .frame(width: viewportSize.width, height: scaledHeight)
-                .offset(x: centerOffsetX, y: 0)
-                // TAP GESTURE FOR TAP TO ADD (same placement as page mode)
-                .simultaneousGesture(
-                    currentTool == .textbox ?
-                    SpatialTapGesture()
-                        .onEnded { value in
-                            addTextboxOnTap(
-                                pageIndex: pageIndex,
-                                viewTap: value.location,
-                                centerOffsetX: centerOffsetX,
-                                centerOffsetY: 0,
-                                scale: verticalZoomLevel * unifiedFitScale,
-                                contentOffset: pageOffset
-                            )
-                        }
-                    : nil
-                )
-                .background {
-                    GeometryReader { _ in
-                        ZStack(alignment: .topLeading) {
-                            // Paper background
-                            paperBackground(pageIndex: pageIndex)
-                                .frame(width: contentSize.width, height: contentSize.height)
-                            
-                            // Background image
-                            backgroundImagesView(pageIndex: pageIndex)
-                            
-                            // Canvas overlays (only in background when tools NOT active)
-                            if currentTool != .textbox && currentTool != .photo {
-                                CanvasImageOverlay(
-                                    imageManager: imageManager,
-                                    textBoxManager: textBoxManager,
-                                    pageIndex: pageIndex,
-                                    canvasSize: contentSize,
-                                    isPhotoToolActive: false,
-                                    isTextBoxToolActive: false
-                                )
-
-                                TextBoxOverlay(
-                                    textBoxManager: textBoxManager,
-                                    imageManager: imageManager,
-                                    pageIndex: pageIndex,
-                                    canvasSize: contentSize,
-                                    isTextBoxToolActive: false
-                                )
-                            }
-                        }
-                        .frame(width: contentSize.width, height: contentSize.height)
-                        .scaleEffect(verticalZoomLevel * unifiedFitScale, anchor: .topLeading)
-                        .offset(x: -pageOffset.x + centerOffsetX, y: -pageOffset.y)
-                    }
-                }
-                .overlay {
-                    // Canvas overlays (on top when tools ARE active for gesture interception)
-                    if currentTool == .textbox || currentTool == .photo {
-                        GeometryReader { _ in
-                            ZStack(alignment: .topLeading) {
-                                CanvasImageOverlay(
-                                    imageManager: imageManager,
-                                    textBoxManager: textBoxManager,
-                                    pageIndex: pageIndex,
-                                    canvasSize: contentSize,
-                                    isPhotoToolActive: currentTool == .photo,
-                                    isTextBoxToolActive: currentTool == .textbox
-                                )
-
-                                TextBoxOverlay(
-                                    textBoxManager: textBoxManager,
-                                    imageManager: imageManager,
-                                    pageIndex: pageIndex,
-                                    canvasSize: contentSize,
-                                    isTextBoxToolActive: currentTool == .textbox
-                                )
-                            }
-                            .frame(width: contentSize.width, height: contentSize.height)
-                            .scaleEffect(verticalZoomLevel * unifiedFitScale, anchor: .topLeading)
-                            .offset(x: -pageOffset.x + centerOffsetX, y: -pageOffset.y)
-                        }
-                    }
-                }
-                .onDrop(of: [.plainText], isTargeted: nil) { providers, location in
-                    // Handle dropped text from AI assistant
-                    guard let provider = providers.first else { return false }
-                    
-                    provider.loadObject(ofClass: NSString.self) { text, error in
-                        guard let droppedText = text as? String, error == nil else { return }
-                        
-                        // Convert drop location from view coordinates to canvas coordinates
-                        let scale = verticalZoomLevel * unifiedFitScale
-                        let canvasX = (location.x - centerOffsetX + pageOffset.x) / scale
-                        let canvasY = (location.y + pageOffset.y) / scale
-                        let canvasLocation = CGPoint(x: canvasX, y: canvasY)
-                        
-                        DispatchQueue.main.async {
-                            // Activate textbox tool when text is dragged in
-                            currentTool = .textbox
-                            
-                            // Create a textbox at the drop location with the AI-generated text
-                            textBoxManager.addTextBox(
-                                to: pageIndex,
-                                at: canvasLocation,
-                                withText: droppedText
-                            )
-                            // Mark as edited so changes are saved
-                            isEdited = true
-                        }
-                    }
-                    
-                    return true
-                }
-                .cornerRadius(8)
-                .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 2)
-        } else {
-            Text("Error: Canvas not available for page \(pageIndex + 1)")
-                .foregroundColor(.red)
         }
-    }
-}
+        .overlay(alignment: .bottomTrailing) {
+            controlsOverlay
+        }
+        // Add tap gesture for textbox tool
+        .simultaneousGesture(
+            currentTool == .textbox ?
+            SpatialTapGesture()
+                .onEnded { value in
+                    // Only add textbox if nothing is selected
+                    guard !textBoxManager.hasSelectedTextBox else { return }
 
-// MARK: - Page Visibility Preference Key
+                    // Convert tap location to unified canvas coordinates
+                    let scale = verticalZoomLevel * unifiedFitScale
+                    let canvasX = (value.location.x - centeringInset + verticalUnifiedContentOffset.x) / scale
+                    let canvasY = (value.location.y + verticalUnifiedContentOffset.y) / scale
 
-// PreferenceKey for tracking which page is currently visible in vertical scroll mode
-struct PageVisibilityPreferenceKey: PreferenceKey {
-    static var defaultValue: [Int: CGFloat] = [:]
-    
-    static func reduce(value: inout [Int: CGFloat], nextValue: () -> [Int: CGFloat]) {
-        value.merge(nextValue()) { (_, new) in new }
+                    // Determine which page was tapped
+                    let tappedPage = detectCurrentPage(from: CGPoint(x: canvasX, y: canvasY))
+
+                    // Convert to page-local coordinates
+                    let pageYStart = pageYOffset(for: tappedPage)
+                    let pageLocalY = canvasY - pageYStart
+                    let canvasLocation = CGPoint(x: canvasX, y: pageLocalY)
+
+                    textBoxManager.addTextBox(to: tappedPage, at: canvasLocation)
+                }
+            : nil
+        )
+        // Add drop gesture for AI assistant text
+        .onDrop(of: [.plainText], isTargeted: nil) { providers, location in
+            guard let provider = providers.first else { return false }
+
+            provider.loadObject(ofClass: NSString.self) { text, error in
+                guard let droppedText = text as? String, error == nil else { return }
+
+                // Convert drop location to unified canvas coordinates
+                let scale = verticalZoomLevel * unifiedFitScale
+                let canvasX = (location.x - centeringInset + verticalUnifiedContentOffset.x) / scale
+                let canvasY = (location.y + verticalUnifiedContentOffset.y) / scale
+
+                // Determine which page was dropped on
+                let droppedPage = detectCurrentPage(from: CGPoint(x: canvasX, y: canvasY))
+
+                // Convert to page-local coordinates
+                let pageYStart = pageYOffset(for: droppedPage)
+                let pageLocalY = canvasY - pageYStart
+                let canvasLocation = CGPoint(x: canvasX, y: pageLocalY)
+
+                DispatchQueue.main.async {
+                    // Activate textbox tool when text is dragged in
+                    currentTool = .textbox
+
+                    // Create a textbox at the drop location with the AI-generated text
+                    textBoxManager.addTextBox(
+                        to: droppedPage,
+                        at: canvasLocation,
+                        withText: droppedText
+                    )
+                    // Mark as edited so changes are saved
+                    isEdited = true
+                }
+            }
+
+            return true
+        }
+        .clipped()
+        .ignoresSafeArea(.all, edges: .bottom)
+        .onChange(of: verticalUnifiedContentOffset) { oldOffset, newOffset in
+            print("🟡 [VIEW] onChange(verticalUnifiedContentOffset) fired: \(oldOffset) -> \(newOffset)")
+            let detectedPage = detectCurrentPage(from: newOffset)
+            if detectedPage != currentPage {
+                print("🟡 [VIEW] Updating currentPage from \(currentPage) to \(detectedPage)")
+                currentPage = detectedPage
+            }
+        }
+        .onChange(of: preferencesManager.noteEditorVerticalScrollMode) { _, isVertical in
+            if !isVertical {
+                // When switching back to page mode, force TabView recreation
+                viewModeIdentifier = UUID()
+            }
+        }
+        .onAppear {
+            print("🟢 [VIEW] onAppear fired, didApplyInitialFit: \(didApplyInitialFit)")
+            if !didApplyInitialFit {
+                verticalZoomLevel = ZoomConstants.initialFitZoom
+                verticalUnifiedContentOffset = .zero
+                didApplyInitialFit = true
+                print("🟢 [VIEW] Set initial zoom and offset")
+            }
+        }
     }
 }
