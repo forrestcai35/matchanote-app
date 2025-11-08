@@ -453,15 +453,6 @@ struct WrittenNoteToolbar: View {
       }
       // Sync auto stroke settings (includes shape tool enabling)
       syncAutoStrokeSettings()
-      // Apply persisted ruler state across canvases
-      if currentPage < canvasViews.count {
-        let persisted = UserDefaults.standard.object(forKey: rulerActiveDefaultsKey) as? Bool ?? false
-        let canvasesToUpdate = preferencesManager.noteEditorVerticalScrollMode ? canvasViews : [canvasViews[currentPage]]
-        for canvas in canvasesToUpdate {
-          canvas.isRulerActive = persisted
-        }
-        isRulerActiveState = persisted
-      }
       // Load persisted pen/pencil subtool selection
       loadPersistedPenSubtoolSelection()
       if currentTool == .pen { updateCanvasTool() }
@@ -469,14 +460,19 @@ struct WrittenNoteToolbar: View {
     .onDisappear {
       stopUndoRedoTimer()
     }
-    .onChange(of: currentPage) { _, _ in
+    .onChange(of: currentPage) { oldPage, newPage in
+      // Turn off ruler on the old page when switching
+      if oldPage < canvasViews.count {
+        canvasViews[oldPage].isRulerActive = false
+      }
+
       updateCanvasTool()
       updateUndoRedoState()
       // Attach auto stroke manager to new canvas
       if currentPage < canvasViews.count {
         autoStrokeManager.attachToCanvas(canvasViews[currentPage])
       }
-      // Update ruler state to match current canvas
+      // Update ruler state to match current canvas (should be false for new page)
       if currentPage < canvasViews.count {
         isRulerActiveState = canvasViews[currentPage].isRulerActive
       }
@@ -1850,12 +1846,9 @@ struct WrittenNoteToolbar: View {
   private func toggleRuler() {
     guard currentPage < canvasViews.count else { return }
     let newState = !isRulerActive
-    let canvasesToUpdate = preferencesManager.noteEditorVerticalScrollMode ? canvasViews : [canvasViews[currentPage]]
-    for canvas in canvasesToUpdate {
-      canvas.isRulerActive = newState
-    }
+    // Only toggle ruler for current page
+    canvasViews[currentPage].isRulerActive = newState
     isRulerActiveState = newState
-    UserDefaults.standard.set(newState, forKey: rulerActiveDefaultsKey)
   }
 }
 
