@@ -10,8 +10,8 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-  <a href="https://github.com/forrestcai35/MatchaNote">
-    <img src="Assets/Logo.png" alt="Logo" width="80" height="80">
+  <a href="https://github.com/forrestcai35/matchanote-app">
+    <img src="matchanote-app/Assets.xcassets/Logo.imageset/Logo.png" alt="Logo" width="80" height="80">
   </a>
 
 <h3 align="center">MatchaNote</h3>
@@ -19,9 +19,9 @@
   <p align="center">
     MatchaNote, the beautifully designed AI-powered note-taking assistant.
     <br />
-    <a href="https://github.com/forrestcai35/MatchaNote/issues">Report Bug</a>
+    <a href="https://github.com/forrestcai35/matchanote-app/issues">Report Bug</a>
     ·
-    <a href="https://github.com/forrestcai35/MatchaNote/pulls">Request Feature</a>
+    <a href="https://github.com/forrestcai35/matchanote-app/pulls">Request Feature</a>
   </p>
 </div>
 
@@ -57,7 +57,7 @@ Follow these steps to get MatchaNote running on your local machine or device.
 1. Get a free OpenAI API Key at [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
 2. Clone the repo
    ```sh
-   git clone https://github.com/forrestcai35/MatchaNote
+   git clone https://github.com/forrestcai35/matchanote-app
    ```
 3. Open `matchanote-app/matchanote-app.xcodeproj` in Xcode.
 4. If required, securely provide your API Key through the application settings or an environment file.
@@ -114,7 +114,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 Email: forrestcai35@gmail.com
 
-Project Link: [https://github.com/forrestcai35/MatchaNote](https://github.com/forrestcai35/MatchaNote)
+Project Link: [https://github.com/forrestcai35/matchanote-app](https://github.com/forrestcai35/matchanote-app)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -122,14 +122,14 @@ Project Link: [https://github.com/forrestcai35/MatchaNote](https://github.com/fo
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-[contributors-shield]: https://img.shields.io/github/contributors/forrestcai35/MatchaNote.svg?style=for-the-badge
-[contributors-url]: https://github.com/forrestcai35/MatchaNote/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/forrestcai35/MatchaNote.svg?style=for-the-badge
-[forks-url]: https://github.com/forrestcai35/MatchaNote/network/members
-[stars-shield]: https://img.shields.io/github/stars/forrestcai35/MatchaNote.svg?style=for-the-badge
-[stars-url]: https://github.com/forrestcai35/MatchaNote/stargazers
+[contributors-shield]: https://img.shields.io/github/contributors/forrestcai35/matchanote-app.svg?style=for-the-badge
+[contributors-url]: https://github.com/forrestcai35/matchanote-app/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/forrestcai35/matchanote-app.svg?style=for-the-badge
+[forks-url]: https://github.com/forrestcai35/matchanote-app/network/members
+[stars-shield]: https://img.shields.io/github/stars/forrestcai35/matchanote-app.svg?style=for-the-badge
+[stars-url]: https://github.com/forrestcai35/matchanote-app/stargazers
 [license-shield]: https://img.shields.io/badge/MIT-red?style=for-the-badge&label=LICENSE
-[license-url]: https://github.com/forrestcai35/MatchaNote/blob/master/LICENSE
+[license-url]: https://github.com/forrestcai35/matchanote-app/blob/master/LICENSE
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
 [linkedin-url]: https://linkedin.com/in/forrestcai
 
