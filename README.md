@@ -14,10 +14,10 @@
     <img src="matchanote-app/Assets.xcassets/Logo.imageset/Logo.png" alt="Logo" width="80" height="80">
   </a>
 
-<h3 align="center">MatchaNote</h3>
+<h3 align="center">Matcha</h3>
 
   <p align="center">
-    MatchaNote, the beautifully designed AI-powered note-taking assistant.
+    Matcha, the beautifully designed AI-powered note-taking assistant.
     <br />
     <a href="https://github.com/forrestcai35/matchanote-app/issues">Report Bug</a>
     ·
@@ -30,7 +30,7 @@
 
 <!-- ABOUT THE PROJECT -->
 ## About The Project
-MatchaNote is an open-source, multi-tab note-taking application for iOS and macOS. It features a powerful handwriting canvas built with `PencilKit`, seamless document management, and an integrated AI assistant that can help analyze your notes and auto-fill worksheets.
+Matcha is an open-source, multi-tab note-taking application for iOS and macOS. It features a powerful handwriting canvas built with `PencilKit`, seamless document management, and an integrated AI assistant that can help analyze your notes and auto-fill worksheets.
 
 
 
@@ -45,7 +45,7 @@ MatchaNote is an open-source, multi-tab note-taking application for iOS and macO
 <!-- GETTING STARTED -->
 ## Getting Started
 
-Follow these steps to get MatchaNote running on your local machine or device.
+Follow these steps to get Matcha running on your local machine or device.
 
 ### Prerequisites
 
@@ -73,7 +73,7 @@ Follow these steps to get MatchaNote running on your local machine or device.
 ## Usage
 
 
-MatchaNote allows you to:
+Matcha allows you to:
 - Take handwritten notes smoothly using `PencilKit`.
 - Seamlessly switch between multiple active notes using the tab interface.
 - Manage documents locally, add text boxes, and easily insert images.
