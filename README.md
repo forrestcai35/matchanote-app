@@ -38,7 +38,6 @@ Matcha is an open-source, multi-tab note-taking application for iOS and macOS. I
 
 [![Swift][swift-shield]][swift-url]
 [![SwiftUI][swiftui-shield]][swiftui-url]
-[![OpenAI][openai-shield]][openai-url]
 
 
 
@@ -139,5 +138,4 @@ Project Link: [https://github.com/forrestcai35/matchanote-app](https://github.co
 [swiftui-shield]: https://img.shields.io/badge/SwiftUI-%23007AFF?style=for-the-badge&logo=swift&labelColor=black
 [swiftui-url]: https://developer.apple.com/xcode/swiftui/
 
-[openai-shield]: https://img.shields.io/badge/OpenAI-%23412991?style=for-the-badge&logo=OpenAI&labelColor=black
-[openai-url]: https://openai.com
+
