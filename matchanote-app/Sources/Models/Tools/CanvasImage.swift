@@ -1,0 +1,472 @@
+//
+//  CanvasImage.swift
+//  MatchaNotes
+//
+//  Image management for PencilKit canvas overlays
+//
+
+import SwiftUI
+import UIKit
+import PencilKit
+
+// MARK: - Canvas Image Model
+public struct CanvasImage: Identifiable, Codable {
+    public var id: UUID
+    public var imageData: Data
+    public var position: CGPoint
+    public var size: CGSize
+    public var rotation: Double = 0.0
+    public var zIndex: Int = 0
+    public var pageIndex: Int
+
+    // Cropping support
+    public var cropRect: CGRect? = nil  // Normalized crop rectangle (0-1 range)
+
+    public init(imageData: Data, position: CGPoint, size: CGSize, pageIndex: Int) {
+        self.id = UUID()
+        self.imageData = imageData
+        self.position = position
+        self.size = size
+        self.pageIndex = pageIndex
+    }
+    
+    // MARK: - Computed Properties
+    public var frame: CGRect {
+        CGRect(origin: position, size: size)
+    }
+    
+    public var centerPoint: CGPoint {
+        CGPoint(
+            x: position.x + size.width / 2,
+            y: position.y + size.height / 2
+        )
+    }
+    
+    // MARK: - Helper Methods
+    public func contains(point: CGPoint) -> Bool {
+        frame.contains(point)
+    }
+    
+    public mutating func move(by offset: CGPoint) {
+        position.x += offset.x
+        position.y += offset.y
+    }
+    
+    public mutating func resize(to newSize: CGSize) {
+        size = newSize
+    }
+    
+    public mutating func updatePosition(to newPosition: CGPoint) {
+        position = newPosition
+    }
+    
+    public mutating func updateCenter(to centerPoint: CGPoint) {
+        position = CGPoint(
+            x: centerPoint.x - size.width / 2,
+            y: centerPoint.y - size.height / 2
+        )
+    }
+
+    // Snap rotation to common angles (0°, 90°, 180°, 270°) if within threshold
+    public static func snapRotation(_ rotation: Double, threshold: Double = 5.0) -> Double {
+        let normalizedRotation = rotation.truncatingRemainder(dividingBy: 360)
+        let snapAngles: [Double] = [0, 90, 180, 270]
+
+        for snapAngle in snapAngles {
+            if abs(normalizedRotation - snapAngle) <= threshold {
+                return snapAngle
+            }
+            // Also check wrap-around at 360°/0°
+            if abs(normalizedRotation - (snapAngle - 360)) <= threshold {
+                return snapAngle
+            }
+        }
+
+        return rotation
+    }
+}
+
+// MARK: - Canvas Image Manager
+public class CanvasImageManager: ObservableObject {
+    @Published public var imagesByPage: [Int: [CanvasImage]] = [:]
+    @Published public var selectedImageId: UUID?
+    @Published public var isCropping: Bool = false
+    @Published public var cropRect: CGRect = .zero  // Crop rectangle in canvas coordinates
+
+    // Undo manager reference for integrating with PencilKit undo system
+    public weak var undoManager: UndoManager?
+
+    // PERFORMANCE: Debounce updates during drag operations
+    private var isDragging = false
+    private var pendingUpdate: CanvasImage?
+    private var updateWorkItem: DispatchWorkItem?
+
+    public init() {}
+    
+    // MARK: - Undo Manager Setup
+    public func setUndoManager(_ undoManager: UndoManager?) {
+        self.undoManager = undoManager
+    }
+    
+    // MARK: - Image Management
+    public func addImage(_ image: CanvasImage) {
+        // Register undo action before adding
+        undoManager?.registerUndo(withTarget: self) { manager in
+            manager.removeImage(withId: image.id, fromPage: image.pageIndex)
+        }
+        undoManager?.setActionName("Add Image")
+        
+        if imagesByPage[image.pageIndex] == nil {
+            imagesByPage[image.pageIndex] = []
+        }
+        imagesByPage[image.pageIndex]?.append(image)
+    }
+    
+    public func removeImage(withId id: UUID, fromPage pageIndex: Int) {
+        // Find the image before removing it for undo registration
+        guard let images = imagesByPage[pageIndex],
+              let imageToRemove = images.first(where: { $0.id == id }) else { return }
+        
+        // Register undo action before removing
+        undoManager?.registerUndo(withTarget: self) { manager in
+            manager.addImage(imageToRemove)
+            if manager.selectedImageId == nil {
+                manager.selectedImageId = id
+            }
+        }
+        undoManager?.setActionName("Delete Image")
+        
+        imagesByPage[pageIndex]?.removeAll { $0.id == id }
+        if selectedImageId == id {
+            selectedImageId = nil
+        }
+    }
+    
+    public func updateImage(_ updatedImage: CanvasImage, isDragging: Bool = false) {
+        guard var images = imagesByPage[updatedImage.pageIndex] else { return }
+
+        if let index = images.firstIndex(where: { $0.id == updatedImage.id }) {
+            let previousImage = images[index]
+
+            // Skip update if nothing changed
+            guard previousImage.position != updatedImage.position ||
+                  previousImage.size != updatedImage.size ||
+                  previousImage.rotation != updatedImage.rotation else { return }
+
+            // PERFORMANCE: If dragging, debounce the published update
+            if isDragging {
+                // Update immediately in the array for smooth dragging
+                images[index] = updatedImage
+                imagesByPage[updatedImage.pageIndex] = images
+
+                // Cancel pending update
+                updateWorkItem?.cancel()
+
+                // Schedule debounced undo registration
+                pendingUpdate = updatedImage
+                let workItem = DispatchWorkItem { [weak self] in
+                    guard let self = self else { return }
+                    // Register undo only after drag stops
+                    self.undoManager?.registerUndo(withTarget: self) { manager in
+                        manager.updateImage(previousImage, isDragging: false)
+                    }
+                    self.undoManager?.setActionName("Move/Resize Image")
+                    self.pendingUpdate = nil
+                }
+                updateWorkItem = workItem
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: workItem)
+            } else {
+                // Not dragging - immediate update with undo
+                undoManager?.registerUndo(withTarget: self) { manager in
+                    manager.updateImage(previousImage, isDragging: false)
+                }
+                undoManager?.setActionName("Move/Resize Image")
+
+                images[index] = updatedImage
+                imagesByPage[updatedImage.pageIndex] = images
+            }
+        }
+    }
+
+    // Call this when drag begins
+    public func beginDragging() {
+        isDragging = true
+    }
+
+    // Call this when drag ends
+    public func endDragging() {
+        isDragging = false
+        // Force completion of any pending update
+        updateWorkItem?.cancel()
+        if pendingUpdate != nil {
+            // Final update already applied, just clear state
+            pendingUpdate = nil
+        }
+    }
+    
+    public func getImagesForPage(_ pageIndex: Int) -> [CanvasImage] {
+        return imagesByPage[pageIndex] ?? []
+    }
+    
+    public func getImage(withId id: UUID, onPage pageIndex: Int) -> CanvasImage? {
+        return imagesByPage[pageIndex]?.first { $0.id == id }
+    }
+    
+    // MARK: - Selection Management
+    public func selectImage(withId id: UUID?) {
+        selectedImageId = id
+    }
+    
+    public func deselectImage() {
+        selectedImageId = nil
+    }
+    
+    public var hasSelectedImage: Bool {
+        selectedImageId != nil
+    }
+    
+    // MARK: - Hit Testing
+    public func imageAt(point: CGPoint, onPage pageIndex: Int) -> CanvasImage? {
+        let images = getImagesForPage(pageIndex)
+        // Return the topmost image (highest zIndex) that contains the point
+        return images
+            .filter { $0.contains(point: point) }
+            .max { $0.zIndex < $1.zIndex }
+    }
+    
+    // MARK: - Data Conversion for Persistence
+    public func getAllImagesData() -> [String: [Data]] {
+        var result: [String: [Data]] = [:]
+        
+        for (pageIndex, images) in imagesByPage {
+            let imageDataArray = images.compactMap { image -> Data? in
+                do {
+                    return try JSONEncoder().encode(image)
+                } catch {
+                    print("Failed to encode image: \(error)")
+                    return nil
+                }
+            }
+            
+            if !imageDataArray.isEmpty {
+                result[String(pageIndex)] = imageDataArray
+            }
+        }
+        
+        return result
+    }
+    
+    public func loadImagesData(_ data: [String: [Data]]) {
+        imagesByPage.removeAll()
+        
+        for (pageIndexString, imageDataArray) in data {
+            guard let pageIndex = Int(pageIndexString) else { continue }
+            
+            let images = imageDataArray.compactMap { imageData -> CanvasImage? in
+                do {
+                    return try JSONDecoder().decode(CanvasImage.self, from: imageData)
+                } catch {
+                    print("Failed to decode image: \(error)")
+                    return nil
+                }
+            }
+            
+            if !images.isEmpty {
+                imagesByPage[pageIndex] = images
+            }
+        }
+    }
+    
+    // MARK: - Utility Methods
+    public func moveSelectedImageToFront(onPage pageIndex: Int) {
+        guard let selectedId = selectedImageId,
+              var images = imagesByPage[pageIndex],
+              let imageIndex = images.firstIndex(where: { $0.id == selectedId }) else { return }
+        
+        let previousImage = images[imageIndex]
+        let maxZIndex = images.map { $0.zIndex }.max() ?? 0
+        
+        // Register undo action before changing z-index
+        undoManager?.registerUndo(withTarget: self) { manager in
+            manager.updateImage(previousImage)
+        }
+        undoManager?.setActionName("Bring to Front")
+        
+        images[imageIndex].zIndex = maxZIndex + 1
+        imagesByPage[pageIndex] = images
+    }
+    
+    public func moveSelectedImageToBack(onPage pageIndex: Int) {
+        guard let selectedId = selectedImageId,
+              var images = imagesByPage[pageIndex],
+              let imageIndex = images.firstIndex(where: { $0.id == selectedId }) else { return }
+        
+        let previousImage = images[imageIndex]
+        let minZIndex = images.map { $0.zIndex }.min() ?? 0
+        
+        // Register undo action before changing z-index
+        undoManager?.registerUndo(withTarget: self) { manager in
+            manager.updateImage(previousImage)
+        }
+        undoManager?.setActionName("Send to Back")
+        
+        images[imageIndex].zIndex = minZIndex - 1
+        imagesByPage[pageIndex] = images
+    }
+    
+    public func clearAllImagesFromPage(_ pageIndex: Int) {
+        guard let images = imagesByPage[pageIndex], !images.isEmpty else { return }
+
+        // Register undo action before clearing
+        undoManager?.registerUndo(withTarget: self) { manager in
+            for image in images {
+                manager.addImage(image)
+            }
+        }
+        undoManager?.setActionName("Clear All Images")
+
+        // Clear all images from the page
+        imagesByPage[pageIndex] = []
+
+        // Clear selection if the selected image was on this page
+        if let selectedId = selectedImageId,
+           images.contains(where: { $0.id == selectedId }) {
+            selectedImageId = nil
+        }
+    }
+
+    // MARK: - Cropping Operations
+    public func startCropping(for imageId: UUID, onPage pageIndex: Int) {
+        guard let image = getImage(withId: imageId, onPage: pageIndex) else { return }
+
+        isCropping = true
+        selectedImageId = imageId
+        // Initialize crop rect to full image bounds
+        cropRect = image.frame
+    }
+
+    public func updateCropRect(_ rect: CGRect) {
+        cropRect = rect
+    }
+
+    public func applyCrop(to imageId: UUID, onPage pageIndex: Int, cropRect canvasCropRect: CGRect) {
+        guard var images = imagesByPage[pageIndex],
+              let index = images.firstIndex(where: { $0.id == imageId }),
+              let originalImage = ImageUtilities.dataToImage(images[index].imageData) else { return }
+
+        let previousImage = images[index]
+        let imageFrame = previousImage.frame
+
+        // Convert canvas crop rect to normalized coordinates (0-1 range) relative to image
+        let normalizedCropRect = CGRect(
+            x: (canvasCropRect.origin.x - imageFrame.origin.x) / imageFrame.width,
+            y: (canvasCropRect.origin.y - imageFrame.origin.y) / imageFrame.height,
+            width: canvasCropRect.width / imageFrame.width,
+            height: canvasCropRect.height / imageFrame.height
+        )
+
+        // Crop the actual image data
+        guard let croppedImage = ImageUtilities.cropImage(originalImage, to: normalizedCropRect),
+              let croppedData = ImageUtilities.imageToData(croppedImage) else { return }
+
+        // Register undo action
+        undoManager?.registerUndo(withTarget: self) { manager in
+            manager.updateImage(previousImage)
+        }
+        undoManager?.setActionName("Crop Image")
+
+        // Update image with cropped data and new position/size
+        images[index].imageData = croppedData
+        images[index].position = canvasCropRect.origin
+        images[index].size = canvasCropRect.size
+        images[index].cropRect = normalizedCropRect
+
+        imagesByPage[pageIndex] = images
+
+        // Exit cropping mode
+        isCropping = false
+        cropRect = .zero
+    }
+
+    public func cancelCrop() {
+        isCropping = false
+        cropRect = .zero
+    }
+}
+
+// MARK: - Image Utilities
+public struct ImageUtilities {
+    
+    // Convert UIImage to Data for storage
+    public static func imageToData(_ image: UIImage, compressionQuality: CGFloat = 0.8) -> Data? {
+        return image.jpegData(compressionQuality: compressionQuality)
+    }
+    
+    // Convert Data back to UIImage
+    public static func dataToImage(_ data: Data) -> UIImage? {
+        return UIImage(data: data)
+    }
+    
+    // Resize image while maintaining aspect ratio
+    public static func resizeImage(_ image: UIImage, to targetSize: CGSize) -> UIImage? {
+        let aspectRatio = image.size.width / image.size.height
+        let targetAspectRatio = targetSize.width / targetSize.height
+        
+        var scaledSize: CGSize
+        
+        if aspectRatio > targetAspectRatio {
+            // Image is wider than target
+            scaledSize = CGSize(width: targetSize.width, height: targetSize.width / aspectRatio)
+        } else {
+            // Image is taller than target
+            scaledSize = CGSize(width: targetSize.height * aspectRatio, height: targetSize.height)
+        }
+        
+        UIGraphicsBeginImageContextWithOptions(scaledSize, false, image.scale)
+        image.draw(in: CGRect(origin: .zero, size: scaledSize))
+        let scaledImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        
+        return scaledImage
+    }
+    
+    // Calculate appropriate initial size for image on canvas
+    public static func calculateInitialSize(for image: UIImage, maxWidth: CGFloat = 300, maxHeight: CGFloat = 300) -> CGSize {
+        let aspectRatio = image.size.width / image.size.height
+
+        if image.size.width > maxWidth || image.size.height > maxHeight {
+            if aspectRatio > 1 {
+                // Landscape
+                return CGSize(width: maxWidth, height: maxWidth / aspectRatio)
+            } else {
+                // Portrait
+                return CGSize(width: maxHeight * aspectRatio, height: maxHeight)
+            }
+        } else {
+            // Image is smaller than max constraints, use original size
+            return image.size
+        }
+    }
+
+    // Crop image using normalized crop rectangle (0-1 range)
+    public static func cropImage(_ image: UIImage, to normalizedRect: CGRect) -> UIImage? {
+        guard let cgImage = image.cgImage else { return nil }
+
+        // Convert normalized coordinates to pixel coordinates
+        let scale = image.scale
+        let pixelRect = CGRect(
+            x: normalizedRect.origin.x * CGFloat(cgImage.width),
+            y: normalizedRect.origin.y * CGFloat(cgImage.height),
+            width: normalizedRect.width * CGFloat(cgImage.width),
+            height: normalizedRect.height * CGFloat(cgImage.height)
+        )
+
+        // Ensure crop rect is within image bounds
+        let clampedRect = pixelRect.intersection(CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height))
+
+        guard !clampedRect.isEmpty,
+              let croppedCGImage = cgImage.cropping(to: clampedRect) else { return nil }
+
+        return UIImage(cgImage: croppedCGImage, scale: scale, orientation: image.imageOrientation)
+    }
+}

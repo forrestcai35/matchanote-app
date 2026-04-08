@@ -1,0 +1,16 @@
+/.env*
+.build/
+
+/matchanote-app/.env*
+.claude 
+.vscode
+.cursor/rules
+
+.DS_Store
+/matchanote-app/.DS_Store
+
+DerivedData/
+
+matchanote-app.xcodeproj/xcuserdata/
+
+AGENTS.md

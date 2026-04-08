@@ -1,0 +1,153 @@
+
+
+import SwiftUI
+import PencilKit
+
+// Paper properties enums
+public enum PaperColor: String, CaseIterable, Codable {
+  case white, offwhite, dark
+
+  var color: Color {
+    switch self {
+    case .white: return .white
+    case .offwhite: return Color.paper_offwhite
+    case .dark: return Color.paper_dark
+    }
+  }
+}
+
+public enum PaperStyle: String, CaseIterable, Codable {
+  case grid, dotted, blank, lined
+}
+
+public enum PaperSize: String, CaseIterable, Codable {
+  case legal, letter, tabloid, a4
+}
+
+public enum PaperOrientation: String, CaseIterable, Codable {
+  case portrait, landscape
+}
+
+// Define the type of note
+public enum NoteType: String, CaseIterable, Codable {
+  case written
+}
+
+public struct Note: Identifiable, Codable {
+  public var id = UUID()
+  public var title: String
+  public var subject: String
+  public var color: Color
+  public var dateCreated: Date
+  public var dateModified: Date
+  public var lastOpenedAt: Date? = nil
+  public var isFavorite: Bool = false
+  public var content: String = ""
+  public var noteType: NoteType = .written
+  public var paperColor: PaperColor = .white
+  public var paperStyle: PaperStyle = .blank
+  public var paperSize: PaperSize = .a4
+  public var paperOrientation: PaperOrientation = .portrait
+  // Store drawing data by page using String keys for better JSON compatibility
+  public var drawingDataByPage: [String: Data] = [:]
+  // Store image data by page
+  public var imageDataByPage: [String: [Data]] = [:]
+  // Store textbox data by page
+  public var textBoxDataByPage: [String: [Data]] = [:]
+  // Track which pages are bookmarked using page indices as Set
+  public var bookmarkedPages: Set<Int> = []
+  // Store the last viewed page to restore position when reopening the note
+  public var currentPage: Int = 0
+
+  // MARK: - Codable Implementation
+  private enum CodingKeys: String, CodingKey {
+    case id, title, subject, colorString, dateCreated, dateModified, lastOpenedAt
+    case isFavorite, content, noteType, paperColor, paperStyle, paperSize, paperOrientation
+    case drawingDataByPage, imageDataByPage, textBoxDataByPage, bookmarkedPages, currentPage
+  }
+  
+  // Custom encoding to handle Color serialization
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(id, forKey: .id)
+    try container.encode(title, forKey: .title)
+    try container.encode(subject, forKey: .subject)
+      try container.encode(colorToHexString(color), forKey: .colorString)
+    try container.encode(dateCreated, forKey: .dateCreated)
+    try container.encode(dateModified, forKey: .dateModified)
+    try container.encodeIfPresent(lastOpenedAt, forKey: .lastOpenedAt)
+    try container.encode(isFavorite, forKey: .isFavorite)
+    try container.encode(content, forKey: .content)
+    try container.encode(noteType, forKey: .noteType)
+    try container.encode(paperColor, forKey: .paperColor)
+    try container.encode(paperStyle, forKey: .paperStyle)
+    try container.encode(paperSize, forKey: .paperSize)
+    try container.encode(paperOrientation, forKey: .paperOrientation)
+    try container.encode(drawingDataByPage, forKey: .drawingDataByPage)
+    try container.encode(imageDataByPage, forKey: .imageDataByPage)
+    try container.encode(textBoxDataByPage, forKey: .textBoxDataByPage)
+    try container.encode(bookmarkedPages, forKey: .bookmarkedPages)
+    try container.encode(currentPage, forKey: .currentPage)
+  }
+  
+  // Custom decoding to handle Color deserialization
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    id = try container.decode(UUID.self, forKey: .id)
+    title = try container.decode(String.self, forKey: .title)
+    subject = try container.decode(String.self, forKey: .subject)
+    let colorString = try container.decode(String.self, forKey: .colorString)
+      color = hexStringToColor(colorString)
+    dateCreated = try container.decode(Date.self, forKey: .dateCreated)
+    dateModified = try container.decode(Date.self, forKey: .dateModified)
+    lastOpenedAt = try container.decodeIfPresent(Date.self, forKey: .lastOpenedAt)
+    isFavorite = try container.decode(Bool.self, forKey: .isFavorite)
+    content = try container.decode(String.self, forKey: .content)
+    noteType = try container.decode(NoteType.self, forKey: .noteType)
+    paperColor = try container.decode(PaperColor.self, forKey: .paperColor)
+    paperStyle = try container.decode(PaperStyle.self, forKey: .paperStyle)
+    paperSize = try container.decode(PaperSize.self, forKey: .paperSize)
+    paperOrientation = try container.decodeIfPresent(PaperOrientation.self, forKey: .paperOrientation) ?? .portrait
+    drawingDataByPage = try container.decodeIfPresent([String: Data].self, forKey: .drawingDataByPage) ?? [:]
+    imageDataByPage = try container.decodeIfPresent([String: [Data]].self, forKey: .imageDataByPage) ?? [:]
+    textBoxDataByPage = try container.decodeIfPresent([String: [Data]].self, forKey: .textBoxDataByPage) ?? [:]
+    bookmarkedPages = try container.decodeIfPresent(Set<Int>.self, forKey: .bookmarkedPages) ?? Set<Int>()
+    currentPage = try container.decodeIfPresent(Int.self, forKey: .currentPage) ?? 0
+  }
+
+  public init(
+    title: String, subject: String = "", color: Color = .white, dateCreated: Date,
+    dateModified: Date, lastOpenedAt: Date? = nil, isFavorite: Bool = false,
+    content: String = "", noteType: NoteType,
+    paperColor: PaperColor = .white,
+    paperStyle: PaperStyle = .blank, paperSize: PaperSize = .a4,
+    paperOrientation: PaperOrientation = .portrait,
+    drawingDataByPage: [String: Data] = [:],
+    imageDataByPage: [String: [Data]] = [:],
+    textBoxDataByPage: [String: [Data]] = [:],
+    bookmarkedPages: Set<Int> = [],
+    currentPage: Int = 0
+  ) {
+    self.title = title
+    self.subject = subject
+    self.color = color
+    self.dateCreated = dateCreated
+    self.dateModified = dateModified
+    self.lastOpenedAt = lastOpenedAt
+    self.isFavorite = isFavorite
+    self.content = content
+    self.noteType = noteType
+    self.paperColor = paperColor
+    self.paperStyle = paperStyle
+    self.paperSize = paperSize
+    self.paperOrientation = paperOrientation
+    self.drawingDataByPage = drawingDataByPage
+    self.imageDataByPage = imageDataByPage
+    self.textBoxDataByPage = textBoxDataByPage
+    self.bookmarkedPages = bookmarkedPages
+    self.currentPage = currentPage
+  }
+
+}
+
+

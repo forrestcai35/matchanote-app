@@ -1,0 +1,289 @@
+import PencilKit
+import SwiftUI
+import UIKit
+
+// MARK: - Line Shape
+
+// Line Shape for drawing grids and lines
+struct Line: Shape {
+    var start, end: CGPoint
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: start)
+        path.addLine(to: end)
+        return path
+    }
+}
+
+// MARK: - Native Scroll Canvas View
+
+struct NativeScrollCanvasView: UIViewRepresentable {
+    let canvasView: PKCanvasView
+    let contentSize: CGSize
+    let minScale: CGFloat
+    let maxScale: CGFloat
+    @Binding var currentScale: CGFloat
+    @Binding var contentOffset: CGPoint
+    @Binding var currentTool: PenTool?
+    @ObservedObject var preferencesManager = PreferencesManager.shared
+    var showScrollIndicators: Bool = false
+    // Whether this view is the active page (in TabView mode). When false, it
+    // will not push/pull unified content offsets to avoid flashing during transitions.
+    var isActivePage: Bool = true
+
+    let onDrawingChange: () -> Void
+
+    func makeUIView(context: Context) -> PKCanvasView {
+        // Enable native scrolling and zooming
+        canvasView.contentSize = contentSize
+        canvasView.isScrollEnabled = true
+        canvasView.minimumZoomScale = minScale
+        canvasView.maximumZoomScale = maxScale
+        canvasView.zoomScale = currentScale
+        canvasView.contentOffset = contentOffset
+        canvasView.delegate = context.coordinator
+        canvasView.showsVerticalScrollIndicator = showScrollIndicators
+        canvasView.showsHorizontalScrollIndicator = showScrollIndicators
+        canvasView.backgroundColor = .clear
+        canvasView.decelerationRate = .fast
+        // Allow system-provided overlays (like the PencilKit ruler) to extend beyond
+        // the canvas bounds so they aren't visually clipped at the edges.
+        canvasView.clipsToBounds = false
+
+        // Disable automatic content inset adjustment to prevent auto-centering
+        canvasView.contentInsetAdjustmentBehavior = .never
+        canvasView.bouncesZoom = false
+        canvasView.bounces = false
+
+        // Configure for high-resolution (match ensureCanvasExists settings)
+        canvasView.contentScaleFactor = 1.0 // Default high-resolution scale
+        canvasView.layer.contentsScale = 1.0 
+        canvasView.layer.shouldRasterize = false
+
+        // Add pencil interaction for double-tap and squeeze gestures
+        let pencilInteraction = UIPencilInteraction()
+        pencilInteraction.delegate = context.coordinator
+        canvasView.addInteraction(pencilInteraction)
+
+        // Add custom undo/redo gestures only when in tap mode
+        if preferencesManager.noteEditorUndoRedoGestureMode == .twoThreeTap {
+            // Add custom undo gesture (2-finger tap)
+            let twoFingerTapGesture = UITapGestureRecognizer(
+                target: context.coordinator,
+                action: #selector(Coordinator.handleTwoFingerTap(_:))
+            )
+            twoFingerTapGesture.numberOfTouchesRequired = 2
+            twoFingerTapGesture.numberOfTapsRequired = 1
+            canvasView.addGestureRecognizer(twoFingerTapGesture)
+
+            // Add custom redo gesture (3-finger tap)
+            let threeFingerTapGesture = UITapGestureRecognizer(
+                target: context.coordinator,
+                action: #selector(Coordinator.handleThreeFingerTap(_:))
+            )
+            threeFingerTapGesture.numberOfTouchesRequired = 3
+            threeFingerTapGesture.numberOfTapsRequired = 1
+            // Set delegate to allow simultaneous recognition with system gestures
+            threeFingerTapGesture.delegate = context.coordinator
+            canvasView.addGestureRecognizer(threeFingerTapGesture)
+        }
+
+        context.coordinator.canvasView = canvasView
+        context.coordinator.setupDrawingObservation()
+
+        // HACK: Trigger a micro-zoom to force PKCanvasView to enforce contentSize bounds
+        // This simulates what a pinch gesture does
+        applyMicroZoomSync(to: canvasView)
+
+        return canvasView
+    }
+
+    func updateUIView(_ uiView: PKCanvasView, context: Context) {
+        context.coordinator.parent = self
+
+        // Apply finger drawing preference
+        uiView.drawingPolicy = preferencesManager.noteEditorFingerDrawingEnabled ? .anyInput : .pencilOnly
+
+        // Always disable drawing when textbox or photo tool is active (regardless of interaction state)
+        uiView.drawingGestureRecognizer.isEnabled = (currentTool != .textbox && currentTool != .photo)
+        
+        // Disable native scrolling on non-active pages to avoid fighting with page transitions
+        uiView.isScrollEnabled = isActivePage
+
+        // Update zoom bounds when they change (e.g., orientation change updates fitScale)
+        uiView.minimumZoomScale = minScale
+        uiView.maximumZoomScale = maxScale
+
+        // Synchronize zoom and offset when they change (e.g., when switching pages)
+        if !context.coordinator.isUserInteracting {
+            // Update zoom scale if it differs significantly from binding
+            if abs(uiView.zoomScale - currentScale) > 0.01 {
+                uiView.setZoomScale(currentScale, animated: false)
+            }
+
+            // Update content offset if it differs significantly from binding
+            let offsetDelta = sqrt(pow(uiView.contentOffset.x - contentOffset.x, 2) + pow(uiView.contentOffset.y - contentOffset.y, 2))
+            if offsetDelta > 0.5 {
+                uiView.setContentOffset(contentOffset, animated: false)
+            }
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    class Coordinator: NSObject, PKCanvasViewDelegate, UIPencilInteractionDelegate, UIGestureRecognizerDelegate {
+        var parent: NativeScrollCanvasView
+        var canvasView: PKCanvasView?
+        private var drawingObserver: NSKeyValueObservation?
+        private let pencilHandler = PencilInteractionHandler()
+        var isUpdatingZoom: Bool = false
+        var isUserInteracting: Bool = false
+        private var panWasEnabledBeforeZoom: Bool = true
+        private var lastPublishedOffset: CGPoint = .zero
+
+        init(_ parent: NativeScrollCanvasView) {
+            self.parent = parent
+        }
+
+        func setupDrawingObservation() {
+            drawingObserver = canvasView?.observe(\.drawing, options: [.new]) { [weak self] _, _ in
+                self?.parent.onDrawingChange()
+            }
+        }
+
+        // MARK: - PKCanvasViewDelegate (UIScrollViewDelegate methods)
+
+        func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+            isUserInteracting = true
+        }
+
+        func scrollViewWillBeginZooming(_ scrollView: UIScrollView, with view: UIView?) {
+            isUserInteracting = true
+            // Reduce micro panning noise during pinch by disabling pan temporarily
+            panWasEnabledBeforeZoom = scrollView.panGestureRecognizer.isEnabled
+            scrollView.panGestureRecognizer.isEnabled = false
+        }
+
+        func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+            if !decelerate {
+                isUserInteracting = false
+            }
+        }
+
+        func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+            isUserInteracting = false
+            // Full tile refresh by reassigning drawing
+            if let canvas = canvasView {
+                let current = canvas.drawing
+                canvas.drawing = current
+            }
+        }
+
+        func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
+            isUserInteracting = false
+            // Restore pan gesture
+            scrollView.panGestureRecognizer.isEnabled = panWasEnabledBeforeZoom
+            // Full tile refresh by reassigning drawing
+            if let canvas = canvasView {
+                let current = canvas.drawing
+                canvas.drawing = current
+            }
+        }
+
+        func scrollViewDidScroll(_ scrollView: UIScrollView) {
+            updateZoomOffset(scrollView)
+        }
+
+        func scrollViewDidZoom(_ scrollView: UIScrollView) {
+            updateZoomOffset(scrollView)
+        }
+
+        private func updateZoomOffset(_ scrollView: UIScrollView) {
+            // Ignore updates from non-active pages to prevent offset contention
+            guard parent.isActivePage else { return }
+            guard !isUpdatingZoom else { return }
+            isUpdatingZoom = true
+            
+            // Use transaction to suppress the warning while keeping synchronous behavior
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                // Publish offset with a small deadzone while zooming to avoid jitter from micro finger movements
+                let newOffset = scrollView.contentOffset
+                let threshold: CGFloat = 0.5
+                let dx = abs(newOffset.x - lastPublishedOffset.x)
+                let dy = abs(newOffset.y - lastPublishedOffset.y)
+                if !scrollView.isZooming || dx > threshold || dy > threshold {
+                    self.parent.contentOffset = newOffset
+                    lastPublishedOffset = newOffset
+                }
+                self.parent.currentScale = scrollView.zoomScale
+            }
+            
+            self.isUpdatingZoom = false
+        }
+
+            // MARK: - PKCanvasViewDelegate
+
+            func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
+                // This gets called immediately when a stroke is completed
+                // Trigger recognition by posting a notification for AutoStrokeRecognitionManager
+                NotificationCenter.default.post(name: NSNotification.Name("StrokeCompleted"), object: canvasView)
+            }
+
+            // MARK: - UIPencilInteractionDelegate
+
+            func pencilInteractionDidTap(_ interaction: UIPencilInteraction) {
+                if let newTool = pencilHandler.handleTap(currentTool: parent.currentTool) {
+                    DispatchQueue.main.async {
+                        self.parent.currentTool = newTool
+                    }
+                }
+            }
+
+            @available(iOS 17.5, *)
+            func pencilInteraction(_ interaction: UIPencilInteraction, didReceiveSqueeze squeeze: UIPencilInteraction.Squeeze) {
+                guard squeeze.phase == .ended else { return }
+                if let newTool = pencilHandler.handleSqueeze(currentTool: parent.currentTool) {
+                    DispatchQueue.main.async {
+                        self.parent.currentTool = newTool
+                    }
+                }
+            }
+
+            // MARK: - Gesture Recognizers
+
+            @objc func handleTwoFingerTap(_ gestureRecognizer: UITapGestureRecognizer) {
+                guard gestureRecognizer.state == .ended else { return }
+                guard let canvas = canvasView else { return }
+                
+                // Perform undo
+                if let undoManager = canvas.undoManager, undoManager.canUndo {
+                    undoManager.undo()
+                }
+            }
+
+            @objc func handleThreeFingerTap(_ gestureRecognizer: UITapGestureRecognizer) {
+                guard gestureRecognizer.state == .ended else { return }
+                guard let canvas = canvasView else { return }
+                
+                // Perform redo
+                if let undoManager = canvas.undoManager, undoManager.canRedo {
+                    undoManager.redo()
+                }
+            }
+
+            // MARK: - UIGestureRecognizerDelegate
+            
+            // Allow our gesture to be recognized simultaneously with system gestures
+            func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+                return true
+            }
+
+            deinit {
+                drawingObserver?.invalidate()
+        }
+    }
+}
