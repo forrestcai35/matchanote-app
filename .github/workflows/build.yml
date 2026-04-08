@@ -27,12 +27,12 @@ jobs:
             -project matchanote-app.xcodeproj \
             -scheme matchanote-app
 
-      - name: Build (iPhone 16)
+      - name: Build
         run: |
           xcodebuild build \
             -project matchanote-app.xcodeproj \
             -scheme matchanote-app \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -destination 'generic/platform=iOS Simulator' \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
             | xcpretty && exit ${PIPESTATUS[0]}
@@ -42,7 +42,7 @@ jobs:
           xcodebuild test \
             -project matchanote-app.xcodeproj \
             -scheme matchanote-app \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -destination 'platform=iOS Simulator,name=Any iOS Simulator Device' \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
             | xcpretty && exit ${PIPESTATUS[0]}
