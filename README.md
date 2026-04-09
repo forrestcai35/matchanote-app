@@ -19,6 +19,12 @@
   <p align="center">
     Matcha, the beautifully designed AI-powered note-taking assistant.
     <br />
+    <br />
+    <a href="https://trymatcha.ai"><strong>🌐 Landing Page</strong></a>
+    ·
+    <a href="https://apps.apple.com/us/app/matcha-take-ai-notes/id6744668137"><strong>🍎 Download on the App Store</strong></a>
+    <br />
+    <br />
     <a href="https://github.com/forrestcai35/matchanote-app/issues">Report Bug</a>
     ·
     <a href="https://github.com/forrestcai35/matchanote-app/pulls">Request Feature</a>
@@ -36,6 +42,13 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 Matcha is an open-source, multi-tab note-taking application for iOS and macOS. It features a powerful handwriting canvas built with `PencilKit`, seamless document management, and an integrated AI assistant that can help analyze your notes and auto-fill worksheets.
+
+### What the Code Does
+This repository contains the complete Swift UI codebase for the Matcha app. Core functionalities implemented in this project include:
+* **Rich Handwriting Experience:** Native implementation of Apple's `PencilKit` to deliver a zero-latency, highly customized digital canvas tailored for note-taking and drawing.
+* **Smart AI Assistant Context Processing:** Takes the canvas data (handwriting and drawings) and intelligently extracts semantic meaning to assist in answering worksheet questions or summarizing notes locally using connected backend services.
+* **Document and Storage Management:** A robust document system that locally stores, serializes, and organizes user notebooks. It handles inserting text, images, and seamlessly switching between multiple open note tabs.
+* **Cloud & Auth Integrations:** Backend logic built into Swift to handle authentication, cloud sync, and user subscription states.
 
 
 
@@ -58,15 +71,14 @@ Follow these steps to get Matcha running on your local machine or device.
 
 ### Installation
 
-1. Get a free OpenAI API Key at [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
-2. Clone the repo
+1. Clone the repo
    ```sh
    git clone https://github.com/forrestcai35/matchanote-app
    ```
-3. Open `matchanote-app/matchanote-app.xcodeproj` in Xcode.
-4. If required, securely provide your API Key through the application settings or an environment file.
-5. Select your target device or simulator in Xcode.
-6. Build and run using `Cmd + R`.
+2. Open `matchanote-app/matchanote-app.xcodeproj` in Xcode.
+3. Wait for Xcode to resolve any dependencies.
+4. Select your target device or simulator in Xcode.
+5. Build and run using `Cmd + R`.
 
 
 
