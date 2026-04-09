@@ -1,0 +1,106 @@
+{
+  "freeModels": [
+    {
+      "displayName": "Matcha Assistant",
+      "modelId": "gemini-2.5-flash",
+      "isPremium": false,
+      "provider": "google",
+      "supportsVision": true
+    }
+  ],
+  "fallbackModels": [
+    {
+      "displayName": "Matcha Assistant",
+      "modelId": "tngtech/deepseek-r1t-chimera:free",
+      "isPremium": false,
+      "provider": "openrouter",
+      "supportsVision": true
+    },
+    {
+      "displayName": "GPT-OSS 120B",
+      "modelId": "openai/gpt-oss-120b",
+      "isPremium": false,
+      "provider": "groq",
+      "supportsVision": false
+    },
+    {
+      "displayName": "Qwen 3 32B (Groq)",
+      "modelId": "qwen/qwen3-32b",
+      "isPremium": false,
+      "provider": "groq",
+      "supportsVision": false
+    },
+    {
+      "displayName": "GPT-OSS 20B",
+      "modelId": "openai/gpt-oss-20b",
+      "isPremium": false,
+      "provider": "groq",
+      "supportsVision": false
+    },
+    {
+      "displayName": "Mistral 7B",
+      "modelId": "mistral-7b-instruct",
+      "isPremium": false,
+      "provider": "mistral",
+      "supportsVision": false
+    },
+    {
+      "displayName": "DeepSeek Chat (Emergency)",
+      "modelId": "deepseek-chat",
+      "isPremium": false,
+      "provider": "deepseek",
+      "supportsVision": true
+    }
+  ],
+  "premiumModels": [
+    {
+      "displayName": "GPT 5.3",
+      "modelId": "gpt-5.3",
+      "isPremium": true,
+      "provider": "openai",
+      "supportsVision": true
+    },
+    {
+      "displayName": "Sonnet 4.6",
+      "modelId": "claude-sonnet-4-6",
+      "isPremium": true,
+      "provider": "anthropic",
+      "supportsVision": true
+    },
+    {
+      "displayName": "Gemini 3.1 Pro",
+      "modelId": "gemini-3.1-pro-preview",
+      "isPremium": true,
+      "provider": "google",
+      "supportsVision": true
+    },
+    {
+      "displayName": "Grok 4",
+      "modelId": "grok-4-fast-non-reasoning",
+      "isPremium": true,
+      "provider": "x",
+      "supportsVision": true
+    },
+    {
+      "displayName": "Deepseek V3.2",
+      "modelId": "deepseek-chat",
+      "isPremium": true,
+      "provider": "deepseek",
+      "supportsVision": true
+    },
+    {
+      "displayName": "Mistral Large",
+      "modelId": "mistral-large-latest",
+      "isPremium": true,
+      "provider": "mistral",
+      "supportsVision": false
+    },
+    {
+      "displayName": "Perplexity Sonar",
+      "modelId": "sonar",
+      "isPremium": true,
+      "provider": "perplexity",
+      "supportsVision": false
+    }
+  ]
+}

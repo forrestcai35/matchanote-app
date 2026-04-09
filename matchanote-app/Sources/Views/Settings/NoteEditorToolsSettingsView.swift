@@ -1,0 +1,199 @@
+import SwiftUI
+
+struct NoteEditorToolsSettingsView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var preferencesManager = PreferencesManager.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header with back button
+            HStack {
+                Button(action: { dismiss() }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 14, weight: .medium))
+                        Text("Back")
+                    }
+                }
+                .foregroundColor(
+                    colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+
+                Spacer()
+
+                Text("Tools")
+                    .font(.jost(.largeTitle()))
+                    .fontWeight(.bold)
+                    .foregroundStyle(
+                        colorScheme == .dark
+                            ? Color.matchabrown_dark : Color.matchabrown_light)
+
+                Spacer()
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 12)
+            .background(
+                colorScheme == .dark
+                    ? Color.matchabackground_dark : Color.matchabackground_light)
+
+            ZStack {
+                List {
+                    Section {
+                        ForEach(preferencesManager.noteEditorToolsOrder, id: \.self) { toolId in
+                            let isEnabled = preferencesManager.isToolEnabled(toolId)
+
+                            HStack(spacing: 12) {
+                                // Visibility toggle (eye / eye.slash) on the left
+                                let visBinding = Binding(
+                                    get: { preferencesManager.isToolEnabled(toolId) },
+                                    set: { preferencesManager.setTool(toolId, enabled: $0) }
+                                )
+                                let canDisable = preferencesManager.canDisableTool(toolId)
+
+                                Button(action: {
+                                    if canDisable {
+                                        visBinding.wrappedValue.toggle()
+                                    }
+                                }) {
+                                    Image(systemName: visBinding.wrappedValue ? "eye" : "eye.slash")
+                                        .foregroundColor(
+                                            visBinding.wrappedValue
+                                                ? (colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+                                                : .secondary)
+                                        .opacity(canDisable ? 1.0 : 0.3)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                                .disabled(!canDisable)
+                                .accessibilityLabel(visBinding.wrappedValue ? "Hide tool" : "Show tool")
+
+                                // Tool icon (fill), adaptive to light/dark
+                                Image(iconName(for: toolId))
+                                    .renderingMode(.template)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 20, height: 20)
+                                    .foregroundColor(
+                                        isEnabled
+                                            ? (colorScheme == .dark ? .white : .black)
+                                            : .secondary
+                                    )
+                                    .opacity(isEnabled ? 1.0 : 0.4)
+
+                                // Tool name
+                                Text(displayName(for: toolId))
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(
+                                        isEnabled
+                                            ? (colorScheme == .dark ? .white : .black)
+                                            : .secondary
+                                    )
+                                    .opacity(isEnabled ? 1.0 : 0.4)
+
+                                Spacer()
+                            }
+                            .padding(.vertical, 6)
+                            .opacity(isEnabled ? 1.0 : 0.6) // Gray out the entire row for disabled tools
+                        }
+                        .onMove { indices, newOffset in
+                            var items = preferencesManager.noteEditorToolsOrder
+                            items.move(fromOffsets: indices, toOffset: newOffset)
+                            preferencesManager.updateToolsOrder(items)
+                        }
+                    } header: {
+                        HStack {
+                            Image(systemName: "wrench.and.screwdriver")
+                                .foregroundColor(
+                                    colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+                                .font(.system(size: 14))
+                            Text("Tools order & visibility")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(
+                                    colorScheme == .dark ? Color.matchabrown_dark : Color.matchabrown_light)
+                        }
+                    } footer: {
+                        Text("Enable tools to show them in the editor toolbar. At least one tool must remain enabled.")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
+                // Always enable edit mode to show system drag handles
+                .environment(\.editMode, .constant(.active))
+
+                // Top fade effect
+                VStack {
+                    (colorScheme == .dark
+                        ? Color.matchabackground_dark
+                        : Color.matchabackground_light)
+                        .mask(
+                            LinearGradient(
+                                colors: [Color.white, Color.clear],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .frame(height: 20)
+                        .allowsHitTesting(false)
+
+                    Spacer()
+                }
+
+                // Bottom fade effect
+                VStack {
+                    Spacer()
+
+                    (colorScheme == .dark
+                        ? Color.matchabackground_dark
+                        : Color.matchabackground_light)
+                        .mask(
+                            LinearGradient(
+                                colors: [Color.clear, Color.white],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .frame(height: 30)
+                        .allowsHitTesting(false)
+                }
+            }
+        }
+        .background(
+            colorScheme == .dark
+                ? Color.matchabackground_dark : Color.matchabackground_light)
+        .navigationBarHidden(true)
+    }
+
+    // MARK: - Helpers
+
+    private func displayName(for toolId: String) -> String {
+        switch toolId {
+        case "pen": return "Pen"
+        case "marker": return "Marker"
+        case "eraser": return "Eraser"
+        case "lasso": return "Lasso"
+        case "photo": return "Photo"
+        case "textbox": return "Textbox"
+        case "shape": return "Shape"
+        case "ruler": return "Ruler"
+        default: return toolId.capitalized
+        }
+    }
+
+    private func iconName(for toolId: String) -> String {
+        switch toolId {
+        case "pen": return "pen_outline"
+        case "marker": return "highlighter_outline"
+        case "eraser": return "eraser_outline"
+        case "lasso": return "lasso_fill"
+        case "photo": return "photo_outline"
+        case "textbox": return "textbox_outline"
+        case "shape": return "shapes_outline"
+        case "ruler": return "ruler_outline"
+        default: return "pen_outline"
+        }
+    }
+}
+
