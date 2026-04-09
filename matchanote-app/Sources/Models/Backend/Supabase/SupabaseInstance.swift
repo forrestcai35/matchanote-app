@@ -4,11 +4,12 @@ import Supabase
 let supabase = {
   let envManager = EnvironmentManager.shared
 
-  // Try Info.plist first (production), then environment variables (development), then .env file (local dev)
-  let supabaseUrl = Bundle.main.object(forInfoDictionaryKey: "PUBLIC_SUPABASE_URL") as? String
-    ?? envManager.get("PUBLIC_SUPABASE_URL")
-  let supabaseKey = Bundle.main.object(forInfoDictionaryKey: "PUBLIC_SUPABASE_ANON_KEY") as? String
-    ?? envManager.get("PUBLIC_SUPABASE_ANON_KEY")
+  // Try environment variables (.env file) first, then Info.plist
+  let plistUrl = Bundle.main.object(forInfoDictionaryKey: "PUBLIC_SUPABASE_URL") as? String
+  let supabaseUrl = envManager.get("PUBLIC_SUPABASE_URL") ?? (plistUrl == "YOUR_SUPABASE_URL" ? nil : plistUrl)
+  
+  let plistKey = Bundle.main.object(forInfoDictionaryKey: "PUBLIC_SUPABASE_ANON_KEY") as? String
+  let supabaseKey = envManager.get("PUBLIC_SUPABASE_ANON_KEY") ?? (plistKey == "YOUR_SUPABASE_ANON_KEY" ? nil : plistKey)
 
   guard let supabaseUrl = supabaseUrl, let supabaseKey = supabaseKey else {
     fatalError("Missing Supabase credentials. Please add PUBLIC_SUPABASE_URL and PUBLIC_SUPABASE_ANON_KEY to Info.plist or scheme environment variables.")

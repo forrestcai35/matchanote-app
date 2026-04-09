@@ -1,0 +1,48 @@
+name: Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    name: Build & Test (iOS)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Resolve Swift Package dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project matchanote-app.xcodeproj \
+            -scheme matchanote-app
+
+      - name: Build
+        run: |
+          xcodebuild build \
+            -project matchanote-app.xcodeproj \
+            -scheme matchanote-app \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty && exit ${PIPESTATUS[0]}
+
+      - name: Run unit tests
+        run: |
+          xcodebuild test \
+            -project matchanote-app.xcodeproj \
+            -scheme matchanote-app \
+            -destination 'platform=iOS Simulator,name=Any iOS Simulator Device' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty && exit ${PIPESTATUS[0]}

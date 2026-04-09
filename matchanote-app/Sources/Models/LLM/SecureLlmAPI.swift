@@ -9,9 +9,11 @@ struct SecureLlmAPI {
 
   /// Get the backend base URL from environment
   private static func getBackendURL() throws -> String {
-    // Try Info.plist first (production), then environment variables (development)
-    guard let url = Bundle.main.object(forInfoDictionaryKey: "PUBLIC_APP_URL") as? String
-            ?? EnvironmentManager.shared.get("PUBLIC_APP_URL") else {
+    // Try environment variables (.env) first, then Info.plist
+    let envUrl = EnvironmentManager.shared.get("PUBLIC_APP_URL")
+    let plistUrl = Bundle.main.object(forInfoDictionaryKey: "PUBLIC_APP_URL") as? String
+    
+    guard let url = envUrl ?? (plistUrl == "YOUR_APP_URL" ? nil : plistUrl) else {
       print("❌ SecureLlmAPI: PUBLIC_APP_URL not found in environment")
       throw LlmError.invalidURL
     }

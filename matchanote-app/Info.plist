@@ -76,9 +76,9 @@
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>PUBLIC_SUPABASE_URL</key>
-	<string>https://fdjsbuardvbxkjxbyfep.supabase.co</string>
+	<string>YOUR_SUPABASE_URL</string>
 	<key>PUBLIC_SUPABASE_ANON_KEY</key>
-	<string>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZkanNidWFyZHZieGtqeGJ5ZmVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM3NTQ2MTEsImV4cCI6MjA1OTMzMDYxMX0.FcnniryzGu7h-sTtAlVa8wGAethBpvYSGYAdYWHrt1U</string>
+	<string>YOUR_SUPABASE_ANON_KEY</string>
 	<key>PUBLIC_APP_URL</key>
 	<string>https://matchanote.app</string>
 	<key>UILaunchScreen</key>
