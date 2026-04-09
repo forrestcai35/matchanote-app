@@ -21,8 +21,11 @@
     <br />
     <br />
     <a href="https://trymatcha.ai"><strong>🌐 Landing Page</strong></a>
-    ·
-    <a href="https://apps.apple.com/us/app/matcha-take-ai-notes/id6744668137"><strong>🍎 Download on the App Store</strong></a>
+    <br />
+    <br />
+    <a href="https://apps.apple.com/us/app/matcha-take-ai-notes/id6744668137">
+      <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" height="40">
+    </a>
     <br />
     <br />
     <a href="https://github.com/forrestcai35/matchanote-app/issues">Report Bug</a>
