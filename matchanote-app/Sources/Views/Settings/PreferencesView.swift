@@ -2,7 +2,6 @@ import SwiftUI
 
 struct PreferencesView: View {
     @ObservedObject private var preferencesManager = PreferencesManager.shared
-    @ObservedObject private var subscriptionManager = SubscriptionManager(supabaseClient: supabase)
     @Environment(\.colorScheme) private var colorScheme
 
 
@@ -98,41 +97,6 @@ struct PreferencesView: View {
                             .fixedSize()
                         }
                         .padding(.vertical, 4)
-
-                        // Auto-Fill toggle (PRO only)
-                        if subscriptionManager.getEffectiveProfile()?.subscriptionTier == .pro {
-                            Toggle(isOn: $preferencesManager.assistantAutoFill) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    HStack(spacing: 6) {
-                                        Text("Auto-Fill Worksheets")
-                                            .font(.jost(.subheadline()))
-                                            .foregroundColor(.primary)
-
-                                        // PRO badge
-                                        Text("PRO")
-                                            .font(.jost(.caption2()))
-                                            .fontWeight(.bold)
-                                            .foregroundColor(.white)
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 2)
-                                            .background(
-                                                LinearGradient(
-                                                    colors: [Color.matchalight_dark, Color.matchalight_light],
-                                                    startPoint: .leading,
-                                                    endPoint: .trailing
-                                                )
-                                            )
-                                            .cornerRadius(4)
-                                    }
-
-                                    Text("Automatically insert answers into forms and worksheets")
-                                        .font(.jost(.caption2()))
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                            .tint(Color.matchalight_light)
-                            .padding(.vertical, 4)
-                        }
 
                         // Draggable Text Blocks toggle
                         Toggle(isOn: $preferencesManager.assistantDraggableBlocks) {

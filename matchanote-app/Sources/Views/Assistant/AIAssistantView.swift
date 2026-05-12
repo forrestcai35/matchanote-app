@@ -102,9 +102,6 @@ class AIAssistantState: ObservableObject {
     // Callback for saving canvas data before AI analysis
     var saveCanvasDataCallback: (() -> Void)?
 
-    // Callback for handling auto-fill results
-    var autoFillCallback: ((AutoFillResult) -> Void)?
-
     // Performance optimization
     private var userInputDebounceTimer: Timer?
 
@@ -1408,7 +1405,7 @@ struct AIAssistantView: View {
                 }
 
                 // Use AssistantMessageHandler for intelligent message routing and context building
-                let (stream, _, autoFillResult) = try await AssistantMessageHandler.shared.streamIntelligentMessage(
+                let (stream, _) = try await AssistantMessageHandler.shared.streamIntelligentMessage(
                     input: input,
                     note: note,
                     storageManager: storageManager,
@@ -1416,25 +1413,8 @@ struct AIAssistantView: View {
                     mentions: mentions,
                     mentionManager: state.mentionManager,
                     selectedModel: selectedModel,
-                    conversationHistory: state.messages,
-                    existingTextBoxesByPage: note.textBoxDataByPage.reduce(into: [:]) { result, pair in
-                        if let pageIndex = Int(pair.key) {
-                            result[pageIndex] = pair.value.compactMap { try? JSONDecoder().decode(TextBox.self, from: $0) }
-                        }
-                    },
-                    subscriptionManager: state.subscriptionManager
+                    conversationHistory: state.messages
                 )
-
-                // Handle auto-fill result by calling the callback
-                if let autoFillResult = autoFillResult {
-                    print("📝 Auto-fill generated \(autoFillResult.textboxes.count) textboxes")
-                    print("📍 Textbox positions: \(autoFillResult.textboxes.map { "(\($0.position.x), \($0.position.y)) on page \($0.pageIndex)" })")
-
-                    // Call the auto-fill callback to insert textboxes
-                    await MainActor.run {
-                        state.autoFillCallback?(autoFillResult)
-                    }
-                }
 
                 await MainActor.run {
                     state.messages.append(

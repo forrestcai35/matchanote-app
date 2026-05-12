@@ -238,9 +238,7 @@ class AssistantMessageHandler {
     ///   - mentionManager: Mention manager for context
     ///   - selectedModel: Model to use
     ///   - conversationHistory: Previous messages
-    ///   - existingTextBoxesByPage: Existing textboxes for collision detection (optional)
-    ///   - subscriptionManager: Subscription manager to check user tier (optional)
-    /// - Returns: AI response and generated media items, plus optional auto-fill result
+    /// - Returns: AI response and generated media items
     func sendIntelligentMessage(
         input: String,
         note: Note?,
@@ -249,33 +247,8 @@ class AssistantMessageHandler {
         mentions: [Mention],
         mentionManager: MentionManager?,
         selectedModel: String,
-        conversationHistory: [ChatMessage],
-        existingTextBoxesByPage: [Int: [TextBox]]? = nil,
-        subscriptionManager: SubscriptionManager? = nil
-    ) async throws -> (response: String, mediaItems: [MediaItem], autoFillResult: AutoFillResult?) {
-
-        // Check if auto-fill is enabled and requested (PRO-only feature)
-        if PreferencesManager.shared.assistantAutoFill,
-           AutoFillHandler.shared.shouldAutoFill(input: input),
-           let note = note {
-
-            // Verify user is PRO (auto-fill is PRO-only)
-            let userTier = subscriptionManager?.getEffectiveProfile()?.subscriptionTier ?? .free
-            if userTier == .pro {
-                // Process auto-fill for PRO users
-                let autoFillResult = try await AutoFillHandler.shared.processAutoFill(
-                    note: note,
-                    query: input,
-                    model: selectedModel,
-                    storageManager: storageManager,
-                    existingTextBoxesByPage: existingTextBoxesByPage
-                )
-
-                // Return the AI's conversational explanation of what was filled
-                return (autoFillResult.conversationalResponse, mediaItems, autoFillResult)
-            }
-            // For non-PRO users, silently skip auto-fill and proceed with normal conversation
-        }
+        conversationHistory: [ChatMessage]
+    ) async throws -> (response: String, mediaItems: [MediaItem]) {
 
         // Determine if note analysis is needed
         let needsAnalysis = shouldAnalyzeNote(input: input, hasNote: note != nil)
@@ -360,10 +333,10 @@ class AssistantMessageHandler {
             systemPrompt: .concise
         )
 
-        return (response, finalMediaItems, nil)
+        return (response, finalMediaItems)
     }
     /// Stream an intelligent message with optional note context
-    /// - Returns: Tuple containing the response stream, generated media items, and optional auto-fill result
+    /// - Returns: Tuple containing the response stream and generated media items
     func streamIntelligentMessage(
         input: String,
         note: Note?,
@@ -372,37 +345,8 @@ class AssistantMessageHandler {
         mentions: [Mention],
         mentionManager: MentionManager?,
         selectedModel: String,
-        conversationHistory: [ChatMessage],
-        existingTextBoxesByPage: [Int: [TextBox]]? = nil,
-        subscriptionManager: SubscriptionManager? = nil
-    ) async throws -> (stream: AsyncThrowingStream<String, Error>, mediaItems: [MediaItem], autoFillResult: AutoFillResult?) {
-
-        // Check if auto-fill is enabled and requested (PRO-only feature)
-        if PreferencesManager.shared.assistantAutoFill,
-           AutoFillHandler.shared.shouldAutoFill(input: input),
-           let note = note {
-
-            // Verify user is PRO (auto-fill is PRO-only)
-            let userTier = subscriptionManager?.getEffectiveProfile()?.subscriptionTier ?? .free
-            if userTier == .pro {
-                // Process auto-fill for PRO users
-                let autoFillResult = try await AutoFillHandler.shared.processAutoFill(
-                    note: note,
-                    query: input,
-                    model: selectedModel,
-                    storageManager: storageManager,
-                    existingTextBoxesByPage: existingTextBoxesByPage
-                )
-
-                // Return a stream that yields the single response
-                let stream = AsyncThrowingStream<String, Error> { continuation in
-                    continuation.yield(autoFillResult.conversationalResponse)
-                    continuation.finish()
-                }
-                
-                return (stream, mediaItems, autoFillResult)
-            }
-        }
+        conversationHistory: [ChatMessage]
+    ) async throws -> (stream: AsyncThrowingStream<String, Error>, mediaItems: [MediaItem]) {
 
         // Determine if note analysis is needed
         let needsAnalysis = shouldAnalyzeNote(input: input, hasNote: note != nil)
@@ -486,6 +430,6 @@ class AssistantMessageHandler {
             systemPrompt: .concise
         )
 
-        return (stream, finalMediaItems, nil)
+        return (stream, finalMediaItems)
     }
 }

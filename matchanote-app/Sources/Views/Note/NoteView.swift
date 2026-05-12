@@ -179,67 +179,6 @@ struct NoteView: View {
     return savedNote
   }
 
-  private func handleAutoFillResult(_ autoFillResult: AutoFillResult) {
-    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    // Textbox mode only (text-to-stroke logic removed)
-      print("📝 AUTO-FILL INSERTION: Starting to insert \(autoFillResult.textboxes.count) textboxes")
-      print("   Total requested: \(autoFillResult.totalRequested)")
-      print("   Skipped: \(autoFillResult.skippedCount)")
-
-      // Get current note for paper size reference
-      if let currentNote = tabManager.getActiveTab()?.note {
-        let paperSize = PaperUtilities.paperSize(for: currentNote.paperSize)
-        print("   Paper size: \(currentNote.paperSize.rawValue) (\(paperSize.width) x \(paperSize.height) pts)")
-      }
-
-      // Register undo group for all textbox insertions
-      textBoxManager.undoManager?.beginUndoGrouping()
-
-      // Insert each validated textbox
-      for (index, validatedBox) in autoFillResult.textboxes.enumerated() {
-        print("\n  [\(index + 1)/\(autoFillResult.textboxes.count)] Inserting textbox:")
-        print("    Page: \(validatedBox.pageIndex)")
-        print("    Position (CENTER point): (\(validatedBox.position.x), \(validatedBox.position.y))")
-        print("    Text: \"\(validatedBox.text)\"")
-        print("    Confidence: \(validatedBox.confidence)")
-
-        // Add textbox
-        // IMPORTANT: Use .center alignment for auto-filled textboxes
-        // The LLM provides CENTER coordinates for blank spaces (see SystemPrompt.swift:228)
-        // Center alignment ensures text appears at the correct position
-        textBoxManager.addTextBox(
-          to: validatedBox.pageIndex,
-          at: validatedBox.position,
-          withText: validatedBox.text,
-          fontSize: toolState.defaultTextBoxFontSize,
-          fontFamily: toolState.defaultTextBoxFontFamily,
-          textColor: toolState.defaultTextBoxTextColor,
-          textAlignment: .center
-        )
-
-        // Log the actual textbox that was created
-        if let createdBox = textBoxManager.textBoxesByPage[validatedBox.pageIndex]?.last {
-          print("    ✓ Created textbox:")
-          print("      Actual position (TOP-LEFT): (\(createdBox.position.x), \(createdBox.position.y))")
-          print("      Size: \(createdBox.size.width) x \(createdBox.size.height)")
-          print("      Offset from center: x-\(createdBox.size.width/2), y-\(createdBox.size.height/2)")
-        }
-      }
-
-      textBoxManager.undoManager?.endUndoGrouping()
-      textBoxManager.undoManager?.setActionName("Auto-Fill Worksheet")
-
-      // Deselect all textboxes after auto-fill completes
-      textBoxManager.deselectAllTextBoxes()
-
-      // Mark as edited so changes are saved
-      isEdited = true
-
-      print("\n✅ AUTO-FILL COMPLETE: Inserted \(autoFillResult.textboxes.count) textboxes")
-      print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-    
-  }
-
   var body: some View {
     GeometryReader { geometry in
       ZStack {
@@ -670,12 +609,6 @@ struct NoteView: View {
         assistantState.saveCanvasDataCallback = {
           print("📞 AI Analysis: saveCanvasDataCallback triggered!")
           self.saveCurrentCanvasData()
-        }
-
-        // Connect callback to handle auto-fill results
-        assistantState.autoFillCallback = { autoFillResult in
-          print("📝 Auto-fill callback triggered with \(autoFillResult.textboxes.count) textboxes")
-          self.handleAutoFillResult(autoFillResult)
         }
 
         print("✅ AI Assistant callbacks connected")
